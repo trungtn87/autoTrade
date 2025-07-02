@@ -1,12 +1,12 @@
 services:
   - type: web
-    name: binance-order-api
+    name: bingx-order-api
     env: python
     plan: free
     buildCommand: ""
-    startCommand: "python binance_server.py"
+    startCommand: "python bingx_server.py"
     envVars:
-      - key: BINANCE_API_KEY
-        value: your_actual_api_key_here
-      - key: BINANCE_API_SECRET
-        value: your_actual_api_secret_here
+      - key: BINGX_API_KEY
+        value: your_actual_key_here
+      - key: BINGX_API_SECRET
+        value: your_actual_secret_here
