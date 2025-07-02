@@ -25,8 +25,8 @@ def place_bingx_order(symbol, side, price, qty, leverage=10):
         "symbol": symbol,         # "BTC-USDT"
         "side": side.upper(),     # "BUY" hoặc "SELL"
         "price": str(price),      # Entry giá
-        "volume": str(qty),       # Khối lượng
-        "leverage": str(leverage),
+        volume = 0.01              
+        leverage = 100  
         "timestamp": timestamp
     }
 
