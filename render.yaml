@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: binance-order-api
+    env: python
+    plan: free
+    buildCommand: ""
+    startCommand: "python binance_server.py"
+    envVars:
+      - key: BINANCE_API_KEY
+        value: your_actual_api_key_here
+      - key: BINANCE_API_SECRET
+        value: your_actual_api_secret_here
