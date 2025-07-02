@@ -19,22 +19,22 @@ print("DEBUG - BINGX_API_SECRET:", "Loaded" if BINGX_API_SECRET else "❌ MISSIN
 def generate_signature(params, secret):
     if secret is None:
         raise ValueError("❌ BINGX_API_SECRET is None – kiểm tra biến môi trường.")
-    # Đặt trước khi tạo chữ ký
+    
     sorted_params = sorted(params.items())
     query_string = "&".join(f"{k}={v}" for k, v in sorted_params)
 
     print("🔍 Query String:", query_string)
 
     signature = hmac.new(
-        BINGX_API_SECRET.encode('utf-8'),
+        secret.encode('utf-8'),
         query_string.encode('utf-8'),
         hashlib.sha256
     ).hexdigest()
 
     print("✅ Final Signature:", signature)
+    
+    return signature  # ✅ CHỈ trả về signature
 
-    params["signature"] = signature
-    return response.json()
 
 
 
