@@ -39,11 +39,7 @@ def generate_signature(params, secret):
     return signature
 
 # 🔁 Gửi lệnh BingX
-def place_bingx_order(symbol, side, price, qty=0.01, leverage=100):
-    url = "https://open-api.bingx.com/openApi/swap/v2/trade/order"
-    timestamp = str(int(time.time() * 1000))
-
-    def place_bingx_order(symbol, side, price=None, qty=0.01, leverage=100, order_type="LIMIT"):
+def place_bingx_order(symbol, side, price=None, qty=0.01, leverage=100, order_type="LIMIT"):
     url = "https://open-api.bingx.com/openApi/swap/v2/trade/order"
     timestamp = str(int(time.time() * 1000))
 
