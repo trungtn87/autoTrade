@@ -17,7 +17,7 @@ def generate_signature(params, secret):
     return hmac.new(secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
 
 # 🔁 Hàm gửi lệnh thực tế qua BingX
-def place_bingx_order(symbol, side, price, qty, leverage=100):
+def place_bingx_order(symbol, side, price, qty=0.01, leverage=100):
     url = "https://open-api.bingx.com/openApi/swap/v2/trade/order"
     timestamp = str(int(time.time() * 1000))
 
@@ -46,12 +46,14 @@ def place_bingx_order(symbol, side, price, qty, leverage=100):
 def handle_bingx_order():
     try:
         data = request.get_json()
+
         symbol = data.get("symbol", "BTC-USDT")
         side = data.get("side", "BUY")
-        entry = float(data.get("entry"))
-        qty = float(data.get("qty", 0.001))  # khối lượng mặc định
+        entry = float(data.get("entry", 0))
+        qty = float(data.get("qty", 0.01))              # ✅ Mặc định 0.01 BTC
+        leverage = int(data.get("leverage", 100))       # ✅ Mặc định 100x
 
-        result = place_bingx_order(symbol, side, entry, qty)
+        result = place_bingx_order(symbol, side, entry, qty, leverage)
 
         return jsonify({"status": "success", "result": result})
     except Exception as e:
