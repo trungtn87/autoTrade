@@ -22,13 +22,20 @@ def generate_signature(params, secret):
     # Đặt trước khi tạo chữ ký
     sorted_params = sorted(params.items())
     query_string = "&".join(f"{k}={v}" for k, v in sorted_params)
-    signature = hmac.new(BINGX_API_SECRET.encode('utf-8'), query_string.encode('utf-8'), hashlib.sha256).hexdigest()
+
+    print("🔍 Query String:", query_string)
+
+    signature = hmac.new(
+        BINGX_API_SECRET.encode('utf-8'),
+        query_string.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+
+    print("✅ Final Signature:", signature)
 
     params["signature"] = signature
+    return response.json()
 
-    # In log để đối chiếu
-    print("🔍 Query String:", query_string)
-    print("🔍 Signature:", signature)
 
 
 # 🔁 Hàm gửi lệnh thực tế qua BingX
