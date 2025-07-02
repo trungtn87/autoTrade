@@ -67,7 +67,7 @@ def handle_bingx_order():
     try:
         data = request.get_json()
 
-        symbol = data.get("symbol", "BTCUSDT").replace("USDT", "-USDT")  # chuyển BTCUSDT → BTC-USDT
+        symbol = data.get("symbol", "BTCUSDT")
         side = data.get("side", "BUY")
         entry = float(data.get("entry", 0))
         qty = float(data.get("qty", 0.01))
