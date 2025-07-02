@@ -44,13 +44,14 @@ def place_bingx_order(symbol, side, price, qty=0.01, leverage=100):
     timestamp = str(int(time.time() * 1000))
 
     params = {
-        "symbol": str(symbol),
-        "side": str(side).upper(),
-        "price": str(price),
-        "volume": str(qty),
-        "leverage": str(leverage),
-        "timestamp": timestamp
-    }
+    "symbol": str(symbol),
+    "side": str(side).upper(),
+    "price": f"{price:.2f}".rstrip('0').rstrip('.'),
+    "volume": f"{qty:.4f}".rstrip('0').rstrip('.'),
+    "leverage": str(leverage),
+    "timestamp": timestamp
+}
+
 
     signature = generate_signature(params, BINGX_API_SECRET)
     params["signature"] = signature
