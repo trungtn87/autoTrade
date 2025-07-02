@@ -7,12 +7,18 @@ import os
 
 app = Flask(__name__)
 
-# 🔐 Đọc API key từ biến môi trường Render hoặc file .env
+# 🔐 Đọc API key từ biến môi trường Render
 BINGX_API_KEY = os.getenv("BINGX_API_KEY")
 BINGX_API_SECRET = os.getenv("BINGX_API_SECRET")
 
+# 🧪 Kiểm tra API key/secret có được load chưa
+print("DEBUG - BINGX_API_KEY:", "Loaded" if BINGX_API_KEY else "❌ MISSING")
+print("DEBUG - BINGX_API_SECRET:", "Loaded" if BINGX_API_SECRET else "❌ MISSING")
+
 # 🛠️ Hàm ký dữ liệu theo chuẩn BingX
 def generate_signature(params, secret):
+    if secret is None:
+        raise ValueError("❌ BINGX_API_SECRET is None – kiểm tra biến môi trường trên Render.")
     query_string = "&".join([f"{k}={params[k]}" for k in sorted(params)])
     return hmac.new(secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
 
@@ -30,6 +36,7 @@ def place_bingx_order(symbol, side, price, qty=0.01, leverage=100):
         "timestamp": timestamp
     }
 
+    # Tạo chữ ký
     signature = generate_signature(params, BINGX_API_SECRET)
     params["signature"] = signature
 
@@ -40,8 +47,7 @@ def place_bingx_order(symbol, side, price, qty=0.01, leverage=100):
     response = requests.post(url, headers=headers, data=params)
     return response.json()
 
-
-# ✅ API route để nhận lệnh từ Google Script
+# ✅ API nhận dữ liệu từ Google Script
 @app.route('/api/bingx_order', methods=['POST'])
 def handle_bingx_order():
     try:
