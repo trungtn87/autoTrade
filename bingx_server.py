@@ -22,13 +22,14 @@ def place_bingx_order(symbol, side, price, qty, leverage=10):
     timestamp = str(int(time.time() * 1000))
 
     params = {
-        "symbol": symbol,         # "BTC-USDT"
-        "side": side.upper(),     # "BUY" hoặc "SELL"
-        "price": str(price),      # Entry giá
-        volume = 0.01              
-        leverage = 100  
+        "symbol": symbol,               # Ví dụ: "BTC-USDT"
+        "side": side.upper(),           # "BUY" hoặc "SELL"
+        "price": str(price),            # Giá Entry
+        "volume": str(qty),             # Khối lượng muốn đặt
+        "leverage": "100",              # Đòn bẩy (chuỗi)
         "timestamp": timestamp
     }
+
 
     signature = generate_signature(params, BINGX_API_SECRET)
     params["signature"] = signature
