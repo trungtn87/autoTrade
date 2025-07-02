@@ -40,18 +40,25 @@ def generate_signature(params, secret):
 
 # 🔁 Gửi lệnh BingX
 def place_bingx_order(symbol, side, price, qty=0.01, leverage=100):
-    url = "https://open-api.bingx.com/openApi/swap/v2/trade/marketOrder"
+    url = "https://open-api.bingx.com/openApi/swap/v2/trade/order"
+    timestamp = str(int(time.time() * 1000))
+
+    def place_bingx_order(symbol, side, price=None, qty=0.01, leverage=100, order_type="LIMIT"):
+    url = "https://open-api.bingx.com/openApi/swap/v2/trade/order"
     timestamp = str(int(time.time() * 1000))
 
     params = {
-    "symbol": str(symbol),
-    "side": str(side).upper(),
-    "volume": f"{qty:.4f}".rstrip('0').rstrip('.'),  # vẫn giữ volume
-    "leverage": str(leverage),
-    "timestamp": timestamp
+        "symbol": symbol,
+        "side": side.upper(),
+        "volume": f"{qty:.4f}".rstrip('0').rstrip('.'),
+        "leverage": str(leverage),
+        "timestamp": timestamp,
+        "type": order_type.upper()  # "LIMIT" hoặc "MARKET"
     }
 
-
+    # Chỉ thêm price nếu là lệnh LIMIT
+    if order_type.upper() == "LIMIT":
+        params["price"] = f"{price:.2f}".rstrip('0').rstrip('.')
 
     signature = generate_signature(params, BINGX_API_SECRET)
     params["signature"] = signature
@@ -60,9 +67,9 @@ def place_bingx_order(symbol, side, price, qty=0.01, leverage=100):
         "X-BX-APIKEY": BINGX_API_KEY
     }
 
-    # Gửi request thực tế
     response = requests.post(url, headers=headers, data=params)
     return response.json()
+
 
 # ✅ API endpoint nhận lệnh
 @app.route('/api/bingx_order', methods=['POST'])
