@@ -18,9 +18,18 @@ print("DEBUG - BINGX_API_SECRET:", "Loaded" if BINGX_API_SECRET else "❌ MISSIN
 # 🛠️ Hàm ký dữ liệu theo chuẩn BingX
 def generate_signature(params, secret):
     if secret is None:
-        raise ValueError("❌ BINGX_API_SECRET is None – kiểm tra biến môi trường trên Render.")
-    query_string = "&".join([f"{k}={params[k]}" for k in sorted(params)])
-    return hmac.new(secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
+        raise ValueError("❌ BINGX_API_SECRET is None – kiểm tra biến môi trường.")
+    # Đặt trước khi tạo chữ ký
+    sorted_params = sorted(params.items())
+    query_string = "&".join(f"{k}={v}" for k, v in sorted_params)
+    signature = hmac.new(BINGX_API_SECRET.encode('utf-8'), query_string.encode('utf-8'), hashlib.sha256).hexdigest()
+
+    params["signature"] = signature
+
+    # In log để đối chiếu
+    print("🔍 Query String:", query_string)
+    print("🔍 Signature:", signature)
+
 
 # 🔁 Hàm gửi lệnh thực tế qua BingX
 def place_bingx_order(symbol, side, price, qty=0.01, leverage=100):
@@ -45,7 +54,9 @@ def place_bingx_order(symbol, side, price, qty=0.01, leverage=100):
     }
 
     response = requests.post(url, headers=headers, data=params)
+    
     return response.json()
+    
 
 # ✅ API nhận dữ liệu từ Google Script
 @app.route('/api/bingx_order', methods=['POST'])
