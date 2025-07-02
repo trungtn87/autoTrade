@@ -17,19 +17,18 @@ def generate_signature(params, secret):
     return hmac.new(secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
 
 # 🔁 Hàm gửi lệnh thực tế qua BingX
-def place_bingx_order(symbol, side, price, qty, leverage=10):
+def place_bingx_order(symbol, side, price, qty, leverage=100):
     url = "https://open-api.bingx.com/openApi/swap/v2/trade/order"
     timestamp = str(int(time.time() * 1000))
 
     params = {
-        "symbol": symbol,               # Ví dụ: "BTC-USDT"
-        "side": side.upper(),           # "BUY" hoặc "SELL"
-        "price": str(price),            # Giá Entry
-        "volume": str(qty),             # Khối lượng muốn đặt
-        "leverage": "100",              # Đòn bẩy (chuỗi)
+        "symbol": symbol,
+        "side": side.upper(),
+        "price": str(price),
+        "volume": str(qty),
+        "leverage": str(leverage),
         "timestamp": timestamp
     }
-
 
     signature = generate_signature(params, BINGX_API_SECRET)
     params["signature"] = signature
@@ -40,6 +39,7 @@ def place_bingx_order(symbol, side, price, qty, leverage=10):
 
     response = requests.post(url, headers=headers, data=params)
     return response.json()
+
 
 # ✅ API route để nhận lệnh từ Google Script
 @app.route('/api/bingx_order', methods=['POST'])
