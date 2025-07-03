@@ -37,7 +37,7 @@ def place_bingx_order(symbol, side, price=None, qty=0.01, leverage=100, order_ty
     params = {
         "symbol": symbol,
         "side": side.upper(),
-        "volume": f"{qty:.4f}".rstrip('0').rstrip('.'),  # ví dụ: "0.01"
+        "quantity": f"{qty:.4f}".rstrip('0').rstrip('.'),  # ví dụ: "0.01"
         "leverage": str(leverage),                      # ví dụ: "100"
         "timestamp": timestamp,
         "type": order_type.upper(),                     # "MARKET"
