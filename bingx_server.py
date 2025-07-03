@@ -46,17 +46,20 @@ def place_bingx_order(symbol, side, price=None, qty=0.01, leverage=100, order_ty
     if order_type.upper() == "LIMIT" and price:
         params["price"] = f"{price:.2f}".rstrip('0').rstrip('.')
 
+    # ✅ Create sorted query string and signature
+    query_string = "&".join(f"{key}={params[key]}" for key in sorted(params))
     signature = generate_signature(params, BINGX_API_SECRET)
-    params["signature"] = signature
+
+    # ✅ Append signature
+    final_query = f"{query_string}&signature={signature}"
+    full_url = f"{url}?{final_query}"
 
     headers = {
         "X-BX-APIKEY": BINGX_API_KEY,
-        "Content-Type": "application/x-www-form-urlencoded"
     }
 
-    print("📤 Sending to BingX with params:", params, flush=True)
-
-    response = requests.post(url, headers=headers, data=params)
+    print("📤 Sending POST to:", full_url, flush=True)
+    response = requests.post(full_url, headers=headers)
     print("📥 Phản hồi từ BingX:", response.text, flush=True)
     return response.json()
 
