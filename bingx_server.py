@@ -37,31 +37,31 @@ def place_bingx_order(symbol, side, price=None, qty=0.01, leverage=100, order_ty
     params = {
         "symbol": symbol,
         "side": side.upper(),
-        "volume": f"{qty:.4f}".rstrip('0').rstrip('.'),
-        "leverage": str(leverage),
+        "volume": f"{qty:.4f}".rstrip('0').rstrip('.'),  # ví dụ: "0.01"
+        "leverage": str(leverage),                      # ví dụ: "100"
         "timestamp": timestamp,
-        "type": order_type.upper()
+        "type": order_type.upper(),                     # "MARKET"
+        "positionSide": "LONG" if side.upper() == "BUY" else "SHORT"
     }
 
+    # ✅ Bỏ qua giá nếu MARKET
     if order_type.upper() == "LIMIT" and price:
         params["price"] = f"{price:.2f}".rstrip('0').rstrip('.')
 
-    # ✅ Create sorted query string and signature
+    # Ký và gửi
     query_string = "&".join(f"{key}={params[key]}" for key in sorted(params))
     signature = generate_signature(params, BINGX_API_SECRET)
-
-    # ✅ Append signature
-    final_query = f"{query_string}&signature={signature}"
-    full_url = f"{url}?{final_query}"
+    full_url = f"{url}?{query_string}&signature={signature}"
 
     headers = {
-        "X-BX-APIKEY": BINGX_API_KEY,
+        "X-BX-APIKEY": BINGX_API_KEY
     }
 
     print("📤 Sending POST to:", full_url, flush=True)
     response = requests.post(full_url, headers=headers)
     print("📥 Phản hồi từ BingX:", response.text, flush=True)
     return response.json()
+
 
 # ✅ API endpoint
 @app.route('/api/bingx_order', methods=['POST'])
