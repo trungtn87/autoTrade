@@ -121,7 +121,7 @@ def handle_bingx_order():
         symbol = data.get("symbol", "BTC-USDT")
         side = data.get("side", "BUY")
         entry = float(data.get("entry", 0))
-        qty = float(data.get("qty", 0.007)) 
+        qty = float(data.get("qty", 0.01)) 
         leverage = int(data.get("leverage", 100))
         tp = float(data.get("tp", 0))
         sl = float(data.get("sl", 0))
