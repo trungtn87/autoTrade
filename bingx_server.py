@@ -121,11 +121,16 @@ def handle_bingx_order():
         symbol = data.get("symbol", "BTC-USDT")
         side = data.get("side", "BUY")
         entry = float(data.get("entry", 0))
-        qty = float(data.get("qty", 0.01)) 
         leverage = int(data.get("leverage", 100))
         tp = float(data.get("tp", 0))
         sl = float(data.get("sl", 0))
         order_type = data.get("order_type", "MARKET").upper()
+
+        # ⚡ Giá trị USDT muốn giao dịch (trước khi nhân leverage)
+        usdt_amount = float(data.get("usdt_amount", 50))  # ví dụ mặc định 50 USDT
+
+        # ✅ Tính khối lượng = số USDT / giá Entry
+        qty = round(usdt_amount / entry, 4)  # làm tròn 4 chữ số thập phân
 
         result = execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage, order_type)
         return jsonify({"status": "success", "result": result})
