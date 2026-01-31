@@ -5,6 +5,7 @@ import hashlib
 import requests
 import os
 import sys
+import threading
 
 app = Flask(__name__)
 
@@ -97,19 +98,20 @@ def place_tp_sl_order(symbol, side_entry, qty, tp, sl):
 # ✅ Gộp lệnh entry + TP/SL
 def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_type="MARKET"):
     market_sent_time = time.time()
-entry_result = place_bingx_order(symbol, side, entry, qty, leverage, order_type)
 
-threading.Thread(
-    target=failsafe_watch,
-    args=(symbol, side, qty, market_sent_time),
-    daemon=True
-).start()
+    entry_result = place_bingx_order(symbol, side, entry, qty, leverage, order_type)
 
+    # 🚨 FAILSAFE WATCHER (chạy nền)
+    threading.Thread(
+        target=failsafe_watch,
+        args=(symbol, side, qty, market_sent_time),
+        daemon=True
+    ).start()
 
     # Kiểm tra nếu cần đợi khớp
     status = entry_result.get("result", {}).get("data", {}).get("order", {}).get("status", "")
     if status != "FILLED":
-        print("⏳ Lệnh chưa FILLED. Chờ 1.5s rồi gửi TP/SL...")
+        print("⏳ Lệnh chưa FILLED. Chờ 60s rồi gửi TP/SL...")
         time.sleep(60)
 
     tp_sl_result = place_tp_sl_order(symbol, side, qty, tp, sl)
@@ -209,7 +211,7 @@ def close_position_market(symbol, side, qty):
     r = requests.post(full_url, headers=headers)
     print("📥 FAILSAFE CLOSE RESPONSE:", r.text, flush=True)
 # FAILSAFE WATCHER
-import threading
+
 
 def failsafe_watch(symbol, side, qty, market_time):
     time.sleep(300)  # ⏱ 5 phút
