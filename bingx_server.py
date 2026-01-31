@@ -96,13 +96,21 @@ def place_tp_sl_order(symbol, side_entry, qty, tp, sl):
 
 # ✅ Gộp lệnh entry + TP/SL
 def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_type="MARKET"):
-    entry_result = place_bingx_order(symbol, side, entry, qty, leverage, order_type)
+    market_sent_time = time.time()
+entry_result = place_bingx_order(symbol, side, entry, qty, leverage, order_type)
+
+threading.Thread(
+    target=failsafe_watch,
+    args=(symbol, side, qty, market_sent_time),
+    daemon=True
+).start()
+
 
     # Kiểm tra nếu cần đợi khớp
     status = entry_result.get("result", {}).get("data", {}).get("order", {}).get("status", "")
     if status != "FILLED":
         print("⏳ Lệnh chưa FILLED. Chờ 1.5s rồi gửi TP/SL...")
-        time.sleep(1.5)
+        time.sleep(60)
 
     tp_sl_result = place_tp_sl_order(symbol, side, qty, tp, sl)
 
@@ -137,6 +145,84 @@ def handle_bingx_order():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+# HÀM LẤY POSITION TỪ BINGX
+def get_bingx_position(symbol, position_side):
+    url = "https://open-api.bingx.com/openApi/swap/v2/user/positions"
+    timestamp = str(int(time.time() * 1000))
+
+    params = {
+        "symbol": symbol,
+        "timestamp": timestamp
+    }
+
+    signature = generate_signature(params, BINGX_API_SECRET)
+    query_string = "&".join(f"{k}={params[k]}" for k in sorted(params))
+    full_url = f"{url}?{query_string}&signature={signature}"
+
+    headers = {
+        "X-BX-APIKEY": BINGX_API_KEY
+    }
+
+    r = requests.get(full_url, headers=headers, timeout=5)
+    data = r.json()
+
+    positions = data.get("data", [])
+    for p in positions:
+        if p.get("positionSide") == position_side and float(p.get("positionAmt", 0)) != 0:
+            return {
+                "exists": True,
+                "tp": p.get("takeProfit"),
+                "sl": p.get("stopLoss")
+            }
+
+    return {
+        "exists": False,
+        "tp": None,
+        "sl": None
+    }
+#HÀM ĐÓNG LỆNH MARKET (FAILSAFE CLOSE)
+def close_position_market(symbol, side, qty):
+    close_side = "SELL" if side.upper() == "BUY" else "BUY"
+    position_side = "LONG" if side.upper() == "BUY" else "SHORT"
+
+    url = "https://open-api.bingx.com/openApi/swap/v2/trade/order"
+    timestamp = str(int(time.time() * 1000))
+
+    params = {
+        "symbol": symbol,
+        "side": close_side,
+        "positionSide": position_side,
+        "type": "MARKET",
+        "quantity": f"{qty:.4f}".rstrip('0').rstrip('.'),
+        "timestamp": timestamp
+    }
+
+    signature = generate_signature(params, BINGX_API_SECRET)
+    query_string = "&".join(f"{k}={params[k]}" for k in sorted(params))
+    full_url = f"{url}?{query_string}&signature={signature}"
+
+    headers = {
+        "X-BX-APIKEY": BINGX_API_KEY
+    }
+
+    print("🔥 FAILSAFE CLOSE MARKET:", full_url, flush=True)
+    r = requests.post(full_url, headers=headers)
+    print("📥 FAILSAFE CLOSE RESPONSE:", r.text, flush=True)
+# FAILSAFE WATCHER
+import threading
+
+def failsafe_watch(symbol, side, qty, market_time):
+    time.sleep(300)  # ⏱ 5 phút
+
+    position_side = "LONG" if side.upper() == "BUY" else "SHORT"
+    pos = get_bingx_position(symbol, position_side)
+
+    if pos["exists"]:
+        if pos["tp"] is None or pos["sl"] is None:
+            print("⚠️ FAILSAFE TRIGGERED – Missing TP/SL", flush=True)
+            close_position_market(symbol, side, qty)
+        else:
+            print("✅ FAILSAFE CHECK PASSED – TP/SL OK", flush=True)
 
 # ✅ Route test
 @app.route('/', methods=['GET'])
