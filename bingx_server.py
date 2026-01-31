@@ -111,8 +111,8 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
     # Kiểm tra nếu cần đợi khớp
     status = entry_result.get("result", {}).get("data", {}).get("order", {}).get("status", "")
     if status != "FILLED":
-        print("⏳ Lệnh chưa FILLED. Chờ 60s rồi gửi TP/SL...")
-        time.sleep(60)
+        print("⏳ Lệnh chưa FILLED. Chờ 15s rồi gửi TP/SL...")
+        time.sleep(15)
 
     tp_sl_result = place_tp_sl_order(symbol, side, qty, tp, sl)
 
