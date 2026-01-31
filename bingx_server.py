@@ -12,6 +12,9 @@ app = Flask(__name__)
 # 🔐 Load API key from environment
 BINGX_API_KEY = os.getenv("BINGX_API_KEY")
 BINGX_API_SECRET = os.getenv("BINGX_API_SECRET")
+GLOBAL_TP_CACHE = {}
+GLOBAL_SL_CACHE = {}
+
 
 if not BINGX_API_KEY or not BINGX_API_SECRET:
     print("❌ Thiếu API KEY hoặc SECRET", file=sys.stderr)
@@ -115,6 +118,8 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
         time.sleep(15)
 
     tp_sl_result = place_tp_sl_order(symbol, side, qty, tp, sl)
+    GLOBAL_TP_CACHE[symbol] = tp
+    GLOBAL_SL_CACHE[symbol] = sl
 
     return {
         "entry": entry_result,
@@ -214,17 +219,48 @@ def close_position_market(symbol, side, qty):
 
 
 def failsafe_watch(symbol, side, qty, market_time):
+    # ===== CHECK LẦN 1 =====
     time.sleep(300)  # ⏱ 5 phút
 
     position_side = "LONG" if side.upper() == "BUY" else "SHORT"
     pos = get_bingx_position(symbol, position_side)
 
-    if pos["exists"]:
-        if pos["tp"] is None or pos["sl"] is None:
-            print("⚠️ FAILSAFE TRIGGERED – Missing TP/SL", flush=True)
-            close_position_market(symbol, side, qty)
+    if not pos["exists"]:
+        print("ℹ️ FAILSAFE: No position found, skip", flush=True)
+        return
+
+    if pos["tp"] is None or pos["sl"] is None:
+        print("⚠️ FAILSAFE STAGE 1 – Missing TP/SL → retry set TP/SL", flush=True)
+
+        # 👉 LẤY QTY THỰC TẾ TỪ POSITION
+        try:
+            real_qty = abs(float(pos.get("positionAmt", qty)))
+        except:
+            real_qty = qty
+
+        # 👉 GỬI LẠI TP / SL
+        place_tp_sl_order(
+            symbol=symbol,
+            side_entry=side,
+            qty=real_qty,
+            tp=GLOBAL_TP_CACHE.get(symbol),
+            sl=GLOBAL_SL_CACHE.get(symbol)
+        )
+
+        # ===== CHECK LẦN 2 =====
+        time.sleep(180)  # ⏱ thêm 3 phút
+
+        pos_retry = get_bingx_position(symbol, position_side)
+
+        if pos_retry["tp"] is None or pos_retry["sl"] is None:
+            print("🔥 FAILSAFE STAGE 2 – TP/SL still missing → CLOSE MARKET", flush=True)
+            close_position_market(symbol, side, real_qty)
         else:
-            print("✅ FAILSAFE CHECK PASSED – TP/SL OK", flush=True)
+            print("✅ FAILSAFE RECOVERED – TP/SL set successfully", flush=True)
+
+    else:
+        print("✅ FAILSAFE CHECK PASSED – TP/SL OK", flush=True)
+
 
 # ✅ Route test
 @app.route('/', methods=['GET'])
