@@ -99,6 +99,25 @@ def place_tp_sl_order(symbol, side_entry, qty, tp, sl):
     return results
 
 # ✅ Gộp lệnh entry + TP/SL
+def wait_for_position_amt(symbol, position_side, timeout=8):
+    """
+    Chờ position sync xong, trả về positionAmt thực tế
+    """
+    start = time.time()
+
+    while time.time() - start < timeout:
+        pos = get_bingx_position(symbol, position_side)
+        if pos.get("exists") and pos.get("positionAmt"):
+            try:
+                amt = abs(float(pos["positionAmt"]))
+                if amt > 0:
+                    return amt
+            except:
+                pass
+        time.sleep(0.5)
+
+    return None
+
 def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_type="MARKET"):
     market_sent_time = time.time()
 
@@ -112,10 +131,25 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
     ).start()
 
     # Kiểm tra nếu cần đợi khớp
-    status = entry_result.get("result", {}).get("data", {}).get("order", {}).get("status", "")
-    if status != "FILLED":
-        print("⏳ Lệnh chưa FILLED. Chờ 15s rồi gửi TP/SL...")
-        time.sleep(15)
+    position_side = "LONG" if side.upper() == "BUY" else "SHORT"
+
+    # 🔄 Đợi position sync và lấy qty THỰC TẾ
+    real_qty = wait_for_position_amt(symbol, position_side)
+
+    if real_qty is None:
+        print("⚠️ Cannot detect positionAmt → fallback to original qty", flush=True)
+        real_qty = qty
+    else:
+        print(f"✅ Detected real positionAmt: {real_qty}", flush=True)
+
+    tp_sl_result = place_tp_sl_order(
+        symbol=symbol,
+        side_entry=side,
+        qty=real_qty,
+        tp=tp,
+        sl=sl
+    )
+
 
     tp_sl_result = place_tp_sl_order(symbol, side, qty, tp, sl)
     GLOBAL_TP_CACHE[symbol] = tp
