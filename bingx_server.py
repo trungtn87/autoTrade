@@ -14,6 +14,8 @@ BINGX_API_KEY = os.getenv("BINGX_API_KEY")
 BINGX_API_SECRET = os.getenv("BINGX_API_SECRET")
 GLOBAL_TP_CACHE = {}
 GLOBAL_SL_CACHE = {}
+FAILSAFE_STATE = {}
+# key: BTC-USDT_LONG → {"retry": 0, "closed": False}
 
 
 if not BINGX_API_KEY or not BINGX_API_SECRET:
@@ -63,6 +65,49 @@ def place_bingx_order(symbol, side, price=None, qty=0.01, leverage=100, order_ty
     response = requests.post(full_url, headers=headers)
     print("📥 Phản hồi từ BingX (ENTRY):", response.text, flush=True)
     return response.json()
+#HÀM LẤY OPEN ORDERS
+def get_open_orders(symbol):
+    url = "https://open-api.bingx.com/openApi/swap/v2/trade/openOrders"
+    timestamp = str(int(time.time() * 1000))
+
+    params = {
+        "symbol": symbol,
+        "timestamp": timestamp
+    }
+
+    signature = generate_signature(params, BINGX_API_SECRET)
+    query_string = "&".join(f"{k}={params[k]}" for k in sorted(params))
+    full_url = f"{url}?{query_string}&signature={signature}"
+
+    headers = {
+        "X-BX-APIKEY": BINGX_API_KEY
+    }
+
+    print("🔍 CHECK OPEN ORDERS:", full_url, flush=True)
+    r = requests.get(full_url, headers=headers, timeout=5)
+    return r.json().get("data", [])
+#CHECK TP/SL ĐÚNG CHUẨN BINGX
+def check_tp_sl_open_orders(symbol, position_side):
+    orders = get_open_orders(symbol)
+
+    has_tp = False
+    has_sl = False
+
+    for o in orders:
+        if o.get("positionSide") != position_side:
+            continue
+        if o.get("type") == "TAKE_PROFIT_MARKET":
+            has_tp = True
+        if o.get("type") == "STOP_MARKET":
+            has_sl = True
+
+    print(
+        f"🧪 CHECK TP/SL {symbol} {position_side} → TP:{has_tp} | SL:{has_sl}",
+        flush=True
+    )
+
+    return has_tp, has_sl
+
 
 # ✅ Gửi TP và SL
 def place_tp_sl_order(symbol, side_entry, qty, tp, sl):
@@ -123,17 +168,8 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
 
     entry_result = place_bingx_order(symbol, side, entry, qty, leverage, order_type)
 
-    # 🚨 FAILSAFE WATCHER (chạy nền)
-    threading.Thread(
-        target=failsafe_watch,
-        args=(symbol, side, qty, market_sent_time),
-        daemon=True
-    ).start()
-
-    # Kiểm tra nếu cần đợi khớp
     position_side = "LONG" if side.upper() == "BUY" else "SHORT"
 
-    # 🔄 Đợi position sync và lấy qty THỰC TẾ
     real_qty = wait_for_position_amt(symbol, position_side)
 
     if real_qty is None:
@@ -141,6 +177,9 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
         real_qty = qty
     else:
         print(f"✅ Detected real positionAmt: {real_qty}", flush=True)
+
+    GLOBAL_TP_CACHE[symbol] = tp
+    GLOBAL_SL_CACHE[symbol] = sl
 
     tp_sl_result = place_tp_sl_order(
         symbol=symbol,
@@ -150,10 +189,11 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
         sl=sl
     )
 
-
-    tp_sl_result = place_tp_sl_order(symbol, side, qty, tp, sl)
-    GLOBAL_TP_CACHE[symbol] = tp
-    GLOBAL_SL_CACHE[symbol] = sl
+    threading.Thread(
+        target=failsafe_watch,
+        args=(symbol, side, market_sent_time),
+        daemon=True
+    ).start()
 
     return {
         "entry": entry_result,
@@ -209,18 +249,26 @@ def get_bingx_position(symbol, position_side):
 
     positions = data.get("data", [])
     for p in positions:
-        if p.get("positionSide") == position_side and float(p.get("positionAmt", 0)) != 0:
+        try:
+            amt = float(p.get("positionAmt", 0))
+        except:
+            amt = 0
+
+        if p.get("positionSide") == position_side and amt != 0:
             return {
                 "exists": True,
+                "positionAmt": amt,          # 🔥 QUAN TRỌNG
                 "tp": p.get("takeProfit"),
                 "sl": p.get("stopLoss")
             }
 
     return {
         "exists": False,
+        "positionAmt": 0,
         "tp": None,
         "sl": None
     }
+
 #HÀM ĐÓNG LỆNH MARKET (FAILSAFE CLOSE)
 def close_position_market(symbol, side, qty):
     close_side = "SELL" if side.upper() == "BUY" else "BUY"
@@ -252,48 +300,53 @@ def close_position_market(symbol, side, qty):
 # FAILSAFE WATCHER
 
 
-def failsafe_watch(symbol, side, qty, market_time):
-    # ===== CHECK LẦN 1 =====
-    time.sleep(300)  # ⏱ 5 phút
-
+def failsafe_watch(symbol, side, market_time):
     position_side = "LONG" if side.upper() == "BUY" else "SHORT"
-    pos = get_bingx_position(symbol, position_side)
+    key = f"{symbol}_{position_side}_{int(market_time)}"
 
-    if not pos["exists"]:
-        print("ℹ️ FAILSAFE: No position found, skip", flush=True)
+    FAILSAFE_STATE[key] = {"retry": 0, "closed": False}
+
+    time.sleep(300)
+
+    has_tp, has_sl = check_tp_sl_open_orders(symbol, position_side)
+
+    if has_tp and has_sl:
+        print("✅ FAILSAFE CHECK PASSED – TP/SL OK", flush=True)
         return
 
-    if pos["tp"] is None or pos["sl"] is None:
-        print("⚠️ FAILSAFE STAGE 1 – Missing TP/SL → retry set TP/SL", flush=True)
+    pos = get_bingx_position(symbol, position_side)
+    if not pos.get("exists"):
+        print("ℹ️ FAILSAFE: No position found", flush=True)
+        return
 
-        # 👉 LẤY QTY THỰC TẾ TỪ POSITION
-        try:
-            real_qty = abs(float(pos.get("positionAmt", qty)))
-        except:
-            real_qty = qty
+    try:
+        real_qty = abs(float(pos["positionAmt"]))
+    except:
+        print("❌ FAILSAFE: Cannot read real positionAmt", flush=True)
+        return
 
-        # 👉 GỬI LẠI TP / SL
-        place_tp_sl_order(
-            symbol=symbol,
-            side_entry=side,
-            qty=real_qty,
-            tp=GLOBAL_TP_CACHE.get(symbol),
-            sl=GLOBAL_SL_CACHE.get(symbol)
-        )
+    # ===== STAGE 1 =====
+    print("⚠️ FAILSAFE STAGE 1 – Retry TP/SL", flush=True)
+    place_tp_sl_order(
+        symbol=symbol,
+        side_entry=side,
+        qty=real_qty,
+        tp=GLOBAL_TP_CACHE.get(symbol),
+        sl=GLOBAL_SL_CACHE.get(symbol)
+    )
 
-        # ===== CHECK LẦN 2 =====
-        time.sleep(180)  # ⏱ thêm 3 phút
+    time.sleep(180)
 
-        pos_retry = get_bingx_position(symbol, position_side)
+    has_tp2, has_sl2 = check_tp_sl_open_orders(symbol, position_side)
+    if has_tp2 and has_sl2:
+        print("✅ FAILSAFE RECOVERED – TP/SL OK", flush=True)
+        return
 
-        if pos_retry["tp"] is None or pos_retry["sl"] is None:
-            print("🔥 FAILSAFE STAGE 2 – TP/SL still missing → CLOSE MARKET", flush=True)
-            close_position_market(symbol, side, real_qty)
-        else:
-            print("✅ FAILSAFE RECOVERED – TP/SL set successfully", flush=True)
-
-    else:
-        print("✅ FAILSAFE CHECK PASSED – TP/SL OK", flush=True)
+    # ===== STAGE 2 =====
+    if not FAILSAFE_STATE[key]["closed"]:
+        print("🔥 FAILSAFE STAGE 2 – CLOSE MARKET", flush=True)
+        close_position_market(symbol, side, real_qty)
+        FAILSAFE_STATE[key]["closed"] = True
 
 
 # ✅ Route test
