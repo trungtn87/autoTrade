@@ -1,218 +1,147 @@
 from flask import Flask, request, jsonify
-import time, hmac, hashlib, requests, os, threading
+import time
+import hmac
+import hashlib
+import requests
+import os
+import sys
 
 app = Flask(__name__)
 
+# 🔐 Load API key from environment
 BINGX_API_KEY = os.getenv("BINGX_API_KEY")
 BINGX_API_SECRET = os.getenv("BINGX_API_SECRET")
-BASE_URL = "https://open-api.bingx.com"
 
-SYMBOL_CACHE = {}
-TRADE_LOCK = {}
+if not BINGX_API_KEY or not BINGX_API_SECRET:
+    print("❌ Thiếu API KEY hoặc SECRET", file=sys.stderr)
 
-# ================= UTIL =================
-def now_ms():
-    return int(time.time() * 1000)
+# ✅ Generate signature
+def generate_signature(params, secret):
+    query_string = "&".join(f"{key}={params[key]}" for key in sorted(params))
+    print("🔍 QUERY STRING:", query_string, flush=True)
 
-def sign(params):
-    query = "&".join(f"{k}={params[k]}" for k in sorted(params))
-    return hmac.new(
-        BINGX_API_SECRET.encode(),
-        query.encode(),
+    signature = hmac.new(
+        secret.encode("utf-8"),
+        query_string.encode("utf-8"),
         hashlib.sha256
     ).hexdigest()
 
-def api(method, path, params=None):
-    if params is None:
-        params = {}
-    params["timestamp"] = now_ms()
-    sig = sign(params)
-    url = BASE_URL + path + "?" + "&".join(
-        f"{k}={params[k]}" for k in sorted(params)
-    ) + f"&signature={sig}"
+    print("✅ SIGNATURE:", signature, flush=True)
+    return signature
 
-    r = requests.request(
-        method,
-        url,
-        headers={"X-BX-APIKEY": BINGX_API_KEY},
-        timeout=10
-    )
-    return r.json()
+# ✅ Gửi lệnh entry MARKET
+def place_bingx_order(symbol, side, price=None, qty=0.01, leverage=100, order_type="MARKET"):
+    url = "https://open-api.bingx.com/openApi/swap/v2/trade/order"
+    timestamp = str(int(time.time() * 1000))
 
-# ================= SYMBOL INFO =================
-def get_qty_precision(symbol):
-    if symbol in SYMBOL_CACHE:
-        return SYMBOL_CACHE[symbol]
-
-    r = requests.get(
-        f"{BASE_URL}/openApi/swap/v2/quote/contracts",
-        timeout=10
-    ).json()
-
-    for s in r.get("data", []):
-        if s["symbol"] == symbol:
-            p = int(s["quantityPrecision"])
-            SYMBOL_CACHE[symbol] = p
-            return p
-
-    return 3
-
-def round_qty(symbol, qty):
-    return round(qty, get_qty_precision(symbol))
-
-# ================= POSITION =================
-def get_position(symbol, pos_side):
-    r = api("GET", "/openApi/swap/v2/user/positions", {"symbol": symbol})
-    for p in r.get("data", []):
-        if p["positionSide"] == pos_side:
-            amt = float(p["positionAmt"])
-            if abs(amt) > 0:
-                return abs(amt), float(p["avgPrice"])
-    return 0, 0
-
-def wait_position(symbol, side, timeout=20):
-    pos_side = "LONG" if side == "BUY" else "SHORT"
-    start = time.time()
-    while time.time() - start < timeout:
-        qty, price = get_position(symbol, pos_side)
-        if qty > 0:
-            return qty, price
-        time.sleep(0.5)
-    return 0, 0
-
-# ================= LEVERAGE =================
-def set_leverage(symbol, side, leverage):
-    r = api("POST", "/openApi/swap/v2/trade/leverage", {
+    params = {
         "symbol": symbol,
-        "side": "LONG" if side == "BUY" else "SHORT",
-        "leverage": leverage
-    })
-    print("⚙️ LEVERAGE:", r, flush=True)
+        "side": side.upper(),
+        "quantity": f"{qty:.4f}".rstrip('0').rstrip('.'),
+        "leverage": str(leverage),
+        "timestamp": timestamp,
+        "type": order_type.upper(),
+        "positionSide": "LONG" if side.upper() == "BUY" else "SHORT"
+    }
 
-# ================= ENTRY =================
-def place_market(symbol, side, qty):
-    r = api("POST", "/openApi/swap/v2/trade/order", {
-        "symbol": symbol,
-        "side": side,
-        "type": "MARKET",
-        "quantity": qty,
-        "positionSide": "LONG" if side == "BUY" else "SHORT"
-    })
-    print("📥 ENTRY:", r, flush=True)
+    if order_type.upper() == "LIMIT" and price:
+        params["price"] = f"{price:.2f}".rstrip('0').rstrip('.')
 
-# ================= TP / SL =================
-def validate_tp_sl(side, entry, tp, sl):
-    return (tp > entry and sl < entry) if side == "BUY" else (tp < entry and sl > entry)
+    query_string = "&".join(f"{key}={params[key]}" for key in sorted(params))
+    signature = generate_signature(params, BINGX_API_SECRET)
+    full_url = f"{url}?{query_string}&signature={signature}"
 
-def place_tp_sl(symbol, side, tp, sl):
-    pos_side = "LONG" if side == "BUY" else "SHORT"
-    close_side = "SELL" if side == "BUY" else "BUY"
+    headers = {
+        "X-BX-APIKEY": BINGX_API_KEY
+    }
 
-    for typ, price in [("TAKE_PROFIT_MARKET", tp), ("STOP_MARKET", sl)]:
-        r = api("POST", "/openApi/swap/v2/trade/order", {
+    print("📤 Sending ENTRY order to BingX:", full_url, flush=True)
+    response = requests.post(full_url, headers=headers)
+    print("📥 Phản hồi từ BingX (ENTRY):", response.text, flush=True)
+    return response.json()
+
+# ✅ Gửi TP và SL
+def place_tp_sl_order(symbol, side_entry, qty, tp, sl):
+    opposite_side = "SELL" if side_entry.upper() == "BUY" else "BUY"
+    position_side = "LONG" if side_entry.upper() == "BUY" else "SHORT"
+
+    timestamp = str(int(time.time() * 1000))
+    results = []
+
+    for label, price, order_type in [("TP", tp, "TAKE_PROFIT_MARKET"), ("SL", sl, "STOP_MARKET")]:
+        params = {
             "symbol": symbol,
-            "side": close_side,
-            "type": typ,
-            "stopPrice": price,
-            "positionSide": pos_side,
-            "closePosition": True,
-            "priceProtect": True
-        })
-        print(f"📤 {typ}:", r, flush=True)
+            "side": opposite_side,
+            "positionSide": position_side,
+            "type": order_type,
+            "stopPrice": str(price),
+            "quantity": f"{qty:.4f}".rstrip('0').rstrip('.'),
+            "timestamp": timestamp
+        }
 
-# ================= FAILSAFE =================
-def failsafe(symbol, side, wait=300):
-    time.sleep(wait)
+        query_string = "&".join(f"{key}={params[key]}" for key in sorted(params))
+        signature = generate_signature(params, BINGX_API_SECRET)
+        full_url = f"https://open-api.bingx.com/openApi/swap/v2/trade/order?{query_string}&signature={signature}"
 
-    pos_side = "LONG" if side == "BUY" else "SHORT"
-    qty, _ = get_position(symbol, pos_side)
+        headers = {
+            "X-BX-APIKEY": BINGX_API_KEY
+        }
 
-    if qty == 0:
-        print("✅ FAILSAFE: no position", flush=True)
-        return
+        print(f"📤 Sending {label} to BingX:", full_url, flush=True)
+        response = requests.post(full_url, headers=headers)
+        print(f"📥 Phản hồi từ BingX ({label}):", response.text, flush=True)
+        results.append(response.json())
 
-    resp = api("GET", "/openApi/swap/v2/trade/openOrders", {"symbol": symbol})
-    orders = resp.get("data", [])
+    return results
 
-    if isinstance(orders, dict):
-        orders = orders.get("orders", [])
-    if not isinstance(orders, list):
-        orders = []
+# ✅ Gộp lệnh entry + TP/SL
+def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_type="MARKET"):
+    entry_result = place_bingx_order(symbol, side, entry, qty, leverage, order_type)
 
-    has_tp = False
-    has_sl = False
+    # Kiểm tra nếu cần đợi khớp
+    status = entry_result.get("result", {}).get("data", {}).get("order", {}).get("status", "")
+    if status != "FILLED":
+        print("⏳ Lệnh chưa FILLED. Chờ 15s rồi gửi TP/SL...")
+        time.sleep(15)
 
-    for o in orders:
-        if not isinstance(o, dict):
-            continue
-        t = o.get("type", "")
-        if "TAKE_PROFIT" in t:
-            has_tp = True
-        if "STOP" in t:
-            has_sl = True
+    tp_sl_result = place_tp_sl_order(symbol, side, qty, tp, sl)
 
-    if has_tp and has_sl:
-        print("✅ FAILSAFE OK", flush=True)
-        return
+    return {
+        "entry": entry_result,
+        "tp_sl": tp_sl_result
+    }
 
-    print("❌ FAILSAFE FORCE CLOSE", flush=True)
-    api("POST", "/openApi/swap/v2/trade/order", {
-        "symbol": symbol,
-        "side": "SELL" if side == "BUY" else "BUY",
-        "type": "MARKET",
-        "positionSide": pos_side,
-        "closePosition": True
-    })
-
-# ================= MAIN =================
-def execute_trade(symbol, side, usdt, tp, sl, leverage):
-    lock = TRADE_LOCK.setdefault(symbol, threading.Lock())
-    if not lock.acquire(blocking=False):
-        raise RuntimeError("Trade đang chạy")
-
+# ✅ Route chính để nhận lệnh
+@app.route('/api/bingx_order', methods=['POST'])
+def handle_bingx_order():
     try:
-        qty = round_qty(symbol, usdt / max(tp, sl))
-        if qty <= 0:
-            raise ValueError("Quantity = 0")
+        data = request.get_json()
+        print("📥 Dữ liệu nhận:", data, flush=True)
 
-        set_leverage(symbol, side, leverage)
-        place_market(symbol, side, qty)
+        symbol = data.get("symbol", "BTC-USDT")
+        side = data.get("side", "BUY")
+        entry = float(data.get("entry", 0))
+        leverage = int(data.get("leverage", 100))
+        tp = float(data.get("tp", 0))
+        sl = float(data.get("sl", 0))
+        order_type = data.get("order_type", "MARKET").upper()
 
-        real_qty, entry = wait_position(symbol, side)
-        if real_qty <= 0:
-            raise RuntimeError("Không khớp lệnh")
+        # ⚡ Giá trị USDT muốn giao dịch (trước khi nhân leverage)
+        usdt_amount = float(data.get("usdt_amount", 50))  # ví dụ mặc định 50 USDT
 
-        if not validate_tp_sl(side, entry, tp, sl):
-            raise ValueError("TP / SL sai theo giá khớp")
+        # ✅ Tính khối lượng = số USDT / giá Entry
+        qty = round(usdt_amount / entry, 4)  # làm tròn 4 chữ số thập phân
 
-        place_tp_sl(symbol, side, tp, sl)
+        result = execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage, order_type)
+        return jsonify({"status": "success", "result": result})
 
-        threading.Thread(
-            target=failsafe,
-            args=(symbol, side),
-            daemon=True
-        ).start()
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-    finally:
-        lock.release()
-
-# ================= API =================
-@app.route("/api/bingx_order", methods=["POST"])
-def handle():
-    d = request.get_json()
-    execute_trade(
-        d["symbol"],
-        d["side"].upper(),
-        float(d["usdt_amount"]),
-        float(d["tp"]),
-        float(d["sl"]),
-        int(d.get("leverage", 100))
-    )
-    return jsonify({"status": "ok"})
-
-@app.route("/")
+# ✅ Route test
+@app.route('/', methods=['GET'])
 def home():
-    return "✅ BingX AutoTrade SAFE v2.1 running"
+    return "✅ BingX AutoTrade Server is running."
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)
