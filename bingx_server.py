@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-import time, hmac, hashlib, requests, os, threading, math
+import time, hmac, hashlib, requests, os, threading
 
 app = Flask(__name__)
 
@@ -55,18 +55,14 @@ def get_qty_precision(symbol):
             SYMBOL_CACHE[symbol] = p
             return p
 
-    return 3  # fallback
+    return 3
 
 def round_qty(symbol, qty):
-    p = get_qty_precision(symbol)
-    return round(qty, p)
+    return round(qty, get_qty_precision(symbol))
 
 # ================= POSITION =================
 def get_position(symbol, pos_side):
-    r = api("GET", "/openApi/swap/v2/user/positions", {
-        "symbol": symbol
-    })
-
+    r = api("GET", "/openApi/swap/v2/user/positions", {"symbol": symbol})
     for p in r.get("data", []):
         if p["positionSide"] == pos_side:
             amt = float(p["positionAmt"])
@@ -103,13 +99,10 @@ def place_market(symbol, side, qty):
         "positionSide": "LONG" if side == "BUY" else "SHORT"
     })
     print("📥 ENTRY:", r, flush=True)
-    return r
 
 # ================= TP / SL =================
 def validate_tp_sl(side, entry, tp, sl):
-    if side == "BUY":
-        return tp > entry and sl < entry
-    return tp < entry and sl > entry
+    return (tp > entry and sl < entry) if side == "BUY" else (tp < entry and sl > entry)
 
 def place_tp_sl(symbol, side, tp, sl):
     pos_side = "LONG" if side == "BUY" else "SHORT"
@@ -122,7 +115,7 @@ def place_tp_sl(symbol, side, tp, sl):
             "type": typ,
             "stopPrice": price,
             "positionSide": pos_side,
-            "reduceOnly": True,
+            "closePosition": True,
             "priceProtect": True
         })
         print(f"📤 {typ}:", r, flush=True)
@@ -130,6 +123,7 @@ def place_tp_sl(symbol, side, tp, sl):
 # ================= FAILSAFE =================
 def failsafe(symbol, side, wait=300):
     time.sleep(wait)
+
     pos_side = "LONG" if side == "BUY" else "SHORT"
     qty, _ = get_position(symbol, pos_side)
 
@@ -137,12 +131,25 @@ def failsafe(symbol, side, wait=300):
         print("✅ FAILSAFE: no position", flush=True)
         return
 
-    orders = api("GET", "/openApi/swap/v2/trade/openOrders", {
-        "symbol": symbol
-    }).get("data", [])
+    resp = api("GET", "/openApi/swap/v2/trade/openOrders", {"symbol": symbol})
+    orders = resp.get("data", [])
 
-    has_tp = any("TAKE_PROFIT" in o.get("type", "") for o in orders)
-    has_sl = any("STOP" in o.get("type", "") for o in orders)
+    if isinstance(orders, dict):
+        orders = orders.get("orders", [])
+    if not isinstance(orders, list):
+        orders = []
+
+    has_tp = False
+    has_sl = False
+
+    for o in orders:
+        if not isinstance(o, dict):
+            continue
+        t = o.get("type", "")
+        if "TAKE_PROFIT" in t:
+            has_tp = True
+        if "STOP" in t:
+            has_sl = True
 
     if has_tp and has_sl:
         print("✅ FAILSAFE OK", flush=True)
@@ -154,7 +161,7 @@ def failsafe(symbol, side, wait=300):
         "side": "SELL" if side == "BUY" else "BUY",
         "type": "MARKET",
         "positionSide": pos_side,
-        "reduceOnly": True
+        "closePosition": True
     })
 
 # ================= MAIN =================
@@ -164,19 +171,18 @@ def execute_trade(symbol, side, usdt, tp, sl, leverage):
         raise RuntimeError("Trade đang chạy")
 
     try:
-        raw_qty = usdt / max(tp, sl)
-        qty = round_qty(symbol, raw_qty)
+        qty = round_qty(symbol, usdt / max(tp, sl))
         if qty <= 0:
             raise ValueError("Quantity = 0")
 
         set_leverage(symbol, side, leverage)
         place_market(symbol, side, qty)
 
-        real_qty, entry_price = wait_position(symbol, side)
+        real_qty, entry = wait_position(symbol, side)
         if real_qty <= 0:
             raise RuntimeError("Không khớp lệnh")
 
-        if not validate_tp_sl(side, entry_price, tp, sl):
+        if not validate_tp_sl(side, entry, tp, sl):
             raise ValueError("TP / SL sai theo giá khớp")
 
         place_tp_sl(symbol, side, tp, sl)
@@ -200,13 +206,13 @@ def handle():
         float(d["usdt_amount"]),
         float(d["tp"]),
         float(d["sl"]),
-        int(d.get("leverage", 50))
+        int(d.get("leverage", 100))
     )
     return jsonify({"status": "ok"})
 
 @app.route("/")
 def home():
-    return "✅ BingX AutoTrade SAFE v2 running"
+    return "✅ BingX AutoTrade SAFE v2.1 running"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
