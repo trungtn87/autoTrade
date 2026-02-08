@@ -98,13 +98,18 @@ def place_tp_sl_order(symbol, side_entry, qty, tp, sl):
 def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_type="MARKET"):
     entry_result = place_bingx_order(symbol, side, entry, qty, leverage, order_type)
 
-    # Kiểm tra nếu cần đợi khớp
-    status = entry_result.get("result", {}).get("data", {}).get("order", {}).get("status", "")
-    if status != "FILLED":
-        print("⏳ Lệnh chưa FILLED. Chờ 15s rồi gửi TP/SL...")
-        time.sleep(15)
+    order = entry_result.get("data", {}).get("order", {})
+    status = order.get("status", "")
 
-    tp_sl_result = place_tp_sl_order(symbol, side, qty, tp, sl)
+    if status != "FILLED":
+        print("⏳ Lệnh chưa FILLED. Chờ 2s rồi kiểm tra lại...")
+        time.sleep(2)
+
+    executed_qty = float(order.get("executedQty", 0))
+    if executed_qty <= 0:
+        raise RuntimeError("❌ executedQty = 0, không thể đặt TP/SL")
+
+    tp_sl_result = place_tp_sl_order(symbol, side, executed_qty, tp, sl)
 
     return {
         "entry": entry_result,
