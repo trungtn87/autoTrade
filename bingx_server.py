@@ -100,7 +100,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
     # ===== 1. PLACE ENTRY ORDER =====
     entry_result = place_bingx_order(symbol, side, entry, qty, leverage, order_type)
 
-    order_id = entry_result.get("data", {}).get("orderId")
+    order_id = entry_result.get("data", {}).get("order", {}).get("orderId")
 
     if not order_id:
         raise RuntimeError("❌ Không lấy được orderId từ lệnh ENTRY")
