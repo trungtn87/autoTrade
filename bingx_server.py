@@ -96,25 +96,116 @@ def place_tp_sl_order(symbol, side_entry, qty, tp, sl):
 
 # ✅ Gộp lệnh entry + TP/SL
 def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_type="MARKET"):
+
+    # ===== 1. PLACE ENTRY ORDER =====
     entry_result = place_bingx_order(symbol, side, entry, qty, leverage, order_type)
 
-    order = entry_result.get("data", {}).get("order", {})
-    status = order.get("status", "")
+    order_id = entry_result.get("data", {}).get("orderId")
 
-    if status != "FILLED":
-        print("⏳ Lệnh chưa FILLED. Chờ 2s rồi kiểm tra lại...")
-        time.sleep(2)
+    if not order_id:
+        raise RuntimeError("❌ Không lấy được orderId từ lệnh ENTRY")
 
-    executed_qty = float(order.get("executedQty", 0))
-    if executed_qty <= 0:
-        raise RuntimeError("❌ executedQty = 0, không thể đặt TP/SL")
+    order = {}
+    executed_qty = 0
+    avg_price = 0
+    status = ""
 
-    tp_sl_result = place_tp_sl_order(symbol, side, executed_qty, tp, sl)
+    # ===== 2. CHỜ ORDER FILL =====
+    for i in range(5):
+        order_detail = get_order_detail(symbol, order_id)
+        order = order_detail.get("data", {})
 
-    return {
-        "entry": entry_result,
-        "tp_sl": tp_sl_result
+        executed_qty = float(order.get("executedQty", 0))
+        avg_price = float(order.get("avgPrice", 0))
+        status = order.get("status", "")
+
+        print(f"🔎 Check order {i+1}/5 | status={status} qty={executed_qty} avg={avg_price}", flush=True)
+
+        if executed_qty > 0 and avg_price > 0:
+            break
+
+        time.sleep(1)
+
+    if executed_qty <= 0 or avg_price <= 0:
+        raise RuntimeError("❌ Không lấy được executedQty hoặc avgPrice")
+
+    print("📊 Executed Qty:", executed_qty)
+    print("📊 Avg Price:", avg_price)
+    print("📊 TP:", tp)
+    print("📊 SL:", sl)
+
+    # ===== 3. CHECK TP SL RANGE =====
+    valid_trade = False
+
+    if side.upper() == "BUY":
+        if sl < avg_price and tp > avg_price:
+            valid_trade = True
+
+    elif side.upper() == "SELL":
+        if tp < avg_price and sl > avg_price:
+            valid_trade = True
+
+    # ===== 4. IF VALID → SET TP SL =====
+    if valid_trade:
+
+        print("✅ Giá entry hợp lệ → đặt TP/SL")
+
+        tp_sl_result = place_tp_sl_order(
+            symbol,
+            side,
+            executed_qty,
+            tp,
+            sl
+        )
+
+        return {
+            "entry": entry_result,
+            "tp_sl": tp_sl_result
+        }
+
+    # ===== 5. IF INVALID → CLOSE MARKET =====
+    else:
+
+        print("⚠️ Giá entry nằm ngoài TP/SL → đóng lệnh MARKET")
+
+        close_side = "SELL" if side.upper() == "BUY" else "BUY"
+
+        close_result = place_bingx_order(
+            symbol,
+            close_side,
+            qty=executed_qty,
+            leverage=leverage,
+            order_type="MARKET"
+        )
+
+        return {
+            "entry": entry_result,
+            "close_market": close_result
+        }
+def get_order_detail(symbol, order_id):
+    url = "https://open-api.bingx.com/openApi/swap/v2/trade/order"
+
+    timestamp = str(int(time.time() * 1000))
+
+    params = {
+        "symbol": symbol,
+        "orderId": order_id,
+        "timestamp": timestamp
     }
+
+    query_string = "&".join(f"{key}={params[key]}" for key in sorted(params))
+    signature = generate_signature(params, BINGX_API_SECRET)
+
+    full_url = f"{url}?{query_string}&signature={signature}"
+
+    headers = {
+        "X-BX-APIKEY": BINGX_API_KEY
+    }
+
+    response = requests.get(full_url, headers=headers)
+    print("📥 Order Detail:", response.text, flush=True)
+
+    return response.json()
 
 # ✅ Route chính để nhận lệnh
 @app.route('/api/bingx_order', methods=['POST'])
