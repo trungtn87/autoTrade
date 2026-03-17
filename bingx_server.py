@@ -113,7 +113,8 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
     # ===== 2. CHỜ ORDER FILL =====
     for i in range(5):
         order_detail = get_order_detail(symbol, order_id)
-        order = order_detail.get("data", {})
+
+        order = order_detail.get("data", {}).get("order", {})
 
         executed_qty = float(order.get("executedQty", 0))
         avg_price = float(order.get("avgPrice", 0))
