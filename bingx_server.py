@@ -65,18 +65,24 @@ def place_tp_sl_order(symbol, side_entry, qty, tp, sl):
     opposite_side = "SELL" if side_entry.upper() == "BUY" else "BUY"
     position_side = "LONG" if side_entry.upper() == "BUY" else "SHORT"
 
-    timestamp = str(int(time.time() * 1000))
     results = []
 
-    for label, price, order_type in [("TP", tp, "TAKE_PROFIT_MARKET"), ("SL", sl, "STOP_MARKET")]:
+    # 👉 chia volume
+    tp_qty = round(qty * 0.5, 4)
+    sl_qty = qty
+
+    for label, price, order_type, q in [
+        ("TP", tp, "TAKE_PROFIT_MARKET", tp_qty),
+        ("SL", sl, "STOP_MARKET", sl_qty)
+    ]:
         params = {
             "symbol": symbol,
             "side": opposite_side,
             "positionSide": position_side,
             "type": order_type,
             "stopPrice": str(price),
-            "quantity": f"{qty:.4f}".rstrip('0').rstrip('.'),
-            "timestamp": timestamp
+            "quantity": f"{q:.4f}".rstrip('0').rstrip('.'),
+            "timestamp": str(int(time.time() * 1000))
         }
 
         query_string = "&".join(f"{key}={params[key]}" for key in sorted(params))
@@ -93,7 +99,38 @@ def place_tp_sl_order(symbol, side_entry, qty, tp, sl):
         results.append(response.json())
 
     return results
+# ✅ 2. THÊM HÀM TRAILING
+def place_trailing_order(symbol, side_entry, qty, activation_price, callback_rate):
+    opposite_side = "SELL" if side_entry.upper() == "BUY" else "BUY"
+    position_side = "LONG" if side_entry.upper() == "BUY" else "SHORT"
 
+    url = "https://open-api.bingx.com/openApi/swap/v2/trade/order"
+
+    params = {
+        "symbol": symbol,
+        "side": opposite_side,
+        "positionSide": position_side,
+        "type": "TRAILING_STOP_MARKET",
+        "quantity": f"{qty:.4f}".rstrip('0').rstrip('.'),
+        "activationPrice": str(round(activation_price, 2)),
+        "callbackRate": str(callback_rate),  # ví dụ 0.3 = 0.3%
+        "timestamp": str(int(time.time() * 1000))
+    }
+
+    query_string = "&".join(f"{key}={params[key]}" for key in sorted(params))
+    signature = generate_signature(params, BINGX_API_SECRET)
+
+    full_url = f"{url}?{query_string}&signature={signature}"
+
+    headers = {
+        "X-BX-APIKEY": BINGX_API_KEY
+    }
+
+    print("📤 Sending TRAILING:", full_url, flush=True)
+    response = requests.post(full_url, headers=headers)
+    print("📥 Trailing response:", response.text, flush=True)
+
+    return response.json()
 # ✅ Gộp lệnh entry + TP/SL
 def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_type="MARKET"):
 
@@ -147,9 +184,10 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
             valid_trade = True
 
     # ===== 4. IF VALID → SET TP SL =====
+    # ===== 4. IF VALID → SET TP SL + TRAILING =====
     if valid_trade:
 
-        print("✅ Giá entry hợp lệ → đặt TP/SL")
+        print("✅ Giá entry hợp lệ → đặt TP/SL + TRAILING")
 
         tp_sl_result = place_tp_sl_order(
             symbol,
@@ -159,9 +197,26 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
             sl
         )
 
+    # ===== THÊM TRAILING =====
+        risk = abs(avg_price - sl)
+
+        if side.upper() == "BUY":
+            activation_price = avg_price + risk * 0.5
+        else:
+            activation_price = avg_price - risk * 0.5
+
+        trailing_result = place_trailing_order(
+            symbol,
+            side,
+            executed_qty * 0.5,
+            activation_price,
+            0.3
+        )
+
         return {
             "entry": entry_result,
-            "tp_sl": tp_sl_result
+            "tp_sl": tp_sl_result,
+            "trailing": trailing_result
         }
 
     # ===== 5. IF INVALID → CLOSE MARKET =====
