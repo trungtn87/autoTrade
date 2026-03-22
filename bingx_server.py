@@ -113,7 +113,8 @@ def place_trailing_order(symbol, side_entry, qty, activation_price, callback_rat
         "type": "TRAILING_STOP_MARKET",
         "quantity": f"{qty:.4f}".rstrip('0').rstrip('.'),
         "activationPrice": str(round(activation_price, 2)),
-        "priceRate": str(callback_rate),  
+        "priceRate": str(callback_rate),
+        "reduceOnly": True,
         "timestamp": str(int(time.time() * 1000))
     }
 
@@ -210,7 +211,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
             side,
             executed_qty * 0.5,
             activation_price,
-            0.3
+            0.5
         )
 
         return {
