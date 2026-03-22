@@ -211,7 +211,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
             side,
             executed_qty * 0.5,
             activation_price,
-            0.5
+            0.005
         )
 
         return {
