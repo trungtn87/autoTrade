@@ -113,7 +113,7 @@ def place_trailing_order(symbol, side_entry, qty, activation_price, callback_rat
         "type": "TRAILING_STOP_MARKET",
         "quantity": f"{qty:.4f}".rstrip('0').rstrip('.'),
         "activationPrice": str(round(activation_price, 2)),
-        "callbackRate": str(callback_rate),  # ví dụ 0.3 = 0.3%
+        "priceRate": str(callback_rate),  
         "timestamp": str(int(time.time() * 1000))
     }
 
