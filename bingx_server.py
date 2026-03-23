@@ -114,7 +114,6 @@ def place_trailing_order(symbol, side_entry, qty, activation_price, callback_rat
         "quantity": f"{qty:.4f}".rstrip('0').rstrip('.'),
         "activationPrice": str(round(activation_price, 2)),
         "priceRate": str(callback_rate),
-        "reduceOnly": True,
         "timestamp": str(int(time.time() * 1000))
     }
 
