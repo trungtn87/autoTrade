@@ -11,6 +11,7 @@ app = Flask(__name__)
 # 🔐 Load API key from environment
 BINGX_API_KEY = os.getenv("BINGX_API_KEY")
 BINGX_API_SECRET = os.getenv("BINGX_API_SECRET")
+DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1489294178658554078/5PplpHNFKnR2_IMoL32D7dnUPE8C1y1TuDX1mkfQ_6l2bRg9JKc-e9jSmjEbdCRaTnzd"
 
 if not BINGX_API_KEY or not BINGX_API_SECRET:
     print("❌ Thiếu API KEY hoặc SECRET", file=sys.stderr)
@@ -165,12 +166,20 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
         time.sleep(1)
 
     if executed_qty <= 0 or avg_price <= 0:
+        send_discord(f"❌ ENTRY NOT FILLED\n{symbol} {side}")
         raise RuntimeError("❌ Không lấy được executedQty hoặc avgPrice")
+       
 
     print("📊 Executed Qty:", executed_qty)
     print("📊 Avg Price:", avg_price)
     print("📊 TP:", tp)
     print("📊 SL:", sl)
+    send_discord(
+            f"✅ Đặt lệnh \n"
+            f"{symbol} {side}\n\n"
+            f"📊 Qty: {qty}\n"
+            f"💰 Entry: {round(avg_price, 2)}"
+        )
 
     # ===== 3. CHECK TP SL RANGE =====
     valid_trade = False
@@ -289,6 +298,16 @@ def handle_bingx_order():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+def send_discord(message):
+    try:
+        res = requests.post(DISCORD_WEBHOOK, json={"content": message})
+
+        if res.status_code != 204:
+            print("⚠️ Discord response:", res.text, flush=True)
+
+    except Exception as e:
+        print("❌ Discord error:", str(e), flush=True)
 
 # ✅ Route test
 @app.route('/', methods=['GET'])
