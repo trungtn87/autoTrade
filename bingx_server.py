@@ -205,9 +205,6 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
             sl
         )
         send_discord(
-            f"✅ Đặt  \n"
-            f"{symbol} {side}\n\n"
-            f"💰 Entry: {round(avg_price, 2)}"
             f"TP : {tp} SL : {sl} /n"
         )
 
@@ -225,6 +222,9 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
             executed_qty * 0.5,
             activation_price,
             0.005
+        )
+        send_discord(
+            f" :Giá đặt trailing stop : {activation_price} /n"
         )
 
         return {
