@@ -166,7 +166,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
         time.sleep(1)
 
     if executed_qty <= 0 or avg_price <= 0:
-        send_discord(f"❌ ENTRY NOT FILLED\n{symbol} {side}")
+        send_discord(f"❌ Lỗi đặt lệnh\n{symbol} {side}")
         raise RuntimeError("❌ Không lấy được executedQty hoặc avgPrice")
        
 
@@ -177,7 +177,6 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
     send_discord(
             f"✅ Đặt lệnh \n"
             f"{symbol} {side}\n\n"
-            f"📊 Qty: {qty}\n"
             f"💰 Entry: {round(avg_price, 2)}"
         )
 
@@ -204,6 +203,12 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
             executed_qty,
             tp,
             sl
+        )
+        send_discord(
+            f"✅ Đặt  \n"
+            f"{symbol} {side}\n\n"
+            f"💰 Entry: {round(avg_price, 2)}"
+            f"TP : {tp} SL : {sl} /n"
         )
 
     # ===== THÊM TRAILING =====
@@ -232,7 +237,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
     else:
 
         print("⚠️ Giá entry nằm ngoài TP/SL → đóng lệnh MARKET")
-
+        send_discord("⚠️ Giá entry nằm ngoài TP/SL → đóng lệnh MARKET")
         close_side = "SELL" if side.upper() == "BUY" else "BUY"
 
         close_result = place_bingx_order(
