@@ -205,7 +205,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
             sl
         )
         send_discord(
-            f"TP : {tp} SL : {sl} /n"
+            f"TP : {tp} \n SL : {sl} \n"
         )
 
     # ===== THÊM TRAILING =====
