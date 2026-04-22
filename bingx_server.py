@@ -215,7 +215,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
             activation_price = avg_price + risk * 0.5
         else:
             activation_price = avg_price - risk * 0.5
-
+        activation_price = round(activation_price, 2)
         trailing_result = place_trailing_order(
             symbol,
             side,
