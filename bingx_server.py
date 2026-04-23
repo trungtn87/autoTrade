@@ -177,7 +177,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
     send_discord(
             f"✅ Đặt lệnh \n"
             f"{symbol} {side}\n\n"
-            f"💰 Entry: {round(avg_price, 2)}"
+            f"Entry: {round(avg_price, 2)}"
         )
 
     # ===== 3. CHECK TP SL RANGE =====
@@ -224,7 +224,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
             0.005
         )
         send_discord(
-            f" :Trailing : {activation_price}"
+            f" Trailing : {activation_price}"
         )
 
         return {
