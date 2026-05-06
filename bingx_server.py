@@ -133,7 +133,7 @@ def place_trailing_order(symbol, side_entry, qty, activation_price, callback_rat
 
     return response.json()
 # ✅ Gộp lệnh entry + TP/SL
-def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_type="MARKET"):
+def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_type="MARKET", combo=None):
 
     # ===== 1. PLACE ENTRY ORDER =====
     entry_result = place_bingx_order(symbol, side, entry, qty, leverage, order_type)
@@ -149,7 +149,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
     status = ""
 
     # ===== 2. CHỜ ORDER FILL =====
-    for i in range(5):
+    for i in range(10):
         order_detail = get_order_detail(symbol, order_id)
 
         order = order_detail.get("data", {}).get("order", {})
@@ -163,7 +163,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
         if executed_qty > 0 and avg_price > 0:
             break
 
-        time.sleep(1)
+        time.sleep(1.5)
 
     if executed_qty <= 0 or avg_price <= 0:
         send_discord(f"❌ Lỗi đặt lệnh\n{symbol} {side}")
@@ -177,6 +177,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
     send_discord(
             f"✅ Đặt lệnh \n"
             f"{symbol} {side}\n\n"
+            f"📊 Combo: {combo}\n"
             f"Entry: {round(avg_price, 2)}"
         )
 
@@ -284,6 +285,7 @@ def handle_bingx_order():
         data = request.get_json()
         print("📥 Dữ liệu nhận:", data, flush=True)
 
+        combo = data.get("combo", "N/A")
         symbol = data.get("symbol", "BTC-USDT")
         side = data.get("side", "BUY")
         entry = float(data.get("entry", 0))
@@ -298,7 +300,7 @@ def handle_bingx_order():
         # ✅ Tính khối lượng = số USDT / giá Entry
         qty = round(usdt_amount / entry, 4)  # làm tròn 4 chữ số thập phân
 
-        result = execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage, order_type)
+        result = execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage, order_type, combo)
         return jsonify({"status": "success", "result": result})
 
     except Exception as e:
