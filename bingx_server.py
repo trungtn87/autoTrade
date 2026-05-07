@@ -177,7 +177,7 @@ def execute_alert_trade(symbol, side, entry, qty, tp, sl, leverage=100, order_ty
     send_discord(
             f"✅ Đặt lệnh \n"
             f"{symbol} {side}\n\n"
-            f"📊 Combo: {combo}\n"
+            f"📊 {combo}\n"
             f"Entry: {round(avg_price, 2)}"
         )
 
