@@ -24,7 +24,14 @@ def _int(name: str, default: int) -> int:
 @dataclass(frozen=True)
 class Settings:
     bingx_base_url: str = os.getenv("BINGX_BASE_URL", "https://open-api.bingx.com")
-    symbols: tuple[str, ...] = tuple(x.strip() for x in os.getenv("SYMBOLS", "BTC-USDT,ETH-USDT").split(",") if x.strip())
+    bingx_api_key: str = os.getenv("BINGX_API_KEY", "")
+    bingx_api_secret: str = os.getenv("BINGX_API_SECRET", "")
+    symbols: tuple[str, ...] = tuple(
+        x.strip().upper()
+        for x in os.getenv("SYMBOLS", "BTC-USDT,ETH-USDT").split(",")
+        if x.strip()
+    )
+
     smc_mode: str = os.getenv("SMC_MODE", "Veto Only")
     smc_swing_len: int = _int("SMC_SWING_LEN", 50)
     smc_confluence: bool = _bool("SMC_CONFLUENCE", False)
