@@ -11,7 +11,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, HTTPException
 
-from .bingx_market import BingXMarketClient, closed_only
+from .bingx_market import BingXApiError, BingXMarketClient, closed_only
 from .config import Settings
 from .executor import Executor
 from .state import SignalState
@@ -133,6 +133,10 @@ def run_scan(execute: bool = True) -> dict:
                 log.exception("Scan failed for %s", symbol)
                 summary["status"] = "partial_error"
                 summary["symbols"][symbol] = {"error": str(exc)}
+                if isinstance(exc, BingXApiError) and str(exc.code) in {"109425", "109429"}:
+                    summary["stopped_early"] = True
+                    summary["stop_reason"] = f"BingX {exc.code}; stopped to avoid further invalid requests"
+                    break
         summary["elapsed_sec"] = round(time.time() - started, 3)
         last_scan_summary = summary
         return summary
@@ -197,6 +201,38 @@ def market_check():
     except Exception as exc:
         return {
             "ok": False,
+            "error": str(exc),
+        }
+
+
+
+@app.get("/kline-check")
+def kline_check(symbol: str = "BTC-USDT", interval: str = "15m"):
+    """One small Kline request only; use this before /preview after an API lock."""
+    try:
+        now_ms = market.server_time_ms()
+        df = closed_only(market.klines(symbol.upper(), interval, 2), now_ms)
+        if df.empty:
+            return {
+                "ok": False,
+                "symbol": symbol.upper(),
+                "interval": interval,
+                "error": "No closed candles returned",
+            }
+        last = df.iloc[-1]
+        return {
+            "ok": True,
+            "symbol": symbol.upper(),
+            "interval": interval,
+            "candles": len(df),
+            "last_close": float(last["close"]),
+            "last_close_time": int(last["close_time"]),
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "symbol": symbol.upper(),
+            "interval": interval,
             "error": str(exc),
         }
 
