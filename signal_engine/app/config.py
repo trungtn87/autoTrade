@@ -156,10 +156,12 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
             errors.append(f"{name} must start with http:// or https://")
 
     if not settings.dry_run and not (settings.webhook_1 or settings.webhook_2):
-        warnings.append("DRY_RUN=false but no order webhook is configured")
+        errors.append(
+            "DRY_RUN=false requires at least one ORDER_WEBHOOK_1/ORDER_WEBHOOK_2"
+        )
     if not settings.dry_run and not settings.database_url:
-        warnings.append(
-            "LIVE mode is using local SQLite; state/candle cache can be lost on Render restart. Configure DATABASE_URL for persistent Postgres."
+        errors.append(
+            "DRY_RUN=false requires DATABASE_URL for persistent Postgres state"
         )
     if settings.discord_enabled and not (
         settings.discord_webhook_btc
