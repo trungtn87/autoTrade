@@ -105,3 +105,65 @@ def send_discord_startup_test(settings: Settings) -> dict:
             "sent": False,
             "error": str(exc),
         }
+
+
+def send_discord_scan_summary(settings: Settings, result: dict) -> dict:
+    """Send one compact diagnostic summary after each scheduled 15m scan."""
+    if not settings.discord_periodic_log_enabled:
+        return {"ok": True, "sent": False, "reason": "disabled"}
+
+    url = resolved_discord_log_webhook(settings)
+    if not url:
+        return {"ok": False, "sent": False, "reason": "no_webhook"}
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    status = str(result.get("status", "unknown"))
+    icon = "✅" if status == "ok" else "⚠️"
+    mode = "DRY_RUN" if settings.dry_run else "LIVE"
+
+    lines = [
+        f"{icon} **15m Scan Report**",
+        f"Time: {now}",
+        f"Mode: {mode}",
+        f"Status: {status}",
+    ]
+
+    symbols = result.get("symbols") or {}
+    for symbol in settings.symbols:
+        item = symbols.get(symbol) or {}
+        if "error" in item:
+            err = str(item.get("error", ""))
+            if len(err) > 350:
+                err = err[:347] + "..."
+            lines.append(f"{symbol}: ERROR - {err}")
+            continue
+
+        sigs = item.get("signals") or []
+        lines.append(
+            f"{symbol}: 15m={item.get('cached_15m', '?')} "
+            f"1H={item.get('derived_1h', '?')} "
+            f"4H={item.get('derived_4h', '?')} "
+            f"6H={item.get('derived_6h', '?')} "
+            f"signals={len(sigs)}"
+        )
+
+    if result.get("stopped_early"):
+        lines.append(f"Stopped: {result.get('stop_reason')}")
+
+    lines.append(f"Elapsed: {result.get('elapsed_sec', '?')}s")
+    content = "\n".join(lines)[:1900]
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            r = client.post(url, json={"content": content})
+        return {
+            "ok": r.status_code in (200, 204),
+            "sent": True,
+            "status_code": r.status_code,
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "sent": False,
+            "error": str(exc),
+        }
