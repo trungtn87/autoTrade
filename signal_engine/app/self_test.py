@@ -227,6 +227,18 @@ def run_self_test(settings: Settings) -> dict:
         assert bp["signal_id"] == buy.event_id
         assert sp["signal_id"] == sell.event_id
 
+        ex.validate_order_payload(bp)
+        ex.validate_order_payload(sp)
+
+        invalid = dict(bp)
+        invalid["tp"] = invalid["entry"] - 1
+        rejected = False
+        try:
+            ex.validate_order_payload(invalid)
+        except ValueError:
+            rejected = True
+        assert rejected, "invalid BUY payload was not rejected"
+
         bentry, btp, bsl = execution_prices(buy, settings)
         sentry, stp, ssl = execution_prices(sell, settings)
         assert bp["entry"] == bentry and bp["tp"] == btp and bp["sl"] == bsl
