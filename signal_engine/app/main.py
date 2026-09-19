@@ -86,24 +86,42 @@ def run_scan(execute: bool = True) -> dict:
                         symbol_result["signals"].append(item)
                         continue
 
-                    targets = executor.targets()
-                    if not targets:
-                        item["action"] = "no_webhook_configured"
-                        symbol_result["signals"].append(item)
-                        continue
+                    discord_result = None
+                    discord_state_key = f"discord:{sig.symbol}"
+                    if executor.discord_url(sig.symbol) and executor.discord_allowed():
+                        if state.seen(sig.event_id, discord_state_key):
+                            discord_result = {
+                                "target": discord_state_key,
+                                "action": "duplicate_ignored",
+                                "ok": True,
+                            }
+                        else:
+                            discord_result = executor.send_discord(sig)
+                            if discord_result.get("ok"):
+                                state.mark(
+                                    sig.event_id,
+                                    discord_state_key,
+                                    json.dumps(discord_result, ensure_ascii=False),
+                                )
+                    if discord_result is not None:
+                        item["discord"] = discord_result
 
+                    targets = executor.targets()
                     results = []
                     for target_name, url, amount in targets:
-                        if state.seen(sig.event_id, target_name):
+                        state_target = f"{target_name}:{'dryrun' if settings.dry_run else 'live'}"
+                        if state.seen(sig.event_id, state_target):
                             results.append({"target": target_name, "action": "duplicate_ignored", "ok": True})
                             continue
                         result = executor.send_target(sig, target_name, url, amount)
                         results.append(result)
                         if result.get("ok"):
-                            state.mark(sig.event_id, target_name, json.dumps(result, ensure_ascii=False))
+                            state.mark(sig.event_id, state_target, json.dumps(result, ensure_ascii=False))
 
                     item["execution"] = results
-                    if all(r.get("ok") for r in results):
+                    if not targets:
+                        item["action"] = "discord_only" if discord_result and discord_result.get("ok") else "no_order_webhook_configured"
+                    elif all(r.get("ok") for r in results):
                         item["action"] = "dry_run" if settings.dry_run else "sent"
                     elif any(r.get("ok") for r in results):
                         item["action"] = "partial"
