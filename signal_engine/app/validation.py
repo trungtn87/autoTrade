@@ -142,59 +142,34 @@ def validate_15m_resample(
         raise ValueError("days must be between 2 and 7")
 
     now_ms = int(time.time() * 1000)
-    # End at the most recent fully closed 15m boundary.
-    fifteen_ms = 15 * 60_000
-    end_ms = (now_ms // fifteen_ms) * fifteen_ms - 1
-    start_ms = end_ms - days * 24 * 60 * 60_000 + 1
 
-    # Small margin ensures the first complete HTF bucket is available.
-    start_with_margin = start_ms - 24 * 60 * 60_000
+    # Validation deliberately avoids startTime/endTime. We only need a recent
+    # overlapping sample, and simple limit-only Kline requests have already
+    # proven stable on this service.
+    #
+    # Add one day of margin so the first 1H/4H/6H bucket can be completed.
+    sample_days = days + 1
+    limit_15m = min(1000, sample_days * 24 * 4 + 4)
+    limit_1h = min(1000, sample_days * 24 + 4)
+    limit_4h = min(1000, sample_days * 6 + 4)
 
-    limit_15m = min(1440, math.ceil((end_ms - start_with_margin + 1) / fifteen_ms) + 4)
-    limit_1h = min(1440, math.ceil((end_ms - start_with_margin + 1) / 3_600_000) + 4)
-    limit_4h = min(1440, math.ceil((end_ms - start_with_margin + 1) / 14_400_000) + 4)
-
-    m15 = closed_only(
-        market.klines(
-            symbol,
-            "15m",
-            limit_15m,
-            start_time=start_with_margin,
-            end_time=end_ms,
-        ),
-        now_ms,
-    )
-    h1_ref = closed_only(
-        market.klines(
-            symbol,
-            "1h",
-            limit_1h,
-            start_time=start_with_margin,
-            end_time=end_ms,
-        ),
-        now_ms,
-    )
-    h4_ref = closed_only(
-        market.klines(
-            symbol,
-            "4h",
-            limit_4h,
-            start_time=start_with_margin,
-            end_time=end_ms,
-        ),
-        now_ms,
-    )
+    m15 = closed_only(market.klines(symbol, "15m", limit_15m), now_ms)
+    h1_ref = closed_only(market.klines(symbol, "1h", limit_1h), now_ms)
+    h4_ref = closed_only(market.klines(symbol, "4h", limit_4h), now_ms)
 
     h1_from_15 = aggregate_candles(m15, 15, 60)
     h4_from_15 = aggregate_candles(m15, 15, 240)
     h6_from_15 = aggregate_candles(m15, 15, 360)
     h6_from_1h = aggregate_candles(h1_ref, 60, 360)
 
-    # Compare only the requested days; margin is bootstrap for full first bucket.
+    # Compare only the latest requested number of days. Using open_time keeps
+    # all series aligned without another API call for server time.
+    cutoff_ms = now_ms - days * 24 * 60 * 60_000
+
     def trim(df: pd.DataFrame) -> pd.DataFrame:
         if df.empty:
             return df
-        return df[(df["open_time"] >= start_ms) & (df["close_time"] <= end_ms)].reset_index(drop=True)
+        return df[df["open_time"] >= cutoff_ms].reset_index(drop=True)
 
     h1_from_15 = trim(h1_from_15)
     h4_from_15 = trim(h4_from_15)
@@ -213,8 +188,9 @@ def validate_15m_resample(
         "days": days,
         "api_calls": 3,
         "window": {
-            "start_ms": int(start_ms),
-            "end_ms": int(end_ms),
+            "cutoff_ms": int(cutoff_ms),
+            "now_ms": int(now_ms),
+            "mode": "latest_limit_only",
         },
         "source_counts": {
             "15m": int(len(m15)),
