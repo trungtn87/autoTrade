@@ -16,6 +16,7 @@ from fastapi import FastAPI, Header, HTTPException
 from .bingx_market import BingXApiError, BingXMarketClient, closed_only
 from .config import Settings, safe_config_snapshot, validate_settings
 from .executor import Executor
+from .discord_diag import install_discord_log_handler, send_discord_startup_test
 from .state import SignalState
 from .strategy import scan_latest, strategy_static_snapshot
 from .self_test import run_self_test
@@ -277,6 +278,33 @@ async def lifespan(app: FastAPI):
         raise RuntimeError("Offline self-test failed; see SELF_TEST lines above")
     log.info("SELF_TEST_SUMMARY ok=true checks=%s network_calls=0 order_calls=0", len(self_test_result.get("checks", [])))
 
+    discord_test = send_discord_startup_test(settings)
+    if discord_test.get("ok"):
+        log.info(
+            "DISCORD_STARTUP_TEST ok=true sent=%s status_code=%s",
+            discord_test.get("sent"), discord_test.get("status_code"),
+        )
+    else:
+        log.warning(
+            "DISCORD_STARTUP_TEST ok=false reason=%s error=%s status_code=%s body=%s",
+            discord_test.get("reason"),
+            discord_test.get("error"),
+            discord_test.get("status_code"),
+            discord_test.get("body"),
+        )
+
+    discord_log = install_discord_log_handler(settings)
+    if discord_log.get("ok"):
+        log.info(
+            "DISCORD_LOG_FORWARD installed=%s level=%s reason=%s",
+            discord_log.get("installed"), discord_log.get("level"), discord_log.get("reason"),
+        )
+    else:
+        log.warning(
+            "DISCORD_LOG_FORWARD installed=false reason=%s",
+            discord_log.get("reason"),
+        )
+
     if settings.auto_scheduler:
         scheduler = BackgroundScheduler(timezone="UTC")
         scheduler.add_job(
@@ -393,6 +421,19 @@ def self_test(x_scan_token: str | None = Header(default=None)):
     log.info("SELF_TEST_MANUAL ok=%s checks=%s", result.get("ok"), len(result.get("checks", [])))
     if not result.get("ok"):
         raise HTTPException(status_code=500, detail=result)
+    return result
+
+
+@app.post("/discord-test")
+def discord_test(x_scan_token: str | None = Header(default=None)):
+    _require_scan_token(x_scan_token)
+    result = send_discord_startup_test(settings)
+    log.info(
+        "DISCORD_MANUAL_TEST ok=%s sent=%s status_code=%s",
+        result.get("ok"), result.get("sent"), result.get("status_code"),
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=502, detail=result)
     return result
 
 
