@@ -11,14 +11,13 @@ from dataclasses import asdict
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 
 from .bingx_market import BingXApiError, BingXMarketClient, closed_only
 from .config import Settings
 from .executor import Executor
 from .state import SignalState
 from .strategy import scan_latest
-from .validation import validate_15m_resample
 
 settings = Settings()
 logging.basicConfig(
@@ -329,27 +328,23 @@ def kline_check(symbol: str = "BTC-USDT", interval: str = "15m", limit: int = 3)
         }
 
 
-@app.get("/validate-resample")
-def validate_resample(symbol: str = "BTC-USDT", days: int = 7):
-    """Validate 15m -> 1H/4H/6H candle construction. No orders, no Discord."""
-    try:
-        return validate_15m_resample(market, symbol.upper(), days)
-    except Exception as exc:
-        return {
-            "ok": False,
-            "symbol": symbol.upper(),
-            "days": days,
-            "error": str(exc),
-        }
-
-
 @app.get("/status")
 def status():
     return last_scan_summary
 
 
+def _require_scan_token(x_scan_token: str | None) -> None:
+    # Live scheduler never uses this route. Manual API-triggered scans are
+    # disabled unless a secret token is explicitly configured.
+    if not settings.scan_token:
+        raise HTTPException(status_code=403, detail="manual scans disabled")
+    if x_scan_token != settings.scan_token:
+        raise HTTPException(status_code=403, detail="invalid scan token")
+
+
 @app.post("/preview")
-def preview():
+def preview(x_scan_token: str | None = Header(default=None)):
+    _require_scan_token(x_scan_token)
     result = run_scan(execute=False)
     if result.get("status") == "busy":
         raise HTTPException(status_code=409, detail=result)
@@ -357,7 +352,8 @@ def preview():
 
 
 @app.post("/scan")
-def scan():
+def scan(x_scan_token: str | None = Header(default=None)):
+    _require_scan_token(x_scan_token)
     result = run_scan(execute=True)
     if result.get("status") == "busy":
         raise HTTPException(status_code=409, detail=result)
