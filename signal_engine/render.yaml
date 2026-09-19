@@ -29,6 +29,6 @@ services:
       - key: DISCORD_LOG_ENABLED
         value: "false"
       - key: DISCORD_PERIODIC_LOG_ENABLED
-        value: "true"
+        value: "false"
       - key: DISCORD_STARTUP_TEST
         value: "false"
