@@ -16,6 +16,7 @@ from .config import Settings
 from .executor import Executor
 from .state import SignalState
 from .strategy import scan_latest
+from .validation import validate_15m_resample
 
 settings = Settings()
 logging.basicConfig(
@@ -248,6 +249,20 @@ def kline_check(symbol: str = "BTC-USDT", interval: str = "15m", limit: int = 3)
             "symbol": symbol.upper(),
             "interval": interval,
             "requested_limit": limit,
+            "error": str(exc),
+        }
+
+
+@app.get("/validate-resample")
+def validate_resample(symbol: str = "BTC-USDT", days: int = 7):
+    """Validate 15m -> 1H/4H/6H candle construction. No orders, no Discord."""
+    try:
+        return validate_15m_resample(market, symbol.upper(), days)
+    except Exception as exc:
+        return {
+            "ok": False,
+            "symbol": symbol.upper(),
+            "days": days,
             "error": str(exc),
         }
 
