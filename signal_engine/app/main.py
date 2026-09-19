@@ -14,10 +14,10 @@ from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, Header, HTTPException
 
 from .bingx_market import BingXApiError, BingXMarketClient, closed_only
-from .config import Settings
+from .config import Settings, safe_config_snapshot, validate_settings
 from .executor import Executor
 from .state import SignalState
-from .strategy import scan_latest
+from .strategy import scan_latest, strategy_static_snapshot
 
 settings = Settings()
 logging.basicConfig(
@@ -279,6 +279,21 @@ def scheduled_scan():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global scheduler
+
+    errors, warnings = validate_settings(settings)
+    log.info("STARTUP_CONFIG %s", json.dumps(safe_config_snapshot(settings), ensure_ascii=False))
+    log.info("STRATEGY_PROFILE %s", json.dumps(strategy_static_snapshot(), ensure_ascii=False))
+
+    for warning in warnings:
+        log.warning("CONFIG_WARNING %s", warning)
+
+    if errors:
+        for error in errors:
+            log.error("CONFIG_ERROR %s", error)
+        raise RuntimeError("Invalid startup configuration; see CONFIG_ERROR lines above")
+
+    log.info("CONFIG_VALIDATION ok=true warnings=%s", len(warnings))
+
     if settings.auto_scheduler:
         scheduler = BackgroundScheduler(timezone="UTC")
         scheduler.add_job(
