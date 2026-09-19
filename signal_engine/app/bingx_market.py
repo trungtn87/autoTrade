@@ -93,9 +93,9 @@ class BingXMarketClient:
             if str(code) == "109429":
                 # Stop hammering the endpoint until BingX says it is safe again.
                 self._blocked_until_ms = retry_at_ms or (int(time.time() * 1000) + 15 * 60 * 1000)
-            elif str(code) == "109425":
-                # One unsupported/invalid pair response is enough. Do not keep
-                # trying other symbols/timeframes and trigger 109429.
+            elif str(code) in {"109415", "109425"}:
+                # One invalid/paused/unsupported market-data response is enough.
+                # Repeating it can trigger BingX 109429 for the whole quote API.
                 self._blocked_until_ms = int(time.time() * 1000) + 15 * 60 * 1000
             safe_params = {k: v for k, v in params.items() if k not in {"signature"}}
             raise BingXApiError(code, msg, path, retry_at_ms, safe_params)
@@ -203,3 +203,46 @@ def closed_only(df: pd.DataFrame, now_ms: int, safety_ms: int = 1500) -> pd.Data
         return df
     cutoff = now_ms - safety_ms
     return df[df["close_time"] <= cutoff].copy().reset_index(drop=True)
+
+
+def aggregate_1h_to_6h(df: pd.DataFrame) -> pd.DataFrame:
+    """Build fully closed UTC-aligned 6H candles from closed 1H candles.
+
+    Only complete groups of six consecutive 1H candles are returned. This
+    avoids relying on BingX's 6h Kline request while preserving a true 360m
+    OHLCV series for Combo 4.
+    """
+    if df.empty:
+        return df.copy()
+
+    one_hour_ms = 3_600_000
+    six_hour_ms = 6 * one_hour_ms
+
+    x = df.sort_values("open_time").drop_duplicates("open_time", keep="last").copy()
+    x["bucket"] = (x["open_time"] // six_hour_ms) * six_hour_ms
+
+    rows = []
+    for bucket, g in x.groupby("bucket", sort=True):
+        g = g.sort_values("open_time")
+        if len(g) != 6:
+            continue
+
+        expected = [int(bucket) + i * one_hour_ms for i in range(6)]
+        actual = [int(v) for v in g["open_time"].tolist()]
+        if actual != expected:
+            continue
+
+        rows.append({
+            "open_time": int(bucket),
+            "open": float(g.iloc[0]["open"]),
+            "high": float(g["high"].max()),
+            "low": float(g["low"].min()),
+            "close": float(g.iloc[-1]["close"]),
+            "volume": float(g["volume"].sum()),
+            "close_time": int(bucket) + six_hour_ms - 1,
+        })
+
+    return pd.DataFrame(
+        rows,
+        columns=["open_time", "open", "high", "low", "close", "volume", "close_time"],
+    )
