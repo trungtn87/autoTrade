@@ -62,6 +62,7 @@ class Settings:
     legacy_rounding: bool = _bool("LEGACY_ROUNDING", True)
 
     state_db: str = os.getenv("STATE_DB", "state.db")
+    database_url: str = os.getenv("DATABASE_URL", "")
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     scan_token: str = os.getenv("SCAN_TOKEN", "")
 
@@ -227,6 +228,7 @@ def safe_config_snapshot(settings: Settings) -> dict:
             "startup_test": settings.discord_startup_test,
         },
         "state_db": settings.state_db,
+        "state_backend": "postgres" if settings.database_url else "sqlite",
         "log_level": settings.log_level,
         "manual_scan_enabled": bool(settings.scan_token),
     }
