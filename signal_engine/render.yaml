@@ -26,3 +26,9 @@ services:
         value: "12000"
       - key: SCAN_TOKEN
         generateValue: true
+      - key: DISCORD_LOG_ENABLED
+        value: "false"
+      - key: DISCORD_PERIODIC_LOG_ENABLED
+        value: "true"
+      - key: DISCORD_STARTUP_TEST
+        value: "false"
