@@ -11,7 +11,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, HTTPException
 
-from .bingx_market import BingXApiError, BingXMarketClient, closed_only
+from .bingx_market import BingXApiError, BingXMarketClient, aggregate_1h_to_6h, closed_only
 from .config import Settings
 from .executor import Executor
 from .state import SignalState
@@ -40,7 +40,7 @@ def fetch_bundle(symbol: str):
     m15 = closed_only(market.klines(symbol, "15m", settings.limit_15m), now_ms)
     h1 = closed_only(market.klines(symbol, "1h", settings.limit_1h), now_ms)
     h4 = closed_only(market.klines(symbol, "4h", settings.limit_4h), now_ms)
-    h6 = closed_only(market.klines(symbol, "6h", settings.limit_6h), now_ms)
+    h6 = aggregate_1h_to_6h(h1)
     if min(len(m15), len(h1), len(h4), len(h6)) == 0:
         raise RuntimeError(f"Missing kline data for {symbol}")
     return now_ms, m15, h1, h4, h6
@@ -136,7 +136,7 @@ def run_scan(execute: bool = True) -> dict:
                 log.exception("Scan failed for %s", symbol)
                 summary["status"] = "partial_error"
                 summary["symbols"][symbol] = {"error": str(exc)}
-                if isinstance(exc, BingXApiError) and str(exc.code) in {"109425", "109429"}:
+                if isinstance(exc, BingXApiError) and str(exc.code) in {"109415", "109425", "109429"}:
                     summary["stopped_early"] = True
                     summary["stop_reason"] = f"BingX {exc.code}; stopped to avoid further invalid requests"
                     break
