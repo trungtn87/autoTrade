@@ -179,6 +179,21 @@ def run_scan(execute: bool = True) -> dict:
                     item = asdict(sig)
                     item["event_id"] = sig.event_id
 
+                    # Safety for a brand-new/rotated database: bootstrap loads
+                    # historical context but must never execute a signal from
+                    # data that existed before this engine instance had a
+                    # persistent dedupe history. Trading resumes on the next
+                    # incremental 15m cycle.
+                    if bootstrap:
+                        item["action"] = "bootstrap_suppressed"
+                        item["reason"] = "first persistent-data warmup; execution starts next incremental candle"
+                        symbol_result["signals"].append(item)
+                        log.warning(
+                            "BOOTSTRAP_SIGNAL_SUPPRESSED symbol=%s event_id=%s combo=%s side=%s tf=%s",
+                            sig.symbol, sig.event_id, sig.combo, sig.side, sig.timeframe,
+                        )
+                        continue
+
                     expected_close = (
                         int(m15.iloc[-1]["close_time"])
                         if sig.timeframe == "15m"
@@ -304,6 +319,11 @@ async def lifespan(app: FastAPI):
         raise RuntimeError("Invalid startup configuration; see CONFIG_ERROR lines above")
 
     log.info("CONFIG_VALIDATION ok=true warnings=%s", len(warnings))
+    log.info(
+        "STATE_BACKEND backend=%s persistent=%s",
+        state.backend,
+        state.backend == "postgres",
+    )
 
     self_test_result = run_self_test(settings)
     for item in self_test_result.get("checks", []):
@@ -381,6 +401,7 @@ def health():
         "smc_mode": settings.smc_mode,
         "scheduler": settings.auto_scheduler,
         "market_mode": "15m_only_incremental",
+        "state_backend": state.backend,
         "live_limit_15m": settings.live_limit_15m,
     }
 
