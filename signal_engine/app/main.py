@@ -24,7 +24,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("autotrade")
 
-market = BingXMarketClient(base_url=settings.bingx_base_url)
+market = BingXMarketClient(base_url=settings.bingx_base_url, api_key=settings.bingx_api_key, api_secret=settings.bingx_api_secret)
 state = SignalState(settings.state_db)
 executor = Executor(settings)
 scan_lock = threading.Lock()
