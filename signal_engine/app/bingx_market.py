@@ -12,12 +12,14 @@ import pandas as pd
 
 
 class BingXApiError(RuntimeError):
-    def __init__(self, code, message, path: str, retry_at_ms: int | None = None):
-        super().__init__(f"BingX error {code}: {message} | endpoint={path}")
+    def __init__(self, code, message, path: str, retry_at_ms: int | None = None, request_params: dict | None = None):
+        safe = request_params or {}
+        super().__init__(f"BingX error {code}: {message} | endpoint={path} | params={safe}")
         self.code = code
         self.message = message
         self.path = path
         self.retry_at_ms = retry_at_ms
+        self.request_params = request_params or {}
 
 
 @dataclass
@@ -95,7 +97,8 @@ class BingXMarketClient:
                 # One unsupported/invalid pair response is enough. Do not keep
                 # trying other symbols/timeframes and trigger 109429.
                 self._blocked_until_ms = int(time.time() * 1000) + 15 * 60 * 1000
-            raise BingXApiError(code, msg, path, retry_at_ms)
+            safe_params = {k: v for k, v in params.items() if k not in {"signature"}}
+            raise BingXApiError(code, msg, path, retry_at_ms, safe_params)
 
         return payload
 
