@@ -16,7 +16,7 @@ from fastapi import FastAPI, Header, HTTPException
 from .bingx_market import BingXApiError, BingXMarketClient, closed_only
 from .config import Settings, safe_config_snapshot, validate_settings
 from .executor import Executor
-from .discord_diag import install_discord_log_handler, send_discord_startup_test
+from .discord_diag import install_discord_log_handler, send_discord_scan_summary, send_discord_startup_test
 from .state import SignalState
 from .strategy import scan_latest, strategy_static_snapshot
 from .self_test import run_self_test
@@ -52,7 +52,7 @@ def fetch_bundle(symbol: str):
     cached_count = state.candle_count(symbol, "15m")
     bootstrap = cached_count == 0
 
-    limit = settings.bootstrap_limit_15m if bootstrap else settings.live_limit_15m
+    limit = min(settings.bootstrap_limit_15m, 1000) if bootstrap else settings.live_limit_15m
     log.info(
         "FETCH_START symbol=%s mode=%s cached_15m=%s limit=%s",
         symbol, "bootstrap" if bootstrap else "incremental", cached_count, limit,
@@ -248,6 +248,16 @@ def scheduled_scan():
         json.dumps(result, ensure_ascii=False)[:3000],
     )
 
+    discord_report = send_discord_scan_summary(settings, result)
+    log.info(
+        "DISCORD_15M_REPORT ok=%s sent=%s status_code=%s reason=%s error=%s",
+        discord_report.get("ok"),
+        discord_report.get("sent"),
+        discord_report.get("status_code"),
+        discord_report.get("reason"),
+        discord_report.get("error"),
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -297,17 +307,20 @@ async def lifespan(app: FastAPI):
             discord_test.get("body"),
         )
 
-    discord_log = install_discord_log_handler(settings)
-    if discord_log.get("ok"):
-        log.info(
-            "DISCORD_LOG_FORWARD installed=%s level=%s reason=%s",
-            discord_log.get("installed"), discord_log.get("level"), discord_log.get("reason"),
-        )
+    if settings.discord_log_enabled:
+        discord_log = install_discord_log_handler(settings)
+        if discord_log.get("ok"):
+            log.info(
+                "DISCORD_LOG_FORWARD installed=%s level=%s reason=%s",
+                discord_log.get("installed"), discord_log.get("level"), discord_log.get("reason"),
+            )
+        else:
+            log.warning(
+                "DISCORD_LOG_FORWARD installed=false reason=%s",
+                discord_log.get("reason"),
+            )
     else:
-        log.warning(
-            "DISCORD_LOG_FORWARD installed=false reason=%s",
-            discord_log.get("reason"),
-        )
+        log.info("DISCORD_LOG_FORWARD installed=false reason=disabled")
 
     if settings.auto_scheduler:
         scheduler = BackgroundScheduler(timezone="UTC")
