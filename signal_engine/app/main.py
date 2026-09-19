@@ -33,7 +33,10 @@ last_scan_summary: dict = {"status": "not_run"}
 
 
 def fetch_bundle(symbol: str):
-    now_ms = market.server_time_ms()
+    # Signed BingX requests already validate Render's clock against BingX.
+    # Use the local UTC epoch here so candle filtering does not depend on a
+    # second market API call and we reduce request volume.
+    now_ms = int(time.time() * 1000)
     m15 = closed_only(market.klines(symbol, "15m", settings.limit_15m), now_ms)
     h1 = closed_only(market.klines(symbol, "1h", settings.limit_1h), now_ms)
     h4 = closed_only(market.klines(symbol, "4h", settings.limit_4h), now_ms)
@@ -208,26 +211,36 @@ def market_check():
 
 @app.get("/kline-check")
 def kline_check(symbol: str = "BTC-USDT", interval: str = "15m"):
-    """One small Kline request only; use this before /preview after an API lock."""
+    """Single Kline request with timestamp diagnostics; never places orders."""
     try:
-        now_ms = market.server_time_ms()
-        df = closed_only(market.klines(symbol.upper(), interval, 2), now_ms)
-        if df.empty:
-            return {
-                "ok": False,
-                "symbol": symbol.upper(),
-                "interval": interval,
-                "error": "No closed candles returned",
-            }
-        last = df.iloc[-1]
-        return {
+        now_ms = int(time.time() * 1000)
+        df = market.klines(symbol.upper(), interval, 3)
+        rows = []
+        for _, row in df.tail(3).iterrows():
+            rows.append({
+                "open_time": int(row["open_time"]),
+                "close_time": int(row["close_time"]),
+                "close": float(row["close"]),
+                "close_minus_now_ms": int(row["close_time"]) - now_ms,
+            })
+        closed = closed_only(df, now_ms)
+        result = {
             "ok": True,
             "symbol": symbol.upper(),
             "interval": interval,
-            "candles": len(df),
-            "last_close": float(last["close"]),
-            "last_close_time": int(last["close_time"]),
+            "now_ms": now_ms,
+            "received_candles": len(df),
+            "closed_candles": len(closed),
+            "rows": rows,
         }
+        if len(closed):
+            last = closed.iloc[-1]
+            result["last_closed"] = {
+                "close": float(last["close"]),
+                "open_time": int(last["open_time"]),
+                "close_time": int(last["close_time"]),
+            }
+        return result
     except Exception as exc:
         return {
             "ok": False,
