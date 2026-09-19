@@ -74,12 +74,25 @@ def fetch_bundle(symbol: str):
     First run bootstraps recent 15m history once. Normal operation requests
     only the latest two 15m candles, then builds 1H/4H/6H locally.
     """
+    started = time.monotonic()
     now_ms = int(time.time() * 1000)
     cached_count = state.candle_count(symbol, "15m")
     bootstrap = cached_count == 0
 
     limit = settings.bootstrap_limit_15m if bootstrap else settings.live_limit_15m
+    log.info(
+        "FETCH_START symbol=%s mode=%s cached_15m=%s limit=%s",
+        symbol, "bootstrap" if bootstrap else "incremental", cached_count, limit,
+    )
     incoming = closed_only(market.klines(symbol, "15m", limit), now_ms)
+    if len(incoming):
+        log.info(
+            "FETCH_DATA symbol=%s received_closed=%s first_open=%s last_open=%s last_close=%s",
+            symbol, len(incoming), int(incoming.iloc[0]["open_time"]),
+            int(incoming.iloc[-1]["open_time"]), int(incoming.iloc[-1]["close_time"]),
+        )
+    else:
+        log.warning("FETCH_DATA symbol=%s received_closed=0", symbol)
 
     last_before = state.latest_open_time(symbol, "15m")
     if len(incoming):
@@ -91,12 +104,20 @@ def fetch_bundle(symbol: str):
         newest = int(incoming.iloc[-1]["open_time"])
         expected_next = int(last_before) + 15 * 60_000
         if newest > expected_next:
+            missing = max(0, (newest - expected_next) // (15 * 60_000))
+            log.warning(
+                "CANDLE_GAP symbol=%s last_cached=%s newest=%s missing_intervals=%s recovery_limit=%s",
+                symbol, last_before, newest, missing, settings.recovery_limit_15m,
+            )
             recovery = closed_only(
                 market.klines(symbol, "15m", settings.recovery_limit_15m),
                 now_ms,
             )
             if len(recovery):
                 state.upsert_candles(symbol, "15m", recovery)
+                log.info("RECOVERY_OK symbol=%s recovered=%s", symbol, len(recovery))
+            else:
+                log.warning("RECOVERY_EMPTY symbol=%s", symbol)
 
     state.trim_candles(symbol, "15m", settings.candle_keep_15m)
     m15 = state.load_candles(symbol, "15m")
@@ -104,6 +125,12 @@ def fetch_bundle(symbol: str):
     h1 = _aggregate_15m(m15, 60)
     h4 = _aggregate_15m(m15, 240)
     h6 = _aggregate_15m(m15, 360)
+
+    log.info(
+        "DERIVED symbol=%s 15m=%s 1h=%s 4h=%s 6h=%s elapsed_ms=%s",
+        symbol, len(m15), len(h1), len(h4), len(h6),
+        round((time.monotonic() - started) * 1000, 1),
+    )
 
     if min(len(m15), len(h1), len(h4), len(h6)) == 0:
         raise RuntimeError(
@@ -128,8 +155,11 @@ def run_scan(execute: bool = True) -> dict:
     }
     try:
         for symbol in settings.symbols:
+            symbol_started = time.monotonic()
             try:
+                log.info("SYMBOL_SCAN_START symbol=%s execute=%s", symbol, execute)
                 now_ms, m15, h1, h4, h6, bootstrap = fetch_bundle(symbol)
+                calc_started = time.monotonic()
                 signals = scan_latest(
                     symbol=symbol,
                     m15=m15,
@@ -142,6 +172,11 @@ def run_scan(execute: bool = True) -> dict:
                     sl_pct=settings.sl_pct,
                     tp_pct=settings.tp_pct,
                     include_1h=True,
+                )
+                calc_ms = round((time.monotonic() - calc_started) * 1000, 1)
+                log.info(
+                    "SIGNAL_CALC symbol=%s signals=%s calc_ms=%s ids=%s",
+                    symbol, len(signals), calc_ms, [s.event_id for s in signals],
                 )
                 symbol_result = {
                     "server_time": now_ms,
@@ -206,8 +241,15 @@ def run_scan(execute: bool = True) -> dict:
                         item["action"] = "failed"
                     symbol_result["signals"].append(item)
                 summary["symbols"][symbol] = symbol_result
+                log.info(
+                    "SYMBOL_SCAN_DONE symbol=%s signals=%s elapsed_ms=%s",
+                    symbol, len(signals), round((time.monotonic() - symbol_started) * 1000, 1),
+                )
             except Exception as exc:
-                log.exception("Scan failed for %s", symbol)
+                log.exception(
+                    "SYMBOL_SCAN_ERROR symbol=%s elapsed_ms=%s error=%s",
+                    symbol, round((time.monotonic() - symbol_started) * 1000, 1), exc,
+                )
                 summary["status"] = "partial_error"
                 summary["symbols"][symbol] = {"error": str(exc)}
                 if isinstance(exc, BingXApiError) and str(exc.code) in {"109415", "109425", "109429"}:
@@ -222,9 +264,16 @@ def run_scan(execute: bool = True) -> dict:
 
 
 def scheduled_scan():
-    log.info("Scheduled scan started")
+    log.info(
+        "SCHEDULE_TICK dry_run=%s symbols=%s market_mode=15m_only_incremental",
+        settings.dry_run, list(settings.symbols),
+    )
     result = run_scan(execute=True)
-    log.info("Scheduled scan finished: %s", json.dumps(result, ensure_ascii=False)[:3000])
+    log.info(
+        "SCHEDULE_DONE status=%s elapsed_sec=%s summary=%s",
+        result.get("status"), result.get("elapsed_sec"),
+        json.dumps(result, ensure_ascii=False)[:3000],
+    )
 
 
 @asynccontextmanager
