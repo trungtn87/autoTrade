@@ -8,10 +8,19 @@ services:
     healthCheckPath: /health
     envVars:
       - key: DRY_RUN
-        value: "true"
-      - key: AUTO_SCHEDULER
         value: "false"
+      - key: AUTO_SCHEDULER
+        value: "true"
       - key: SYMBOLS
         value: BTC-USDT,ETH-USDT
       - key: SMC_MODE
         value: Veto Only
+
+      - key: LIVE_LIMIT_15M
+        value: "2"
+      - key: BOOTSTRAP_LIMIT_15M
+        value: "1000"
+      - key: RECOVERY_LIMIT_15M
+        value: "8"
+      - key: CANDLE_KEEP_15M
+        value: "12000"
