@@ -6,63 +6,100 @@ from pathlib import Path
 
 
 class SignalState:
-    """Per-signal, per-target idempotency store."""
+    """Persistent candle cache and per-target signal idempotency store.
 
-    def __init__(self, db_path: str):
+    Uses Render/Postgres when DATABASE_URL is configured. Falls back to local
+    SQLite for development/self-test.
+    """
+
+    def __init__(self, db_path: str, database_url: str = ""):
+        self.database_url = (database_url or "").strip()
+        self.is_postgres = bool(self.database_url)
         self.path = Path(db_path)
         self._lock = threading.Lock()
         self._init()
 
+    @property
+    def backend(self) -> str:
+        return "postgres" if self.is_postgres else "sqlite"
+
     def _connect(self):
+        if self.is_postgres:
+            try:
+                import psycopg
+            except ImportError as exc:
+                raise RuntimeError(
+                    "DATABASE_URL is configured but psycopg is not installed"
+                ) from exc
+            return psycopg.connect(self.database_url)
         return sqlite3.connect(self.path)
+
+    def _sql(self, sql: str) -> str:
+        return sql.replace("?", "%s") if self.is_postgres else sql
 
     def _init(self):
         with self._connect() as con:
-            con.execute(
+            cur = con.cursor()
+            cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS processed_targets (
                     event_id TEXT NOT NULL,
                     target TEXT NOT NULL,
-                    processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     payload TEXT,
                     PRIMARY KEY (event_id, target)
                 )
                 """
             )
-            con.execute(
+            cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS candles (
                     symbol TEXT NOT NULL,
                     timeframe TEXT NOT NULL,
-                    open_time INTEGER NOT NULL,
-                    open REAL NOT NULL,
-                    high REAL NOT NULL,
-                    low REAL NOT NULL,
-                    close REAL NOT NULL,
-                    volume REAL NOT NULL,
-                    close_time INTEGER NOT NULL,
+                    open_time BIGINT NOT NULL,
+                    open DOUBLE PRECISION NOT NULL,
+                    high DOUBLE PRECISION NOT NULL,
+                    low DOUBLE PRECISION NOT NULL,
+                    close DOUBLE PRECISION NOT NULL,
+                    volume DOUBLE PRECISION NOT NULL,
+                    close_time BIGINT NOT NULL,
                     PRIMARY KEY (symbol, timeframe, open_time)
                 )
+                """
+            )
+            cur.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_candles_symbol_tf_time
+                ON candles(symbol, timeframe, open_time)
                 """
             )
             con.commit()
 
     def seen(self, event_id: str, target: str) -> bool:
         with self._lock, self._connect() as con:
-            row = con.execute(
-                "SELECT 1 FROM processed_targets WHERE event_id = ? AND target = ?",
+            cur = con.cursor()
+            cur.execute(
+                self._sql(
+                    "SELECT 1 FROM processed_targets WHERE event_id = ? AND target = ?"
+                ),
                 (event_id, target),
-            ).fetchone()
-            return row is not None
+            )
+            return cur.fetchone() is not None
 
     def mark(self, event_id: str, target: str, payload: str = ""):
         with self._lock, self._connect() as con:
-            con.execute(
-                "INSERT OR IGNORE INTO processed_targets(event_id, target, payload) VALUES (?, ?, ?)",
+            cur = con.cursor()
+            cur.execute(
+                self._sql(
+                    """
+                    INSERT INTO processed_targets(event_id, target, payload)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(event_id, target) DO NOTHING
+                    """
+                ),
                 (event_id, target, payload),
             )
             con.commit()
-
 
     def upsert_candles(self, symbol: str, timeframe: str, df) -> int:
         if df is None or len(df) == 0:
@@ -81,22 +118,23 @@ class SignalState:
             )
             for _, row in df.iterrows()
         ]
+        sql = self._sql(
+            """
+            INSERT INTO candles(
+                symbol,timeframe,open_time,open,high,low,close,volume,close_time
+            ) VALUES (?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(symbol,timeframe,open_time) DO UPDATE SET
+                open=excluded.open,
+                high=excluded.high,
+                low=excluded.low,
+                close=excluded.close,
+                volume=excluded.volume,
+                close_time=excluded.close_time
+            """
+        )
         with self._lock, self._connect() as con:
-            con.executemany(
-                """
-                INSERT INTO candles(
-                    symbol,timeframe,open_time,open,high,low,close,volume,close_time
-                ) VALUES (?,?,?,?,?,?,?,?,?)
-                ON CONFLICT(symbol,timeframe,open_time) DO UPDATE SET
-                    open=excluded.open,
-                    high=excluded.high,
-                    low=excluded.low,
-                    close=excluded.close,
-                    volume=excluded.volume,
-                    close_time=excluded.close_time
-                """,
-                rows,
-            )
+            cur = con.cursor()
+            cur.executemany(sql, rows)
             con.commit()
         return len(rows)
 
@@ -109,14 +147,17 @@ class SignalState:
             WHERE symbol = ? AND timeframe = ?
             ORDER BY open_time DESC
         """
-        params = [symbol, timeframe]
+        params: list = [symbol, timeframe]
         if limit is not None:
             sql += " LIMIT ?"
             params.append(int(limit))
 
         with self._lock, self._connect() as con:
-            rows = con.execute(sql, params).fetchall()
+            cur = con.cursor()
+            cur.execute(self._sql(sql), params)
+            rows = cur.fetchall()
 
+        rows = list(rows)
         rows.reverse()
         return pd.DataFrame(
             rows,
@@ -125,18 +166,26 @@ class SignalState:
 
     def candle_count(self, symbol: str, timeframe: str) -> int:
         with self._lock, self._connect() as con:
-            row = con.execute(
-                "SELECT COUNT(*) FROM candles WHERE symbol = ? AND timeframe = ?",
+            cur = con.cursor()
+            cur.execute(
+                self._sql(
+                    "SELECT COUNT(*) FROM candles WHERE symbol = ? AND timeframe = ?"
+                ),
                 (symbol, timeframe),
-            ).fetchone()
+            )
+            row = cur.fetchone()
         return int(row[0]) if row else 0
 
     def latest_open_time(self, symbol: str, timeframe: str) -> int | None:
         with self._lock, self._connect() as con:
-            row = con.execute(
-                "SELECT MAX(open_time) FROM candles WHERE symbol = ? AND timeframe = ?",
+            cur = con.cursor()
+            cur.execute(
+                self._sql(
+                    "SELECT MAX(open_time) FROM candles WHERE symbol = ? AND timeframe = ?"
+                ),
                 (symbol, timeframe),
-            ).fetchone()
+            )
+            row = cur.fetchone()
         if not row or row[0] is None:
             return None
         return int(row[0])
@@ -145,17 +194,20 @@ class SignalState:
         if keep <= 0:
             return
         with self._lock, self._connect() as con:
-            con.execute(
-                """
-                DELETE FROM candles
-                WHERE symbol = ? AND timeframe = ?
-                  AND open_time NOT IN (
-                    SELECT open_time FROM candles
+            cur = con.cursor()
+            cur.execute(
+                self._sql(
+                    """
+                    DELETE FROM candles
                     WHERE symbol = ? AND timeframe = ?
-                    ORDER BY open_time DESC
-                    LIMIT ?
-                  )
-                """,
+                      AND open_time NOT IN (
+                        SELECT open_time FROM candles
+                        WHERE symbol = ? AND timeframe = ?
+                        ORDER BY open_time DESC
+                        LIMIT ?
+                      )
+                    """
+                ),
                 (symbol, timeframe, symbol, timeframe, int(keep)),
             )
             con.commit()
