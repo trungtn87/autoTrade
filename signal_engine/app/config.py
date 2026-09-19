@@ -58,8 +58,9 @@ class Settings:
 
     state_db: str = os.getenv("STATE_DB", "state.db")
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    scan_token: str = os.getenv("SCAN_TOKEN", "")
 
-    bootstrap_limit_15m: int = _int("BOOTSTRAP_LIMIT_15M", 1000)
+    bootstrap_limit_15m: int = _int("BOOTSTRAP_LIMIT_15M", 1440)
     live_limit_15m: int = _int("LIVE_LIMIT_15M", 2)
     recovery_limit_15m: int = _int("RECOVERY_LIMIT_15M", 8)
     candle_keep_15m: int = _int("CANDLE_KEEP_15M", 12000)
