@@ -4,6 +4,8 @@ import json
 import logging
 import threading
 import time
+
+import pandas as pd
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 
@@ -11,7 +13,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, HTTPException
 
-from .bingx_market import BingXApiError, BingXMarketClient, aggregate_1h_to_6h, closed_only
+from .bingx_market import BingXApiError, BingXMarketClient, closed_only
 from .config import Settings
 from .executor import Executor
 from .state import SignalState
@@ -33,18 +35,84 @@ scheduler: BackgroundScheduler | None = None
 last_scan_summary: dict = {"status": "not_run"}
 
 
+def _aggregate_15m(df: pd.DataFrame, target_minutes: int) -> pd.DataFrame:
+    """Build complete UTC-aligned HTF candles from cached closed 15m candles."""
+    cols = ["open_time", "open", "high", "low", "close", "volume", "close_time"]
+    if df.empty:
+        return pd.DataFrame(columns=cols)
+
+    source_ms = 15 * 60_000
+    target_ms = target_minutes * 60_000
+    required = target_minutes // 15
+
+    x = df.sort_values("open_time").drop_duplicates("open_time", keep="last").copy()
+    x["bucket"] = (x["open_time"] // target_ms) * target_ms
+
+    rows = []
+    for bucket, g in x.groupby("bucket", sort=True):
+        g = g.sort_values("open_time")
+        if len(g) != required:
+            continue
+        expected = [int(bucket) + i * source_ms for i in range(required)]
+        actual = [int(v) for v in g["open_time"].tolist()]
+        if actual != expected:
+            continue
+        rows.append({
+            "open_time": int(bucket),
+            "open": float(g.iloc[0]["open"]),
+            "high": float(g["high"].max()),
+            "low": float(g["low"].min()),
+            "close": float(g.iloc[-1]["close"]),
+            "volume": float(g["volume"].sum()),
+            "close_time": int(bucket) + target_ms - 1,
+        })
+    return pd.DataFrame(rows, columns=cols)
+
+
 def fetch_bundle(symbol: str):
-    # Signed BingX requests already validate Render's clock against BingX.
-    # Use the local UTC epoch here so candle filtering does not depend on a
-    # second market API call and we reduce request volume.
+    """Production data path: BingX 15m only.
+
+    First run bootstraps recent 15m history once. Normal operation requests
+    only the latest two 15m candles, then builds 1H/4H/6H locally.
+    """
     now_ms = int(time.time() * 1000)
-    m15 = closed_only(market.klines(symbol, "15m", settings.limit_15m), now_ms)
-    h1 = closed_only(market.klines(symbol, "1h", settings.limit_1h), now_ms)
-    h4 = closed_only(market.klines(symbol, "4h", settings.limit_4h), now_ms)
-    h6 = aggregate_1h_to_6h(h1)
+    cached_count = state.candle_count(symbol, "15m")
+    bootstrap = cached_count == 0
+
+    limit = settings.bootstrap_limit_15m if bootstrap else settings.live_limit_15m
+    incoming = closed_only(market.klines(symbol, "15m", limit), now_ms)
+
+    last_before = state.latest_open_time(symbol, "15m")
+    if len(incoming):
+        state.upsert_candles(symbol, "15m", incoming)
+
+    # A normal limit=2 request should contain the just-closed candle. If the
+    # cached timeline has a gap, make at most one small recovery request.
+    if not bootstrap and last_before is not None and len(incoming):
+        newest = int(incoming.iloc[-1]["open_time"])
+        expected_next = int(last_before) + 15 * 60_000
+        if newest > expected_next:
+            recovery = closed_only(
+                market.klines(symbol, "15m", settings.recovery_limit_15m),
+                now_ms,
+            )
+            if len(recovery):
+                state.upsert_candles(symbol, "15m", recovery)
+
+    state.trim_candles(symbol, "15m", settings.candle_keep_15m)
+    m15 = state.load_candles(symbol, "15m")
+
+    h1 = _aggregate_15m(m15, 60)
+    h4 = _aggregate_15m(m15, 240)
+    h6 = _aggregate_15m(m15, 360)
+
     if min(len(m15), len(h1), len(h4), len(h6)) == 0:
-        raise RuntimeError(f"Missing kline data for {symbol}")
-    return now_ms, m15, h1, h4, h6
+        raise RuntimeError(
+            f"Warmup incomplete for {symbol}: "
+            f"15m={len(m15)} 1h={len(h1)} 4h={len(h4)} 6h={len(h6)}"
+        )
+
+    return now_ms, m15, h1, h4, h6, bootstrap
 
 
 def run_scan(execute: bool = True) -> dict:
@@ -62,7 +130,7 @@ def run_scan(execute: bool = True) -> dict:
     try:
         for symbol in settings.symbols:
             try:
-                now_ms, m15, h1, h4, h6 = fetch_bundle(symbol)
+                now_ms, m15, h1, h4, h6, bootstrap = fetch_bundle(symbol)
                 signals = scan_latest(
                     symbol=symbol,
                     m15=m15,
@@ -80,6 +148,12 @@ def run_scan(execute: bool = True) -> dict:
                     "server_time": now_ms,
                     "latest_15m_close": int(m15.iloc[-1]["close_time"]),
                     "latest_1h_close": int(h1.iloc[-1]["close_time"]),
+                    "market_source": "bingx_15m_only",
+                    "bootstrap": bootstrap,
+                    "cached_15m": len(m15),
+                    "derived_1h": len(h1),
+                    "derived_4h": len(h4),
+                    "derived_6h": len(h6),
                     "signals": [],
                 }
                 for sig in signals:
@@ -187,6 +261,8 @@ def health():
         "symbols": settings.symbols,
         "smc_mode": settings.smc_mode,
         "scheduler": settings.auto_scheduler,
+        "market_mode": "15m_only_incremental",
+        "live_limit_15m": settings.live_limit_15m,
     }
 
 
