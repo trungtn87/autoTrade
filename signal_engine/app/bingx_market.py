@@ -133,12 +133,52 @@ class BingXMarketClient:
         )
 
         data = payload.get("data") or []
+        if isinstance(data, dict):
+            # Be tolerant of wrapper-style responses used by some BingX variants.
+            data = data.get("data") or data.get("list") or data.get("rows") or []
+
+        interval_ms = {
+            "1m": 60_000,
+            "3m": 180_000,
+            "5m": 300_000,
+            "15m": 900_000,
+            "30m": 1_800_000,
+            "1h": 3_600_000,
+            "2h": 7_200_000,
+            "4h": 14_400_000,
+            "6h": 21_600_000,
+            "8h": 28_800_000,
+            "12h": 43_200_000,
+            "1d": 86_400_000,
+            "3d": 259_200_000,
+            "1w": 604_800_000,
+            "1M": 2_592_000_000,
+        }[interval]
+
         cols = ["open_time", "open", "high", "low", "close", "volume", "close_time"]
         rows = []
         for row in data:
-            if len(row) < 7:
+            if isinstance(row, dict):
+                open_time = row.get("openTime", row.get("time"))
+                close_time = row.get("closeTime")
+                if open_time is None:
+                    continue
+                if close_time is None:
+                    close_time = int(open_time) + interval_ms - 1
+                values = [
+                    open_time,
+                    row.get("open"),
+                    row.get("high"),
+                    row.get("low"),
+                    row.get("close"),
+                    row.get("volume"),
+                    close_time,
+                ]
+                rows.append(values)
                 continue
-            rows.append(list(row[:7]))
+
+            if isinstance(row, (list, tuple)) and len(row) >= 7:
+                rows.append(list(row[:7]))
 
         df = pd.DataFrame(rows, columns=cols)
         if df.empty:
