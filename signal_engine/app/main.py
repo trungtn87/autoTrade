@@ -14,6 +14,7 @@ from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, Header, HTTPException
 
 from .bingx_market import BingXApiError, BingXMarketClient, closed_only
+from .data_validation import DataValidationError, validate_15m_candles
 from .config import Settings, safe_config_snapshot, validate_settings
 from .executor import Executor
 from .discord_diag import install_discord_log_handler, send_discord_scan_summary, send_discord_startup_test
@@ -34,7 +35,7 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 log = logging.getLogger("autotrade")
 
 market = BingXMarketClient(base_url=settings.bingx_base_url, api_key=settings.bingx_api_key, api_secret=settings.bingx_api_secret)
-state = SignalState(settings.state_db)
+state = SignalState(settings.state_db, settings.database_url)
 executor = Executor(settings)
 scan_lock = threading.Lock()
 scheduler: BackgroundScheduler | None = None
@@ -95,6 +96,15 @@ def fetch_bundle(symbol: str):
     state.trim_candles(symbol, "15m", settings.candle_keep_15m)
     m15 = state.load_candles(symbol, "15m")
 
+    validation = validate_15m_candles(m15, now_ms)
+    log.info(
+        "DATA_VALIDATION symbol=%s ok=true count=%s latest_open=%s latest_close=%s",
+        symbol,
+        validation.get("count"),
+        validation.get("latest_open"),
+        validation.get("latest_close"),
+    )
+
     h1 = aggregate_15m(m15, 60)
     h4 = aggregate_15m(m15, 240)
     h6 = aggregate_15m(m15, 360)
@@ -111,7 +121,7 @@ def fetch_bundle(symbol: str):
             f"15m={len(m15)} 1h={len(h1)} 4h={len(h4)} 6h={len(h6)}"
         )
 
-    return now_ms, m15, h1, h4, h6, bootstrap
+    return now_ms, m15, h1, h4, h6, bootstrap, validation
 
 
 def run_scan(execute: bool = True) -> dict:
@@ -131,7 +141,7 @@ def run_scan(execute: bool = True) -> dict:
             symbol_started = time.monotonic()
             try:
                 log.info("SYMBOL_SCAN_START symbol=%s execute=%s", symbol, execute)
-                now_ms, m15, h1, h4, h6, bootstrap = fetch_bundle(symbol)
+                now_ms, m15, h1, h4, h6, bootstrap, data_validation = fetch_bundle(symbol)
                 calc_started = time.monotonic()
                 signals = scan_latest(
                     symbol=symbol,
@@ -156,7 +166,9 @@ def run_scan(execute: bool = True) -> dict:
                     "latest_15m_close": int(m15.iloc[-1]["close_time"]),
                     "latest_1h_close": int(h1.iloc[-1]["close_time"]),
                     "market_source": "bingx_15m_only",
+                    "state_backend": state.backend,
                     "bootstrap": bootstrap,
+                    "data_validation": data_validation,
                     "cached_15m": len(m15),
                     "derived_1h": len(h1),
                     "derived_4h": len(h4),
@@ -166,6 +178,22 @@ def run_scan(execute: bool = True) -> dict:
                 for sig in signals:
                     item = asdict(sig)
                     item["event_id"] = sig.event_id
+
+                    expected_close = (
+                        int(m15.iloc[-1]["close_time"])
+                        if sig.timeframe == "15m"
+                        else int(h1.iloc[-1]["close_time"])
+                    )
+                    if sig.close_time != expected_close:
+                        item["action"] = "rejected_stale_signal"
+                        item["expected_close_time"] = expected_close
+                        symbol_result["signals"].append(item)
+                        log.error(
+                            "SIGNAL_REJECT_STALE symbol=%s event_id=%s tf=%s signal_close=%s expected_close=%s",
+                            sig.symbol, sig.event_id, sig.timeframe, sig.close_time, expected_close,
+                        )
+                        continue
+
                     if not execute:
                         item["action"] = "preview"
                         symbol_result["signals"].append(item)
