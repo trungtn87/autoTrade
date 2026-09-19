@@ -18,6 +18,8 @@ from .config import Settings, safe_config_snapshot, validate_settings
 from .executor import Executor
 from .state import SignalState
 from .strategy import scan_latest, strategy_static_snapshot
+from .self_test import run_self_test
+from .timeframes import aggregate_15m
 
 settings = Settings()
 logging.basicConfig(
@@ -32,40 +34,6 @@ executor = Executor(settings)
 scan_lock = threading.Lock()
 scheduler: BackgroundScheduler | None = None
 last_scan_summary: dict = {"status": "not_run"}
-
-
-def _aggregate_15m(df: pd.DataFrame, target_minutes: int) -> pd.DataFrame:
-    """Build complete UTC-aligned HTF candles from cached closed 15m candles."""
-    cols = ["open_time", "open", "high", "low", "close", "volume", "close_time"]
-    if df.empty:
-        return pd.DataFrame(columns=cols)
-
-    source_ms = 15 * 60_000
-    target_ms = target_minutes * 60_000
-    required = target_minutes // 15
-
-    x = df.sort_values("open_time").drop_duplicates("open_time", keep="last").copy()
-    x["bucket"] = (x["open_time"] // target_ms) * target_ms
-
-    rows = []
-    for bucket, g in x.groupby("bucket", sort=True):
-        g = g.sort_values("open_time")
-        if len(g) != required:
-            continue
-        expected = [int(bucket) + i * source_ms for i in range(required)]
-        actual = [int(v) for v in g["open_time"].tolist()]
-        if actual != expected:
-            continue
-        rows.append({
-            "open_time": int(bucket),
-            "open": float(g.iloc[0]["open"]),
-            "high": float(g["high"].max()),
-            "low": float(g["low"].min()),
-            "close": float(g.iloc[-1]["close"]),
-            "volume": float(g["volume"].sum()),
-            "close_time": int(bucket) + target_ms - 1,
-        })
-    return pd.DataFrame(rows, columns=cols)
 
 
 def fetch_bundle(symbol: str):
@@ -122,9 +90,9 @@ def fetch_bundle(symbol: str):
     state.trim_candles(symbol, "15m", settings.candle_keep_15m)
     m15 = state.load_candles(symbol, "15m")
 
-    h1 = _aggregate_15m(m15, 60)
-    h4 = _aggregate_15m(m15, 240)
-    h6 = _aggregate_15m(m15, 360)
+    h1 = aggregate_15m(m15, 60)
+    h4 = aggregate_15m(m15, 240)
+    h6 = aggregate_15m(m15, 360)
 
     log.info(
         "DERIVED symbol=%s 15m=%s 1h=%s 4h=%s 6h=%s elapsed_ms=%s",
@@ -294,6 +262,21 @@ async def lifespan(app: FastAPI):
 
     log.info("CONFIG_VALIDATION ok=true warnings=%s", len(warnings))
 
+    self_test_result = run_self_test(settings)
+    for item in self_test_result.get("checks", []):
+        level = log.info if item.get("ok") else log.error
+        level(
+            "SELF_TEST name=%s ok=%s elapsed_ms=%s details=%s error=%s",
+            item.get("name"),
+            item.get("ok"),
+            item.get("elapsed_ms"),
+            json.dumps(item.get("details", {}), ensure_ascii=False)[:1000],
+            item.get("error"),
+        )
+    if not self_test_result.get("ok"):
+        raise RuntimeError("Offline self-test failed; see SELF_TEST lines above")
+    log.info("SELF_TEST_SUMMARY ok=true checks=%s network_calls=0 order_calls=0", len(self_test_result.get("checks", [])))
+
     if settings.auto_scheduler:
         scheduler = BackgroundScheduler(timezone="UTC")
         scheduler.add_job(
@@ -401,6 +384,16 @@ def kline_check(symbol: str = "BTC-USDT", interval: str = "15m", limit: int = 3,
             "requested_limit": limit,
             "error": str(exc),
         }
+
+
+@app.post("/self-test")
+def self_test(x_scan_token: str | None = Header(default=None)):
+    _require_scan_token(x_scan_token)
+    result = run_self_test(settings)
+    log.info("SELF_TEST_MANUAL ok=%s checks=%s", result.get("ok"), len(result.get("checks", [])))
+    if not result.get("ok"):
+        raise HTTPException(status_code=500, detail=result)
+    return result
 
 
 @app.get("/status")
