@@ -27,6 +27,10 @@ logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
     format="%(asctime)s %(levelname)s %(name)s | %(message)s",
 )
+# httpx/httpcore INFO records include the full request URL, which may contain
+# Discord/order webhook secrets. Keep only warnings/errors from these libraries.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 log = logging.getLogger("autotrade")
 
 market = BingXMarketClient(base_url=settings.bingx_base_url, api_key=settings.bingx_api_key, api_secret=settings.bingx_api_secret)
