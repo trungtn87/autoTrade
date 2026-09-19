@@ -17,6 +17,29 @@ ONE_HOUR_COMBOS = {1, 2, 3, 4, 6}
 FIFTEEN_MIN_COMBOS = {5, 7, 8, 9, 10}
 
 
+def strategy_static_snapshot() -> dict:
+    """Compact non-secret profile for startup diagnostics."""
+    return {
+        "fifteen_min_combos": sorted(FIFTEEN_MIN_COMBOS),
+        "one_hour_combos": sorted(ONE_HOUR_COMBOS),
+        "atr_risk_combos": sorted(ATR_RISK_COMBOS),
+        "atr_risk_tp_mult": 1.6,
+        "atr_risk_sl_mult": 1.4,
+        "15m_htf_inputs": {
+            "4h_ema50": True,
+            "4h_ema100": True,
+        },
+        "1h_htf_inputs": {
+            "4h_ema150": True,
+            "6h_ema50": True,
+        },
+        "smc": {
+            "internal_swing_len": 5,
+            "modes": ["Off", "Strict", "Veto Only"],
+        },
+    }
+
+
 @dataclass(frozen=True)
 class Signal:
     symbol: str
