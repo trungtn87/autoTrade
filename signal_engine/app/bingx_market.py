@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import re
 import time
 from dataclasses import dataclass
@@ -9,6 +10,8 @@ from urllib.parse import urlencode
 
 import httpx
 import pandas as pd
+
+log = logging.getLogger(__name__)
 
 
 class BingXApiError(RuntimeError):
@@ -75,6 +78,9 @@ class BingXMarketClient:
 
     def _get(self, path: str, params: dict) -> dict:
         self._throttle()
+        safe_params = {k: v for k, v in params.items() if k not in {"signature"}}
+        started = time.monotonic()
+        log.info("BINGX_REQ path=%s params=%s", path, safe_params)
         signed = self._signed_params(params)
         headers = {
             "X-BX-APIKEY": self.api_key,
@@ -83,6 +89,8 @@ class BingXMarketClient:
 
         r = self._client.get(self.base_url + path, params=signed, headers=headers)
         self._last_call = time.monotonic()
+        elapsed_ms = round((time.monotonic() - started) * 1000, 1)
+        log.info("BINGX_HTTP path=%s status=%s elapsed_ms=%s", path, r.status_code, elapsed_ms)
         r.raise_for_status()
 
         payload = r.json()
@@ -97,9 +105,13 @@ class BingXMarketClient:
                 # One invalid/paused/unsupported market-data response is enough.
                 # Repeating it can trigger BingX 109429 for the whole quote API.
                 self._blocked_until_ms = int(time.time() * 1000) + 15 * 60 * 1000
-            safe_params = {k: v for k, v in params.items() if k not in {"signature"}}
+            log.error(
+                "BINGX_API_ERROR code=%s path=%s params=%s retry_at_ms=%s msg=%s",
+                code, path, safe_params, retry_at_ms, msg,
+            )
             raise BingXApiError(code, msg, path, retry_at_ms, safe_params)
 
+        log.info("BINGX_OK path=%s code=0 elapsed_ms=%s", path, elapsed_ms)
         return payload
 
     def contracts(self) -> dict:
