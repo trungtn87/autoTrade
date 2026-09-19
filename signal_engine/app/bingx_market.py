@@ -121,7 +121,7 @@ class BingXMarketClient:
         data = payload.get("data", {})
         return int(data.get("serverTime"))
 
-    def klines(self, symbol: str, interval: str, limit: int) -> pd.DataFrame:
+    def klines(self, symbol: str, interval: str, limit: int, start_time: int | None = None, end_time: int | None = None) -> pd.DataFrame:
         allowed = {"1m","3m","5m","15m","30m","1h","2h","4h","6h","8h","12h","1d","3d","1w","1M"}
         if interval not in allowed:
             raise ValueError(f"Unsupported BingX interval: {interval}")
@@ -130,9 +130,15 @@ class BingXMarketClient:
         if limit <= 0 or limit > 1000:
             raise ValueError("BingX kline limit must be 1..1000")
 
+        params = {"symbol": symbol, "interval": interval, "limit": int(limit)}
+        if start_time is not None:
+            params["startTime"] = int(start_time)
+        if end_time is not None:
+            params["endTime"] = int(end_time)
+
         payload = self._get(
             "/openApi/swap/v3/quote/klines",
-            {"symbol": symbol, "interval": interval, "limit": int(limit)},
+            params,
         )
 
         data = payload.get("data") or []
