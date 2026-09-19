@@ -266,8 +266,18 @@ def health():
 
 
 
+def _require_scan_token(x_scan_token: str | None) -> None:
+    # Live scheduler never uses these routes. Manual API-triggered market
+    # requests are disabled unless a secret token is explicitly configured.
+    if not settings.scan_token:
+        raise HTTPException(status_code=403, detail="manual market requests disabled")
+    if x_scan_token != settings.scan_token:
+        raise HTTPException(status_code=403, detail="invalid scan token")
+
+
 @app.get("/market-check")
-def market_check():
+def market_check(x_scan_token: str | None = Header(default=None)):
+    _require_scan_token(x_scan_token)
     try:
         symbols = market.contract_symbols()
         configured = list(settings.symbols)
@@ -286,7 +296,8 @@ def market_check():
 
 
 @app.get("/kline-check")
-def kline_check(symbol: str = "BTC-USDT", interval: str = "15m", limit: int = 3):
+def kline_check(symbol: str = "BTC-USDT", interval: str = "15m", limit: int = 3, x_scan_token: str | None = Header(default=None)):
+    _require_scan_token(x_scan_token)
     """Single Kline request with timestamp diagnostics; never places orders."""
     try:
         now_ms = int(time.time() * 1000)
@@ -331,15 +342,6 @@ def kline_check(symbol: str = "BTC-USDT", interval: str = "15m", limit: int = 3)
 @app.get("/status")
 def status():
     return last_scan_summary
-
-
-def _require_scan_token(x_scan_token: str | None) -> None:
-    # Live scheduler never uses this route. Manual API-triggered scans are
-    # disabled unless a secret token is explicitly configured.
-    if not settings.scan_token:
-        raise HTTPException(status_code=403, detail="manual scans disabled")
-    if x_scan_token != settings.scan_token:
-        raise HTTPException(status_code=403, detail="invalid scan token")
 
 
 @app.post("/preview")
