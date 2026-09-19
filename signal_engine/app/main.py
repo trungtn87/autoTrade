@@ -210,11 +210,11 @@ def market_check():
 
 
 @app.get("/kline-check")
-def kline_check(symbol: str = "BTC-USDT", interval: str = "15m"):
+def kline_check(symbol: str = "BTC-USDT", interval: str = "15m", limit: int = 3):
     """Single Kline request with timestamp diagnostics; never places orders."""
     try:
         now_ms = int(time.time() * 1000)
-        df = market.klines(symbol.upper(), interval, 3)
+        df = market.klines(symbol.upper(), interval, limit)
         rows = []
         for _, row in df.tail(3).iterrows():
             rows.append({
@@ -228,6 +228,7 @@ def kline_check(symbol: str = "BTC-USDT", interval: str = "15m"):
             "ok": True,
             "symbol": symbol.upper(),
             "interval": interval,
+            "requested_limit": limit,
             "now_ms": now_ms,
             "received_candles": len(df),
             "closed_candles": len(closed),
@@ -246,6 +247,7 @@ def kline_check(symbol: str = "BTC-USDT", interval: str = "15m"):
             "ok": False,
             "symbol": symbol.upper(),
             "interval": interval,
+            "requested_limit": limit,
             "error": str(exc),
         }
 
