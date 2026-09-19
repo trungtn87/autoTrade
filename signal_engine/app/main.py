@@ -164,6 +164,25 @@ def health():
     }
 
 
+
+@app.get("/market-check")
+def market_check():
+    try:
+        symbols = market.contract_symbols()
+        configured = list(settings.symbols)
+        return {
+            "ok": True,
+            "configured_symbols": configured,
+            "supported": {s: s in symbols for s in configured},
+            "contract_count": len(symbols),
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": str(exc),
+        }
+
+
 @app.get("/status")
 def status():
     return last_scan_summary
