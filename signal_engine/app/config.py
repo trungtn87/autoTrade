@@ -64,7 +64,7 @@ class Settings:
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     scan_token: str = os.getenv("SCAN_TOKEN", "")
 
-    bootstrap_limit_15m: int = _int("BOOTSTRAP_LIMIT_15M", 1440)
+    bootstrap_limit_15m: int = _int("BOOTSTRAP_LIMIT_15M", 1000)
     live_limit_15m: int = _int("LIVE_LIMIT_15M", 2)
     recovery_limit_15m: int = _int("RECOVERY_LIMIT_15M", 8)
     candle_keep_15m: int = _int("CANDLE_KEEP_15M", 12000)
@@ -114,8 +114,8 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         errors.append("SCHEDULER_SECOND must be between 0 and 59")
     if not (2 <= settings.live_limit_15m <= 20):
         errors.append("LIVE_LIMIT_15M must be between 2 and 20")
-    if not (24 <= settings.bootstrap_limit_15m <= 1440):
-        errors.append("BOOTSTRAP_LIMIT_15M must be between 24 and 1440")
+    if not (24 <= settings.bootstrap_limit_15m <= 1000):
+        errors.append("BOOTSTRAP_LIMIT_15M must be between 24 and 1000")
     if not (settings.live_limit_15m <= settings.recovery_limit_15m <= 100):
         errors.append("RECOVERY_LIMIT_15M must be >= LIVE_LIMIT_15M and <= 100")
     if settings.candle_keep_15m < settings.bootstrap_limit_15m:
