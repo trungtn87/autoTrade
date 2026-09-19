@@ -205,15 +205,29 @@ class BingXMarketClient:
         if df.empty:
             return df
 
-        for col in ["open", "high", "low", "close", "volume"]:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-        for col in ["open_time", "close_time"]:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-
-        df = df.dropna(subset=["open_time", "close_time", "open", "high", "low", "close", "volume"])
-        df["open_time"] = df["open_time"].astype("int64")
-        df["close_time"] = df["close_time"].astype("int64")
-        return df.sort_values("open_time").drop_duplicates("open_time", keep="last").reset_index(drop=True)
+        # Build converted columns into a new frame instead of mutating columns
+        # in place. This is safe with pandas Copy-on-Write / pandas 3.x.
+        df = df.assign(
+            open_time=pd.to_numeric(df["open_time"], errors="coerce"),
+            open=pd.to_numeric(df["open"], errors="coerce"),
+            high=pd.to_numeric(df["high"], errors="coerce"),
+            low=pd.to_numeric(df["low"], errors="coerce"),
+            close=pd.to_numeric(df["close"], errors="coerce"),
+            volume=pd.to_numeric(df["volume"], errors="coerce"),
+            close_time=pd.to_numeric(df["close_time"], errors="coerce"),
+        )
+        df = df.dropna(
+            subset=["open_time", "close_time", "open", "high", "low", "close", "volume"]
+        ).copy(deep=True)
+        df = df.assign(
+            open_time=df["open_time"].astype("int64"),
+            close_time=df["close_time"].astype("int64"),
+        )
+        return (
+            df.sort_values("open_time")
+            .drop_duplicates("open_time", keep="last")
+            .reset_index(drop=True)
+        )
 
 
 def closed_only(df: pd.DataFrame, now_ms: int, safety_ms: int = 1500) -> pd.DataFrame:
@@ -236,8 +250,14 @@ def aggregate_1h_to_6h(df: pd.DataFrame) -> pd.DataFrame:
     one_hour_ms = 3_600_000
     six_hour_ms = 6 * one_hour_ms
 
-    x = df.sort_values("open_time").drop_duplicates("open_time", keep="last").copy()
-    x["bucket"] = (x["open_time"] // six_hour_ms) * six_hour_ms
+    x = (
+        df.sort_values("open_time")
+        .drop_duplicates("open_time", keep="last")
+        .copy(deep=True)
+        .reset_index(drop=True)
+    )
+    bucket = (x["open_time"].to_numpy(dtype="int64") // six_hour_ms) * six_hour_ms
+    x = x.assign(bucket=bucket)
 
     rows = []
     for bucket, g in x.groupby("bucket", sort=True):
