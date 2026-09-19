@@ -91,6 +91,10 @@ class BingXMarketClient:
             if str(code) == "109429":
                 # Stop hammering the endpoint until BingX says it is safe again.
                 self._blocked_until_ms = retry_at_ms or (int(time.time() * 1000) + 15 * 60 * 1000)
+            elif str(code) == "109425":
+                # One unsupported/invalid pair response is enough. Do not keep
+                # trying other symbols/timeframes and trigger 109429.
+                self._blocked_until_ms = int(time.time() * 1000) + 15 * 60 * 1000
             raise BingXApiError(code, msg, path, retry_at_ms)
 
         return payload
