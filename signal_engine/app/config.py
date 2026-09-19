@@ -52,10 +52,11 @@ class Settings:
     discord_webhook_btc: str = os.getenv("DISCORD_WEBHOOK_BTC", "")
     discord_webhook_eth: str = os.getenv("DISCORD_WEBHOOK_ETH", "")
     discord_webhook_default: str = os.getenv("DISCORD_WEBHOOK_DEFAULT", "")
-    discord_log_enabled: bool = _bool("DISCORD_LOG_ENABLED", True)
+    discord_log_enabled: bool = _bool("DISCORD_LOG_ENABLED", False)
+    discord_periodic_log_enabled: bool = _bool("DISCORD_PERIODIC_LOG_ENABLED", True)
     discord_log_webhook: str = os.getenv("DISCORD_LOG_WEBHOOK", "")
     discord_log_level: str = os.getenv("DISCORD_LOG_LEVEL", "WARNING")
-    discord_startup_test: bool = _bool("DISCORD_STARTUP_TEST", True)
+    discord_startup_test: bool = _bool("DISCORD_STARTUP_TEST", False)
 
     adjust_tp_sl_bps: float = _float("ADJUST_TP_SL_BPS", 10.0)
     legacy_rounding: bool = _bool("LEGACY_ROUNDING", True)
@@ -114,8 +115,12 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         errors.append("SCHEDULER_SECOND must be between 0 and 59")
     if not (2 <= settings.live_limit_15m <= 20):
         errors.append("LIVE_LIMIT_15M must be between 2 and 20")
-    if not (24 <= settings.bootstrap_limit_15m <= 1000):
-        errors.append("BOOTSTRAP_LIMIT_15M must be between 24 and 1000")
+    if settings.bootstrap_limit_15m < 24:
+        errors.append("BOOTSTRAP_LIMIT_15M must be >= 24")
+    elif settings.bootstrap_limit_15m > 1000:
+        warnings.append(
+            f"BOOTSTRAP_LIMIT_15M={settings.bootstrap_limit_15m} exceeds safe max 1000; runtime will clamp to 1000"
+        )
     if not (settings.live_limit_15m <= settings.recovery_limit_15m <= 100):
         errors.append("RECOVERY_LIMIT_15M must be >= LIVE_LIMIT_15M and <= 100")
     if settings.candle_keep_15m < settings.bootstrap_limit_15m:
@@ -184,6 +189,7 @@ def safe_config_snapshot(settings: Settings) -> dict:
         ),
         "market_mode": "15m_only_incremental",
         "bootstrap_limit_15m": settings.bootstrap_limit_15m,
+        "bootstrap_limit_15m_effective": min(settings.bootstrap_limit_15m, 1000),
         "live_limit_15m": settings.live_limit_15m,
         "recovery_limit_15m": settings.recovery_limit_15m,
         "candle_keep_15m": settings.candle_keep_15m,
@@ -215,6 +221,7 @@ def safe_config_snapshot(settings: Settings) -> dict:
             "eth_configured": bool(settings.discord_webhook_eth),
             "default_configured": bool(settings.discord_webhook_default),
             "log_enabled": settings.discord_log_enabled,
+            "periodic_log_enabled": settings.discord_periodic_log_enabled,
             "log_level": settings.discord_log_level,
             "log_webhook_configured": bool(settings.discord_log_webhook),
             "startup_test": settings.discord_startup_test,
