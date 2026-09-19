@@ -95,6 +95,20 @@ class BingXMarketClient:
 
         return payload
 
+    def contracts(self) -> dict:
+        """Return raw BingX perpetual contract metadata."""
+        payload = self._get("/openApi/swap/v2/quote/contracts", {})
+        return payload.get("data") or {}
+
+    def contract_symbols(self) -> set[str]:
+        data = self.contracts()
+        items = data if isinstance(data, list) else data.get("contracts", []) if isinstance(data, dict) else []
+        out = set()
+        for item in items:
+            if isinstance(item, dict) and item.get("symbol"):
+                out.add(str(item["symbol"]).upper())
+        return out
+
     def server_time_ms(self) -> int:
         payload = self._get("/openApi/swap/v2/server/time", {})
         data = payload.get("data", {})
