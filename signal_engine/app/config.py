@@ -53,7 +53,7 @@ class Settings:
     discord_webhook_eth: str = os.getenv("DISCORD_WEBHOOK_ETH", "")
     discord_webhook_default: str = os.getenv("DISCORD_WEBHOOK_DEFAULT", "")
     discord_log_enabled: bool = _bool("DISCORD_LOG_ENABLED", False)
-    discord_periodic_log_enabled: bool = _bool("DISCORD_PERIODIC_LOG_ENABLED", True)
+    discord_periodic_log_enabled: bool = _bool("DISCORD_PERIODIC_LOG_ENABLED", False)
     discord_log_webhook: str = os.getenv("DISCORD_LOG_WEBHOOK", "")
     discord_log_level: str = os.getenv("DISCORD_LOG_LEVEL", "WARNING")
     discord_startup_test: bool = _bool("DISCORD_STARTUP_TEST", False)
