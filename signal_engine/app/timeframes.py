@@ -19,13 +19,16 @@ def aggregate_15m(df: pd.DataFrame, target_minutes: int) -> pd.DataFrame:
     target_ms = target_minutes * 60_000
     required = target_minutes // 15
 
+    # Materialize an independent frame before adding the helper column.
+    # This is Copy-on-Write safe for pandas 3.x and avoids chained-assignment warnings.
+    x = df.loc[:, CANDLE_COLUMNS].copy(deep=True)
     x = (
-        df[CANDLE_COLUMNS]
-        .sort_values("open_time")
+        x.sort_values("open_time")
         .drop_duplicates("open_time", keep="last")
-        .copy()
+        .reset_index(drop=True)
     )
-    x["bucket"] = (x["open_time"] // target_ms) * target_ms
+    bucket = (x["open_time"].to_numpy(dtype="int64") // target_ms) * target_ms
+    x = x.assign(bucket=bucket)
 
     rows = []
     for bucket, g in x.groupby("bucket", sort=True):
