@@ -151,6 +151,33 @@ class Executor:
         }
 
     @staticmethod
+    def validate_order_payload(payload: dict) -> None:
+        side = str(payload.get("side", "")).upper()
+        if side not in {"BUY", "SELL"}:
+            raise ValueError(f"invalid side: {side!r}")
+
+        entry = float(payload.get("entry", 0))
+        tp = float(payload.get("tp", 0))
+        sl = float(payload.get("sl", 0))
+        amount = float(payload.get("usdt_amount", 0))
+        if not all(math.isfinite(v) and v > 0 for v in (entry, tp, sl, amount)):
+            raise ValueError("entry/tp/sl/usdt_amount must be finite and > 0")
+
+        if side == "BUY" and not (sl < entry < tp):
+            raise ValueError(
+                f"BUY price ordering invalid: sl={sl} entry={entry} tp={tp}"
+            )
+        if side == "SELL" and not (tp < entry < sl):
+            raise ValueError(
+                f"SELL price ordering invalid: tp={tp} entry={entry} sl={sl}"
+            )
+
+        if payload.get("order_type") != "MARKET":
+            raise ValueError("order_type must be MARKET")
+        if not payload.get("signal_id"):
+            raise ValueError("signal_id is empty")
+
+    @staticmethod
     def _response_ok(status_code: int, text: str) -> bool:
         if not (200 <= status_code < 300):
             return False
@@ -167,6 +194,22 @@ class Executor:
 
     def send_target(self, signal: Signal, target_name: str, url: str, usdt_amount: float) -> dict:
         payload = self.build_payload(signal, usdt_amount)
+        try:
+            self.validate_order_payload(payload)
+        except Exception as exc:
+            log.error(
+                "ORDER_PAYLOAD_REJECT target=%s signal_id=%s error=%s",
+                target_name, signal.event_id, exc,
+            )
+            return {
+                "target": target_name,
+                "ok": False,
+                "rejected": True,
+                "reason": "invalid_order_payload",
+                "error": str(exc),
+                "payload": payload,
+            }
+
         if self.settings.dry_run:
             log.warning("DRY_RUN %s: %s", target_name, json.dumps(payload, ensure_ascii=False))
             return {"target": target_name, "ok": True, "dry_run": True, "payload": payload}
