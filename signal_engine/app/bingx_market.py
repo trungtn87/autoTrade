@@ -139,8 +139,8 @@ class BingXMarketClient:
             raise ValueError(f"Unsupported BingX interval: {interval}")
         if not re.fullmatch(r"[A-Z0-9]+-[A-Z]+", symbol):
             raise ValueError(f"Invalid BingX symbol format: {symbol}")
-        if limit <= 0 or limit > 1440:
-            raise ValueError("BingX kline limit must be 1..1440")
+        if limit <= 0 or limit > 1000:
+            raise ValueError("BingX kline limit must be 1..1000")
 
         params = {"symbol": symbol, "interval": interval, "limit": int(limit)}
         if start_time is not None:
