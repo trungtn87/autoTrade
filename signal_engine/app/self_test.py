@@ -28,9 +28,10 @@ def _synthetic_15m(count: int = 2600) -> pd.DataFrame:
     """Deterministic closed 15m candles; never touches network."""
     start = 1_700_000_000_000
     step = 15 * 60_000
-    # Align to a 6H boundary so all derived timeframes form complete buckets.
-    six_h = 6 * 60 * 60_000
-    start = (start // six_h) * six_h
+    # Align to a 12H boundary, the LCM of 1H/4H/6H, so every derived
+    # timeframe starts on a complete UTC bucket.
+    twelve_h = 12 * 60 * 60_000
+    start = (start // twelve_h) * twelve_h
 
     rows = []
     prev_close = 30_000.0
