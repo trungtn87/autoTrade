@@ -52,6 +52,10 @@ class Settings:
     discord_webhook_btc: str = os.getenv("DISCORD_WEBHOOK_BTC", "")
     discord_webhook_eth: str = os.getenv("DISCORD_WEBHOOK_ETH", "")
     discord_webhook_default: str = os.getenv("DISCORD_WEBHOOK_DEFAULT", "")
+    discord_log_enabled: bool = _bool("DISCORD_LOG_ENABLED", True)
+    discord_log_webhook: str = os.getenv("DISCORD_LOG_WEBHOOK", "")
+    discord_log_level: str = os.getenv("DISCORD_LOG_LEVEL", "WARNING")
+    discord_startup_test: bool = _bool("DISCORD_STARTUP_TEST", True)
 
     adjust_tp_sl_bps: float = _float("ADJUST_TP_SL_BPS", 10.0)
     legacy_rounding: bool = _bool("LEGACY_ROUNDING", True)
@@ -118,6 +122,10 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         errors.append("CANDLE_KEEP_15M must be >= BOOTSTRAP_LIMIT_15M")
 
     valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+    if settings.discord_log_level.upper() not in valid_levels:
+        errors.append(
+            f"DISCORD_LOG_LEVEL must be one of {sorted(valid_levels)}, got {settings.discord_log_level!r}"
+        )
     if settings.log_level.upper() not in valid_levels:
         errors.append(
             f"LOG_LEVEL must be one of {sorted(valid_levels)}, got {settings.log_level!r}"
@@ -136,6 +144,7 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         ("DISCORD_WEBHOOK_BTC", settings.discord_webhook_btc),
         ("DISCORD_WEBHOOK_ETH", settings.discord_webhook_eth),
         ("DISCORD_WEBHOOK_DEFAULT", settings.discord_webhook_default),
+        ("DISCORD_LOG_WEBHOOK", settings.discord_log_webhook),
     ):
         if url and not _is_http_url(url):
             errors.append(f"{name} must start with http:// or https://")
@@ -148,6 +157,13 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         or settings.discord_webhook_default
     ):
         warnings.append("DISCORD_ENABLED=true but no Discord webhook is configured")
+    if settings.discord_log_enabled and not (
+        settings.discord_log_webhook
+        or settings.discord_webhook_default
+        or settings.discord_webhook_btc
+        or settings.discord_webhook_eth
+    ):
+        warnings.append("DISCORD_LOG_ENABLED=true but no Discord destination is configured")
     if settings.bootstrap_limit_15m < 2400:
         warnings.append(
             "15m bootstrap is shorter than 2400 candles; H4 EMA150 will not have a full 150 native H4-bar warmup initially"
@@ -198,8 +214,22 @@ def safe_config_snapshot(settings: Settings) -> dict:
             "btc_configured": bool(settings.discord_webhook_btc),
             "eth_configured": bool(settings.discord_webhook_eth),
             "default_configured": bool(settings.discord_webhook_default),
+            "log_enabled": settings.discord_log_enabled,
+            "log_level": settings.discord_log_level,
+            "log_webhook_configured": bool(settings.discord_log_webhook),
+            "startup_test": settings.discord_startup_test,
         },
         "state_db": settings.state_db,
         "log_level": settings.log_level,
         "manual_scan_enabled": bool(settings.scan_token),
     }
+
+
+def resolved_discord_log_webhook(settings: Settings) -> str:
+    """Choose one diagnostic Discord destination without exposing it."""
+    return (
+        settings.discord_log_webhook
+        or settings.discord_webhook_default
+        or settings.discord_webhook_btc
+        or settings.discord_webhook_eth
+    )
