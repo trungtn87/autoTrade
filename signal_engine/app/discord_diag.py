@@ -130,6 +130,10 @@ def send_discord_scan_summary(settings: Settings, result: dict) -> dict:
 
     symbols = result.get("symbols") or {}
     for symbol in settings.symbols:
+        if symbol not in symbols:
+            lines.append(f"{symbol}: SKIPPED - not scanned")
+            continue
+
         item = symbols.get(symbol) or {}
         if "error" in item:
             err = str(item.get("error", ""))
