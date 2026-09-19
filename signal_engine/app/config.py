@@ -47,6 +47,12 @@ class Settings:
     webhook_2: str = os.getenv("ORDER_WEBHOOK_2", "")
     webhook_2_usdt: float = _float("ORDER_WEBHOOK_2_USDT", 100.0)
 
+    discord_enabled: bool = _bool("DISCORD_ENABLED", True)
+    discord_on_dry_run: bool = _bool("DISCORD_ON_DRY_RUN", True)
+    discord_webhook_btc: str = os.getenv("DISCORD_WEBHOOK_BTC", "")
+    discord_webhook_eth: str = os.getenv("DISCORD_WEBHOOK_ETH", "")
+    discord_webhook_default: str = os.getenv("DISCORD_WEBHOOK_DEFAULT", "")
+
     adjust_tp_sl_bps: float = _float("ADJUST_TP_SL_BPS", 10.0)
     legacy_rounding: bool = _bool("LEGACY_ROUNDING", True)
 
