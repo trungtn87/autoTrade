@@ -86,38 +86,85 @@ class Executor:
             return "NEUTRAL"
         return "VETO"
 
-    def build_discord_message(self, signal: Signal) -> str:
-        entry, tp, sl = execution_prices(signal, self.settings)
+    def build_execution_discord_message(self, signal: Signal, result: dict) -> str:
+        """Build the trade-channel message from the actual BingX execution result."""
         icon = "🟢" if signal.side == "BUY" else "🔴"
-        mode = "🧪 DRY RUN" if self.settings.dry_run else "🚀 LIVE"
-        close_utc = datetime.fromtimestamp(
-            signal.close_time / 1000.0, tz=timezone.utc
-        ).strftime("%Y-%m-%d %H:%M:%S UTC")
+        avg_price = result.get("avg_price")
+        executed_qty = result.get("executed_qty")
+        tp = result.get("tp_actual", result.get("tp"))
+        sl = result.get("sl_actual", result.get("sl"))
+        trailing = result.get(
+            "trailing_activation_actual",
+            result.get("trailing_activation"),
+        )
+        order_id = result.get("order_id") or "N/A"
+
+        def mark(name: str) -> str:
+            value = result.get(name)
+            if value is True:
+                return "✅"
+            if value is False:
+                return "❌"
+            return "—"
+
+        if result.get("closed_for_invalid_fill"):
+            status = "⚠️ ENTRY FILLED → AUTO-CLOSED (fill outside TP/SL)"
+        elif result.get("ok"):
+            status = "✅ LIVE / PROTECTION PLACED"
+        else:
+            status = "⚠️ LIVE / PROTECTION INCOMPLETE"
+
         return (
             f"{icon} **{signal.symbol} | Combo {signal.combo} {signal.side}**\n"
-            f"TF: `{signal.timeframe}`\n"
-            f"Entry: `{entry}`\n"
-            f"🎯 TP: `{tp}`\n"
-            f"🛡️ SL: `{sl}`\n"
-            f"SMC: `{self._smc_text(signal.smc_dir, signal.side)}`\n"
-            f"Mode: **{mode}**\n"
-            f"Close: `{close_utc}`"
+            f"Status: **{status}**\n"
+            f"Entry (BingX avg): `{avg_price}`\n"
+            f"Qty filled: `{executed_qty}`\n"
+            f"🎯 TP: `{tp}` {mark('tp_ok')}\n"
+            f"🛡️ SL: `{sl}` {mark('sl_ok')}\n"
+            f"🔁 Trailing: `{trailing}` {mark('trailing_ok')}\n"
+            f"Order ID: `{order_id}`"
         )
 
-    def send_discord(self, signal: Signal) -> dict:
-        url = self.discord_url(signal.symbol)
-        target = f"discord:{signal.symbol}"
+    def build_execution_error_message(self, signal: Signal, result: dict) -> str:
+        """Compact operational error message; never includes API keys or signatures."""
+        stage = result.get("stage") or "unknown"
+        error = result.get("error") or result.get("reason") or "unknown error"
+        lines = [
+            "🚨 **BINGX EXECUTION ERROR**",
+            f"{signal.symbol} | Combo {signal.combo} {signal.side}",
+            f"Stage: `{stage}`",
+            f"Error: `{str(error)[:700]}`",
+        ]
+        if result.get("order_id"):
+            lines.append(f"Order ID: `{result.get('order_id')}`")
+        if result.get("avg_price"):
+            lines.append(f"Entry avg: `{result.get('avg_price')}`")
+        if result.get("executed_qty"):
+            lines.append(f"Qty: `{result.get('executed_qty')}`")
+        if result.get("sl_ok") is not None:
+            lines.append(
+                "Protection: "
+                f"SL={'OK' if result.get('sl_ok') else 'FAIL'} | "
+                f"TP={'OK' if result.get('tp_ok') else 'FAIL'} | "
+                f"Trailing={'OK' if result.get('trailing_ok') else 'FAIL'}"
+            )
+        if result.get("emergency_close_attempted"):
+            lines.append(
+                "Emergency close: "
+                + ("OK" if result.get("emergency_close_ok") else "FAILED")
+            )
+        return "\n".join(lines)[:1900]
+
+    def _post_discord(self, url: str, content: str, target: str) -> dict:
         if not url:
             return {"target": target, "ok": False, "skipped": True, "reason": "no_webhook"}
-        if not self.discord_allowed():
-            return {"target": target, "ok": False, "skipped": True, "reason": "disabled"}
 
-        payload = {"content": self.build_discord_message(signal)}
+        payload = {"content": content}
         for attempt in range(1, 4):
             try:
                 r = self.client.post(url, json=payload)
                 if r.status_code in (200, 204):
-                    log.info("Discord %s sent", signal.symbol)
+                    log.info("Discord target=%s sent", target)
                     return {"target": target, "ok": True, "status_code": r.status_code}
                 if r.status_code == 429:
                     wait = 2.0
@@ -129,14 +176,39 @@ class Executor:
                         pass
                     time.sleep(min(max(wait, 0.5), 10.0))
                     continue
-                log.warning("Discord %s failed status=%s body=%s", signal.symbol, r.status_code, r.text[:300])
+                log.warning(
+                    "Discord target=%s failed status=%s body=%s",
+                    target, r.status_code, r.text[:300],
+                )
                 time.sleep(1.0)
             except Exception as exc:
-                log.warning("Discord %s attempt %s failed: %s", signal.symbol, attempt, exc)
+                log.warning(
+                    "Discord target=%s attempt=%s failed: %s",
+                    target, attempt, exc,
+                )
                 time.sleep(1.0)
 
-        log.error("DISCORD_SIGNAL_SEND_FAILED symbol=%s", signal.symbol)
         return {"target": target, "ok": False, "error": "discord_send_failed"}
+
+    def send_execution_discord(self, signal: Signal, result: dict) -> dict:
+        target = f"discord:{signal.symbol}"
+        if not self.discord_allowed():
+            return {"target": target, "ok": False, "skipped": True, "reason": "disabled"}
+        return self._post_discord(
+            self.discord_url(signal.symbol),
+            self.build_execution_discord_message(signal, result),
+            target,
+        )
+
+    def send_execution_error_discord(self, signal: Signal, result: dict) -> dict:
+        target = "discord:error"
+        if not self.settings.discord_log_enabled:
+            return {"target": target, "ok": False, "skipped": True, "reason": "disabled"}
+        return self._post_discord(
+            self.settings.discord_webhook_error,
+            self.build_execution_error_message(signal, result),
+            target,
+        )
 
     def build_payload(self, signal: Signal, usdt_amount: float) -> dict:
         entry, tp, sl = execution_prices(signal, self.settings)
@@ -233,12 +305,22 @@ class Executor:
         else:
             raise ValueError(f"unsupported BingX method: {method}")
 
-        r.raise_for_status()
-        body = r.json()
-        code = body.get("code")
-        if code not in (None, 0, "0"):
+        try:
+            body = r.json()
+        except Exception:
+            body = {}
+
+        if not (200 <= r.status_code < 300):
+            snippet = (r.text or "")[:500].replace("\n", " ")
             raise RuntimeError(
-                f"BingX trade error {code}: {body.get('msg', '')} | endpoint={path}"
+                f"BingX HTTP {r.status_code} | endpoint={path} | body={snippet}"
+            )
+
+        code = body.get("code") if isinstance(body, dict) else None
+        if code not in (None, 0, "0"):
+            msg = body.get("msg", "") if isinstance(body, dict) else ""
+            raise RuntimeError(
+                f"BingX trade error {code}: {msg} | endpoint={path}"
             )
         return body
 
@@ -472,23 +554,63 @@ class Executor:
         if not order_id:
             raise RuntimeError("BingX entry order did not return orderId")
 
+        base_result = {
+            "processed": True,
+            "entry_accepted": True,
+            "entry_filled": False,
+            "order_id": str(order_id),
+            "tp": tp,
+            "sl": sl,
+            "entry_result": entry_result,
+            "tp_ok": None,
+            "sl_ok": None,
+            "trailing_ok": None,
+        }
+
         executed_qty = 0.0
         avg_price = 0.0
         status = ""
-        for _ in range(10):
-            detail = self._order_detail(signal.symbol, str(order_id))
-            order = self._extract_order(detail)
-            executed_qty = float(order.get("executedQty") or 0)
-            avg_price = float(order.get("avgPrice") or 0)
-            status = str(order.get("status") or "")
-            if executed_qty > 0 and avg_price > 0:
-                break
-            time.sleep(1.5)
+        try:
+            for _ in range(10):
+                detail = self._order_detail(signal.symbol, str(order_id))
+                order = self._extract_order(detail)
+                executed_qty = float(order.get("executedQty") or 0)
+                avg_price = float(order.get("avgPrice") or 0)
+                status = str(order.get("status") or "")
+                if executed_qty > 0 and avg_price > 0:
+                    break
+                time.sleep(1.5)
+        except Exception as exc:
+            return {
+                **base_result,
+                "ok": False,
+                "stage": "entry_fill_check",
+                "status": status,
+                "executed_qty": executed_qty,
+                "avg_price": avg_price,
+                "error": str(exc),
+            }
 
         if executed_qty <= 0 or avg_price <= 0:
-            raise RuntimeError(
-                f"entry not confirmed filled: status={status} executed_qty={executed_qty} avg_price={avg_price}"
-            )
+            return {
+                **base_result,
+                "ok": False,
+                "stage": "entry_fill_check",
+                "status": status,
+                "executed_qty": executed_qty,
+                "avg_price": avg_price,
+                "error": (
+                    "entry accepted but fill not confirmed "
+                    f"status={status} executed_qty={executed_qty} avg_price={avg_price}"
+                ),
+            }
+
+        base_result.update({
+            "entry_filled": True,
+            "avg_price": avg_price,
+            "executed_qty": executed_qty,
+            "status": status,
+        })
 
         valid = (
             (signal.side == "BUY" and sl < avg_price < tp)
@@ -496,86 +618,164 @@ class Executor:
         )
         if not valid:
             close_side = "SELL" if signal.side == "BUY" else "BUY"
-            close_result = self._place_order(
-                signal.symbol,
-                close_side,
-                executed_qty,
-                order_type="MARKET",
-                position_side="LONG" if signal.side == "BUY" else "SHORT",
-            )
+            try:
+                close_result = self._place_order(
+                    signal.symbol,
+                    close_side,
+                    executed_qty,
+                    order_type="MARKET",
+                    position_side="LONG" if signal.side == "BUY" else "SHORT",
+                )
+                close_ok = True
+                close_error = None
+            except Exception as exc:
+                close_result = None
+                close_ok = False
+                close_error = str(exc)
+
             return {
+                **base_result,
                 "ok": False,
-                "closed_for_invalid_fill": True,
-                "order_id": str(order_id),
-                "avg_price": avg_price,
-                "executed_qty": executed_qty,
+                "stage": "invalid_fill_emergency_close",
+                "closed_for_invalid_fill": close_ok,
+                "emergency_close_attempted": True,
+                "emergency_close_ok": close_ok,
                 "close_result": close_result,
                 "reason": "filled_price_outside_tp_sl",
+                "error": close_error or "filled price outside TP/SL; position auto-closed",
             }
 
         opposite = "SELL" if signal.side == "BUY" else "BUY"
         entry_position_side = "LONG" if signal.side == "BUY" else "SHORT"
-        # Preserve the previous live-account behavior:
-        # TP closes 50%, SL protects the full filled quantity.
-        tp_result = self._place_order(
-            signal.symbol,
-            opposite,
-            self._floor_precision(
-                executed_qty * 0.5, int(sizing["quantity_precision"])
-            ),
-            order_type="TAKE_PROFIT_MARKET",
-            stop_price=tp,
-            position_side=entry_position_side,
-        )
-        sl_result = self._place_order(
-            signal.symbol,
-            opposite,
-            self._floor_precision(
-                executed_qty, int(sizing["quantity_precision"])
-            ),
-            order_type="STOP_MARKET",
-            stop_price=sl,
-            position_side=entry_position_side,
-            close_position=True,
-        )
+        qty_precision = int(sizing["quantity_precision"])
+        full_qty = self._floor_precision(executed_qty, qty_precision)
+        half_qty = self._floor_precision(executed_qty * 0.5, qty_precision)
+
+        # Place the full-position SL first. If this mandatory protection fails,
+        # immediately try to flatten the position before creating any TP/trailing order.
+        try:
+            sl_result = self._place_order(
+                signal.symbol,
+                opposite,
+                full_qty,
+                order_type="STOP_MARKET",
+                stop_price=sl,
+                position_side=entry_position_side,
+                close_position=True,
+            )
+            sl_order = self._extract_order(sl_result)
+            sl_actual = float(sl_order.get("stopPrice") or sl)
+            base_result.update({
+                "sl_ok": True,
+                "sl_result": sl_result,
+                "sl_actual": sl_actual,
+            })
+        except Exception as exc:
+            emergency_close = None
+            emergency_close_ok = False
+            emergency_close_error = None
+            try:
+                emergency_close = self._place_order(
+                    signal.symbol,
+                    opposite,
+                    full_qty,
+                    order_type="MARKET",
+                    position_side=entry_position_side,
+                )
+                emergency_close_ok = True
+            except Exception as close_exc:
+                emergency_close_error = str(close_exc)
+
+            return {
+                **base_result,
+                "ok": False,
+                "stage": "stop_loss",
+                "sl_ok": False,
+                "error": str(exc),
+                "emergency_close_attempted": True,
+                "emergency_close_ok": emergency_close_ok,
+                "emergency_close_result": emergency_close,
+                "emergency_close_error": emergency_close_error,
+            }
+
+        protection_errors: list[str] = []
+
+        try:
+            tp_result = self._place_order(
+                signal.symbol,
+                opposite,
+                half_qty,
+                order_type="TAKE_PROFIT_MARKET",
+                stop_price=tp,
+                position_side=entry_position_side,
+            )
+            tp_order = self._extract_order(tp_result)
+            tp_actual = float(tp_order.get("stopPrice") or tp)
+            base_result.update({
+                "tp_ok": True,
+                "tp_result": tp_result,
+                "tp_actual": tp_actual,
+            })
+        except Exception as exc:
+            base_result["tp_ok"] = False
+            protection_errors.append(f"TP: {exc}")
 
         risk = abs(avg_price - sl)
         activation = round(
             avg_price + risk * 0.5 if signal.side == "BUY"
             else avg_price - risk * 0.5,
-            int(sizing["price_precision"]),
+            price_precision,
         )
-        trailing_result = self._place_order(
-            signal.symbol,
-            opposite,
-            self._floor_precision(
-                executed_qty * 0.5, int(sizing["quantity_precision"])
-            ),
-            order_type="TRAILING_STOP_MARKET",
-            activation_price=activation,
-            price_rate=0.005,
-            position_side=entry_position_side,
-        )
+        base_result["trailing_activation"] = activation
 
+        try:
+            trailing_result = self._place_order(
+                signal.symbol,
+                opposite,
+                half_qty,
+                order_type="TRAILING_STOP_MARKET",
+                activation_price=activation,
+                price_rate=0.005,
+                position_side=entry_position_side,
+            )
+            trailing_order = self._extract_order(trailing_result)
+            trailing_actual = float(
+                trailing_order.get("activationPrice")
+                or trailing_order.get("activatePrice")
+                or activation
+            )
+            base_result.update({
+                "trailing_ok": True,
+                "trailing_result": trailing_result,
+                "trailing_activation_actual": trailing_actual,
+            })
+        except Exception as exc:
+            base_result["trailing_ok"] = False
+            protection_errors.append(f"Trailing: {exc}")
+
+        all_ok = bool(
+            base_result.get("sl_ok")
+            and base_result.get("tp_ok")
+            and base_result.get("trailing_ok")
+        )
         return {
-            "ok": True,
-            "order_id": str(order_id),
-            "avg_price": avg_price,
-            "executed_qty": executed_qty,
-            "tp": tp,
-            "sl": sl,
-            "trailing_activation": activation,
-            "entry_result": entry_result,
-            "tp_result": tp_result,
-            "sl_result": sl_result,
-            "trailing_result": trailing_result,
+            **base_result,
+            "ok": all_ok,
+            "stage": "complete" if all_ok else "protection_partial",
+            "error": "; ".join(protection_errors) if protection_errors else None,
         }
 
     def send_target(self, signal: Signal, target_name: str, url: str, usdt_amount: float) -> dict:
         # usdt_amount is intentionally ignored. Live size is fixed by
         # BINGX_ORDER_MARGIN_USDT * BINGX_LEVERAGE.
         if self.settings.dry_run:
-            return {"target": target_name, "ok": False, "error": "dry_run_disabled_by_live_policy"}
+            return {
+                "target": target_name,
+                "ok": False,
+                "processed": False,
+                "stage": "policy",
+                "error": "dry_run_disabled_by_live_policy",
+            }
 
         try:
             result = self._execute_direct_bingx(signal)
@@ -584,23 +784,35 @@ class Executor:
                 signal, self.settings.order_margin_usdt * self.settings.leverage
             )
             log.info(
-                "BINGX_DIRECT_EXEC target=%s signal_id=%s ok=%s order_id=%s avg_price=%s qty=%s",
+                "BINGX_DIRECT_EXEC target=%s signal_id=%s ok=%s processed=%s order_id=%s avg_price=%s qty=%s stage=%s",
                 target_name,
                 signal.event_id,
                 result.get("ok"),
+                result.get("processed"),
                 result.get("order_id"),
                 result.get("avg_price"),
                 result.get("executed_qty"),
+                result.get("stage"),
             )
             return result
         except Exception as exc:
-            log.exception(
-                "BINGX_DIRECT_EXEC_FAILED target=%s signal_id=%s",
-                target_name, signal.event_id,
+            # Do not emit ERROR here: main sends one structured message to the
+            # dedicated error webhook, avoiding duplicate Discord alerts from
+            # the global ERROR log handler.
+            log.warning(
+                "BINGX_DIRECT_EXEC_FAILED target=%s signal_id=%s error=%s",
+                target_name, signal.event_id, exc,
+                exc_info=True,
             )
             return {
                 "target": target_name,
                 "ok": False,
+                "processed": False,
+                "entry_accepted": False,
+                "entry_filled": False,
+                "stage": "pre_entry",
                 "error": str(exc),
-                "payload": self.build_payload(signal, 1.0),
+                "payload": self.build_payload(
+                    signal, self.settings.order_margin_usdt * self.settings.leverage
+                ),
             }
