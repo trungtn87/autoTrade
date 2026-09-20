@@ -14,7 +14,7 @@ services:
       - key: SYMBOLS
         value: BTC-USDT,ETH-USDT
       - key: BINGX_ORDER_MARGIN_USDT
-        value: "0.2"
+        value: "1"
       - key: BINGX_LEVERAGE
         value: "100"
       - key: SMC_MODE
