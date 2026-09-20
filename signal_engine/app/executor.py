@@ -50,6 +50,7 @@ class Executor:
     def __init__(self, settings: Settings):
         self.settings = settings
         self.client = httpx.Client(timeout=20.0)
+        self._contract_cache: dict[str, dict] = {}
 
     def targets(self) -> list[tuple[str, str, float]]:
         """One live BingX account using the configured API credentials directly."""
@@ -199,25 +200,167 @@ class Executor:
 
     def _signed_trade_request(self, method: str, path: str, params: dict) -> dict:
         params = dict(params)
-        params["timestamp"] = str(int(time.time() * 1000))
+        params.setdefault("recvWindow", 5000)
+        params["timestamp"] = int(time.time() * 1000)
+
+        # BingX signs the raw ASCII-sorted k=v string before URL encoding.
         query = "&".join(f"{k}={params[k]}" for k in sorted(params))
         signature = hmac.new(
             self.settings.bingx_api_secret.encode("utf-8"),
             query.encode("utf-8"),
             hashlib.sha256,
         ).hexdigest()
-        headers = {"X-BX-APIKEY": self.settings.bingx_api_key}
-        url = f"{self.settings.bingx_base_url}{path}?{query}&signature={signature}"
-        if method.upper() == "POST":
-            r = self.client.post(url, headers=headers)
+
+        headers = {
+            "X-BX-APIKEY": self.settings.bingx_api_key,
+            "X-SOURCE-KEY": "BX-AI-SKILL",
+        }
+        base = f"{self.settings.bingx_base_url}{path}"
+        method = method.upper()
+
+        if method == "POST":
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+            r = self.client.post(
+                base,
+                headers=headers,
+                content=f"{query}&signature={signature}",
+            )
+        elif method == "GET":
+            r = self.client.get(
+                f"{base}?{query}&signature={signature}",
+                headers=headers,
+            )
         else:
-            r = self.client.get(url, headers=headers)
+            raise ValueError(f"unsupported BingX method: {method}")
+
         r.raise_for_status()
         body = r.json()
         code = body.get("code")
         if code not in (None, 0, "0"):
-            raise RuntimeError(f"BingX trade error {code}: {body.get('msg', '')}")
+            raise RuntimeError(
+                f"BingX trade error {code}: {body.get('msg', '')} | endpoint={path}"
+            )
         return body
+
+    @staticmethod
+    def _extract_order(payload: dict) -> dict:
+        """Support both legacy data.order and current direct data response shapes."""
+        data = payload.get("data") or {}
+        if isinstance(data, dict) and isinstance(data.get("order"), dict):
+            return data["order"]
+        return data if isinstance(data, dict) else {}
+
+    @staticmethod
+    def _floor_precision(value: float, precision: int) -> float:
+        factor = 10 ** max(0, int(precision))
+        return math.floor(value * factor + 1e-12) / factor
+
+    def _contract_rules(self, symbol: str) -> dict:
+        cached = self._contract_cache.get(symbol)
+        if cached:
+            return cached
+
+        body = self._signed_trade_request(
+            "GET",
+            "/openApi/swap/v2/quote/contracts",
+            {"symbol": symbol},
+        )
+        data = body.get("data") or []
+        if isinstance(data, dict):
+            data = data.get("contracts") or data.get("data") or [data]
+        if not isinstance(data, list):
+            data = [data]
+
+        item = next(
+            (
+                row for row in data
+                if isinstance(row, dict)
+                and str(row.get("symbol", "")).upper() == symbol.upper()
+            ),
+            None,
+        )
+        if not item:
+            raise RuntimeError(f"BingX contract info not found for {symbol}")
+
+        rules = {
+            "quantity_precision": int(item.get("quantityPrecision", 4)),
+            "price_precision": int(item.get("pricePrecision", 2)),
+            "min_qty": float(item.get("tradeMinQuantity") or 0),
+            "min_usdt": float(item.get("tradeMinUSDT") or 0),
+            "max_long_leverage": int(item.get("maxLongLeverage") or 0),
+            "max_short_leverage": int(item.get("maxShortLeverage") or 0),
+            "status": int(item.get("status", 1)),
+            "api_state_open": str(item.get("apiStateOpen", "true")).lower(),
+            "api_state_close": str(item.get("apiStateClose", "true")).lower(),
+        }
+        self._contract_cache[symbol] = rules
+        return rules
+
+    def _assert_hedge_mode(self) -> None:
+        body = self._signed_trade_request(
+            "GET", "/openApi/swap/v1/positionSide/dual", {}
+        )
+        data = body.get("data") or {}
+        raw = data.get("dualSidePosition") if isinstance(data, dict) else None
+        is_hedge = raw is True or str(raw).lower() == "true"
+        if not is_hedge:
+            raise RuntimeError(
+                "BingX position mode must be Hedge Mode because orders use positionSide LONG/SHORT"
+            )
+
+    def _prepare_fixed_size(self, symbol: str, side: str, entry: float) -> dict:
+        rules = self._contract_rules(symbol)
+
+        if rules["status"] != 1 or rules["api_state_open"] == "false":
+            raise RuntimeError(f"{symbol} is not open for API entries")
+
+        max_lev = (
+            rules["max_long_leverage"]
+            if side.upper() == "BUY"
+            else rules["max_short_leverage"]
+        )
+        if max_lev > 0 and self.settings.leverage > max_lev:
+            raise RuntimeError(
+                f"{symbol} max leverage is {max_lev}x, configured {self.settings.leverage}x"
+            )
+
+        notional = self.settings.order_margin_usdt * self.settings.leverage
+        raw_qty = notional / entry
+        qty = self._floor_precision(raw_qty, rules["quantity_precision"])
+        if qty <= 0:
+            raise ValueError("fixed sizing produced zero quantity")
+
+        actual_notional = qty * entry
+        if rules["min_qty"] > 0 and qty < rules["min_qty"]:
+            raise ValueError(
+                f"quantity {qty} is below BingX minimum {rules['min_qty']}"
+            )
+        if rules["min_usdt"] > 0 and actual_notional < rules["min_usdt"]:
+            raise ValueError(
+                f"notional {actual_notional:.8f} is below BingX minimum {rules['min_usdt']}"
+            )
+
+        half_qty = self._floor_precision(
+            qty * 0.5, rules["quantity_precision"]
+        )
+        if half_qty <= 0:
+            raise ValueError("half-position quantity is zero")
+        if rules["min_qty"] > 0 and half_qty < rules["min_qty"]:
+            raise ValueError(
+                f"50% exit quantity {half_qty} is below BingX minimum {rules['min_qty']}"
+            )
+        if rules["min_usdt"] > 0 and half_qty * entry < rules["min_usdt"]:
+            raise ValueError(
+                f"50% exit notional {half_qty * entry:.8f} is below BingX minimum {rules['min_usdt']}"
+            )
+
+        return {
+            **rules,
+            "target_notional": notional,
+            "actual_notional": actual_notional,
+            "qty": qty,
+            "half_qty": half_qty,
+        }
 
     def _place_order(
         self,
@@ -231,6 +374,8 @@ class Executor:
         price_rate: float | None = None,
         position_side: str | None = None,
         leverage: int | None = None,
+        close_position: bool = False,
+        client_order_id: str | None = None,
     ) -> dict:
         position_side = position_side or ("LONG" if side.upper() == "BUY" else "SHORT")
         params = {
@@ -241,6 +386,10 @@ class Executor:
             "quantity": f"{qty:.8f}".rstrip("0").rstrip("."),
         }
         # BingX leverage is configured through /trade/leverage, not the order payload.
+        if close_position:
+            params["closePosition"] = "true"
+        if client_order_id:
+            params["clientOrderId"] = client_order_id
         if price is not None:
             params["price"] = str(price)
         if stop_price is not None:
@@ -274,39 +423,52 @@ class Executor:
     def _execute_direct_bingx(self, signal: Signal) -> dict:
         entry, tp, sl = execution_prices(signal, self.settings)
 
-        # Fixed sizing: 1 USDT margin per order at configured leverage.
-        # TP/SL are strategy outputs and do not participate in volume sizing.
-        notional = self.settings.order_margin_usdt * self.settings.leverage
-        if notional <= 0:
-            raise ValueError("fixed order notional must be positive")
+        # Fixed sizing: 1 USDT margin per order at 100x.
+        # TP/SL are strategy outputs and never participate in volume sizing.
+        self._assert_hedge_mode()
+        sizing = self._prepare_fixed_size(signal.symbol, signal.side, entry)
+        qty = float(sizing["qty"])
+        notional = float(sizing["actual_notional"])
 
-        qty = round(notional / entry, 4)
-        if qty <= 0:
-            raise ValueError("calculated quantity is not positive")
+        price_precision = int(sizing["price_precision"])
+        tp = round(tp, price_precision)
+        sl = round(sl, price_precision)
 
         payload = self.build_payload(signal, notional)
+        payload["tp"] = tp
+        payload["sl"] = sl
         self.validate_order_payload(payload)
 
         log.info(
-            "FIXED_SIZE symbol=%s signal_id=%s margin_usdt=%.8f leverage=%s notional=%.8f qty=%s",
+            "FIXED_SIZE symbol=%s signal_id=%s margin_usdt=%.8f leverage=%s target_notional=%.8f actual_notional=%.8f qty=%s qty_precision=%s price_precision=%s",
             signal.symbol,
             signal.event_id,
             self.settings.order_margin_usdt,
             self.settings.leverage,
-            notional,
-            qty,
+            sizing["target_notional"],
+            sizing["actual_notional"],
+            sizing["qty"],
+            sizing["quantity_precision"],
+            sizing["price_precision"],
         )
 
         self._set_leverage(
             signal.symbol, signal.side, int(self.settings.leverage)
         )
+
+        # Deterministic ID protects against accidental duplicate MARKET entry.
+        client_order_id = "sig" + hashlib.sha256(
+            signal.event_id.encode("utf-8")
+        ).hexdigest()[:28]
+
         entry_result = self._place_order(
             signal.symbol,
             signal.side,
             qty,
+            client_order_id=client_order_id,
         )
-        order = ((entry_result.get("data") or {}).get("order") or {})
-        order_id = order.get("orderId")
+        order = self._extract_order(entry_result)
+        order_id = order.get("orderID") or order.get("orderId")
         if not order_id:
             raise RuntimeError("BingX entry order did not return orderId")
 
@@ -315,7 +477,7 @@ class Executor:
         status = ""
         for _ in range(10):
             detail = self._order_detail(signal.symbol, str(order_id))
-            order = ((detail.get("data") or {}).get("order") or {})
+            order = self._extract_order(detail)
             executed_qty = float(order.get("executedQty") or 0)
             avg_price = float(order.get("avgPrice") or 0)
             status = str(order.get("status") or "")
@@ -358,7 +520,9 @@ class Executor:
         tp_result = self._place_order(
             signal.symbol,
             opposite,
-            round(executed_qty * 0.5, 4),
+            self._floor_precision(
+                executed_qty * 0.5, int(sizing["quantity_precision"])
+            ),
             order_type="TAKE_PROFIT_MARKET",
             stop_price=tp,
             position_side=entry_position_side,
@@ -366,22 +530,27 @@ class Executor:
         sl_result = self._place_order(
             signal.symbol,
             opposite,
-            executed_qty,
+            self._floor_precision(
+                executed_qty, int(sizing["quantity_precision"])
+            ),
             order_type="STOP_MARKET",
             stop_price=sl,
             position_side=entry_position_side,
+            close_position=True,
         )
 
         risk = abs(avg_price - sl)
         activation = round(
             avg_price + risk * 0.5 if signal.side == "BUY"
             else avg_price - risk * 0.5,
-            2,
+            int(sizing["price_precision"]),
         )
         trailing_result = self._place_order(
             signal.symbol,
             opposite,
-            round(executed_qty * 0.5, 4),
+            self._floor_precision(
+                executed_qty * 0.5, int(sizing["quantity_precision"])
+            ),
             order_type="TRAILING_STOP_MARKET",
             activation_price=activation,
             price_rate=0.005,
