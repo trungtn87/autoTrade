@@ -18,6 +18,7 @@ from .strategy import (
     Signal,
     combo15_events,
     combo60_events,
+    combo_readiness,
     scan_latest,
     smc_direction,
 )
@@ -165,6 +166,53 @@ def run_self_test(settings: Settings) -> dict:
         }
 
     checks.append(_check("strategy_pipeline", strategy_check))
+
+    def readiness_check():
+        expected = {
+            1000: {
+                "ready": {2, 3, 5, 6, 8, 9},
+                "not_ready": {1, 4, 7, 10},
+            },
+            1600: {
+                "ready": {2, 3, 4, 5, 6, 7, 8, 9, 10},
+                "not_ready": {1},
+            },
+            2600: {
+                "ready": set(FIFTEEN_MIN_COMBOS | ONE_HOUR_COMBOS),
+                "not_ready": set(),
+            },
+        }
+        details = {}
+        for count, want in expected.items():
+            sample = _synthetic_15m(count)
+            s1 = aggregate_15m(sample, 60)
+            s4 = aggregate_15m(sample, 240)
+            s6 = aggregate_15m(sample, 360)
+            status = combo_readiness(
+                sample, s1, s4, s6,
+                smc_swing_len=settings.smc_swing_len,
+            )
+            ready = {combo for combo, item in status.items() if item["ready"]}
+            not_ready = set(status) - ready
+            assert ready == want["ready"], (
+                f"{count} 15m ready mismatch: got={sorted(ready)} "
+                f"expected={sorted(want['ready'])}"
+            )
+            assert not_ready == want["not_ready"], (
+                f"{count} 15m not_ready mismatch: got={sorted(not_ready)} "
+                f"expected={sorted(want['not_ready'])}"
+            )
+            details[str(count)] = {
+                "15m": len(sample),
+                "1h": len(s1),
+                "4h": len(s4),
+                "6h": len(s6),
+                "ready": sorted(ready),
+                "skipped": sorted(not_ready),
+            }
+        return details
+
+    checks.append(_check("combo_readiness", readiness_check))
 
     def smc_check():
         smc15 = smc_direction(
