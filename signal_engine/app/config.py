@@ -156,8 +156,8 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
             errors.append(f"{name} must start with http:// or https://")
 
     if not settings.dry_run and not (settings.webhook_1 or settings.webhook_2):
-        errors.append(
-            "DRY_RUN=false requires at least one ORDER_WEBHOOK_1/ORDER_WEBHOOK_2"
+        warnings.append(
+            "DRY_RUN=false but no order webhook is configured; market/data/signal processing will run, order execution is disabled"
         )
     if not settings.dry_run and not settings.database_url:
         errors.append(
@@ -211,6 +211,7 @@ def safe_config_snapshot(settings: Settings) -> dict:
         "adjust_tp_sl_bps": settings.adjust_tp_sl_bps,
         "legacy_rounding": settings.legacy_rounding,
         "dry_run": settings.dry_run,
+        "execution_ready": (not settings.dry_run) and bool(settings.webhook_1 or settings.webhook_2),
         "order_targets": {
             "account_1": {
                 "configured": bool(settings.webhook_1),
