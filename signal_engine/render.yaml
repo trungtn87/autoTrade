@@ -10,7 +10,7 @@ services:
       - key: DRY_RUN
         value: "false"
       - key: AUTO_SCHEDULER
-        value: "false"
+        value: "true"
       - key: SYMBOLS
         value: BTC-USDT,ETH-USDT
       - key: BINGX_ORDER_MARGIN_USDT
