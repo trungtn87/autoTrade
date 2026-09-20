@@ -13,8 +13,10 @@ services:
         value: "true"
       - key: SYMBOLS
         value: BTC-USDT,ETH-USDT
-      - key: BINGX_ORDER_USDT
-        value: "700"
+      - key: BINGX_VOLUME_PERCENT
+        value: "1"
+      - key: BINGX_RISK_PERCENT
+        value: "10"
       - key: BINGX_LEVERAGE
         value: "100"
       - key: SMC_MODE
