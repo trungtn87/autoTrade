@@ -213,8 +213,8 @@ def run_self_test(settings: Settings) -> dict:
 
     def payload_check():
         ex = Executor(settings)
-        bp = ex.build_payload(buy, 700.0)
-        sp = ex.build_payload(sell, 100.0)
+        bp = ex.build_payload(buy, settings.order_usdt)
+        sp = ex.build_payload(sell, settings.order_usdt)
 
         assert bp["side"] == "BUY"
         assert sp["side"] == "SELL"
@@ -222,8 +222,8 @@ def run_self_test(settings: Settings) -> dict:
         assert sp["combo"] == "Combo 4"
         assert bp["order_type"] == "MARKET"
         assert sp["order_type"] == "MARKET"
-        assert bp["usdt_amount"] == 700.0
-        assert sp["usdt_amount"] == 100.0
+        assert bp["usdt_amount"] == settings.order_usdt
+        assert sp["usdt_amount"] == settings.order_usdt
         assert bp["signal_id"] == buy.event_id
         assert sp["signal_id"] == sell.event_id
 
