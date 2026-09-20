@@ -17,6 +17,60 @@ ONE_HOUR_COMBOS = {1, 2, 3, 4, 6}
 FIFTEEN_MIN_COMBOS = {5, 7, 8, 9, 10}
 
 
+def combo_readiness(
+    m15: pd.DataFrame,
+    h1: pd.DataFrame,
+    h4: pd.DataFrame,
+    h6: pd.DataFrame,
+    smc_swing_len: int = 50,
+) -> dict[int, dict]:
+    """Return per-combo readiness without changing combo signal logic.
+
+    A combo is eligible only when every timeframe it depends on has enough
+    fully closed bars for its longest indicator input, and its execution
+    timeframe has enough bars for the configured SMC swing gate.
+    """
+    available = {
+        "15m": len(m15),
+        "1h": len(h1),
+        "4h": len(h4),
+        "6h": len(h6),
+    }
+    smc15 = int(smc_swing_len) + 1
+    smc1h = int(smc_swing_len) + 1
+
+    requirements: dict[int, dict[str, int]] = {
+        # 15m combos
+        5: {"15m": max(200, smc15), "4h": 50},
+        7: {"15m": smc15, "4h": 100},
+        8: {"15m": smc15, "4h": 50},
+        9: {"15m": max(200, smc15)},
+        10: {"15m": smc15, "4h": 100},
+        # 1h combos
+        1: {"1h": max(27, smc1h), "4h": 150},
+        2: {"1h": max(27, smc1h)},
+        3: {"1h": max(27, smc1h)},
+        4: {"1h": max(42, smc1h), "6h": 50},
+        6: {"1h": max(27, smc1h)},
+    }
+
+    out: dict[int, dict] = {}
+    for combo, required in requirements.items():
+        missing = {
+            tf: {"required": need, "available": available[tf]}
+            for tf, need in required.items()
+            if available[tf] < need
+        }
+        out[combo] = {
+            "ready": not missing,
+            "timeframe": "15m" if combo in FIFTEEN_MIN_COMBOS else "1h",
+            "requirements": required,
+            "available": {tf: available[tf] for tf in required},
+            "missing": missing,
+        }
+    return out
+
+
 def strategy_static_snapshot() -> dict:
     """Compact non-secret profile for startup diagnostics."""
     return {
@@ -437,6 +491,7 @@ def _make_signal(symbol: str, combo: int, direction: int, timeframe: str, row: p
 
 def scan_latest(symbol: str, m15: pd.DataFrame, h1: pd.DataFrame, h4: pd.DataFrame, h6: pd.DataFrame, smc_mode: str = "Veto Only", smc_swing_len: int = 50, smc_confluence: bool = False, sl_pct: float = 0.009, tp_pct: float = 0.011, include_1h: bool = True) -> list[Signal]:
     signals: list[Signal] = []
+    readiness = combo_readiness(m15, h1, h4, h6, smc_swing_len)
 
     ev15 = combo15_events(m15, h4)
     smc15 = smc_direction(m15, smc_swing_len, smc_confluence)
@@ -444,6 +499,8 @@ def scan_latest(symbol: str, m15: pd.DataFrame, h1: pd.DataFrame, h4: pd.DataFra
     if len(m15):
         i = len(m15) - 1
         for combo in sorted(FIFTEEN_MIN_COMBOS):
+            if not readiness[combo]["ready"]:
+                continue
             long_e, short_e = ev15[combo]
             direction = 1 if bool(long_e.iloc[i]) else -1 if bool(short_e.iloc[i]) else 0
             if direction and _smc_approved(smc_mode, int(smc15.iloc[i]), direction):
@@ -455,6 +512,8 @@ def scan_latest(symbol: str, m15: pd.DataFrame, h1: pd.DataFrame, h4: pd.DataFra
         atr21_60 = atr(h1, 21)
         i = len(h1) - 1
         for combo in sorted(ONE_HOUR_COMBOS):
+            if not readiness[combo]["ready"]:
+                continue
             long_e, short_e = ev60[combo]
             direction = 1 if bool(long_e.iloc[i]) else -1 if bool(short_e.iloc[i]) else 0
             if direction and _smc_approved(smc_mode, int(smc60.iloc[i]), direction):
