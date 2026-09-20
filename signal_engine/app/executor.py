@@ -224,8 +224,9 @@ class Executor:
         stop_price: float | None = None,
         activation_price: float | None = None,
         price_rate: float | None = None,
+        position_side: str | None = None,
     ) -> dict:
-        position_side = "LONG" if side.upper() == "BUY" else "SHORT"
+        position_side = position_side or ("LONG" if side.upper() == "BUY" else "SHORT")
         params = {
             "symbol": symbol,
             "side": side.upper(),
@@ -293,7 +294,11 @@ class Executor:
         if not valid:
             close_side = "SELL" if signal.side == "BUY" else "BUY"
             close_result = self._place_order(
-                signal.symbol, close_side, executed_qty, order_type="MARKET"
+                signal.symbol,
+                close_side,
+                executed_qty,
+                order_type="MARKET",
+                position_side="LONG" if signal.side == "BUY" else "SHORT",
             )
             return {
                 "ok": False,
@@ -306,6 +311,7 @@ class Executor:
             }
 
         opposite = "SELL" if signal.side == "BUY" else "BUY"
+        entry_position_side = "LONG" if signal.side == "BUY" else "SHORT"
         # Preserve the previous live-account behavior:
         # TP closes 50%, SL protects the full filled quantity.
         tp_result = self._place_order(
@@ -314,6 +320,7 @@ class Executor:
             round(executed_qty * 0.5, 4),
             order_type="TAKE_PROFIT_MARKET",
             stop_price=tp,
+            position_side=entry_position_side,
         )
         sl_result = self._place_order(
             signal.symbol,
@@ -321,6 +328,7 @@ class Executor:
             executed_qty,
             order_type="STOP_MARKET",
             stop_price=sl,
+            position_side=entry_position_side,
         )
 
         risk = abs(avg_price - sl)
@@ -336,6 +344,7 @@ class Executor:
             order_type="TRAILING_STOP_MARKET",
             activation_price=activation,
             price_rate=0.005,
+            position_side=entry_position_side,
         )
 
         return {
