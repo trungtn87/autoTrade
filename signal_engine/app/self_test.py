@@ -77,6 +77,90 @@ def _check(name: str, fn) -> dict:
         }
 
 
+def run_startup_self_test(settings: Settings, state=None) -> dict:
+    """Fast startup checks only; no network calls, no order calls, no large strategy scan."""
+    checks: list[dict] = []
+
+    def aggregation_light():
+        sample = _synthetic_15m(96)
+        h1 = aggregate_15m(sample, 60)
+        h4 = aggregate_15m(sample, 240)
+        h6 = aggregate_15m(sample, 360)
+        assert len(h1) == 24
+        assert len(h4) == 6
+        assert len(h6) == 4
+        return {"15m": 96, "1h": len(h1), "4h": len(h4), "6h": len(h6)}
+
+    checks.append(_check("aggregation_light", aggregation_light))
+
+    def readiness_light():
+        # combo_readiness only needs frame lengths, so do not create/aggregate
+        # thousands of synthetic candles during service startup.
+        cases = {
+            "1000": {
+                "lengths": (1000, 250, 62, 41),
+                "ready": {2, 3, 5, 6, 8, 9},
+            },
+            "1600": {
+                "lengths": (1600, 400, 100, 66),
+                "ready": {2, 3, 4, 5, 6, 7, 8, 9, 10},
+            },
+            "2600": {
+                "lengths": (2600, 650, 162, 108),
+                "ready": set(FIFTEEN_MIN_COMBOS | ONE_HOUR_COMBOS),
+            },
+        }
+        details = {}
+        for label, case in cases.items():
+            n15, n1, n4, n6 = case["lengths"]
+            frames = [
+                pd.DataFrame(index=range(n15)),
+                pd.DataFrame(index=range(n1)),
+                pd.DataFrame(index=range(n4)),
+                pd.DataFrame(index=range(n6)),
+            ]
+            status = combo_readiness(
+                *frames,
+                smc_swing_len=settings.smc_swing_len,
+            )
+            ready = {combo for combo, item in status.items() if item["ready"]}
+            assert ready == case["ready"], (
+                f"{label} readiness mismatch: got={sorted(ready)} "
+                f"expected={sorted(case['ready'])}"
+            )
+            details[label] = {
+                "ready": sorted(ready),
+                "skipped": sorted(set(status) - ready),
+            }
+        return details
+
+    checks.append(_check("combo_readiness_light", readiness_light))
+
+    if state is not None:
+        def state_read_light():
+            counts = {
+                symbol: state.candle_count(symbol, "15m")
+                for symbol in settings.symbols
+            }
+            return {
+                "backend": state.backend,
+                "persistent": state.backend == "postgres",
+                "cached_15m": counts,
+            }
+
+        checks.append(_check("state_read_light", state_read_light))
+
+    ok = all(item["ok"] for item in checks)
+    return {
+        "ok": ok,
+        "offline": True,
+        "mode": "startup_light",
+        "network_calls": 0,
+        "order_calls": 0,
+        "checks": checks,
+    }
+
+
 def run_self_test(settings: Settings) -> dict:
     """Offline validation of processing after market-data acquisition.
 
@@ -184,7 +268,7 @@ def run_self_test(settings: Settings) -> dict:
         }
         details = {}
         for count, want in expected.items():
-            sample = _synthetic_15m(count)
+            sample = m15.iloc[:count].copy()
             s1 = aggregate_15m(sample, 60)
             s4 = aggregate_15m(sample, 240)
             s6 = aggregate_15m(sample, 360)
