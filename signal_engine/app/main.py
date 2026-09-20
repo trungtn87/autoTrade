@@ -40,6 +40,7 @@ executor = Executor(settings)
 scan_lock = threading.Lock()
 scheduler: BackgroundScheduler | None = None
 last_scan_summary: dict = {"status": "not_run"}
+MANUAL_ORDER_TEST_MODE = True
 
 
 INTERVAL_15M_MS = 15 * 60_000
@@ -661,7 +662,7 @@ async def lifespan(app: FastAPI):
             discord_test.get("body"),
         )
 
-    if settings.auto_scheduler:
+    if settings.auto_scheduler and not MANUAL_ORDER_TEST_MODE:
         scheduler = BackgroundScheduler(timezone="UTC")
         scheduler.add_job(
             scheduled_scan,
@@ -674,7 +675,7 @@ async def lifespan(app: FastAPI):
         scheduler.start()
         log.info("Scheduler enabled at minutes 00/15/30/45 + %ss UTC", settings.scheduler_second)
     else:
-        log.info("Scheduler disabled; call POST /scan externally")
+        log.info("Scheduler disabled; manual_order_test_mode=%s", MANUAL_ORDER_TEST_MODE)
     yield
     if scheduler:
         scheduler.shutdown(wait=False)
@@ -690,7 +691,8 @@ def health():
         "dry_run": settings.dry_run,
         "symbols": settings.symbols,
         "smc_mode": settings.smc_mode,
-        "scheduler": settings.auto_scheduler,
+        "scheduler": bool(settings.auto_scheduler and not MANUAL_ORDER_TEST_MODE),
+        "manual_order_test_mode": MANUAL_ORDER_TEST_MODE,
         "market_mode": "15m_only_incremental",
         "state_backend": state.backend,
         "execution_ready": state.backend == "postgres" and bool(executor.targets()),
@@ -789,10 +791,10 @@ def manual_test_preflight(
     symbol = symbol.upper().strip()
     side = side.upper().strip()
 
-    if settings.auto_scheduler:
+    if settings.auto_scheduler and not MANUAL_ORDER_TEST_MODE:
         raise HTTPException(
             status_code=409,
-            detail="manual live test requires AUTO_SCHEDULER=false",
+            detail="manual live test requires scheduler disabled",
         )
     if symbol not in {"BTC-USDT", "ETH-USDT"}:
         raise HTTPException(status_code=400, detail="test symbol must be BTC-USDT or ETH-USDT")
@@ -843,10 +845,10 @@ def manual_order_test(
     symbol = symbol.upper().strip()
     side = side.upper().strip()
 
-    if settings.auto_scheduler:
+    if settings.auto_scheduler and not MANUAL_ORDER_TEST_MODE:
         raise HTTPException(
             status_code=409,
-            detail="manual live test requires AUTO_SCHEDULER=false",
+            detail="manual live test requires scheduler disabled",
         )
     if symbol not in {"BTC-USDT", "ETH-USDT"}:
         raise HTTPException(status_code=400, detail="test symbol must be BTC-USDT or ETH-USDT")
