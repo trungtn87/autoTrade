@@ -563,52 +563,57 @@ class Executor:
             {"symbol": symbol},
         )
 
-    def emergency_close_long(self, symbol: str) -> dict:
-        """Close the current LONG with the same reverse-MARKET pattern used after SL failure."""
+    def emergency_close_position(self, symbol: str, position_side: str) -> dict:
+        """Cancel open protection orders, market-close one hedge leg, and verify it is flat."""
         symbol = symbol.upper()
+        position_side = position_side.upper()
+        if position_side not in {"LONG", "SHORT"}:
+            raise ValueError(f"invalid position_side: {position_side}")
+
         before = self._positions(symbol)
-        long_pos = next(
+        pos = next(
             (
                 p for p in before
-                if str(p.get("positionSide", "")).upper() == "LONG"
-                and float(p.get("positionAmt") or 0) > 0
+                if str(p.get("positionSide", "")).upper() == position_side
+                and abs(float(p.get("positionAmt") or 0)) > 0
             ),
             None,
         )
-        if not long_pos:
+        if not pos:
             return {
                 "ok": True,
-                "stage": "no_long_position",
+                "stage": "no_position",
                 "symbol": symbol,
+                "position_side": position_side,
                 "positions_before": before,
-                "remaining_long_qty": 0.0,
+                "remaining_qty": 0.0,
             }
 
         rules = self._contract_rules(symbol)
         qty_precision = int(rules["quantity_precision"])
-        available = float(long_pos.get("availableAmt") or 0)
-        position_amt = float(long_pos.get("positionAmt") or 0)
+        available = abs(float(pos.get("availableAmt") or 0))
+        position_amt = abs(float(pos.get("positionAmt") or 0))
         qty = self._floor_precision(
             available if available > 0 else position_amt,
             qty_precision,
         )
         if qty <= 0:
             raise RuntimeError(
-                f"{symbol} LONG exists but closeable quantity is zero "
+                f"{symbol} {position_side} exists but closeable quantity is zero "
                 f"(positionAmt={position_amt}, availableAmt={available})"
             )
 
         cancel_result = self._cancel_all_open_orders(symbol)
-
+        close_side = "SELL" if position_side == "LONG" else "BUY"
         client_order_id = "emg" + hashlib.sha256(
-            f"{symbol}|LONG|{long_pos.get('positionId')}|{qty}".encode("utf-8")
+            f"{symbol}|{position_side}|{pos.get('positionId')}|{qty}".encode("utf-8")
         ).hexdigest()[:28]
         close_result = self._place_order(
             symbol,
-            "SELL",
+            close_side,
             qty,
             order_type="MARKET",
-            position_side="LONG",
+            position_side=position_side,
             client_order_id=client_order_id,
         )
         close_order = self._extract_order(close_result)
@@ -621,9 +626,9 @@ class Executor:
         time.sleep(0.8)
         after = self._positions(symbol)
         remaining = sum(
-            float(p.get("positionAmt") or 0)
+            abs(float(p.get("positionAmt") or 0))
             for p in after
-            if str(p.get("positionSide", "")).upper() == "LONG"
+            if str(p.get("positionSide", "")).upper() == position_side
         )
         remaining = self._floor_precision(remaining, qty_precision)
 
@@ -631,15 +636,21 @@ class Executor:
             "ok": remaining <= 0,
             "stage": "emergency_close_verified" if remaining <= 0 else "emergency_close_incomplete",
             "symbol": symbol,
-            "position_id": long_pos.get("positionId"),
+            "position_side": position_side,
+            "position_id": pos.get("positionId"),
             "requested_close_qty": qty,
             "cancel_open_orders_result": cancel_result,
             "close_result": close_result,
             "close_order": confirmed_close,
             "positions_before": before,
             "positions_after": after,
-            "remaining_long_qty": remaining,
+            "remaining_qty": remaining,
+            "remaining_long_qty": remaining if position_side == "LONG" else None,
+            "remaining_short_qty": remaining if position_side == "SHORT" else None,
         }
+
+    def emergency_close_long(self, symbol: str) -> dict:
+        return self.emergency_close_position(symbol, "LONG")
 
     def _set_leverage(self, symbol: str, side: str, leverage: int) -> dict:
         return self._signed_trade_request(
@@ -891,14 +902,16 @@ class Executor:
             emergency_close_ok = False
             emergency_close_error = None
             try:
-                emergency_close = self._place_order(
+                emergency_close = self.emergency_close_position(
                     signal.symbol,
-                    opposite,
-                    full_qty,
-                    order_type="MARKET",
-                    position_side=entry_position_side,
+                    entry_position_side,
                 )
-                emergency_close_ok = True
+                emergency_close_ok = bool(emergency_close.get("ok"))
+                if not emergency_close_ok:
+                    emergency_close_error = (
+                        f"remaining position after emergency close: "
+                        f"{emergency_close.get('remaining_qty')}"
+                    )
             except Exception as close_exc:
                 emergency_close_error = str(close_exc)
 
