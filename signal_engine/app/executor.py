@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import logging
 import math
@@ -50,12 +52,10 @@ class Executor:
         self.client = httpx.Client(timeout=20.0)
 
     def targets(self) -> list[tuple[str, str, float]]:
-        out = []
-        if self.settings.webhook_1:
-            out.append(("account_1", self.settings.webhook_1, self.settings.webhook_1_usdt))
-        if self.settings.webhook_2:
-            out.append(("account_2", self.settings.webhook_2, self.settings.webhook_2_usdt))
-        return out
+        """One live BingX account using the configured API credentials directly."""
+        if not (self.settings.bingx_api_key and self.settings.bingx_api_secret):
+            return []
+        return [("bingx_account", "direct://bingx", self.settings.order_usdt)]
 
     def discord_url(self, symbol: str) -> str:
         symbol = symbol.upper()
@@ -192,6 +192,166 @@ class Executor:
                 return body.get("code") in {0, "0"}
         return True
 
+    def _signed_trade_request(self, method: str, path: str, params: dict) -> dict:
+        params = dict(params)
+        params["timestamp"] = str(int(time.time() * 1000))
+        query = "&".join(f"{k}={params[k]}" for k in sorted(params))
+        signature = hmac.new(
+            self.settings.bingx_api_secret.encode("utf-8"),
+            query.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+        headers = {"X-BX-APIKEY": self.settings.bingx_api_key}
+        url = f"{self.settings.bingx_base_url}{path}?{query}&signature={signature}"
+        if method.upper() == "POST":
+            r = self.client.post(url, headers=headers)
+        else:
+            r = self.client.get(url, headers=headers)
+        r.raise_for_status()
+        body = r.json()
+        code = body.get("code")
+        if code not in (None, 0, "0"):
+            raise RuntimeError(f"BingX trade error {code}: {body.get('msg', '')}")
+        return body
+
+    def _place_order(
+        self,
+        symbol: str,
+        side: str,
+        qty: float,
+        order_type: str = "MARKET",
+        price: float | None = None,
+        stop_price: float | None = None,
+        activation_price: float | None = None,
+        price_rate: float | None = None,
+    ) -> dict:
+        position_side = "LONG" if side.upper() == "BUY" else "SHORT"
+        params = {
+            "symbol": symbol,
+            "side": side.upper(),
+            "positionSide": position_side,
+            "type": order_type.upper(),
+            "quantity": f"{qty:.8f}".rstrip("0").rstrip("."),
+        }
+        if order_type.upper() == "MARKET":
+            params["leverage"] = str(self.settings.leverage)
+        if price is not None:
+            params["price"] = str(price)
+        if stop_price is not None:
+            params["stopPrice"] = str(stop_price)
+        if activation_price is not None:
+            params["activationPrice"] = str(activation_price)
+        if price_rate is not None:
+            params["priceRate"] = str(price_rate)
+        return self._signed_trade_request(
+            "POST", "/openApi/swap/v2/trade/order", params
+        )
+
+    def _order_detail(self, symbol: str, order_id: str) -> dict:
+        return self._signed_trade_request(
+            "GET",
+            "/openApi/swap/v2/trade/order",
+            {"symbol": symbol, "orderId": order_id},
+        )
+
+    def _execute_direct_bingx(self, signal: Signal, usdt_amount: float) -> dict:
+        entry, tp, sl = execution_prices(signal, self.settings)
+        self.validate_order_payload(self.build_payload(signal, usdt_amount))
+
+        qty = round(usdt_amount / entry, 4)
+        if qty <= 0:
+            raise ValueError("calculated quantity is not positive")
+
+        entry_result = self._place_order(signal.symbol, signal.side, qty)
+        order = ((entry_result.get("data") or {}).get("order") or {})
+        order_id = order.get("orderId")
+        if not order_id:
+            raise RuntimeError("BingX entry order did not return orderId")
+
+        executed_qty = 0.0
+        avg_price = 0.0
+        status = ""
+        for _ in range(10):
+            detail = self._order_detail(signal.symbol, str(order_id))
+            order = ((detail.get("data") or {}).get("order") or {})
+            executed_qty = float(order.get("executedQty") or 0)
+            avg_price = float(order.get("avgPrice") or 0)
+            status = str(order.get("status") or "")
+            if executed_qty > 0 and avg_price > 0:
+                break
+            time.sleep(1.5)
+
+        if executed_qty <= 0 or avg_price <= 0:
+            raise RuntimeError(
+                f"entry not confirmed filled: status={status} executed_qty={executed_qty} avg_price={avg_price}"
+            )
+
+        valid = (
+            (signal.side == "BUY" and sl < avg_price < tp)
+            or (signal.side == "SELL" and tp < avg_price < sl)
+        )
+        if not valid:
+            close_side = "SELL" if signal.side == "BUY" else "BUY"
+            close_result = self._place_order(
+                signal.symbol, close_side, executed_qty, order_type="MARKET"
+            )
+            return {
+                "ok": False,
+                "closed_for_invalid_fill": True,
+                "order_id": str(order_id),
+                "avg_price": avg_price,
+                "executed_qty": executed_qty,
+                "close_result": close_result,
+                "reason": "filled_price_outside_tp_sl",
+            }
+
+        opposite = "SELL" if signal.side == "BUY" else "BUY"
+        # Preserve the previous live-account behavior:
+        # TP closes 50%, SL protects the full filled quantity.
+        tp_result = self._place_order(
+            signal.symbol,
+            opposite,
+            round(executed_qty * 0.5, 4),
+            order_type="TAKE_PROFIT_MARKET",
+            stop_price=tp,
+        )
+        sl_result = self._place_order(
+            signal.symbol,
+            opposite,
+            executed_qty,
+            order_type="STOP_MARKET",
+            stop_price=sl,
+        )
+
+        risk = abs(avg_price - sl)
+        activation = round(
+            avg_price + risk * 0.5 if signal.side == "BUY"
+            else avg_price - risk * 0.5,
+            2,
+        )
+        trailing_result = self._place_order(
+            signal.symbol,
+            opposite,
+            round(executed_qty * 0.5, 4),
+            order_type="TRAILING_STOP_MARKET",
+            activation_price=activation,
+            price_rate=0.005,
+        )
+
+        return {
+            "ok": True,
+            "order_id": str(order_id),
+            "avg_price": avg_price,
+            "executed_qty": executed_qty,
+            "tp": tp,
+            "sl": sl,
+            "trailing_activation": activation,
+            "entry_result": entry_result,
+            "tp_result": tp_result,
+            "sl_result": sl_result,
+            "trailing_result": trailing_result,
+        }
+
     def send_target(self, signal: Signal, target_name: str, url: str, usdt_amount: float) -> dict:
         payload = self.build_payload(signal, usdt_amount)
         try:
@@ -215,17 +375,27 @@ class Executor:
             return {"target": target_name, "ok": True, "dry_run": True, "payload": payload}
 
         try:
-            r = self.client.post(url, json=payload)
-            ok = self._response_ok(r.status_code, r.text)
-            result = {
-                "target": target_name,
-                "status_code": r.status_code,
-                "ok": ok,
-                "body": r.text[:1000],
-                "payload": payload,
-            }
-            log.info("Webhook %s -> %s ok=%s body=%s", target_name, r.status_code, ok, r.text[:300])
+            result = self._execute_direct_bingx(signal, usdt_amount)
+            result["target"] = target_name
+            result["payload"] = payload
+            log.info(
+                "BINGX_DIRECT_EXEC target=%s signal_id=%s ok=%s order_id=%s avg_price=%s qty=%s",
+                target_name,
+                signal.event_id,
+                result.get("ok"),
+                result.get("order_id"),
+                result.get("avg_price"),
+                result.get("executed_qty"),
+            )
             return result
         except Exception as exc:
-            log.exception("Webhook %s failed", target_name)
-            return {"target": target_name, "ok": False, "error": str(exc), "payload": payload}
+            log.exception(
+                "BINGX_DIRECT_EXEC_FAILED target=%s signal_id=%s",
+                target_name, signal.event_id,
+            )
+            return {
+                "target": target_name,
+                "ok": False,
+                "error": str(exc),
+                "payload": payload,
+            }
