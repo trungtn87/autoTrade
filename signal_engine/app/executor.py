@@ -242,6 +242,30 @@ class Executor:
             target,
         )
 
+    def send_emergency_close_discord(self, symbol: str, result: dict) -> dict:
+        target = f"discord:close:{symbol}"
+        if not self.discord_allowed():
+            return {"target": target, "ok": False, "skipped": True, "reason": "disabled"}
+
+        close_order = result.get("close_order") or {}
+        raw = json.dumps(result, ensure_ascii=False, separators=(",", ":"))
+        status_text = "✅ CLOSED" if result.get("ok") else "❌ INCOMPLETE"
+        close_order_id = close_order.get("orderId") or close_order.get("orderID") or "N/A"
+        content = (
+            f"🧯 **EMERGENCY CLOSE TEST | {symbol} LONG**\n"
+            f"Status: **{status_text}**\n"
+            f"Stage: `{result.get('stage')}`\n"
+            f"Requested qty: `{result.get('requested_close_qty')}`\n"
+            f"Remaining LONG: `{result.get('remaining_long_qty')}`\n"
+            f"Close order ID: `{close_order_id}`\n"
+            f"```json\n{raw[:1350]}\n```"
+        )
+        return self._post_discord(
+            self.discord_url(symbol),
+            content[:1950],
+            target,
+        )
+
     def build_payload(self, signal: Signal, usdt_amount: float) -> dict:
         entry, tp, sl = execution_prices(signal, self.settings)
         return {
