@@ -210,6 +210,38 @@ class Executor:
             target,
         )
 
+    def send_execution_raw_discord(self, signal: Signal, result: dict) -> dict:
+        """Send compact raw BingX execution responses without secrets/signatures."""
+        target = f"discord:raw:{signal.symbol}"
+        if not self.discord_allowed():
+            return {"target": target, "ok": False, "skipped": True, "reason": "disabled"}
+
+        raw = {
+            "entry_result": result.get("entry_result"),
+            "sl_result": result.get("sl_result"),
+            "tp_result": result.get("tp_result"),
+            "trailing_result": result.get("trailing_result"),
+            "stage": result.get("stage"),
+            "ok": result.get("ok"),
+            "order_id": result.get("order_id"),
+            "avg_price": result.get("avg_price"),
+            "executed_qty": result.get("executed_qty"),
+            "sl_ok": result.get("sl_ok"),
+            "tp_ok": result.get("tp_ok"),
+            "trailing_ok": result.get("trailing_ok"),
+            "error": result.get("error"),
+        }
+        compact = json.dumps(raw, ensure_ascii=False, separators=(",", ":"))
+        content = (
+            f"📡 **BINGX RAW RESPONSE | {signal.symbol} {signal.side}**\n"
+            f"```json\n{compact[:1750]}\n```"
+        )
+        return self._post_discord(
+            self.discord_url(signal.symbol),
+            content,
+            target,
+        )
+
     def build_payload(self, signal: Signal, usdt_amount: float) -> dict:
         entry, tp, sl = execution_prices(signal, self.settings)
         return {
