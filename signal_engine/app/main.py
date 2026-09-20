@@ -41,10 +41,14 @@ scan_lock = threading.Lock()
 scheduler: BackgroundScheduler | None = None
 last_scan_summary: dict = {"status": "not_run"}
 MANUAL_ORDER_TEST_MODE = True
-ONE_SHOT_BTC_BUY_TEST = True
+ONE_SHOT_BTC_BUY_TEST = False
 ONE_SHOT_BTC_BUY_STATE_KEY = "one_shot_btc_buy_1usdt_x100_v1"
-ONE_SHOT_ETH_BUY_TEST = True
+ONE_SHOT_ETH_BUY_TEST = False
 ONE_SHOT_ETH_BUY_STATE_KEY = "one_shot_eth_buy_1usdt_x100_v1"
+ONE_SHOT_BTC_CLOSE_TEST = True
+ONE_SHOT_BTC_CLOSE_STATE_KEY = "one_shot_btc_close_long_v1"
+ONE_SHOT_ETH_CLOSE_TEST = True
+ONE_SHOT_ETH_CLOSE_STATE_KEY = "one_shot_eth_close_long_v1"
 
 
 INTERVAL_15M_MS = 15 * 60_000
@@ -814,6 +818,55 @@ def _run_one_shot_eth_buy_test() -> None:
             log.exception("ONE_SHOT_ETH_DISCORD_ERROR_FAILED")
 
 
+def _run_one_shot_close_test(symbol: str, state_key: str) -> None:
+    """Cancel protection orders, close LONG by market, then verify LONG=0."""
+    if state.backend != "postgres":
+        log.error("ONE_SHOT_CLOSE_SKIPPED symbol=%s reason=postgres_required", symbol)
+        return
+
+    existing = state.get_runtime_value(state_key, "")
+    if existing:
+        log.warning("ONE_SHOT_CLOSE_SKIPPED symbol=%s reason=already_attempted state=%s", symbol, existing[:500])
+        return
+
+    state.set_runtime_value(
+        state_key,
+        json.dumps({"status": "armed", "symbol": symbol, "armed_at": int(time.time() * 1000)}),
+    )
+
+    try:
+        log.warning("ONE_SHOT_CLOSE_START symbol=%s", symbol)
+        result = executor.emergency_close_long(symbol)
+        discord_result = executor.send_emergency_close_discord(symbol, result)
+        persisted = {
+            "status": "done",
+            "finished_at": int(time.time() * 1000),
+            "result": result,
+            "discord": discord_result,
+        }
+        state.set_runtime_value(state_key, json.dumps(persisted, ensure_ascii=False))
+        log.warning(
+            "ONE_SHOT_CLOSE_DONE symbol=%s ok=%s stage=%s requested_qty=%s remaining_long=%s",
+            symbol, result.get("ok"), result.get("stage"),
+            result.get("requested_close_qty"), result.get("remaining_long_qty"),
+        )
+    except Exception as exc:
+        failed = {
+            "status": "failed",
+            "finished_at": int(time.time() * 1000),
+            "error": str(exc),
+        }
+        state.set_runtime_value(state_key, json.dumps(failed, ensure_ascii=False))
+        log.exception("ONE_SHOT_CLOSE_FAILED symbol=%s error=%s", symbol, exc)
+        try:
+            executor._post_discord(
+                executor.discord_url(symbol),
+                f"🚨 **EMERGENCY CLOSE TEST FAILED | {symbol}**\nError: `{str(exc)[:1200]}`",
+                f"discord:close:{symbol}",
+            )
+        except Exception:
+            log.exception("ONE_SHOT_CLOSE_DISCORD_FAILED symbol=%s", symbol)
+
 def scheduled_scan():
     log.info(
         "SCHEDULE_TICK dry_run=%s symbols=%s market_mode=15m_only_incremental",
@@ -927,6 +980,24 @@ async def lifespan(app: FastAPI):
         ).start()
         log.warning("ONE_SHOT_ETH_TEST_THREAD_STARTED symbol=ETH-USDT side=BUY margin_usdt=1.0 leverage=100")
 
+    if ONE_SHOT_BTC_CLOSE_TEST:
+        threading.Thread(
+            target=_run_one_shot_close_test,
+            args=("BTC-USDT", ONE_SHOT_BTC_CLOSE_STATE_KEY),
+            name="one-shot-btc-close-test",
+            daemon=True,
+        ).start()
+        log.warning("ONE_SHOT_CLOSE_THREAD_STARTED symbol=BTC-USDT")
+
+    if ONE_SHOT_ETH_CLOSE_TEST:
+        threading.Thread(
+            target=_run_one_shot_close_test,
+            args=("ETH-USDT", ONE_SHOT_ETH_CLOSE_STATE_KEY),
+            name="one-shot-eth-close-test",
+            daemon=True,
+        ).start()
+        log.warning("ONE_SHOT_CLOSE_THREAD_STARTED symbol=ETH-USDT")
+
     if settings.auto_scheduler and not MANUAL_ORDER_TEST_MODE:
         scheduler = BackgroundScheduler(timezone="UTC")
         scheduler.add_job(
@@ -962,6 +1033,10 @@ def health():
         "one_shot_btc_buy_state": state.get_runtime_value(ONE_SHOT_BTC_BUY_STATE_KEY, ""),
         "one_shot_eth_buy_test": ONE_SHOT_ETH_BUY_TEST,
         "one_shot_eth_buy_state": state.get_runtime_value(ONE_SHOT_ETH_BUY_STATE_KEY, ""),
+        "one_shot_btc_close_test": ONE_SHOT_BTC_CLOSE_TEST,
+        "one_shot_btc_close_state": state.get_runtime_value(ONE_SHOT_BTC_CLOSE_STATE_KEY, ""),
+        "one_shot_eth_close_test": ONE_SHOT_ETH_CLOSE_TEST,
+        "one_shot_eth_close_state": state.get_runtime_value(ONE_SHOT_ETH_CLOSE_STATE_KEY, ""),
         "market_mode": "15m_only_incremental",
         "state_backend": state.backend,
         "execution_ready": state.backend == "postgres" and bool(executor.targets()),
