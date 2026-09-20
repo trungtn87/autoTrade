@@ -43,6 +43,15 @@ last_scan_summary: dict = {"status": "not_run"}
 
 
 INTERVAL_15M_MS = 15 * 60_000
+BINGX_COOLDOWN_STATE_KEY = "bingx_market_blocked_until_ms"
+
+
+def _effective_bingx_blocked_until_ms() -> int:
+    try:
+        persisted = int(state.get_runtime_value(BINGX_COOLDOWN_STATE_KEY, "0") or 0)
+    except Exception:
+        persisted = 0
+    return max(int(market.blocked_until_ms), persisted)
 
 
 def _fetch_15m_range(
@@ -285,7 +294,7 @@ def run_scan(execute: bool = True) -> dict:
         "started_at": started,
     }
     try:
-        cooldown_until = market.blocked_until_ms
+        cooldown_until = _effective_bingx_blocked_until_ms()
         now_ms = int(time.time() * 1000)
         if cooldown_until > now_ms:
             remaining_sec = int((cooldown_until - now_ms + 999) / 1000)
@@ -301,6 +310,9 @@ def run_scan(execute: bool = True) -> dict:
                 cooldown_until, remaining_sec,
             )
             return summary
+
+        if cooldown_until:
+            state.set_runtime_value(BINGX_COOLDOWN_STATE_KEY, "0")
 
         for symbol in settings.symbols:
             symbol_started = time.monotonic()
@@ -531,8 +543,16 @@ def run_scan(execute: bool = True) -> dict:
                 summary["status"] = "partial_error"
                 summary["symbols"][symbol] = {"error": str(exc)}
                 if isinstance(exc, BingXApiError):
-                    if exc.retry_at_ms:
-                        summary["retry_at_ms"] = int(exc.retry_at_ms)
+                    blocked_until = max(
+                        int(exc.retry_at_ms or 0),
+                        int(market.blocked_until_ms),
+                    )
+                    if blocked_until > int(time.time() * 1000):
+                        state.set_runtime_value(
+                            BINGX_COOLDOWN_STATE_KEY,
+                            str(blocked_until),
+                        )
+                        summary["retry_at_ms"] = blocked_until
                     if str(exc.code) in {"109415", "109425", "109429"}:
                         summary["stopped_early"] = True
                         summary["stop_reason"] = f"BingX {exc.code}; stopped to avoid further invalid requests"
@@ -677,8 +697,10 @@ def health():
         "execution_mode": "direct_bingx_single_account_fixed_margin",
         "order_target_count": len(executor.targets()),
         "live_limit_15m": settings.live_limit_15m,
-        "bingx_blocked_until_ms": market.blocked_until_ms,
-        "bingx_cooldown_remaining_ms": market.cooldown_remaining_ms(),
+        "bingx_blocked_until_ms": _effective_bingx_blocked_until_ms(),
+        "bingx_cooldown_remaining_ms": max(
+            0, _effective_bingx_blocked_until_ms() - int(time.time() * 1000)
+        ),
     }
 
 

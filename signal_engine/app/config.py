@@ -69,7 +69,7 @@ class Settings:
     scan_token: str = os.getenv("SCAN_TOKEN", "")
 
     bootstrap_limit_15m: int = _int("BOOTSTRAP_LIMIT_15M", 2600)
-    live_limit_15m: int = _int("LIVE_LIMIT_15M", 2)
+    live_limit_15m: int = _int("LIVE_LIMIT_15M", 8)
     recovery_limit_15m: int = _int("RECOVERY_LIMIT_15M", 8)
     candle_keep_15m: int = _int("CANDLE_KEEP_15M", 12000)
 

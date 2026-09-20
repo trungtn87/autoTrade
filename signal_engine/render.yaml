@@ -21,7 +21,7 @@ services:
         value: Veto Only
 
       - key: LIVE_LIMIT_15M
-        value: "2"
+        value: "8"
       - key: BOOTSTRAP_LIMIT_15M
         value: "2600"
       - key: RECOVERY_LIMIT_15M
