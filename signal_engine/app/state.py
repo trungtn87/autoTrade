@@ -176,6 +176,20 @@ class SignalState:
             row = cur.fetchone()
         return int(row[0]) if row else 0
 
+    def earliest_open_time(self, symbol: str, timeframe: str) -> int | None:
+        with self._lock, self._connect() as con:
+            cur = con.cursor()
+            cur.execute(
+                self._sql(
+                    "SELECT MIN(open_time) FROM candles WHERE symbol = ? AND timeframe = ?"
+                ),
+                (symbol, timeframe),
+            )
+            row = cur.fetchone()
+        if not row or row[0] is None:
+            return None
+        return int(row[0])
+
     def latest_open_time(self, symbol: str, timeframe: str) -> int | None:
         with self._lock, self._connect() as con:
             cur = con.cursor()
