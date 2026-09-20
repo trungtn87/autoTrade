@@ -44,7 +44,7 @@ MANUAL_ORDER_TEST_MODE = True
 ONE_SHOT_BTC_BUY_TEST = False
 ONE_SHOT_BTC_BUY_STATE_KEY = "one_shot_btc_buy_0_1usdt_x100_v1"
 ONE_SHOT_ETH_BUY_TEST = True
-ONE_SHOT_ETH_BUY_STATE_KEY = "one_shot_eth_buy_0_1usdt_x100_v1"
+ONE_SHOT_ETH_BUY_STATE_KEY = "one_shot_eth_buy_0_2usdt_x100_v1"
 
 
 INTERVAL_15M_MS = 15 * 60_000
@@ -594,7 +594,7 @@ def _run_one_shot_btc_buy_test() -> None:
 
     symbol = "BTC-USDT"
     side = "BUY"
-    test_settings = replace(settings, order_margin_usdt=0.1, leverage=100)
+    test_settings = replace(settings, order_margin_usdt=0.2, leverage=100)
     test_executor = Executor(test_settings)
 
     try:
@@ -627,7 +627,7 @@ def _run_one_shot_btc_buy_test() -> None:
         )
 
         log.warning(
-            "ONE_SHOT_LIVE_TEST_START symbol=%s side=%s margin_usdt=0.1 leverage=100 ref_entry=%s",
+            "ONE_SHOT_LIVE_TEST_START symbol=%s side=%s margin_usdt=0.2 leverage=100 ref_entry=%s",
             symbol, side, entry,
         )
         result = test_executor._execute_direct_bingx(signal)
@@ -635,7 +635,7 @@ def _run_one_shot_btc_buy_test() -> None:
         result["one_shot"] = True
         result["symbol"] = symbol
         result["side"] = side
-        result["forced_margin_usdt"] = 0.1
+        result["forced_margin_usdt"] = 0.2
         result["forced_leverage"] = 100
 
         # Always post the trade-channel summary so the user sees BingX state.
@@ -696,7 +696,7 @@ def _run_one_shot_btc_buy_test() -> None:
 
 
 def _run_one_shot_eth_buy_test() -> None:
-    """Place one ETH BUY live test at exactly 0.1 USDT margin x100."""
+    """Place one ETH BUY live test at exactly 0.2 USDT margin x100."""
     if not ONE_SHOT_ETH_BUY_TEST:
         return
     if state.backend != "postgres":
@@ -749,7 +749,7 @@ def _run_one_shot_eth_buy_test() -> None:
         )
 
         log.warning(
-            "ONE_SHOT_ETH_LIVE_TEST_START symbol=%s side=%s margin_usdt=0.1 leverage=100 ref_entry=%s",
+            "ONE_SHOT_ETH_LIVE_TEST_START symbol=%s side=%s margin_usdt=0.2 leverage=100 ref_entry=%s",
             symbol, side, entry,
         )
         result = test_executor._execute_direct_bingx(signal)
@@ -917,7 +917,7 @@ async def lifespan(app: FastAPI):
             name="one-shot-btc-buy-test",
             daemon=True,
         ).start()
-        log.warning("ONE_SHOT_TEST_THREAD_STARTED symbol=BTC-USDT side=BUY margin_usdt=0.1 leverage=100")
+        log.warning("ONE_SHOT_TEST_THREAD_STARTED symbol=BTC-USDT side=BUY margin_usdt=0.2 leverage=100")
 
     if ONE_SHOT_ETH_BUY_TEST:
         threading.Thread(
@@ -925,7 +925,7 @@ async def lifespan(app: FastAPI):
             name="one-shot-eth-buy-test",
             daemon=True,
         ).start()
-        log.warning("ONE_SHOT_ETH_TEST_THREAD_STARTED symbol=ETH-USDT side=BUY margin_usdt=0.1 leverage=100")
+        log.warning("ONE_SHOT_ETH_TEST_THREAD_STARTED symbol=ETH-USDT side=BUY margin_usdt=0.2 leverage=100")
 
     if settings.auto_scheduler and not MANUAL_ORDER_TEST_MODE:
         scheduler = BackgroundScheduler(timezone="UTC")
