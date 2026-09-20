@@ -44,9 +44,11 @@ class Settings:
     auto_scheduler: bool = _bool("AUTO_SCHEDULER", True)
     scheduler_second: int = _int("SCHEDULER_SECOND", 8)
 
-    # Single-account direct BingX execution. The same API credentials are
-    # used for market data and live order placement.
-    order_usdt: float = _float("BINGX_ORDER_USDT", 700.0)
+    # Single-account direct BingX execution with dynamic sizing.
+    # volume_pct = max margin budget as % of current account capital.
+    # risk_pct = max loss-at-SL budget as % of that volume budget.
+    volume_pct: float = _float("BINGX_VOLUME_PERCENT", 1.0) / 100.0
+    risk_pct: float = _float("BINGX_RISK_PERCENT", 10.0) / 100.0
     leverage: int = _int("BINGX_LEVERAGE", 100)
 
     discord_enabled: bool = _bool("DISCORD_ENABLED", True)
@@ -150,8 +152,10 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         if url and not _is_http_url(url):
             errors.append(f"{name} must start with http:// or https://")
 
-    if settings.order_usdt <= 0:
-        errors.append("BINGX_ORDER_USDT must be > 0")
+    if not (0 < settings.volume_pct <= 1):
+        errors.append("BINGX_VOLUME_PERCENT must be > 0 and <= 100")
+    if not (0 < settings.risk_pct <= 1):
+        errors.append("BINGX_RISK_PERCENT must be > 0 and <= 100")
     if not (1 <= settings.leverage <= 125):
         errors.append("BINGX_LEVERAGE must be between 1 and 125")
     if not settings.database_url:
@@ -208,9 +212,11 @@ def safe_config_snapshot(settings: Settings) -> dict:
         "dry_run": settings.dry_run,
         "execution_ready": bool(settings.bingx_api_key and settings.bingx_api_secret and settings.database_url),
         "order_execution": {
-            "mode": "direct_bingx_single_account",
+            "mode": "direct_bingx_single_account_dynamic_sizing",
             "configured": bool(settings.bingx_api_key and settings.bingx_api_secret),
-            "usdt_amount": settings.order_usdt,
+            "volume_percent": settings.volume_pct * 100.0,
+            "risk_percent_of_volume": settings.risk_pct * 100.0,
+            "effective_account_risk_percent": settings.volume_pct * settings.risk_pct * 100.0,
             "leverage": settings.leverage,
         },
         "discord": {
