@@ -55,12 +55,21 @@ def validate_15m_candles(df: pd.DataFrame, now_ms: int) -> dict:
     diffs = open_time.diff().dropna()
     bad_diffs = diffs[diffs != INTERVAL_15M_MS]
     if len(bad_diffs):
-        first_idx = int(bad_diffs.index[0])
+        first_label = bad_diffs.index[0]
+        row_pos = int(open_time.index.get_loc(first_label))
+        previous_open = int(open_time.iloc[row_pos - 1])
+        next_open = int(open_time.iloc[row_pos])
+        gap_ms = next_open - previous_open
+        missing_intervals = max(0, gap_ms // INTERVAL_15M_MS - 1)
         raise DataValidationError(
             "15m cache contains a candle gap",
             {
-                "gap_at_row": first_idx,
-                "gap_ms": int(bad_diffs.iloc[0]),
+                "gap_at_row": row_pos,
+                "previous_open": previous_open,
+                "expected_next_open": previous_open + INTERVAL_15M_MS,
+                "next_open": next_open,
+                "gap_ms": int(gap_ms),
+                "missing_intervals": int(missing_intervals),
             },
         )
 
