@@ -402,6 +402,8 @@ def health():
         "scheduler": settings.auto_scheduler,
         "market_mode": "15m_only_incremental",
         "state_backend": state.backend,
+        "execution_ready": (not settings.dry_run) and bool(executor.targets()),
+        "order_target_count": len(executor.targets()),
         "live_limit_15m": settings.live_limit_15m,
     }
 
