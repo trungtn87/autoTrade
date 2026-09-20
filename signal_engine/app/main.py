@@ -236,6 +236,26 @@ def run_scan(execute: bool = True) -> dict:
 
                     targets = executor.targets()
                     results = []
+
+                    # Engine stays LIVE, but unsafe execution conditions block
+                    # only the order leg rather than stopping the service.
+                    execution_block_reason = None
+                    if state.backend != "postgres":
+                        execution_block_reason = "persistent_postgres_unavailable"
+                    elif not targets:
+                        execution_block_reason = "no_order_webhook_configured"
+
+                    if execution_block_reason:
+                        log.error(
+                            "ORDER_EXECUTION_BLOCKED symbol=%s event_id=%s reason=%s",
+                            sig.symbol, sig.event_id, execution_block_reason,
+                        )
+                        item["execution"] = []
+                        item["action"] = "execution_blocked"
+                        item["execution_block_reason"] = execution_block_reason
+                        symbol_result["signals"].append(item)
+                        continue
+
                     for target_name, url, amount in targets:
                         state_target = f"{target_name}:{'dryrun' if settings.dry_run else 'live'}"
                         if state.seen(sig.event_id, state_target):
@@ -306,6 +326,20 @@ def scheduled_scan():
 async def lifespan(app: FastAPI):
     global scheduler
 
+    # Install ERROR-only Discord forwarding before validation so startup
+    # configuration/runtime errors are visible without killing the service.
+    discord_log = install_discord_log_handler(settings)
+    if discord_log.get("ok"):
+        log.info(
+            "DISCORD_LOG_FORWARD installed=%s level=%s reason=%s",
+            discord_log.get("installed"), discord_log.get("level"), discord_log.get("reason"),
+        )
+    else:
+        log.error(
+            "DISCORD_LOG_FORWARD installed=false reason=%s",
+            discord_log.get("reason"),
+        )
+
     errors, warnings = validate_settings(settings)
     log.info("STARTUP_CONFIG %s", json.dumps(safe_config_snapshot(settings), ensure_ascii=False))
     log.info("STRATEGY_PROFILE %s", json.dumps(strategy_static_snapshot(), ensure_ascii=False))
@@ -316,9 +350,12 @@ async def lifespan(app: FastAPI):
     if errors:
         for error in errors:
             log.error("CONFIG_ERROR %s", error)
-        raise RuntimeError("Invalid startup configuration; see CONFIG_ERROR lines above")
-
-    log.info("CONFIG_VALIDATION ok=true warnings=%s", len(warnings))
+        log.error(
+            "CONFIG_VALIDATION ok=false errors=%s warnings=%s service_continues=true",
+            len(errors), len(warnings),
+        )
+    else:
+        log.info("CONFIG_VALIDATION ok=true warnings=%s", len(warnings))
     log.info(
         "STATE_BACKEND backend=%s persistent=%s",
         state.backend,
@@ -337,8 +374,12 @@ async def lifespan(app: FastAPI):
             item.get("error"),
         )
     if not self_test_result.get("ok"):
-        raise RuntimeError("Offline self-test failed; see SELF_TEST lines above")
-    log.info("SELF_TEST_SUMMARY ok=true checks=%s network_calls=0 order_calls=0", len(self_test_result.get("checks", [])))
+        log.error(
+            "SELF_TEST_SUMMARY ok=false checks=%s service_continues=true order_execution_guarded=true",
+            len(self_test_result.get("checks", [])),
+        )
+    else:
+        log.info("SELF_TEST_SUMMARY ok=true checks=%s network_calls=0 order_calls=0", len(self_test_result.get("checks", [])))
 
     discord_test = send_discord_startup_test(settings)
     if discord_test.get("ok"):
@@ -354,21 +395,6 @@ async def lifespan(app: FastAPI):
             discord_test.get("status_code"),
             discord_test.get("body"),
         )
-
-    if settings.discord_log_enabled:
-        discord_log = install_discord_log_handler(settings)
-        if discord_log.get("ok"):
-            log.info(
-                "DISCORD_LOG_FORWARD installed=%s level=%s reason=%s",
-                discord_log.get("installed"), discord_log.get("level"), discord_log.get("reason"),
-            )
-        else:
-            log.warning(
-                "DISCORD_LOG_FORWARD installed=false reason=%s",
-                discord_log.get("reason"),
-            )
-    else:
-        log.info("DISCORD_LOG_FORWARD installed=false reason=disabled")
 
     if settings.auto_scheduler:
         scheduler = BackgroundScheduler(timezone="UTC")
@@ -402,7 +428,7 @@ def health():
         "scheduler": settings.auto_scheduler,
         "market_mode": "15m_only_incremental",
         "state_backend": state.backend,
-        "execution_ready": (not settings.dry_run) and bool(executor.targets()),
+        "execution_ready": state.backend == "postgres" and bool(executor.targets()),
         "order_target_count": len(executor.targets()),
         "live_limit_15m": settings.live_limit_15m,
     }
