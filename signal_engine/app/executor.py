@@ -334,6 +334,11 @@ class Executor:
                 f"{base}?{query}&signature={signature}",
                 headers=headers,
             )
+        elif method == "DELETE":
+            r = self.client.delete(
+                f"{base}?{query}&signature={signature}",
+                headers=headers,
+            )
         else:
             raise ValueError(f"unsupported BingX method: {method}")
 
@@ -515,6 +520,102 @@ class Executor:
         return self._signed_trade_request(
             "POST", "/openApi/swap/v2/trade/order", params
         )
+
+    def _positions(self, symbol: str) -> list[dict]:
+        body = self._signed_trade_request(
+            "GET",
+            "/openApi/swap/v2/user/positions",
+            {"symbol": symbol},
+        )
+        data = body.get("data") or []
+        if isinstance(data, dict):
+            data = data.get("positions") or data.get("data") or [data]
+        return [x for x in data if isinstance(x, dict)]
+
+    def _cancel_all_open_orders(self, symbol: str) -> dict:
+        return self._signed_trade_request(
+            "DELETE",
+            "/openApi/swap/v2/trade/allOpenOrders",
+            {"symbol": symbol},
+        )
+
+    def emergency_close_long(self, symbol: str) -> dict:
+        """Close the current LONG with the same reverse-MARKET pattern used after SL failure."""
+        symbol = symbol.upper()
+        before = self._positions(symbol)
+        long_pos = next(
+            (
+                p for p in before
+                if str(p.get("positionSide", "")).upper() == "LONG"
+                and float(p.get("positionAmt") or 0) > 0
+            ),
+            None,
+        )
+        if not long_pos:
+            return {
+                "ok": True,
+                "stage": "no_long_position",
+                "symbol": symbol,
+                "positions_before": before,
+                "remaining_long_qty": 0.0,
+            }
+
+        rules = self._contract_rules(symbol)
+        qty_precision = int(rules["quantity_precision"])
+        available = float(long_pos.get("availableAmt") or 0)
+        position_amt = float(long_pos.get("positionAmt") or 0)
+        qty = self._floor_precision(
+            available if available > 0 else position_amt,
+            qty_precision,
+        )
+        if qty <= 0:
+            raise RuntimeError(
+                f"{symbol} LONG exists but closeable quantity is zero "
+                f"(positionAmt={position_amt}, availableAmt={available})"
+            )
+
+        cancel_result = self._cancel_all_open_orders(symbol)
+
+        client_order_id = "emg" + hashlib.sha256(
+            f"{symbol}|LONG|{long_pos.get('positionId')}|{qty}".encode("utf-8")
+        ).hexdigest()[:28]
+        close_result = self._place_order(
+            symbol,
+            "SELL",
+            qty,
+            order_type="MARKET",
+            position_side="LONG",
+            client_order_id=client_order_id,
+        )
+        close_order = self._extract_order(close_result)
+        close_order_id = close_order.get("orderID") or close_order.get("orderId")
+        confirmed_close = (
+            self._confirmed_order(symbol, close_result)
+            if close_order_id else close_order
+        )
+
+        time.sleep(0.8)
+        after = self._positions(symbol)
+        remaining = sum(
+            float(p.get("positionAmt") or 0)
+            for p in after
+            if str(p.get("positionSide", "")).upper() == "LONG"
+        )
+        remaining = self._floor_precision(remaining, qty_precision)
+
+        return {
+            "ok": remaining <= 0,
+            "stage": "emergency_close_verified" if remaining <= 0 else "emergency_close_incomplete",
+            "symbol": symbol,
+            "position_id": long_pos.get("positionId"),
+            "requested_close_qty": qty,
+            "cancel_open_orders_result": cancel_result,
+            "close_result": close_result,
+            "close_order": confirmed_close,
+            "positions_before": before,
+            "positions_after": after,
+            "remaining_long_qty": remaining,
+        }
 
     def _set_leverage(self, symbol: str, side: str, leverage: int) -> dict:
         return self._signed_trade_request(
