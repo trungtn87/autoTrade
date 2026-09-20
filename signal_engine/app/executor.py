@@ -339,6 +339,21 @@ class Executor:
                 f"dynamic notional {actual_notional:.8f} is below BingX minimum {min_usdt}"
             )
 
+        # Current exit design splits the position 50/50 between TP and
+        # trailing. Reject before entry if a half-position cannot satisfy BingX
+        # minimum quantity/notional rules.
+        half_qty = self._floor_precision(qty * 0.5, rules["quantity_precision"])
+        if half_qty <= 0:
+            raise ValueError("half-position quantity is zero after BingX precision")
+        if min_qty > 0 and half_qty < min_qty:
+            raise ValueError(
+                f"half-position quantity {half_qty} is below BingX minimum {min_qty}"
+            )
+        if min_usdt > 0 and half_qty * entry < min_usdt:
+            raise ValueError(
+                f"half-position notional {half_qty * entry:.8f} is below BingX minimum {min_usdt}"
+            )
+
         est_loss_at_sl = qty * abs(entry - sl)
         est_margin = actual_notional / leverage
         return {
@@ -351,6 +366,7 @@ class Executor:
             "leverage": leverage,
             "notional": actual_notional,
             "qty": qty,
+            "half_qty": half_qty,
             "estimated_margin": est_margin,
             "estimated_loss_at_sl": est_loss_at_sl,
             "quantity_precision": rules["quantity_precision"],
@@ -379,8 +395,7 @@ class Executor:
             "type": order_type.upper(),
             "quantity": f"{qty:.8f}".rstrip("0").rstrip("."),
         }
-        if order_type.upper() == "MARKET":
-            params["leverage"] = str(leverage or self.settings.leverage)
+        # BingX leverage is configured through /trade/leverage, not the order payload.
         if price is not None:
             params["price"] = str(price)
         if stop_price is not None:
@@ -391,6 +406,17 @@ class Executor:
             params["priceRate"] = str(price_rate)
         return self._signed_trade_request(
             "POST", "/openApi/swap/v2/trade/order", params
+        )
+
+    def _set_leverage(self, symbol: str, side: str, leverage: int) -> dict:
+        return self._signed_trade_request(
+            "POST",
+            "/openApi/swap/v2/trade/leverage",
+            {
+                "symbol": symbol,
+                "side": "LONG" if side.upper() == "BUY" else "SHORT",
+                "leverage": int(leverage),
+            },
         )
 
     def _order_detail(self, symbol: str, order_id: str) -> dict:
@@ -423,11 +449,13 @@ class Executor:
             sizing["estimated_loss_at_sl"],
         )
 
+        self._set_leverage(
+            signal.symbol, signal.side, int(sizing["leverage"])
+        )
         entry_result = self._place_order(
             signal.symbol,
             signal.side,
             qty,
-            leverage=int(sizing["leverage"]),
         )
         order = ((entry_result.get("data") or {}).get("order") or {})
         order_id = order.get("orderId")
@@ -482,7 +510,9 @@ class Executor:
         tp_result = self._place_order(
             signal.symbol,
             opposite,
-            round(executed_qty * 0.5, 4),
+            self._floor_precision(
+                executed_qty * 0.5, int(sizing["quantity_precision"])
+            ),
             order_type="TAKE_PROFIT_MARKET",
             stop_price=tp,
             position_side=entry_position_side,
@@ -505,7 +535,9 @@ class Executor:
         trailing_result = self._place_order(
             signal.symbol,
             opposite,
-            round(executed_qty * 0.5, 4),
+            self._floor_precision(
+                executed_qty * 0.5, int(sizing["quantity_precision"])
+            ),
             order_type="TRAILING_STOP_MARKET",
             activation_price=activation,
             price_rate=0.005,
