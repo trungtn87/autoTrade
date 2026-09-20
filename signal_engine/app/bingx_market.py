@@ -42,6 +42,13 @@ class BingXMarketClient:
             "X-SOURCE-KEY": "BX-AI-SKILL",
         })
 
+    @property
+    def blocked_until_ms(self) -> int:
+        return int(self._blocked_until_ms)
+
+    def cooldown_remaining_ms(self) -> int:
+        return max(0, int(self._blocked_until_ms) - int(time.time() * 1000))
+
     def _throttle(self):
         now_ms = int(time.time() * 1000)
         if now_ms < self._blocked_until_ms:
@@ -105,7 +112,7 @@ class BingXMarketClient:
                 # One invalid/paused/unsupported market-data response is enough.
                 # Repeating it can trigger BingX 109429 for the whole quote API.
                 self._blocked_until_ms = int(time.time() * 1000) + 15 * 60 * 1000
-            log.error(
+            log.warning(
                 "BINGX_API_ERROR code=%s path=%s params=%s retry_at_ms=%s msg=%s",
                 code, path, safe_params, retry_at_ms, msg,
             )
