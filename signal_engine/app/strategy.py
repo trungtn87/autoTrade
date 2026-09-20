@@ -135,7 +135,7 @@ def _hl2(df):
 
 
 def smc_direction(df: pd.DataFrame, swing_len: int = 50, confluence: bool = False) -> pd.Series:
-    """Simplified SMC gate used by Pine v13."""
+    """Mirror Pine f_smc_dir(), including series crossover semantics."""
     n = len(df)
     high = df["high"].to_numpy(float)
     low = df["low"].to_numpy(float)
@@ -158,6 +158,14 @@ def smc_direction(df: pd.DataFrame, swing_len: int = 50, confluence: bool = Fals
     internal_bias = 0
 
     for t in range(n):
+        # Capture the prior-bar values before Pine-style := updates on this bar.
+        # ta.crossover(close, level) compares close[t] vs level[t] AND
+        # close[t-1] vs level[t-1], not the new current level twice.
+        prev_swing_high = swing_high
+        prev_swing_low = swing_low
+        prev_internal_high = internal_high
+        prev_internal_low = internal_low
+
         old_swing_leg = swing_leg
         if t >= swing_len:
             recent_high = np.nanmax(high[t - swing_len + 1:t + 1])
@@ -200,13 +208,30 @@ def smc_direction(df: pd.DataFrame, swing_len: int = 50, confluence: bool = Fals
 
         prev_close = np.nan if t == 0 else close[t - 1]
 
+        def cross_over_level(current_level: float, previous_level: float) -> bool:
+            return (
+                not np.isnan(current_level)
+                and not np.isnan(previous_level)
+                and not np.isnan(prev_close)
+                and close[t] > current_level
+                and prev_close <= previous_level
+            )
+
+        def cross_under_level(current_level: float, previous_level: float) -> bool:
+            return (
+                not np.isnan(current_level)
+                and not np.isnan(previous_level)
+                and not np.isnan(prev_close)
+                and close[t] < current_level
+                and prev_close >= previous_level
+            )
+
         internal_bull_extra = (
             not np.isnan(internal_high) and not np.isnan(swing_high)
             and internal_high != swing_high and bullish_bar
         )
         if (
-            not np.isnan(internal_high) and not np.isnan(prev_close)
-            and close[t] > internal_high and prev_close <= internal_high
+            cross_over_level(internal_high, prev_internal_high)
             and not internal_high_crossed and internal_bull_extra
         ):
             internal_high_crossed = True
@@ -217,24 +242,17 @@ def smc_direction(df: pd.DataFrame, swing_len: int = 50, confluence: bool = Fals
             and internal_low != swing_low and bearish_bar
         )
         if (
-            not np.isnan(internal_low) and not np.isnan(prev_close)
-            and close[t] < internal_low and prev_close >= internal_low
+            cross_under_level(internal_low, prev_internal_low)
             and not internal_low_crossed and internal_bear_extra
         ):
             internal_low_crossed = True
             internal_bias = -1
 
-        if (
-            not np.isnan(swing_high) and not np.isnan(prev_close)
-            and close[t] > swing_high and prev_close <= swing_high and not swing_high_crossed
-        ):
+        if cross_over_level(swing_high, prev_swing_high) and not swing_high_crossed:
             swing_high_crossed = True
             swing_bias = 1
 
-        if (
-            not np.isnan(swing_low) and not np.isnan(prev_close)
-            and close[t] < swing_low and prev_close >= swing_low and not swing_low_crossed
-        ):
+        if cross_under_level(swing_low, prev_swing_low) and not swing_low_crossed:
             swing_low_crossed = True
             swing_bias = -1
 
@@ -246,7 +264,6 @@ def smc_direction(df: pd.DataFrame, swing_len: int = 50, confluence: bool = Fals
             out[t] = 0
 
     return pd.Series(out, index=df.index)
-
 
 def combo15_events(df: pd.DataFrame, h4: pd.DataFrame) -> dict[int, tuple[pd.Series, pd.Series]]:
     c = df["close"]
