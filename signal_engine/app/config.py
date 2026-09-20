@@ -45,8 +45,8 @@ class Settings:
     scheduler_second: int = _int("SCHEDULER_SECOND", 8)
 
     # Single-account direct BingX execution with fixed margin per order.
-    # Test baseline: 0.1 USDT margin at 100x leverage -> about 10 USDT position notional.
-    order_margin_usdt: float = _float("BINGX_ORDER_MARGIN_USDT", 0.1)
+    # Test baseline: 0.2 USDT margin at 100x leverage -> about 20 USDT position notional.
+    order_margin_usdt: float = _float("BINGX_ORDER_MARGIN_USDT", 0.2)
     leverage: int = _int("BINGX_LEVERAGE", 100)
 
     discord_enabled: bool = _bool("DISCORD_ENABLED", True)
