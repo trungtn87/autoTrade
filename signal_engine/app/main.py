@@ -19,8 +19,8 @@ from .config import Settings, safe_config_snapshot, validate_settings
 from .executor import Executor
 from .discord_diag import install_discord_log_handler, send_discord_scan_summary, send_discord_startup_test
 from .state import SignalState
-from .strategy import scan_latest, strategy_static_snapshot
-from .self_test import run_self_test
+from .strategy import combo_readiness, scan_latest, strategy_static_snapshot
+from .self_test import run_self_test, run_startup_self_test
 from .timeframes import aggregate_15m
 
 settings = Settings()
@@ -290,6 +290,22 @@ def run_scan(execute: bool = True) -> dict:
             try:
                 log.info("SYMBOL_SCAN_START symbol=%s execute=%s", symbol, execute)
                 now_ms, m15, h1, h4, h6, bootstrap, data_validation = fetch_bundle(symbol)
+                readiness = combo_readiness(
+                    m15, h1, h4, h6,
+                    smc_swing_len=settings.smc_swing_len,
+                )
+                ready_combos = sorted(
+                    combo for combo, item in readiness.items() if item.get("ready")
+                )
+                skipped_combos = sorted(
+                    combo for combo, item in readiness.items() if not item.get("ready")
+                )
+                log.info(
+                    "COMBO_READINESS symbol=%s ready=%s skipped=%s frames={15m:%s,1h:%s,4h:%s,6h:%s}",
+                    symbol, ready_combos, skipped_combos,
+                    len(m15), len(h1), len(h4), len(h6),
+                )
+
                 calc_started = time.monotonic()
                 signals = scan_latest(
                     symbol=symbol,
@@ -321,6 +337,10 @@ def run_scan(execute: bool = True) -> dict:
                     "derived_1h": len(h1),
                     "derived_4h": len(h4),
                     "derived_6h": len(h6),
+                    "combo_readiness": {
+                        "ready": ready_combos,
+                        "skipped": skipped_combos,
+                    },
                     "signals": [],
                 }
                 for sig in signals:
@@ -510,11 +530,11 @@ async def lifespan(app: FastAPI):
         state.backend == "postgres",
     )
 
-    self_test_result = run_self_test(settings)
+    self_test_result = run_startup_self_test(settings, state)
     for item in self_test_result.get("checks", []):
         level = log.info if item.get("ok") else log.error
         level(
-            "SELF_TEST name=%s ok=%s elapsed_ms=%s details=%s error=%s",
+            "STARTUP_TEST name=%s ok=%s elapsed_ms=%s details=%s error=%s",
             item.get("name"),
             item.get("ok"),
             item.get("elapsed_ms"),
@@ -523,11 +543,11 @@ async def lifespan(app: FastAPI):
         )
     if not self_test_result.get("ok"):
         log.error(
-            "SELF_TEST_SUMMARY ok=false checks=%s service_continues=true order_execution_guarded=true",
+            "STARTUP_TEST_SUMMARY ok=false checks=%s service_continues=true order_execution_guarded=true",
             len(self_test_result.get("checks", [])),
         )
     else:
-        log.info("SELF_TEST_SUMMARY ok=true checks=%s network_calls=0 order_calls=0", len(self_test_result.get("checks", [])))
+        log.info("STARTUP_TEST_SUMMARY ok=true checks=%s network_calls=0 order_calls=0 mode=startup_light", len(self_test_result.get("checks", [])))
 
     discord_test = send_discord_startup_test(settings)
     if discord_test.get("ok"):
