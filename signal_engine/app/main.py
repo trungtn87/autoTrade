@@ -156,14 +156,15 @@ def fetch_bundle(symbol: str):
     now_ms = int(time.time() * 1000)
     cached_count = state.candle_count(symbol, "15m")
     bootstrap = cached_count == 0
+    target = max(2600, int(settings.bootstrap_limit_15m))
     expected_latest_open = (now_ms // INTERVAL_15M_MS) * INTERVAL_15M_MS - INTERVAL_15M_MS
 
-    if bootstrap:
-        target = int(settings.bootstrap_limit_15m)
+    if cached_count < target:
+        fetch_mode = "bootstrap" if bootstrap else "warmup_backfill"
         bootstrap_start = expected_latest_open - (target - 1) * INTERVAL_15M_MS
         log.info(
-            "FETCH_START symbol=%s mode=bootstrap cached_15m=%s target=%s page_limit=1000",
-            symbol, cached_count, target,
+            "FETCH_START symbol=%s mode=%s cached_15m=%s target=%s page_limit=1000",
+            symbol, fetch_mode, cached_count, target,
         )
         incoming = _fetch_15m_range(
             symbol,
