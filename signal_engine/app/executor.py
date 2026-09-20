@@ -86,74 +86,68 @@ class Executor:
             return "NEUTRAL"
         return "VETO"
 
+    @staticmethod
+    def _fmt_discord_number(value) -> str:
+        if value is None:
+            return "-"
+        try:
+            n = float(value)
+            if not math.isfinite(n):
+                return str(value)
+            return f"{n:.8f}".rstrip("0").rstrip(".")
+        except Exception:
+            return str(value)
+
     def build_execution_discord_message(self, signal: Signal, result: dict) -> str:
-        """Build the trade-channel message from the actual BingX execution result."""
-        icon = "🟢" if signal.side == "BUY" else "🔴"
-        avg_price = result.get("avg_price")
-        executed_qty = result.get("executed_qty")
-        tp = result.get("tp_actual", result.get("tp"))
-        sl = result.get("sl_actual", result.get("sl"))
-        trailing = result.get(
-            "trailing_activation_actual",
-            result.get("trailing_activation"),
+        """Compact trade notification matching the legacy Discord layout."""
+        entry = self._fmt_discord_number(result.get("avg_price"))
+        tp = self._fmt_discord_number(result.get("tp_actual", result.get("tp")))
+        sl = self._fmt_discord_number(result.get("sl_actual", result.get("sl")))
+        trailing = self._fmt_discord_number(
+            result.get("trailing_activation_actual", result.get("trailing_activation"))
         )
-        order_id = result.get("order_id") or "N/A"
-
-        def mark(name: str) -> str:
-            value = result.get(name)
-            if value is True:
-                return "✅"
-            if value is False:
-                return "❌"
-            return "—"
-
-        if result.get("closed_for_invalid_fill"):
-            status = "⚠️ ENTRY FILLED → AUTO-CLOSED (fill outside TP/SL)"
-        elif result.get("ok"):
-            status = "✅ LIVE / PROTECTION PLACED"
-        else:
-            status = "⚠️ LIVE / PROTECTION INCOMPLETE"
 
         return (
-            f"{icon} **{signal.symbol} | Combo {signal.combo} {signal.side}**\n"
-            f"Status: **{status}**\n"
-            f"Entry (BingX avg): `{avg_price}`\n"
-            f"Qty filled: `{executed_qty}`\n"
-            f"🎯 TP: `{tp}` {mark('tp_ok')}\n"
-            f"🛡️ SL: `{sl}` {mark('sl_ok')}\n"
-            f"🔁 Trailing: `{trailing}` {mark('trailing_ok')}\n"
-            f"Order ID: `{order_id}`"
+            "✅ Đặt lệnh\n"
+            f"{signal.symbol} {signal.side}\n\n"
+            f"📊 Combo {signal.combo}\n"
+            f"Entry: {entry}\n\n"
+            f"TP : {tp}\n"
+            f"SL : {sl}\n\n"
+            f"Trailing : {trailing}"
         )
 
     def build_execution_error_message(self, signal: Signal, result: dict) -> str:
-        """Compact operational error message; never includes API keys or signatures."""
-        stage = result.get("stage") or "unknown"
-        error = result.get("error") or result.get("reason") or "unknown error"
-        lines = [
-            "🚨 **BINGX EXECUTION ERROR**",
-            f"{signal.symbol} | Combo {signal.combo} {signal.side}",
-            f"Stage: `{stage}`",
-            f"Error: `{str(error)[:700]}`",
-        ]
-        if result.get("order_id"):
-            lines.append(f"Order ID: `{result.get('order_id')}`")
-        if result.get("avg_price"):
-            lines.append(f"Entry avg: `{result.get('avg_price')}`")
-        if result.get("executed_qty"):
-            lines.append(f"Qty: `{result.get('executed_qty')}`")
-        if result.get("sl_ok") is not None:
-            lines.append(
-                "Protection: "
-                f"SL={'OK' if result.get('sl_ok') else 'FAIL'} | "
-                f"TP={'OK' if result.get('tp_ok') else 'FAIL'} | "
-                f"Trailing={'OK' if result.get('trailing_ok') else 'FAIL'}"
-            )
+        """Short operator alert; detailed diagnostics stay in Render logs."""
+        stage = str(result.get("stage") or "unknown")
+        stage_labels = {
+            "execution_blocked": "Hệ thống",
+            "entry_fill_check": "Xác nhận Entry",
+            "invalid_fill_emergency_close": "Giá khớp / đóng khẩn cấp",
+            "stop_loss": "Cài SL",
+            "protection_partial": "TP / Trailing",
+            "one_shot_startup": "Khởi tạo",
+            "one_shot_eth_startup": "Khởi tạo",
+        }
+        label = stage_labels.get(stage, stage)
+
         if result.get("emergency_close_attempted"):
-            lines.append(
-                "Emergency close: "
-                + ("OK" if result.get("emergency_close_ok") else "FAILED")
-            )
-        return "\n".join(lines)[:1900]
+            if result.get("emergency_close_ok"):
+                status = "Vị thế đã được đóng khẩn cấp ✅"
+            else:
+                status = "Đóng khẩn cấp thất bại ❌"
+        elif result.get("entry_filled"):
+            status = "Entry đã khớp nhưng bảo vệ chưa hoàn tất ⚠️"
+        else:
+            status = "Không đặt được lệnh ❌"
+
+        return (
+            "⚠️ Lỗi đặt lệnh\n"
+            f"{signal.symbol} {signal.side}\n\n"
+            f"📊 Combo {signal.combo}\n"
+            f"Bước: {label}\n"
+            f"{status}"
+        )
 
     def _post_discord(self, url: str, content: str, target: str) -> dict:
         if not url:
@@ -202,7 +196,7 @@ class Executor:
 
     def send_execution_error_discord(self, signal: Signal, result: dict) -> dict:
         target = "discord:error"
-        if not self.settings.discord_log_enabled:
+        if not self.settings.discord_enabled:
             return {"target": target, "ok": False, "skipped": True, "reason": "disabled"}
         return self._post_discord(
             self.settings.discord_webhook_error,
