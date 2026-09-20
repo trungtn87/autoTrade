@@ -117,7 +117,7 @@ def crossunder(a: pd.Series, b: pd.Series) -> pd.Series:
 
 
 def parabolic_sar(df: pd.DataFrame, start: float, inc: float, maximum: float) -> pd.Series:
-    """Implementation based on the Pine reference algorithm."""
+    """Mirror Pine ta.sar() using TradingView's reference algorithm/order."""
     n = len(df)
     high = df["high"].to_numpy(float)
     low = df["low"].to_numpy(float)
@@ -126,12 +126,16 @@ def parabolic_sar(df: pd.DataFrame, start: float, inc: float, maximum: float) ->
     if n < 2:
         return pd.Series(out, index=df.index)
 
-    is_below = None
-    max_min = np.nan
-    acceleration = start
     result = np.nan
+    max_min = np.nan
+    acceleration = np.nan
+    is_below: bool | None = None
 
     for i in range(n):
+        is_first_trend_bar = False
+
+        # Pine reference initializes on bar_index == 1, then continues through
+        # the normal SAR update/reversal/clamp logic on that same bar.
         if i == 1:
             if close[i] > close[i - 1]:
                 is_below = True
@@ -141,46 +145,53 @@ def parabolic_sar(df: pd.DataFrame, start: float, inc: float, maximum: float) ->
                 is_below = False
                 max_min = low[i]
                 result = high[i - 1]
+            is_first_trend_bar = True
             acceleration = start
-            out[i] = result
-            continue
-        if i < 2 or is_below is None or np.isnan(result):
+
+        if i == 0 or is_below is None or np.isnan(result):
             continue
 
+        # Exact Pine order: advance SAR first, then test reversal.
         result = result + acceleration * (max_min - result)
-        first_trend_bar = False
 
         if is_below:
-            result = min(result, low[i - 1])
-            result = min(result, low[i - 2])
             if result > low[i]:
-                first_trend_bar = True
+                is_first_trend_bar = True
                 is_below = False
-                result = max_min
+                result = max(high[i], max_min)
                 max_min = low[i]
                 acceleration = start
         else:
-            result = max(result, high[i - 1])
-            result = max(result, high[i - 2])
             if result < high[i]:
-                first_trend_bar = True
+                is_first_trend_bar = True
                 is_below = True
-                result = max_min
+                result = min(low[i], max_min)
                 max_min = high[i]
                 acceleration = start
 
-        if not first_trend_bar:
-            if is_below and high[i] > max_min:
-                max_min = high[i]
-                acceleration = min(acceleration + inc, maximum)
-            elif (not is_below) and low[i] < max_min:
-                max_min = low[i]
-                acceleration = min(acceleration + inc, maximum)
+        if not is_first_trend_bar:
+            if is_below:
+                if high[i] > max_min:
+                    max_min = high[i]
+                    acceleration = min(acceleration + inc, maximum)
+            else:
+                if low[i] < max_min:
+                    max_min = low[i]
+                    acceleration = min(acceleration + inc, maximum)
+
+        # Pine applies the prior-two-bar guard after reversal/extreme updates.
+        if is_below:
+            result = min(result, low[i - 1])
+            if i > 1:
+                result = min(result, low[i - 2])
+        else:
+            result = max(result, high[i - 1])
+            if i > 1:
+                result = max(result, high[i - 2])
 
         out[i] = result
 
     return pd.Series(out, index=df.index)
-
 
 def nadaraya_mid(close: pd.Series, length: int, smooth: int) -> pd.Series:
     weights = np.array([math.exp(-math.pow(i / length * smooth, 2.0)) for i in range(length + 1)], dtype=float)
