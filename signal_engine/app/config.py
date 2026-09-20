@@ -68,7 +68,7 @@ class Settings:
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     scan_token: str = os.getenv("SCAN_TOKEN", "")
 
-    bootstrap_limit_15m: int = _int("BOOTSTRAP_LIMIT_15M", 1000)
+    bootstrap_limit_15m: int = _int("BOOTSTRAP_LIMIT_15M", 2600)
     live_limit_15m: int = _int("LIVE_LIMIT_15M", 2)
     recovery_limit_15m: int = _int("RECOVERY_LIMIT_15M", 8)
     candle_keep_15m: int = _int("CANDLE_KEEP_15M", 12000)
@@ -120,10 +120,6 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         errors.append("LIVE_LIMIT_15M must be between 2 and 20")
     if settings.bootstrap_limit_15m < 24:
         errors.append("BOOTSTRAP_LIMIT_15M must be >= 24")
-    elif settings.bootstrap_limit_15m > 1000:
-        warnings.append(
-            f"BOOTSTRAP_LIMIT_15M={settings.bootstrap_limit_15m} exceeds safe max 1000; runtime will clamp to 1000"
-        )
     if not (settings.live_limit_15m <= settings.recovery_limit_15m <= 100):
         errors.append("RECOVERY_LIMIT_15M must be >= LIVE_LIMIT_15M and <= 100")
     if settings.candle_keep_15m < settings.bootstrap_limit_15m:
@@ -181,7 +177,8 @@ def safe_config_snapshot(settings: Settings) -> dict:
         ),
         "market_mode": "15m_only_incremental",
         "bootstrap_limit_15m": settings.bootstrap_limit_15m,
-        "bootstrap_limit_15m_effective": min(settings.bootstrap_limit_15m, 1000),
+        "bootstrap_limit_15m_effective": settings.bootstrap_limit_15m,
+        "bootstrap_page_limit_15m": 1000,
         "live_limit_15m": settings.live_limit_15m,
         "recovery_limit_15m": settings.recovery_limit_15m,
         "candle_keep_15m": settings.candle_keep_15m,
