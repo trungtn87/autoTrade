@@ -382,26 +382,6 @@ def run_scan(execute: bool = True) -> dict:
                         symbol_result["signals"].append(item)
                         continue
 
-                    discord_result = None
-                    discord_state_key = f"discord:{sig.symbol}"
-                    if executor.discord_url(sig.symbol) and executor.discord_allowed():
-                        if state.seen(sig.event_id, discord_state_key):
-                            discord_result = {
-                                "target": discord_state_key,
-                                "action": "duplicate_ignored",
-                                "ok": True,
-                            }
-                        else:
-                            discord_result = executor.send_discord(sig)
-                            if discord_result.get("ok"):
-                                state.mark(
-                                    sig.event_id,
-                                    discord_state_key,
-                                    json.dumps(discord_result, ensure_ascii=False),
-                                )
-                    if discord_result is not None:
-                        item["discord"] = discord_result
-
                     targets = executor.targets()
                     results = []
 
@@ -418,31 +398,100 @@ def run_scan(execute: bool = True) -> dict:
                             "ORDER_EXECUTION_BLOCKED symbol=%s event_id=%s reason=%s",
                             sig.symbol, sig.event_id, execution_block_reason,
                         )
-                        item["execution"] = []
+                        blocked = {
+                            "target": "bingx_account",
+                            "ok": False,
+                            "processed": False,
+                            "stage": "execution_blocked",
+                            "error": execution_block_reason,
+                        }
+                        item["execution"] = [blocked]
                         item["action"] = "execution_blocked"
                         item["execution_block_reason"] = execution_block_reason
+                        item["discord_error"] = executor.send_execution_error_discord(sig, blocked)
                         symbol_result["signals"].append(item)
                         continue
 
                     for target_name, url, amount in targets:
                         state_target = f"{target_name}:{'dryrun' if settings.dry_run else 'live'}"
                         if state.seen(sig.event_id, state_target):
-                            results.append({"target": target_name, "action": "duplicate_ignored", "ok": True})
+                            results.append({
+                                "target": target_name,
+                                "action": "duplicate_ignored",
+                                "ok": True,
+                                "processed": True,
+                            })
                             continue
+
                         result = executor.send_target(sig, target_name, url, amount)
                         results.append(result)
+
+                        # IMPORTANT: once BingX has accepted the entry, this
+                        # signal must never create a second MARKET entry even
+                        # if TP/SL/trailing or Discord later fails.
+                        if result.get("processed"):
+                            state.mark(
+                                sig.event_id,
+                                state_target,
+                                json.dumps(result, ensure_ascii=False),
+                            )
+
                         if result.get("ok"):
-                            state.mark(sig.event_id, state_target, json.dumps(result, ensure_ascii=False))
+                            discord_state_key = f"discord:{sig.symbol}"
+                            if state.seen(sig.event_id, discord_state_key):
+                                item["discord"] = {
+                                    "target": discord_state_key,
+                                    "action": "duplicate_ignored",
+                                    "ok": True,
+                                }
+                            else:
+                                discord_result = executor.send_execution_discord(sig, result)
+                                item["discord"] = discord_result
+                                if discord_result.get("ok"):
+                                    state.mark(
+                                        sig.event_id,
+                                        discord_state_key,
+                                        json.dumps(discord_result, ensure_ascii=False),
+                                    )
+                        else:
+                            error_state_key = f"discord:error:{target_name}"
+                            if state.seen(sig.event_id, error_state_key):
+                                item["discord_error"] = {
+                                    "target": error_state_key,
+                                    "action": "duplicate_ignored",
+                                    "ok": True,
+                                }
+                            else:
+                                error_result = executor.send_execution_error_discord(sig, result)
+                                item["discord_error"] = error_result
+                                if error_result.get("ok"):
+                                    state.mark(
+                                        sig.event_id,
+                                        error_state_key,
+                                        json.dumps(error_result, ensure_ascii=False),
+                                    )
+
+                            # If entry was filled but protection is incomplete,
+                            # also send the trade channel the actual BingX state.
+                            if result.get("entry_filled"):
+                                trade_state_key = f"discord:{sig.symbol}"
+                                if not state.seen(sig.event_id, trade_state_key):
+                                    trade_result = executor.send_execution_discord(sig, result)
+                                    item["discord"] = trade_result
+                                    if trade_result.get("ok"):
+                                        state.mark(
+                                            sig.event_id,
+                                            trade_state_key,
+                                            json.dumps(trade_result, ensure_ascii=False),
+                                        )
 
                     item["execution"] = results
-                    if not targets:
-                        item["action"] = "discord_only" if discord_result and discord_result.get("ok") else "no_order_webhook_configured"
-                    elif all(r.get("ok") for r in results):
-                        item["action"] = "dry_run" if settings.dry_run else "sent"
-                    elif any(r.get("ok") for r in results):
-                        item["action"] = "partial"
+                    if all(r.get("ok") for r in results):
+                        item["action"] = "sent"
+                    elif any(r.get("processed") for r in results):
+                        item["action"] = "processed_with_error"
                     else:
-                        item["action"] = "failed"
+                        item["action"] = "failed_before_entry"
                     symbol_result["signals"].append(item)
                 summary["symbols"][symbol] = symbol_result
                 log.info(
