@@ -157,9 +157,9 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         warnings.append("DISCORD_WEBHOOK_ETH is empty; ETH trade notifications are disabled")
     if settings.discord_log_enabled and not settings.discord_webhook_error:
         warnings.append("DISCORD_WEBHOOK_ERROR is empty; error notifications are disabled")
-    if settings.bootstrap_limit_15m < 2400:
+    if settings.bootstrap_limit_15m < 2600:
         warnings.append(
-            "15m bootstrap is shorter than 2400 candles; H4 EMA150 will not have a full 150 native H4-bar warmup initially"
+            f"BOOTSTRAP_LIMIT_15M={settings.bootstrap_limit_15m} is below 2600; runtime will use 2600 for full HTF warmup"
         )
     if not settings.scan_token:
         warnings.append("SCAN_TOKEN is empty; manual market/scan endpoints will stay disabled")
@@ -177,7 +177,7 @@ def safe_config_snapshot(settings: Settings) -> dict:
         ),
         "market_mode": "15m_only_incremental",
         "bootstrap_limit_15m": settings.bootstrap_limit_15m,
-        "bootstrap_limit_15m_effective": settings.bootstrap_limit_15m,
+        "bootstrap_limit_15m_effective": max(2600, settings.bootstrap_limit_15m),
         "bootstrap_page_limit_15m": 1000,
         "live_limit_15m": settings.live_limit_15m,
         "recovery_limit_15m": settings.recovery_limit_15m,
