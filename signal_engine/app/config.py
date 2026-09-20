@@ -51,14 +51,12 @@ class Settings:
 
     discord_enabled: bool = _bool("DISCORD_ENABLED", True)
     discord_on_dry_run: bool = _bool("DISCORD_ON_DRY_RUN", True)
+    # Three dedicated Discord destinations: BTC trades, ETH trades, errors.
     discord_webhook_btc: str = os.getenv("DISCORD_WEBHOOK_BTC", "")
     discord_webhook_eth: str = os.getenv("DISCORD_WEBHOOK_ETH", "")
-    discord_webhook_default: str = os.getenv("DISCORD_WEBHOOK_DEFAULT", "")
-    # Operational errors must always reach Discord. Periodic scan reports
-    # remain independently disabled.
+    discord_webhook_error: str = os.getenv("DISCORD_WEBHOOK_ERROR", "")
     discord_log_enabled: bool = True
-    discord_periodic_log_enabled: bool = _bool("DISCORD_PERIODIC_LOG_ENABLED", False)
-    discord_log_webhook: str = os.getenv("DISCORD_LOG_WEBHOOK", "")
+    discord_periodic_log_enabled: bool = False
     discord_log_level: str = "ERROR"
     discord_startup_test: bool = _bool("DISCORD_STARTUP_TEST", False)
 
@@ -144,8 +142,7 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
     for name, url in (
         ("DISCORD_WEBHOOK_BTC", settings.discord_webhook_btc),
         ("DISCORD_WEBHOOK_ETH", settings.discord_webhook_eth),
-        ("DISCORD_WEBHOOK_DEFAULT", settings.discord_webhook_default),
-        ("DISCORD_LOG_WEBHOOK", settings.discord_log_webhook),
+        ("DISCORD_WEBHOOK_ERROR", settings.discord_webhook_error),
     ):
         if url and not _is_http_url(url):
             errors.append(f"{name} must start with http:// or https://")
@@ -158,19 +155,12 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         errors.append(
             "LIVE engine requires DATABASE_URL for persistent Postgres state"
         )
-    if settings.discord_enabled and not (
-        settings.discord_webhook_btc
-        or settings.discord_webhook_eth
-        or settings.discord_webhook_default
-    ):
-        warnings.append("DISCORD_ENABLED=true but no Discord webhook is configured")
-    if settings.discord_log_enabled and not (
-        settings.discord_log_webhook
-        or settings.discord_webhook_default
-        or settings.discord_webhook_btc
-        or settings.discord_webhook_eth
-    ):
-        warnings.append("DISCORD_LOG_ENABLED=true but no Discord destination is configured")
+    if settings.discord_enabled and not settings.discord_webhook_btc:
+        warnings.append("DISCORD_WEBHOOK_BTC is empty; BTC trade notifications are disabled")
+    if settings.discord_enabled and not settings.discord_webhook_eth:
+        warnings.append("DISCORD_WEBHOOK_ETH is empty; ETH trade notifications are disabled")
+    if settings.discord_log_enabled and not settings.discord_webhook_error:
+        warnings.append("DISCORD_WEBHOOK_ERROR is empty; error notifications are disabled")
     if settings.bootstrap_limit_15m < 2400:
         warnings.append(
             "15m bootstrap is shorter than 2400 candles; H4 EMA150 will not have a full 150 native H4-bar warmup initially"
@@ -219,11 +209,10 @@ def safe_config_snapshot(settings: Settings) -> dict:
             "on_dry_run": settings.discord_on_dry_run,
             "btc_configured": bool(settings.discord_webhook_btc),
             "eth_configured": bool(settings.discord_webhook_eth),
-            "default_configured": bool(settings.discord_webhook_default),
+            "error_configured": bool(settings.discord_webhook_error),
             "log_enabled": settings.discord_log_enabled,
             "periodic_log_enabled": settings.discord_periodic_log_enabled,
             "log_level": settings.discord_log_level,
-            "log_webhook_configured": bool(settings.discord_log_webhook),
             "startup_test": settings.discord_startup_test,
         },
         "state_db": settings.state_db,
@@ -234,10 +223,5 @@ def safe_config_snapshot(settings: Settings) -> dict:
 
 
 def resolved_discord_log_webhook(settings: Settings) -> str:
-    """Choose one diagnostic Discord destination without exposing it."""
-    return (
-        settings.discord_log_webhook
-        or settings.discord_webhook_default
-        or settings.discord_webhook_btc
-        or settings.discord_webhook_eth
-    )
+    """Error/diagnostic logs go only to the dedicated error channel."""
+    return settings.discord_webhook_error
