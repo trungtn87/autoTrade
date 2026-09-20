@@ -42,61 +42,171 @@ scheduler: BackgroundScheduler | None = None
 last_scan_summary: dict = {"status": "not_run"}
 
 
-def fetch_bundle(symbol: str):
-    """Production data path: BingX 15m only.
+INTERVAL_15M_MS = 15 * 60_000
 
-    First run bootstraps recent 15m history once. Normal operation requests
-    only the latest two 15m candles, then builds 1H/4H/6H locally.
-    """
+
+def _fetch_15m_range(
+    symbol: str,
+    start_open: int,
+    end_open: int,
+    now_ms: int,
+) -> pd.DataFrame:
+    """Fetch a closed, UTC-aligned 15m range with backward pagination."""
+    if end_open < start_open:
+        return pd.DataFrame(columns=["open_time", "open", "high", "low", "close", "volume", "close_time"])
+
+    pages: list[pd.DataFrame] = []
+    cursor_end = int(end_open) + INTERVAL_15M_MS - 1
+    wanted = ((int(end_open) - int(start_open)) // INTERVAL_15M_MS) + 1
+    remaining = wanted
+
+    while remaining > 0 and cursor_end >= start_open:
+        page_limit = min(1000, remaining)
+        page = closed_only(
+            market.klines(
+                symbol,
+                "15m",
+                page_limit,
+                start_time=int(start_open),
+                end_time=int(cursor_end),
+            ),
+            now_ms,
+        )
+        if page.empty:
+            break
+
+        page = page[
+            (page["open_time"] >= int(start_open))
+            & (page["open_time"] <= int(end_open))
+        ].copy()
+        if page.empty:
+            break
+
+        pages.append(page)
+        earliest = int(page.iloc[0]["open_time"])
+        if earliest <= start_open:
+            break
+
+        cursor_end = earliest - 1
+        remaining = max(
+            0,
+            ((earliest - int(start_open)) // INTERVAL_15M_MS),
+        )
+
+    if not pages:
+        return pd.DataFrame(columns=["open_time", "open", "high", "low", "close", "volume", "close_time"])
+
+    return (
+        pd.concat(pages, ignore_index=True)
+        .sort_values("open_time")
+        .drop_duplicates("open_time", keep="last")
+        .reset_index(drop=True)
+    )
+
+
+def _recover_15m_validation_gap(symbol: str, m15: pd.DataFrame, now_ms: int, exc: DataValidationError) -> pd.DataFrame:
+    details = getattr(exc, "details", {}) or {}
+    if str(exc) != "15m cache contains a candle gap":
+        raise exc
+
+    start_open = details.get("expected_next_open")
+    next_open = details.get("next_open")
+    missing = int(details.get("missing_intervals", 0) or 0)
+    if start_open is None or next_open is None or missing <= 0:
+        raise exc
+
+    end_open = int(next_open) - INTERVAL_15M_MS
+    log.warning(
+        "CANDLE_GAP_INTERNAL symbol=%s previous_open=%s expected_next=%s next_open=%s missing_intervals=%s",
+        symbol,
+        details.get("previous_open"),
+        start_open,
+        next_open,
+        missing,
+    )
+    recovery = _fetch_15m_range(
+        symbol,
+        int(start_open),
+        int(end_open),
+        now_ms,
+    )
+    if recovery.empty:
+        log.error(
+            "RECOVERY_EMPTY symbol=%s start_open=%s end_open=%s missing_intervals=%s",
+            symbol, start_open, end_open, missing,
+        )
+        raise exc
+
+    state.upsert_candles(symbol, "15m", recovery)
+    log.info(
+        "RECOVERY_BACKFILL symbol=%s requested_missing=%s recovered=%s first_open=%s last_open=%s",
+        symbol,
+        missing,
+        len(recovery),
+        int(recovery.iloc[0]["open_time"]),
+        int(recovery.iloc[-1]["open_time"]),
+    )
+    state.trim_candles(symbol, "15m", settings.candle_keep_15m)
+    return state.load_candles(symbol, "15m")
+
+
+def fetch_bundle(symbol: str):
+    """Production data path: BingX 15m only with persistent cache recovery."""
     started = time.monotonic()
     now_ms = int(time.time() * 1000)
     cached_count = state.candle_count(symbol, "15m")
     bootstrap = cached_count == 0
+    expected_latest_open = (now_ms // INTERVAL_15M_MS) * INTERVAL_15M_MS - INTERVAL_15M_MS
 
-    limit = min(settings.bootstrap_limit_15m, 1000) if bootstrap else settings.live_limit_15m
-    log.info(
-        "FETCH_START symbol=%s mode=%s cached_15m=%s limit=%s",
-        symbol, "bootstrap" if bootstrap else "incremental", cached_count, limit,
-    )
-    incoming = closed_only(market.klines(symbol, "15m", limit), now_ms)
+    if bootstrap:
+        target = int(settings.bootstrap_limit_15m)
+        bootstrap_start = expected_latest_open - (target - 1) * INTERVAL_15M_MS
+        log.info(
+            "FETCH_START symbol=%s mode=bootstrap cached_15m=%s target=%s page_limit=1000",
+            symbol, cached_count, target,
+        )
+        incoming = _fetch_15m_range(
+            symbol,
+            bootstrap_start,
+            expected_latest_open,
+            now_ms,
+        )
+    else:
+        log.info(
+            "FETCH_START symbol=%s mode=incremental cached_15m=%s limit=%s",
+            symbol, cached_count, settings.live_limit_15m,
+        )
+        incoming = closed_only(
+            market.klines(symbol, "15m", settings.live_limit_15m),
+            now_ms,
+        )
+
     if len(incoming):
         log.info(
             "FETCH_DATA symbol=%s received_closed=%s first_open=%s last_open=%s last_close=%s",
             symbol, len(incoming), int(incoming.iloc[0]["open_time"]),
             int(incoming.iloc[-1]["open_time"]), int(incoming.iloc[-1]["close_time"]),
         )
+        state.upsert_candles(symbol, "15m", incoming)
     else:
         log.warning("FETCH_DATA symbol=%s received_closed=0", symbol)
-
-    last_before = state.latest_open_time(symbol, "15m")
-    if len(incoming):
-        state.upsert_candles(symbol, "15m", incoming)
-
-    # A normal limit=2 request should contain the just-closed candle. If the
-    # cached timeline has a gap, make at most one small recovery request.
-    if not bootstrap and last_before is not None and len(incoming):
-        newest = int(incoming.iloc[-1]["open_time"])
-        expected_next = int(last_before) + 15 * 60_000
-        if newest > expected_next:
-            missing = max(0, (newest - expected_next) // (15 * 60_000))
-            log.warning(
-                "CANDLE_GAP symbol=%s last_cached=%s newest=%s missing_intervals=%s recovery_limit=%s",
-                symbol, last_before, newest, missing, settings.recovery_limit_15m,
-            )
-            recovery = closed_only(
-                market.klines(symbol, "15m", settings.recovery_limit_15m),
-                now_ms,
-            )
-            if len(recovery):
-                state.upsert_candles(symbol, "15m", recovery)
-                log.info("RECOVERY_OK symbol=%s recovered=%s", symbol, len(recovery))
-            else:
-                log.warning("RECOVERY_EMPTY symbol=%s", symbol)
 
     state.trim_candles(symbol, "15m", settings.candle_keep_15m)
     m15 = state.load_candles(symbol, "15m")
 
-    validation = validate_15m_candles(m15, now_ms)
+    try:
+        validation = validate_15m_candles(m15, now_ms)
+    except DataValidationError as exc:
+        if str(exc) == "15m cache contains a candle gap":
+            m15 = _recover_15m_validation_gap(symbol, m15, now_ms, exc)
+            validation = validate_15m_candles(m15, now_ms)
+        else:
+            log.error(
+                "DATA_VALIDATION_FAILED symbol=%s error=%s details=%s",
+                symbol, exc, json.dumps(getattr(exc, "details", {}) or {}, ensure_ascii=False),
+            )
+            raise
+
     log.info(
         "DATA_VALIDATION symbol=%s ok=true count=%s latest_open=%s latest_close=%s",
         symbol,
