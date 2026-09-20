@@ -40,14 +40,14 @@ executor = Executor(settings)
 scan_lock = threading.Lock()
 scheduler: BackgroundScheduler | None = None
 last_scan_summary: dict = {"status": "not_run"}
-MANUAL_ORDER_TEST_MODE = True
+MANUAL_ORDER_TEST_MODE = False
 ONE_SHOT_BTC_BUY_TEST = False
 ONE_SHOT_BTC_BUY_STATE_KEY = "one_shot_btc_buy_1usdt_x100_v1"
 ONE_SHOT_ETH_BUY_TEST = False
 ONE_SHOT_ETH_BUY_STATE_KEY = "one_shot_eth_buy_1usdt_x100_v1"
-ONE_SHOT_BTC_CLOSE_TEST = True
+ONE_SHOT_BTC_CLOSE_TEST = False
 ONE_SHOT_BTC_CLOSE_STATE_KEY = "one_shot_btc_close_long_v1"
-ONE_SHOT_ETH_CLOSE_TEST = True
+ONE_SHOT_ETH_CLOSE_TEST = False
 ONE_SHOT_ETH_CLOSE_STATE_KEY = "one_shot_eth_close_long_v1"
 
 
