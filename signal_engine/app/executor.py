@@ -519,6 +519,40 @@ class Executor:
             )
             return order
 
+    def _confirm_protection_order(
+        self,
+        symbol: str,
+        label: str,
+        create_result: dict,
+    ) -> dict:
+        """Require a real BingX orderId before protection is marked successful.
+
+        This keeps the legacy separate-order flow, but prevents a TP/SL/trailing
+        request from being reported as OK when BingX did not actually create an
+        order. A failed follow-up GET is not retried as a new order because that
+        could duplicate protection after an ambiguous network response.
+        """
+        created = self._extract_order(create_result)
+        order_id = created.get("orderID") or created.get("orderId")
+        if not order_id:
+            raise RuntimeError(f"{label} response did not return orderId")
+
+        confirmed = self._confirmed_order(symbol, create_result)
+        status = str(confirmed.get("status") or created.get("status") or "").upper()
+        if status in {"REJECTED", "CANCELED", "CANCELLED", "EXPIRED"}:
+            raise RuntimeError(
+                f"{label} order {order_id} is not active; status={status}"
+            )
+
+        log.info(
+            "BINGX_PROTECTION_CONFIRMED symbol=%s label=%s order_id=%s status=%s",
+            symbol,
+            label,
+            order_id,
+            status or "UNKNOWN",
+        )
+        return confirmed or created
+
     def _execute_direct_bingx(self, signal: Signal) -> dict:
         entry, tp, sl = execution_prices(signal, self.settings)
 
@@ -575,6 +609,7 @@ class Executor:
             "processed": True,
             "entry_accepted": True,
             "entry_filled": False,
+            "protection_mode": "legacy_separate_orders",
             "order_id": str(order_id),
             "tp": tp,
             "sl": sl,
@@ -668,8 +703,14 @@ class Executor:
         full_qty = self._floor_precision(executed_qty, qty_precision)
         half_qty = self._floor_precision(executed_qty * 0.5, qty_precision)
 
-        # Place the full-position SL first. If this mandatory protection fails,
-        # immediately try to flatten the position before creating any TP/trailing order.
+        # Legacy-proven protection format:
+        # opposite side + ORIGINAL positionSide + explicit quantity.
+        # Do not send closePosition=true here; the previous stable server did
+        # not use it for STOP_MARKET and some BingX account/mode combinations
+        # reject closePosition together with this conditional-order shape.
+        #
+        # SL is placed first because it is mandatory protection. If it fails,
+        # immediately try to flatten the filled position before creating TP/trailing.
         try:
             sl_result = self._place_order(
                 signal.symbol,
@@ -678,9 +719,10 @@ class Executor:
                 order_type="STOP_MARKET",
                 stop_price=sl,
                 position_side=entry_position_side,
-                close_position=True,
             )
-            sl_order = self._confirmed_order(signal.symbol, sl_result)
+            sl_order = self._confirm_protection_order(
+                signal.symbol, "SL", sl_result
+            )
             sl_actual = float(sl_order.get("stopPrice") or sl)
             base_result.update({
                 "sl_ok": True,
@@ -726,7 +768,9 @@ class Executor:
                 stop_price=tp,
                 position_side=entry_position_side,
             )
-            tp_order = self._confirmed_order(signal.symbol, tp_result)
+            tp_order = self._confirm_protection_order(
+                signal.symbol, "TP", tp_result
+            )
             tp_actual = float(tp_order.get("stopPrice") or tp)
             base_result.update({
                 "tp_ok": True,
@@ -755,7 +799,9 @@ class Executor:
                 price_rate=0.005,
                 position_side=entry_position_side,
             )
-            trailing_order = self._confirmed_order(signal.symbol, trailing_result)
+            trailing_order = self._confirm_protection_order(
+                signal.symbol, "TRAILING", trailing_result
+            )
             trailing_actual = float(
                 trailing_order.get("activationPrice")
                 or trailing_order.get("activatePrice")
