@@ -38,7 +38,9 @@ class Settings:
     sl_pct: float = _float("SL_PERCENT", 0.9) / 100.0
     tp_pct: float = _float("TP_PERCENT", 1.1) / 100.0
 
-    dry_run: bool = _bool("DRY_RUN", True)
+    # Production policy: this engine is always LIVE. Safety is enforced by
+    # per-scan/per-order gates, never by silently switching to DRY_RUN.
+    dry_run: bool = False
     auto_scheduler: bool = _bool("AUTO_SCHEDULER", True)
     scheduler_second: int = _int("SCHEDULER_SECOND", 8)
 
@@ -52,10 +54,12 @@ class Settings:
     discord_webhook_btc: str = os.getenv("DISCORD_WEBHOOK_BTC", "")
     discord_webhook_eth: str = os.getenv("DISCORD_WEBHOOK_ETH", "")
     discord_webhook_default: str = os.getenv("DISCORD_WEBHOOK_DEFAULT", "")
-    discord_log_enabled: bool = _bool("DISCORD_LOG_ENABLED", False)
+    # Operational errors must always reach Discord. Periodic scan reports
+    # remain independently disabled.
+    discord_log_enabled: bool = True
     discord_periodic_log_enabled: bool = _bool("DISCORD_PERIODIC_LOG_ENABLED", False)
     discord_log_webhook: str = os.getenv("DISCORD_LOG_WEBHOOK", "")
-    discord_log_level: str = os.getenv("DISCORD_LOG_LEVEL", "WARNING")
+    discord_log_level: str = "ERROR"
     discord_startup_test: bool = _bool("DISCORD_STARTUP_TEST", False)
 
     adjust_tp_sl_bps: float = _float("ADJUST_TP_SL_BPS", 10.0)
@@ -155,13 +159,13 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         if url and not _is_http_url(url):
             errors.append(f"{name} must start with http:// or https://")
 
-    if not settings.dry_run and not (settings.webhook_1 or settings.webhook_2):
-        warnings.append(
-            "DRY_RUN=false but no order webhook is configured; market/data/signal processing will run, order execution is disabled"
-        )
-    if not settings.dry_run and not settings.database_url:
+    if not (settings.webhook_1 or settings.webhook_2):
         errors.append(
-            "DRY_RUN=false requires DATABASE_URL for persistent Postgres state"
+            "LIVE engine has no ORDER_WEBHOOK_1/ORDER_WEBHOOK_2; order execution is unavailable"
+        )
+    if not settings.database_url:
+        errors.append(
+            "LIVE engine requires DATABASE_URL for persistent Postgres state"
         )
     if settings.discord_enabled and not (
         settings.discord_webhook_btc
@@ -211,7 +215,7 @@ def safe_config_snapshot(settings: Settings) -> dict:
         "adjust_tp_sl_bps": settings.adjust_tp_sl_bps,
         "legacy_rounding": settings.legacy_rounding,
         "dry_run": settings.dry_run,
-        "execution_ready": (not settings.dry_run) and bool(settings.webhook_1 or settings.webhook_2),
+        "execution_ready": bool(settings.webhook_1 or settings.webhook_2) and bool(settings.database_url),
         "order_targets": {
             "account_1": {
                 "configured": bool(settings.webhook_1),
