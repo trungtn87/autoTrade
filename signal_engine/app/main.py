@@ -243,7 +243,7 @@ def run_scan(execute: bool = True) -> dict:
                     if state.backend != "postgres":
                         execution_block_reason = "persistent_postgres_unavailable"
                     elif not targets:
-                        execution_block_reason = "no_order_webhook_configured"
+                        execution_block_reason = "bingx_trade_credentials_unavailable"
 
                     if execution_block_reason:
                         log.error(
@@ -429,6 +429,7 @@ def health():
         "market_mode": "15m_only_incremental",
         "state_backend": state.backend,
         "execution_ready": state.backend == "postgres" and bool(executor.targets()),
+        "execution_mode": "direct_bingx_single_account",
         "order_target_count": len(executor.targets()),
         "live_limit_15m": settings.live_limit_15m,
     }
