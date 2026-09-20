@@ -151,46 +151,83 @@ def _recover_15m_validation_gap(symbol: str, m15: pd.DataFrame, now_ms: int, exc
 
 
 def fetch_bundle(symbol: str):
-    """Production data path: BingX 15m only with persistent cache recovery."""
+    """Production data path: keep the latest candle current, then warm history gradually."""
     started = time.monotonic()
     now_ms = int(time.time() * 1000)
     cached_count = state.candle_count(symbol, "15m")
     bootstrap = cached_count == 0
     target = max(2600, int(settings.bootstrap_limit_15m))
-    expected_latest_open = (now_ms // INTERVAL_15M_MS) * INTERVAL_15M_MS - INTERVAL_15M_MS
 
-    if cached_count < target:
-        fetch_mode = "bootstrap" if bootstrap else "warmup_backfill"
-        bootstrap_start = expected_latest_open - (target - 1) * INTERVAL_15M_MS
-        log.info(
-            "FETCH_START symbol=%s mode=%s cached_15m=%s target=%s page_limit=1000",
-            symbol, fetch_mode, cached_count, target,
-        )
-        incoming = _fetch_15m_range(
-            symbol,
-            bootstrap_start,
-            expected_latest_open,
-            now_ms,
-        )
-    else:
-        log.info(
-            "FETCH_START symbol=%s mode=incremental cached_15m=%s limit=%s",
-            symbol, cached_count, settings.live_limit_15m,
-        )
-        incoming = closed_only(
-            market.klines(symbol, "15m", settings.live_limit_15m),
-            now_ms,
-        )
-
-    if len(incoming):
+    # Always refresh the latest closed candle first. This keeps live data current
+    # even while the historical warmup is still being filled.
+    log.info(
+        "FETCH_START symbol=%s mode=%s cached_15m=%s live_limit=%s target=%s",
+        symbol,
+        "bootstrap" if bootstrap else ("warmup_backfill" if cached_count < target else "incremental"),
+        cached_count,
+        settings.live_limit_15m,
+        target,
+    )
+    latest = closed_only(
+        market.klines(symbol, "15m", settings.live_limit_15m),
+        now_ms,
+    )
+    if len(latest):
+        state.upsert_candles(symbol, "15m", latest)
         log.info(
             "FETCH_DATA symbol=%s received_closed=%s first_open=%s last_open=%s last_close=%s",
-            symbol, len(incoming), int(incoming.iloc[0]["open_time"]),
-            int(incoming.iloc[-1]["open_time"]), int(incoming.iloc[-1]["close_time"]),
+            symbol,
+            len(latest),
+            int(latest.iloc[0]["open_time"]),
+            int(latest.iloc[-1]["open_time"]),
+            int(latest.iloc[-1]["close_time"]),
         )
-        state.upsert_candles(symbol, "15m", incoming)
     else:
         log.warning("FETCH_DATA symbol=%s received_closed=0", symbol)
+
+    # Historical warmup is intentionally incremental: at most one older page
+    # per scheduled scan. This avoids hammering BingX and, critically, every
+    # successful page is persisted immediately so progress is never lost.
+    cached_count = state.candle_count(symbol, "15m")
+    if cached_count < target:
+        earliest = state.earliest_open_time(symbol, "15m")
+        if earliest is not None:
+            missing = target - cached_count
+            page_limit = min(1000, missing)
+            history_end = int(earliest) - 1
+            history_start = max(
+                0,
+                int(earliest) - page_limit * INTERVAL_15M_MS,
+            )
+            log.info(
+                "WARMUP_BACKFILL_START symbol=%s cached_15m=%s target=%s page_limit=%s start=%s end=%s",
+                symbol, cached_count, target, page_limit, history_start, history_end,
+            )
+            older = closed_only(
+                market.klines(
+                    symbol,
+                    "15m",
+                    page_limit,
+                    start_time=history_start,
+                    end_time=history_end,
+                ),
+                now_ms,
+            )
+            if len(older):
+                state.upsert_candles(symbol, "15m", older)
+                log.info(
+                    "WARMUP_BACKFILL_SAVED symbol=%s recovered=%s first_open=%s last_open=%s cached_after=%s",
+                    symbol,
+                    len(older),
+                    int(older.iloc[0]["open_time"]),
+                    int(older.iloc[-1]["open_time"]),
+                    state.candle_count(symbol, "15m"),
+                )
+            else:
+                log.warning(
+                    "WARMUP_BACKFILL_EMPTY symbol=%s start=%s end=%s",
+                    symbol, history_start, history_end,
+                )
 
     state.trim_candles(symbol, "15m", settings.candle_keep_15m)
     m15 = state.load_candles(symbol, "15m")
