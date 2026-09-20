@@ -394,17 +394,32 @@ class Executor:
 
     @staticmethod
     def _split_exit_quantities(full_qty: float, precision: int) -> tuple[float, float]:
-        """Split a precision-aligned position into TP + trailing with no remainder.
+        """Split a precision-aligned position with TP priority and no remainder.
 
-        TP gets the smaller half when the number of quantity units is odd;
-        trailing gets every remaining unit. Integer units avoid float-rounding
-        gaps such as 0.03 -> 0.01 + 0.01.
+        When quantity units are odd, TP receives the extra unit and trailing
+        receives the smaller half. Example at precision=2: 0.03 -> TP 0.02,
+        trailing 0.01.
         """
         factor = 10 ** max(0, int(precision))
         total_units = int(round(float(full_qty) * factor))
-        tp_units = total_units // 2
-        trailing_units = total_units - tp_units
+        trailing_units = total_units // 2
+        tp_units = total_units - trailing_units
         return tp_units / factor, trailing_units / factor
+
+    @staticmethod
+    def _trailing_qty_is_valid(
+        trailing_qty: float,
+        price: float,
+        min_qty: float,
+        min_usdt: float,
+    ) -> bool:
+        if trailing_qty <= 0:
+            return False
+        if min_qty > 0 and trailing_qty < min_qty:
+            return False
+        if min_usdt > 0 and trailing_qty * price < min_usdt:
+            return False
+        return True
 
     def _contract_rules(self, symbol: str) -> dict:
         cached = self._contract_cache.get(symbol)
@@ -494,20 +509,28 @@ class Executor:
         tp_qty, trailing_qty = self._split_exit_quantities(
             qty, rules["quantity_precision"]
         )
-        if tp_qty <= 0 or trailing_qty <= 0:
+        if not self._trailing_qty_is_valid(
+            trailing_qty,
+            entry,
+            rules["min_qty"],
+            rules["min_usdt"],
+        ):
+            # TP has priority. If the trailing leg cannot meet BingX quantity/
+            # notional constraints, route the entire closeable position to TP
+            # instead of rejecting or force-closing the entry.
+            tp_qty = qty
+            trailing_qty = 0.0
+
+        if tp_qty <= 0:
+            raise ValueError("TP exit quantity is zero")
+        if rules["min_qty"] > 0 and tp_qty < rules["min_qty"]:
             raise ValueError(
-                f"position quantity {qty} cannot be split into TP + trailing "
-                f"at precision {rules['quantity_precision']}"
+                f"TP exit quantity {tp_qty} is below BingX minimum {rules['min_qty']}"
             )
-        for label, exit_qty in (("TP", tp_qty), ("TRAILING", trailing_qty)):
-            if rules["min_qty"] > 0 and exit_qty < rules["min_qty"]:
-                raise ValueError(
-                    f"{label} exit quantity {exit_qty} is below BingX minimum {rules['min_qty']}"
-                )
-            if rules["min_usdt"] > 0 and exit_qty * entry < rules["min_usdt"]:
-                raise ValueError(
-                    f"{label} exit notional {exit_qty * entry:.8f} is below BingX minimum {rules['min_usdt']}"
-                )
+        if rules["min_usdt"] > 0 and tp_qty * entry < rules["min_usdt"]:
+            raise ValueError(
+                f"TP exit notional {tp_qty * entry:.8f} is below BingX minimum {rules['min_usdt']}"
+            )
 
         return {
             **rules,
@@ -886,42 +909,17 @@ class Executor:
         full_qty = self._floor_precision(executed_qty, qty_precision)
         tp_qty, trailing_qty = self._split_exit_quantities(full_qty, qty_precision)
 
-        # Fail-safe: after an entry is filled, never continue with an exit split
-        # that can leave quantity unmanaged. This should already be prevented by
-        # pre-entry sizing, but protects against an unexpected partial fill.
-        if tp_qty <= 0 or trailing_qty <= 0:
-            emergency_close = None
-            emergency_close_ok = False
-            emergency_close_error = None
-            try:
-                emergency_close = self.emergency_close_position(
-                    signal.symbol,
-                    entry_position_side,
-                )
-                emergency_close_ok = bool(emergency_close.get("ok"))
-                if not emergency_close_ok:
-                    emergency_close_error = (
-                        f"remaining position after emergency close: "
-                        f"{emergency_close.get('remaining_qty')}"
-                    )
-            except Exception as close_exc:
-                emergency_close_error = str(close_exc)
-            return {
-                **base_result,
-                "ok": False,
-                "stage": "invalid_exit_split",
-                "full_qty": full_qty,
-                "tp_qty": tp_qty,
-                "trailing_qty": trailing_qty,
-                "emergency_close_attempted": True,
-                "emergency_close_ok": emergency_close_ok,
-                "emergency_close_result": emergency_close,
-                "emergency_close_error": emergency_close_error,
-                "error": (
-                    f"cannot split filled quantity {full_qty} into TP + trailing "
-                    f"at precision {qty_precision}"
-                ),
-            }
+        # TP priority for unexpected partial fills. If the smaller trailing leg
+        # cannot satisfy BingX constraints, keep the position open and place TP
+        # for 100% of the filled quantity; SL still protects 100% as well.
+        if not self._trailing_qty_is_valid(
+            trailing_qty,
+            avg_price,
+            float(sizing["min_qty"]),
+            float(sizing["min_usdt"]),
+        ):
+            tp_qty = full_qty
+            trailing_qty = 0.0
 
         base_result.update({
             "full_qty": full_qty,
@@ -930,13 +928,14 @@ class Executor:
             "exit_qty_total": tp_qty + trailing_qty,
         })
         log.info(
-            "EXIT_SPLIT symbol=%s signal_id=%s full_qty=%s tp_qty=%s trailing_qty=%s covered_qty=%s",
+            "EXIT_SPLIT symbol=%s signal_id=%s full_qty=%s tp_qty=%s trailing_qty=%s covered_qty=%s mode=%s",
             signal.symbol,
             signal.event_id,
             full_qty,
             tp_qty,
             trailing_qty,
             tp_qty + trailing_qty,
+            "tp_only" if trailing_qty <= 0 else "tp_priority_split",
         )
 
         # Legacy-proven protection format:
@@ -1027,32 +1026,42 @@ class Executor:
         )
         base_result["trailing_activation"] = activation
 
-        try:
-            trailing_result = self._place_order(
-                signal.symbol,
-                opposite,
-                trailing_qty,
-                order_type="TRAILING_STOP_MARKET",
-                activation_price=activation,
-                price_rate=0.005,
-                position_side=entry_position_side,
-            )
-            trailing_order = self._confirm_protection_order(
-                signal.symbol, "TRAILING", trailing_result
-            )
-            trailing_actual = float(
-                trailing_order.get("activationPrice")
-                or trailing_order.get("activatePrice")
-                or activation
-            )
+        if trailing_qty <= 0:
             base_result.update({
                 "trailing_ok": True,
-                "trailing_result": trailing_result,
-                "trailing_activation_actual": trailing_actual,
+                "trailing_skipped": True,
+                "trailing_skip_reason": "quantity_too_small_tp_priority",
+                "trailing_result": None,
+                "trailing_activation_actual": None,
             })
-        except Exception as exc:
-            base_result["trailing_ok"] = False
-            protection_errors.append(f"Trailing: {exc}")
+        else:
+            try:
+                trailing_result = self._place_order(
+                    signal.symbol,
+                    opposite,
+                    trailing_qty,
+                    order_type="TRAILING_STOP_MARKET",
+                    activation_price=activation,
+                    price_rate=0.005,
+                    position_side=entry_position_side,
+                )
+                trailing_order = self._confirm_protection_order(
+                    signal.symbol, "TRAILING", trailing_result
+                )
+                trailing_actual = float(
+                    trailing_order.get("activationPrice")
+                    or trailing_order.get("activatePrice")
+                    or activation
+                )
+                base_result.update({
+                    "trailing_ok": True,
+                    "trailing_skipped": False,
+                    "trailing_result": trailing_result,
+                    "trailing_activation_actual": trailing_actual,
+                })
+            except Exception as exc:
+                base_result["trailing_ok"] = False
+                protection_errors.append(f"Trailing: {exc}")
 
         all_ok = bool(
             base_result.get("sl_ok")
