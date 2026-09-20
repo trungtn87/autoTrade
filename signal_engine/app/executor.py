@@ -67,7 +67,7 @@ class Executor:
             return self.settings.discord_webhook_btc
         if symbol == "ETH-USDT" and self.settings.discord_webhook_eth:
             return self.settings.discord_webhook_eth
-        return self.settings.discord_webhook_default
+        return ""
 
     def discord_allowed(self) -> bool:
         if not self.settings.discord_enabled:
@@ -134,6 +134,7 @@ class Executor:
                 log.warning("Discord %s attempt %s failed: %s", signal.symbol, attempt, exc)
                 time.sleep(1.0)
 
+        log.error("DISCORD_SIGNAL_SEND_FAILED symbol=%s", signal.symbol)
         return {"target": target, "ok": False, "error": "discord_send_failed"}
 
     def build_payload(self, signal: Signal, usdt_amount: float) -> dict:
@@ -380,9 +381,7 @@ class Executor:
         trailing_result = self._place_order(
             signal.symbol,
             opposite,
-            self._floor_precision(
-                executed_qty * 0.5, int(sizing["quantity_precision"])
-            ),
+            round(executed_qty * 0.5, 4),
             order_type="TRAILING_STOP_MARKET",
             activation_price=activation,
             price_rate=0.005,
@@ -404,8 +403,8 @@ class Executor:
         }
 
     def send_target(self, signal: Signal, target_name: str, url: str, usdt_amount: float) -> dict:
-        # usdt_amount is intentionally ignored: live size is calculated from
-        # current BingX account capital immediately before the order.
+        # usdt_amount is intentionally ignored. Live size is fixed by
+        # BINGX_ORDER_MARGIN_USDT * BINGX_LEVERAGE.
         if self.settings.dry_run:
             return {"target": target_name, "ok": False, "error": "dry_run_disabled_by_live_policy"}
 
