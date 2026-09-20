@@ -44,10 +44,10 @@ class Settings:
     auto_scheduler: bool = _bool("AUTO_SCHEDULER", True)
     scheduler_second: int = _int("SCHEDULER_SECOND", 8)
 
-    webhook_1: str = os.getenv("ORDER_WEBHOOK_1", "")
-    webhook_1_usdt: float = _float("ORDER_WEBHOOK_1_USDT", 700.0)
-    webhook_2: str = os.getenv("ORDER_WEBHOOK_2", "")
-    webhook_2_usdt: float = _float("ORDER_WEBHOOK_2_USDT", 100.0)
+    # Single-account direct BingX execution. The same API credentials are
+    # used for market data and live order placement.
+    order_usdt: float = _float("BINGX_ORDER_USDT", 700.0)
+    leverage: int = _int("BINGX_LEVERAGE", 100)
 
     discord_enabled: bool = _bool("DISCORD_ENABLED", True)
     discord_on_dry_run: bool = _bool("DISCORD_ON_DRY_RUN", True)
@@ -141,15 +141,6 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
             f"LOG_LEVEL must be one of {sorted(valid_levels)}, got {settings.log_level!r}"
         )
 
-    for name, url, amount in (
-        ("ORDER_WEBHOOK_1", settings.webhook_1, settings.webhook_1_usdt),
-        ("ORDER_WEBHOOK_2", settings.webhook_2, settings.webhook_2_usdt),
-    ):
-        if url and not _is_http_url(url):
-            errors.append(f"{name} must start with http:// or https://")
-        if url and amount <= 0:
-            errors.append(f"{name}_USDT must be > 0 when {name} is configured")
-
     for name, url in (
         ("DISCORD_WEBHOOK_BTC", settings.discord_webhook_btc),
         ("DISCORD_WEBHOOK_ETH", settings.discord_webhook_eth),
@@ -159,10 +150,10 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         if url and not _is_http_url(url):
             errors.append(f"{name} must start with http:// or https://")
 
-    if not (settings.webhook_1 or settings.webhook_2):
-        errors.append(
-            "LIVE engine has no ORDER_WEBHOOK_1/ORDER_WEBHOOK_2; order execution is unavailable"
-        )
+    if settings.order_usdt <= 0:
+        errors.append("BINGX_ORDER_USDT must be > 0")
+    if not (1 <= settings.leverage <= 125):
+        errors.append("BINGX_LEVERAGE must be between 1 and 125")
     if not settings.database_url:
         errors.append(
             "LIVE engine requires DATABASE_URL for persistent Postgres state"
@@ -215,16 +206,12 @@ def safe_config_snapshot(settings: Settings) -> dict:
         "adjust_tp_sl_bps": settings.adjust_tp_sl_bps,
         "legacy_rounding": settings.legacy_rounding,
         "dry_run": settings.dry_run,
-        "execution_ready": bool(settings.webhook_1 or settings.webhook_2) and bool(settings.database_url),
-        "order_targets": {
-            "account_1": {
-                "configured": bool(settings.webhook_1),
-                "usdt_amount": settings.webhook_1_usdt,
-            },
-            "account_2": {
-                "configured": bool(settings.webhook_2),
-                "usdt_amount": settings.webhook_2_usdt,
-            },
+        "execution_ready": bool(settings.bingx_api_key and settings.bingx_api_secret and settings.database_url),
+        "order_execution": {
+            "mode": "direct_bingx_single_account",
+            "configured": bool(settings.bingx_api_key and settings.bingx_api_secret),
+            "usdt_amount": settings.order_usdt,
+            "leverage": settings.leverage,
         },
         "discord": {
             "enabled": settings.discord_enabled,
