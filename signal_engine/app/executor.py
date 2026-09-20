@@ -55,7 +55,11 @@ class Executor:
         """One live BingX account using the configured API credentials directly."""
         if not (self.settings.bingx_api_key and self.settings.bingx_api_secret):
             return []
-        return [("bingx_account", "direct://bingx", 0.0)]
+        return [(
+            "bingx_account",
+            "direct://bingx",
+            self.settings.order_margin_usdt * self.settings.leverage,
+        )]
 
     def discord_url(self, symbol: str) -> str:
         symbol = symbol.upper()
@@ -214,166 +218,6 @@ class Executor:
             raise RuntimeError(f"BingX trade error {code}: {body.get('msg', '')}")
         return body
 
-    def _account_capital(self) -> dict:
-        """Read live USDT perpetual account capital before every entry."""
-        body = self._signed_trade_request(
-            "GET", "/openApi/swap/v3/user/balance", {}
-        )
-        data = body.get("data") or []
-        if isinstance(data, dict):
-            # Tolerate older/wrapper response shapes.
-            data = data.get("balance") or data.get("data") or data
-        rows = data if isinstance(data, list) else [data]
-
-        row = None
-        for item in rows:
-            if isinstance(item, dict) and str(item.get("asset", "")).upper() == "USDT":
-                row = item
-                break
-        if row is None and rows and isinstance(rows[0], dict):
-            row = rows[0]
-        if not row:
-            raise RuntimeError("BingX balance response has no usable account row")
-
-        balance = float(row.get("balance") or 0)
-        equity = float(row.get("equity") or balance or 0)
-        available = float(
-            row.get("availableMargin")
-            or row.get("availableBalance")
-            or equity
-            or 0
-        )
-        capital = equity if equity > 0 else balance
-        if not all(math.isfinite(v) and v > 0 for v in (capital, available)):
-            raise RuntimeError(
-                f"invalid BingX capital: equity={equity} balance={balance} availableMargin={available}"
-            )
-        return {
-            "balance": balance,
-            "equity": equity,
-            "available_margin": available,
-            "capital": capital,
-        }
-
-    def _contract_rules(self, symbol: str) -> dict:
-        body = self._signed_trade_request(
-            "GET", "/openApi/swap/v2/quote/contracts", {"symbol": symbol}
-        )
-        data = body.get("data") or []
-        if isinstance(data, dict):
-            data = data.get("contracts") or data.get("data") or [data]
-        if not isinstance(data, list):
-            data = [data]
-
-        item = next(
-            (x for x in data if isinstance(x, dict) and str(x.get("symbol", "")).upper() == symbol.upper()),
-            None,
-        )
-        if item is None:
-            raise RuntimeError(f"contract rules not found for {symbol}")
-
-        return {
-            "quantity_precision": int(item.get("quantityPrecision", 4)),
-            "trade_min_quantity": float(item.get("tradeMinQuantity") or 0),
-            "trade_min_usdt": float(item.get("tradeMinUSDT") or 0),
-            "max_long_leverage": int(item.get("maxLongLeverage") or self.settings.leverage),
-            "max_short_leverage": int(item.get("maxShortLeverage") or self.settings.leverage),
-            "api_state_open": str(item.get("apiStateOpen", "true")).lower(),
-            "status": int(item.get("status", 1)),
-        }
-
-    @staticmethod
-    def _floor_precision(value: float, precision: int) -> float:
-        factor = 10 ** max(0, int(precision))
-        return math.floor(value * factor + 1e-12) / factor
-
-    def _dynamic_size(self, signal: Signal, entry: float, sl: float) -> dict:
-        """Size one entry from current capital.
-
-        VOL 1%: at most 1% of current equity is allocated as margin budget.
-        RISK 10%: loss at the signal SL is capped at 10% of that margin budget.
-        Therefore nominal account risk is at most 0.1% of equity before fees/slippage.
-        """
-        acct = self._account_capital()
-        rules = self._contract_rules(signal.symbol)
-
-        if rules["status"] != 1 or rules["api_state_open"] == "false":
-            raise RuntimeError(f"{signal.symbol} is not API-open for new positions")
-
-        configured_lev = int(self.settings.leverage)
-        max_lev = (
-            rules["max_long_leverage"]
-            if signal.side == "BUY"
-            else rules["max_short_leverage"]
-        )
-        leverage = min(configured_lev, max_lev)
-        if leverage <= 0:
-            raise RuntimeError("resolved leverage is not positive")
-
-        margin_budget_raw = acct["capital"] * self.settings.volume_pct
-        margin_budget = min(margin_budget_raw, acct["available_margin"])
-        risk_budget = margin_budget * self.settings.risk_pct
-
-        sl_fraction = abs(entry - sl) / entry
-        if not math.isfinite(sl_fraction) or sl_fraction <= 0:
-            raise ValueError("SL distance must be positive for dynamic sizing")
-
-        max_notional_by_margin = margin_budget * leverage
-        max_notional_by_risk = risk_budget / sl_fraction
-        notional = min(max_notional_by_margin, max_notional_by_risk)
-
-        raw_qty = notional / entry
-        qty = self._floor_precision(raw_qty, rules["quantity_precision"])
-        if qty <= 0:
-            raise ValueError("dynamic sizing produced zero quantity")
-
-        min_qty = rules["trade_min_quantity"]
-        min_usdt = rules["trade_min_usdt"]
-        actual_notional = qty * entry
-        if min_qty > 0 and qty < min_qty:
-            raise ValueError(
-                f"dynamic quantity {qty} is below BingX minimum {min_qty}"
-            )
-        if min_usdt > 0 and actual_notional < min_usdt:
-            raise ValueError(
-                f"dynamic notional {actual_notional:.8f} is below BingX minimum {min_usdt}"
-            )
-
-        # Current exit design splits the position 50/50 between TP and
-        # trailing. Reject before entry if a half-position cannot satisfy BingX
-        # minimum quantity/notional rules.
-        half_qty = self._floor_precision(qty * 0.5, rules["quantity_precision"])
-        if half_qty <= 0:
-            raise ValueError("half-position quantity is zero after BingX precision")
-        if min_qty > 0 and half_qty < min_qty:
-            raise ValueError(
-                f"half-position quantity {half_qty} is below BingX minimum {min_qty}"
-            )
-        if min_usdt > 0 and half_qty * entry < min_usdt:
-            raise ValueError(
-                f"half-position notional {half_qty * entry:.8f} is below BingX minimum {min_usdt}"
-            )
-
-        est_loss_at_sl = qty * abs(entry - sl)
-        est_margin = actual_notional / leverage
-        return {
-            **acct,
-            "volume_pct": self.settings.volume_pct,
-            "risk_pct": self.settings.risk_pct,
-            "margin_budget": margin_budget,
-            "risk_budget": risk_budget,
-            "sl_fraction": sl_fraction,
-            "leverage": leverage,
-            "notional": actual_notional,
-            "qty": qty,
-            "half_qty": half_qty,
-            "estimated_margin": est_margin,
-            "estimated_loss_at_sl": est_loss_at_sl,
-            "quantity_precision": rules["quantity_precision"],
-            "trade_min_quantity": min_qty,
-            "trade_min_usdt": min_usdt,
-        }
-
     def _place_order(
         self,
         symbol: str,
@@ -428,29 +272,32 @@ class Executor:
 
     def _execute_direct_bingx(self, signal: Signal) -> dict:
         entry, tp, sl = execution_prices(signal, self.settings)
-        sizing = self._dynamic_size(signal, entry, sl)
-        qty = float(sizing["qty"])
 
-        payload = self.build_payload(signal, float(sizing["notional"]))
+        # Fixed sizing: 1 USDT margin per order at configured leverage.
+        # TP/SL are strategy outputs and do not participate in volume sizing.
+        notional = self.settings.order_margin_usdt * self.settings.leverage
+        if notional <= 0:
+            raise ValueError("fixed order notional must be positive")
+
+        qty = round(notional / entry, 4)
+        if qty <= 0:
+            raise ValueError("calculated quantity is not positive")
+
+        payload = self.build_payload(signal, notional)
         self.validate_order_payload(payload)
 
         log.info(
-            "DYNAMIC_SIZE symbol=%s signal_id=%s capital=%.8f available=%.8f margin_budget=%.8f risk_budget=%.8f sl_pct=%.6f leverage=%s notional=%.8f qty=%s est_loss_sl=%.8f",
+            "FIXED_SIZE symbol=%s signal_id=%s margin_usdt=%.8f leverage=%s notional=%.8f qty=%s",
             signal.symbol,
             signal.event_id,
-            sizing["capital"],
-            sizing["available_margin"],
-            sizing["margin_budget"],
-            sizing["risk_budget"],
-            sizing["sl_fraction"] * 100.0,
-            sizing["leverage"],
-            sizing["notional"],
-            sizing["qty"],
-            sizing["estimated_loss_at_sl"],
+            self.settings.order_margin_usdt,
+            self.settings.leverage,
+            notional,
+            qty,
         )
 
         self._set_leverage(
-            signal.symbol, signal.side, int(sizing["leverage"])
+            signal.symbol, signal.side, int(self.settings.leverage)
         )
         entry_result = self._place_order(
             signal.symbol,
@@ -510,9 +357,7 @@ class Executor:
         tp_result = self._place_order(
             signal.symbol,
             opposite,
-            self._floor_precision(
-                executed_qty * 0.5, int(sizing["quantity_precision"])
-            ),
+            round(executed_qty * 0.5, 4),
             order_type="TAKE_PROFIT_MARKET",
             stop_price=tp,
             position_side=entry_position_side,
@@ -556,7 +401,6 @@ class Executor:
             "tp_result": tp_result,
             "sl_result": sl_result,
             "trailing_result": trailing_result,
-            "sizing": sizing,
         }
 
     def send_target(self, signal: Signal, target_name: str, url: str, usdt_amount: float) -> dict:
@@ -569,7 +413,7 @@ class Executor:
             result = self._execute_direct_bingx(signal)
             result["target"] = target_name
             result["payload"] = self.build_payload(
-                signal, float((result.get("sizing") or {}).get("notional") or 0)
+                signal, self.settings.order_margin_usdt * self.settings.leverage
             )
             log.info(
                 "BINGX_DIRECT_EXEC target=%s signal_id=%s ok=%s order_id=%s avg_price=%s qty=%s",
