@@ -502,6 +502,23 @@ class Executor:
             {"symbol": symbol, "orderId": order_id},
         )
 
+    def _confirmed_order(self, symbol: str, create_result: dict) -> dict:
+        """Return BingX's latest order snapshot when an orderId is available."""
+        order = self._extract_order(create_result)
+        order_id = order.get("orderID") or order.get("orderId")
+        if not order_id:
+            return order
+        try:
+            detail = self._order_detail(symbol, str(order_id))
+            confirmed = self._extract_order(detail)
+            return confirmed or order
+        except Exception as exc:
+            log.warning(
+                "BINGX_ORDER_CONFIRM_FAILED symbol=%s order_id=%s error=%s",
+                symbol, order_id, exc,
+            )
+            return order
+
     def _execute_direct_bingx(self, signal: Signal) -> dict:
         entry, tp, sl = execution_prices(signal, self.settings)
 
@@ -663,7 +680,7 @@ class Executor:
                 position_side=entry_position_side,
                 close_position=True,
             )
-            sl_order = self._extract_order(sl_result)
+            sl_order = self._confirmed_order(signal.symbol, sl_result)
             sl_actual = float(sl_order.get("stopPrice") or sl)
             base_result.update({
                 "sl_ok": True,
@@ -709,7 +726,7 @@ class Executor:
                 stop_price=tp,
                 position_side=entry_position_side,
             )
-            tp_order = self._extract_order(tp_result)
+            tp_order = self._confirmed_order(signal.symbol, tp_result)
             tp_actual = float(tp_order.get("stopPrice") or tp)
             base_result.update({
                 "tp_ok": True,
@@ -738,7 +755,7 @@ class Executor:
                 price_rate=0.005,
                 position_side=entry_position_side,
             )
-            trailing_order = self._extract_order(trailing_result)
+            trailing_order = self._confirmed_order(signal.symbol, trailing_result)
             trailing_actual = float(
                 trailing_order.get("activationPrice")
                 or trailing_order.get("activatePrice")
