@@ -55,7 +55,7 @@ class Settings:
     discord_webhook_btc: str = os.getenv("DISCORD_WEBHOOK_BTC", "")
     discord_webhook_eth: str = os.getenv("DISCORD_WEBHOOK_ETH", "")
     discord_webhook_error: str = os.getenv("DISCORD_WEBHOOK_ERROR", "")
-    discord_log_enabled: bool = True
+    discord_log_enabled: bool = _bool("DISCORD_LOG_ENABLED", False)
     discord_periodic_log_enabled: bool = False
     discord_log_level: str = "ERROR"
     discord_startup_test: bool = _bool("DISCORD_STARTUP_TEST", False)
