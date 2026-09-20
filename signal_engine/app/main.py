@@ -285,6 +285,23 @@ def run_scan(execute: bool = True) -> dict:
         "started_at": started,
     }
     try:
+        cooldown_until = market.blocked_until_ms
+        now_ms = int(time.time() * 1000)
+        if cooldown_until > now_ms:
+            remaining_sec = int((cooldown_until - now_ms + 999) / 1000)
+            summary.update({
+                "status": "bingx_cooldown",
+                "retry_at_ms": cooldown_until,
+                "cooldown_remaining_sec": remaining_sec,
+                "elapsed_sec": round(time.time() - started, 3),
+            })
+            last_scan_summary = summary
+            log.warning(
+                "SCHEDULE_SKIP_BINGX_COOLDOWN retry_at_ms=%s remaining_sec=%s",
+                cooldown_until, remaining_sec,
+            )
+            return summary
+
         for symbol in settings.symbols:
             symbol_started = time.monotonic()
             try:
@@ -499,16 +516,27 @@ def run_scan(execute: bool = True) -> dict:
                     symbol, len(signals), round((time.monotonic() - symbol_started) * 1000, 1),
                 )
             except Exception as exc:
-                log.exception(
-                    "SYMBOL_SCAN_ERROR symbol=%s elapsed_ms=%s error=%s",
-                    symbol, round((time.monotonic() - symbol_started) * 1000, 1), exc,
-                )
+                elapsed_ms = round((time.monotonic() - symbol_started) * 1000, 1)
+                if isinstance(exc, BingXApiError):
+                    log.error(
+                        "SYMBOL_SCAN_BINGX_ERROR symbol=%s elapsed_ms=%s code=%s retry_at_ms=%s error=%s",
+                        symbol, elapsed_ms, exc.code, exc.retry_at_ms, exc,
+                    )
+                else:
+                    log.exception(
+                        "SYMBOL_SCAN_ERROR symbol=%s elapsed_ms=%s error=%s",
+                        symbol, elapsed_ms, exc,
+                    )
+
                 summary["status"] = "partial_error"
                 summary["symbols"][symbol] = {"error": str(exc)}
-                if isinstance(exc, BingXApiError) and str(exc.code) in {"109415", "109425", "109429"}:
-                    summary["stopped_early"] = True
-                    summary["stop_reason"] = f"BingX {exc.code}; stopped to avoid further invalid requests"
-                    break
+                if isinstance(exc, BingXApiError):
+                    if exc.retry_at_ms:
+                        summary["retry_at_ms"] = int(exc.retry_at_ms)
+                    if str(exc.code) in {"109415", "109425", "109429"}:
+                        summary["stopped_early"] = True
+                        summary["stop_reason"] = f"BingX {exc.code}; stopped to avoid further invalid requests"
+                        break
         summary["elapsed_sec"] = round(time.time() - started, 3)
         last_scan_summary = summary
         return summary
@@ -649,6 +677,8 @@ def health():
         "execution_mode": "direct_bingx_single_account_fixed_margin",
         "order_target_count": len(executor.targets()),
         "live_limit_15m": settings.live_limit_15m,
+        "bingx_blocked_until_ms": market.blocked_until_ms,
+        "bingx_cooldown_remaining_ms": market.cooldown_remaining_ms(),
     }
 
 
