@@ -41,8 +41,10 @@ scan_lock = threading.Lock()
 scheduler: BackgroundScheduler | None = None
 last_scan_summary: dict = {"status": "not_run"}
 MANUAL_ORDER_TEST_MODE = True
-ONE_SHOT_BTC_BUY_TEST = True
+ONE_SHOT_BTC_BUY_TEST = False
 ONE_SHOT_BTC_BUY_STATE_KEY = "one_shot_btc_buy_0_1usdt_x100_v1"
+ONE_SHOT_ETH_BUY_TEST = True
+ONE_SHOT_ETH_BUY_STATE_KEY = "one_shot_eth_buy_0_1usdt_x100_v1"
 
 
 INTERVAL_15M_MS = 15 * 60_000
@@ -692,6 +694,126 @@ def _run_one_shot_btc_buy_test() -> None:
             log.exception("ONE_SHOT_DISCORD_ERROR_FAILED")
 
 
+
+def _run_one_shot_eth_buy_test() -> None:
+    """Place one ETH BUY live test at exactly 0.1 USDT margin x100."""
+    if not ONE_SHOT_ETH_BUY_TEST:
+        return
+    if state.backend != "postgres":
+        log.error("ONE_SHOT_ETH_TEST_SKIPPED reason=postgres_required")
+        return
+
+    existing = state.get_runtime_value(ONE_SHOT_ETH_BUY_STATE_KEY, "")
+    if existing:
+        log.warning("ONE_SHOT_ETH_TEST_SKIPPED reason=already_attempted state=%s", existing[:500])
+        return
+
+    armed_at = int(time.time() * 1000)
+    state.set_runtime_value(
+        ONE_SHOT_ETH_BUY_STATE_KEY,
+        json.dumps({"status": "armed", "armed_at": armed_at}),
+    )
+
+    symbol = "ETH-USDT"
+    side = "BUY"
+    test_settings = replace(settings, order_margin_usdt=0.1, leverage=100)
+    test_executor = Executor(test_settings)
+
+    try:
+        cooldown_ms = max(
+            0,
+            _effective_bingx_blocked_until_ms() - int(time.time() * 1000),
+        )
+        if cooldown_ms > 0:
+            wait_sec = min(cooldown_ms / 1000.0 + 1.0, 180.0)
+            log.warning("ONE_SHOT_ETH_TEST_WAIT cooldown_ms=%s wait_sec=%.1f", cooldown_ms, wait_sec)
+            time.sleep(wait_sec)
+
+        candles = market.klines(symbol, "1m", 2)
+        if candles.empty:
+            raise RuntimeError("no 1m market data")
+        entry = float(candles.iloc[-1]["close"])
+        tp = entry * (1.0 + test_settings.tp_pct)
+        sl = entry * (1.0 - test_settings.sl_pct)
+
+        signal = Signal(
+            symbol=symbol,
+            combo=0,
+            side=side,
+            timeframe="TEST",
+            close_time=int(time.time() * 1000),
+            entry=entry,
+            tp=tp,
+            sl=sl,
+            smc_dir=0,
+        )
+
+        log.warning(
+            "ONE_SHOT_ETH_LIVE_TEST_START symbol=%s side=%s margin_usdt=0.1 leverage=100 ref_entry=%s",
+            symbol, side, entry,
+        )
+        result = test_executor._execute_direct_bingx(signal)
+        result["manual_test"] = True
+        result["one_shot"] = True
+        result["symbol"] = symbol
+        result["side"] = side
+        result["forced_margin_usdt"] = 0.1
+        result["forced_leverage"] = 100
+
+        summary_discord = test_executor.send_execution_discord(signal, result)
+        raw_discord = test_executor.send_execution_raw_discord(signal, result)
+        error_discord = None
+        if not result.get("ok"):
+            error_discord = test_executor.send_execution_error_discord(signal, result)
+
+        persisted = {
+            "status": "done",
+            "finished_at": int(time.time() * 1000),
+            "result": result,
+            "discord_summary": summary_discord,
+            "discord_raw": raw_discord,
+            "discord_error": error_discord,
+        }
+        state.set_runtime_value(
+            ONE_SHOT_ETH_BUY_STATE_KEY,
+            json.dumps(persisted, ensure_ascii=False),
+        )
+        log.warning(
+            "ONE_SHOT_ETH_LIVE_TEST_DONE ok=%s stage=%s order_id=%s sl_ok=%s tp_ok=%s trailing_ok=%s",
+            result.get("ok"), result.get("stage"), result.get("order_id"),
+            result.get("sl_ok"), result.get("tp_ok"), result.get("trailing_ok"),
+        )
+    except Exception as exc:
+        failed = {
+            "status": "failed",
+            "finished_at": int(time.time() * 1000),
+            "error": str(exc),
+        }
+        state.set_runtime_value(
+            ONE_SHOT_ETH_BUY_STATE_KEY,
+            json.dumps(failed, ensure_ascii=False),
+        )
+        log.exception("ONE_SHOT_ETH_LIVE_TEST_FAILED error=%s", exc)
+        try:
+            test_signal = Signal(
+                symbol=symbol,
+                combo=0,
+                side=side,
+                timeframe="TEST",
+                close_time=int(time.time() * 1000),
+                entry=1.0,
+                tp=2.0,
+                sl=0.5,
+                smc_dir=0,
+            )
+            test_executor.send_execution_error_discord(
+                test_signal,
+                {"stage": "one_shot_eth_startup", "error": str(exc)},
+            )
+        except Exception:
+            log.exception("ONE_SHOT_ETH_DISCORD_ERROR_FAILED")
+
+
 def scheduled_scan():
     log.info(
         "SCHEDULE_TICK dry_run=%s symbols=%s market_mode=15m_only_incremental",
@@ -797,6 +919,14 @@ async def lifespan(app: FastAPI):
         ).start()
         log.warning("ONE_SHOT_TEST_THREAD_STARTED symbol=BTC-USDT side=BUY margin_usdt=0.1 leverage=100")
 
+    if ONE_SHOT_ETH_BUY_TEST:
+        threading.Thread(
+            target=_run_one_shot_eth_buy_test,
+            name="one-shot-eth-buy-test",
+            daemon=True,
+        ).start()
+        log.warning("ONE_SHOT_ETH_TEST_THREAD_STARTED symbol=ETH-USDT side=BUY margin_usdt=0.1 leverage=100")
+
     if settings.auto_scheduler and not MANUAL_ORDER_TEST_MODE:
         scheduler = BackgroundScheduler(timezone="UTC")
         scheduler.add_job(
@@ -830,6 +960,8 @@ def health():
         "manual_order_test_mode": MANUAL_ORDER_TEST_MODE,
         "one_shot_btc_buy_test": ONE_SHOT_BTC_BUY_TEST,
         "one_shot_btc_buy_state": state.get_runtime_value(ONE_SHOT_BTC_BUY_STATE_KEY, ""),
+        "one_shot_eth_buy_test": ONE_SHOT_ETH_BUY_TEST,
+        "one_shot_eth_buy_state": state.get_runtime_value(ONE_SHOT_ETH_BUY_STATE_KEY, ""),
         "market_mode": "15m_only_incremental",
         "state_backend": state.backend,
         "execution_ready": state.backend == "postgres" and bool(executor.targets()),
