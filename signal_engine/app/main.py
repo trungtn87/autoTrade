@@ -19,7 +19,7 @@ from .config import Settings, safe_config_snapshot, validate_settings
 from .executor import Executor
 from .discord_diag import install_discord_log_handler, send_discord_scan_summary, send_discord_startup_test
 from .state import SignalState
-from .strategy import combo_readiness, scan_latest, strategy_static_snapshot
+from .strategy import Signal, combo_readiness, scan_latest, strategy_static_snapshot
 from .self_test import run_self_test, run_startup_self_test
 from .timeframes import aggregate_15m
 
@@ -776,6 +776,131 @@ def kline_check(symbol: str = "BTC-USDT", interval: str = "15m", limit: int = 3,
             "requested_limit": limit,
             "error": str(exc),
         }
+
+
+@app.get("/manual-test-preflight")
+def manual_test_preflight(
+    symbol: str = "BTC-USDT",
+    side: str = "BUY",
+    x_scan_token: str | None = Header(default=None),
+):
+    """Validate one tiny live test order without placing it."""
+    _require_scan_token(x_scan_token)
+    symbol = symbol.upper().strip()
+    side = side.upper().strip()
+
+    if settings.auto_scheduler:
+        raise HTTPException(
+            status_code=409,
+            detail="manual live test requires AUTO_SCHEDULER=false",
+        )
+    if symbol not in {"BTC-USDT", "ETH-USDT"}:
+        raise HTTPException(status_code=400, detail="test symbol must be BTC-USDT or ETH-USDT")
+    if side not in {"BUY", "SELL"}:
+        raise HTTPException(status_code=400, detail="side must be BUY or SELL")
+
+    try:
+        candles = market.klines(symbol, "1m", 2)
+        if candles.empty:
+            raise RuntimeError("no 1m market data")
+        entry = float(candles.iloc[-1]["close"])
+
+        executor._assert_hedge_mode()
+        sizing = executor._prepare_fixed_size(symbol, side, entry)
+
+        return {
+            "ok": True,
+            "order_will_be_placed": False,
+            "symbol": symbol,
+            "side": side,
+            "reference_price": entry,
+            "margin_usdt": settings.order_margin_usdt,
+            "leverage": settings.leverage,
+            "target_notional_usdt": settings.order_margin_usdt * settings.leverage,
+            "quantity": sizing["qty"],
+            "half_quantity": sizing["half_qty"],
+            "quantity_precision": sizing["quantity_precision"],
+            "price_precision": sizing["price_precision"],
+            "min_qty": sizing["min_qty"],
+            "min_usdt": sizing["min_usdt"],
+            "hedge_mode": True,
+            "scheduler": settings.auto_scheduler,
+            "protection_mode": "legacy_separate_orders",
+        }
+    except Exception as exc:
+        log.warning("MANUAL_TEST_PREFLIGHT_FAILED symbol=%s side=%s error=%s", symbol, side, exc)
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/manual-order-test")
+def manual_order_test(
+    symbol: str = "BTC-USDT",
+    side: str = "BUY",
+    x_scan_token: str | None = Header(default=None),
+):
+    """Place exactly one tiny live test trade using the production executor."""
+    _require_scan_token(x_scan_token)
+    symbol = symbol.upper().strip()
+    side = side.upper().strip()
+
+    if settings.auto_scheduler:
+        raise HTTPException(
+            status_code=409,
+            detail="manual live test requires AUTO_SCHEDULER=false",
+        )
+    if symbol not in {"BTC-USDT", "ETH-USDT"}:
+        raise HTTPException(status_code=400, detail="test symbol must be BTC-USDT or ETH-USDT")
+    if side not in {"BUY", "SELL"}:
+        raise HTTPException(status_code=400, detail="side must be BUY or SELL")
+
+    try:
+        candles = market.klines(symbol, "1m", 2)
+        if candles.empty:
+            raise RuntimeError("no 1m market data")
+        entry = float(candles.iloc[-1]["close"])
+
+        if side == "BUY":
+            tp = entry * (1.0 + settings.tp_pct)
+            sl = entry * (1.0 - settings.sl_pct)
+        else:
+            tp = entry * (1.0 - settings.tp_pct)
+            sl = entry * (1.0 + settings.sl_pct)
+
+        signal = Signal(
+            symbol=symbol,
+            combo=0,
+            side=side,
+            timeframe="TEST",
+            close_time=int(time.time() * 1000),
+            entry=entry,
+            tp=tp,
+            sl=sl,
+            smc_dir=0,
+        )
+
+        log.warning(
+            "MANUAL_LIVE_TEST_START symbol=%s side=%s margin_usdt=%s leverage=%s ref_entry=%s",
+            symbol, side, settings.order_margin_usdt, settings.leverage, entry,
+        )
+        result = executor._execute_direct_bingx(signal)
+        result["manual_test"] = True
+        result["symbol"] = symbol
+        result["side"] = side
+        log.warning(
+            "MANUAL_LIVE_TEST_DONE symbol=%s side=%s ok=%s stage=%s order_id=%s sl_ok=%s tp_ok=%s trailing_ok=%s",
+            symbol, side, result.get("ok"), result.get("stage"), result.get("order_id"),
+            result.get("sl_ok"), result.get("tp_ok"), result.get("trailing_ok"),
+        )
+
+        if result.get("ok"):
+            executor.send_execution_discord(signal, result)
+        else:
+            executor.send_execution_error_discord(signal, result)
+
+        return result
+    except Exception as exc:
+        log.exception("MANUAL_LIVE_TEST_FAILED symbol=%s side=%s", symbol, side)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/self-test")
