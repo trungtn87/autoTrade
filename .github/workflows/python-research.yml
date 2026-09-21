@@ -79,8 +79,7 @@ jobs:
               echo "===== ${year} PASS ====="
             else
               cp data/manifest.json "data/manifests/${year}.json" || true
-              echo "===== ${year} FAIL; keeping completed newer years in cache/store ====="
-              exit 1
+              echo "===== ${year} FAIL; continuing to older year; valid pages remain cached ====="
             fi
           }
 
