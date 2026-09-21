@@ -59,11 +59,19 @@ jobs:
           PYTHONPATH: signal_engine
         run: python signal_engine/tests/final14_test.py
 
-      - name: Full-history signal parity
+      - name: Exact research source parity
         env:
           PYTHONPATH: signal_engine
         run: |
-          python signal_engine/tests/final14_parity.py \
+          python signal_engine/tests/final14_exact_parity.py \
             --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
             --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl \
             --research-dir research/backtest
+
+      - name: Live warmup parity
+        env:
+          PYTHONPATH: signal_engine
+        run: |
+          python signal_engine/tests/final14_warmup_parity.py \
+            --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl
