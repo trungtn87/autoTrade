@@ -1,6 +1,7 @@
-trigger long-window baseline backtest
+trigger C1 Layer 1 long-history exit sweep
 dataset: hybrid BTC/ETH 15m 2021-01-01 to 2026-09-20
 windows: 6M,1Y,3Y,FULL
-combos: C1-C10,TIER
-mode: BASE original logic
+entry: C1 original
+filters: SMC OFF, OB OFF
+exit families: ATR and fixed percent
 requested 2026-09-21
