@@ -1,0 +1,22 @@
+{
+  "source_layer3_run_id": 35599648865,
+  "source_layer3_artifact_id": 10637963671,
+  "rule": "Locked validation only. Reject a case if any of 6M, 1Y, 3Y, FULL net PnL is negative.",
+  "initial_equity": 1000,
+  "notional_per_position": 100,
+  "fee_per_side_pct": 0.05,
+  "mmr": 0.004,
+  "cases": [
+    {"id":"BTC_C1","symbol":"BTCUSDT","combo":"C1","entry_variant":"MFI_L50_S50","layer2_variant":"SMC_STRICT","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.2,"t2_callback_pct":0.5,"protect_pct":0.0},
+    {"id":"BTC_C2","symbol":"BTCUSDT","combo":"C2","entry_variant":"ADX_20","layer2_variant":"SMC_VETO_OB","sl_pct":0.9,"t1_callback_pct":0.5,"t2_activation_pct":1.2,"t2_callback_pct":0.8,"protect_pct":0.0},
+    {"id":"BTC_C3","symbol":"BTCUSDT","combo":"C3","entry_variant":"ADX_26","layer2_variant":"SMC_VETO","sl_pct":0.9,"t1_callback_pct":0.5,"t2_activation_pct":1.2,"t2_callback_pct":0.8,"protect_pct":0.0},
+    {"id":"ETH_C4","symbol":"ETHUSDT","combo":"C4","entry_variant":"ADX_23","layer2_variant":"SMC_VETO","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.2,"t2_callback_pct":0.5,"protect_pct":0.0},
+    {"id":"ETH_C5","symbol":"ETHUSDT","combo":"C5","entry_variant":"VOL_2.2","layer2_variant":"SMC_STRICT","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.0,"t2_callback_pct":0.5,"protect_pct":0.0},
+    {"id":"BTC_C6","symbol":"BTCUSDT","combo":"C6","entry_variant":"BODY_1.4","layer2_variant":"SMC_VETO_OB","sl_pct":0.9,"t1_callback_pct":0.5,"t2_activation_pct":1.2,"t2_callback_pct":0.5,"protect_pct":0.0},
+    {"id":"ETH_C7","symbol":"ETHUSDT","combo":"C7","entry_variant":"BODY1.3_VOL1.5","layer2_variant":"OB","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.0,"t2_callback_pct":0.8,"protect_pct":0.0},
+    {"id":"ETH_C8","symbol":"ETHUSDT","combo":"C8","entry_variant":"ADX_25","layer2_variant":"SMC_STRICT","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":0.8,"t2_callback_pct":0.5,"protect_pct":0.2},
+    {"id":"BTC_C9","symbol":"BTCUSDT","combo":"C9","entry_variant":"RSI45_FIXST","layer2_variant":"SMC_VETO","sl_pct":0.5,"t1_callback_pct":0.3,"t2_activation_pct":1.0,"t2_callback_pct":0.8,"protect_pct":0.0},
+    {"id":"BTC_C10","symbol":"BTCUSDT","combo":"C10","entry_variant":"ADX_22","layer2_variant":"SMC_VETO","sl_pct":0.9,"t1_callback_pct":0.5,"t2_activation_pct":1.0,"t2_callback_pct":0.5,"protect_pct":0.2},
+    {"id":"BTC_TIER","symbol":"BTCUSDT","combo":"TIER","entry_variant":"ADX30_T27_T35_V1.3","layer2_variant":"OFF","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.2,"t2_callback_pct":0.8,"protect_pct":0.0}
+  ]
+}
