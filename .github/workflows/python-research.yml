@@ -1,63 +1,115 @@
-name: Python Research Data Validation
+name: Python Research Backtest + Public Data
+
 on:
   push:
     branches: [research-python-backtest]
-    paths: ['backtest/**', '.github/workflows/python-research.yml']
+    paths: ['backtest/RUN_RESEARCH']
   workflow_dispatch:
     inputs:
-      start:
-        description: 'UTC inclusive start (aligned to 00:00)'
+      backfill_start:
+        description: 'UTC inclusive public-market backfill start'
+        default: '2025-01-01'
+      backfill_end:
+        description: 'UTC exclusive backfill end; must meet existing store without a gap'
         default: '2026-04-01'
-      end:
-        description: 'UTC exclusive end'
-        default: '2026-09-21'
+      trade_start:
+        description: 'UTC first candle allowed to open a test trade'
+        default: '2026-07-01'
+
 permissions:
   contents: read
+  actions: read
+
 concurrency:
-  group: research-data
+  group: research-public-data
   cancel-in-progress: false
+
 jobs:
-  data:
+  research:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     defaults:
       run:
         working-directory: backtest
     env:
-      START_DATE: ${{ inputs.start || '2026-04-01' }}
-      END_DATE: ${{ inputs.end || '2026-09-21' }}
+      BACKFILL_START: ${{ inputs.backfill_start || '2025-01-01' }}
+      BACKFILL_END: ${{ inputs.backfill_end || '2026-04-01' }}
+      TRADE_START: ${{ inputs.trade_start || '2026-07-01' }}
       TZ: UTC
       PYTHONHASHSEED: '0'
       OPENBLAS_NUM_THREADS: '1'
+      RUN7_ARTIFACT_ID: '10626316052'
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12.14'
+
       - run: pip install -r requirements.txt
-      - run: python -m unittest -v test_data
-      - uses: actions/cache/restore@v4
+
+      - name: Data unit tests
+        run: python -m unittest -v test_data
+
+      - name: Restore research cache
+        uses: actions/cache/restore@v4
         with:
-          path: backtest/data/pages
-          key: bingx-pages-v2-${{ github.run_id }}
-          restore-keys: bingx-pages-v2-
-      - name: Download and validate only (no backtest)
-        run: python -u bootstrap_data.py --start "$START_DATE" --end "$END_DATE"
+          path: |
+            backtest/data/pages
+            backtest/data/store
+          key: public-market-v3-${{ github.run_id }}
+          restore-keys: |
+            public-market-v3-
+
+      - name: Seed store from validated run 7 when cache is empty
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if [ ! -f data/store/BTCUSDT_15m.pkl ] || [ ! -f data/store/ETHUSDT_15m.pkl ]; then
+            mkdir -p data/seed data/store
+            gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${RUN7_ARTIFACT_ID}/zip" > data/seed/run7.zip
+            unzip -q -o data/seed/run7.zip -d data/seed
+            python seed_store.py --seed-dir data/seed --store-dir data/store
+          fi
+
+      - name: Backfill public BingX market data only
+        run: |
+          python -u bootstrap_data.py             --start "$BACKFILL_START"             --end "$BACKFILL_END"             --out-dir data             --sleep 1.05
+
+      - name: BTC C1-C10 RAW baseline
+        run: |
+          python combo_matrix.py             --symbol BTCUSDT             --data15 data/store/BTCUSDT_15m.pkl             --data1h data/store/BTCUSDT_1h.pkl             --data4h data/store/BTCUSDT_4h.pkl             --data6h data/store/BTCUSDT_6h.pkl             --combos C1,C2,C3,C4,C5,C6,C7,C8,C9,C10             --variants RAW             --policy stop_first             --trade-start "$TRADE_START"             --commission 0             --out-dir results/by_combo/BTCUSDT
+
+      - name: ETH C1-C10 RAW baseline
+        run: |
+          python combo_matrix.py             --symbol ETHUSDT             --data15 data/store/ETHUSDT_15m.pkl             --data1h data/store/ETHUSDT_1h.pkl             --data4h data/store/ETHUSDT_4h.pkl             --data6h data/store/ETHUSDT_6h.pkl             --combos C1,C2,C3,C4,C5,C6,C7,C8,C9,C10             --variants RAW             --policy stop_first             --trade-start "$TRADE_START"             --commission 0             --out-dir results/by_combo/ETHUSDT
+
       - name: Record exact environment
         if: always()
-        run: pip freeze > data/environment.txt
-      - uses: actions/cache/save@v4
+        run: |
+          mkdir -p data
+          pip freeze > data/environment.txt
+
+      - name: Save research cache
         if: always()
+        uses: actions/cache/save@v4
         with:
-          path: backtest/data/pages
-          key: bingx-pages-v2-${{ github.run_id }}
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: bingx-validated-data-${{ github.run_id }}
           path: |
-            backtest/data/*.pkl
+            backtest/data/pages
+            backtest/data/store
+          key: public-market-v3-${{ github.run_id }}
+
+      - name: Upload data and baseline results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-backtest-${{ github.run_id }}
+          path: |
             backtest/data/manifest.json
             backtest/data/environment.txt
+            backtest/data/store/*.pkl
+            backtest/results/
           retention-days: 90
           if-no-files-found: error
