@@ -28,6 +28,17 @@ def _combo_name(combo:int)->str:
     return "TIER" if int(combo)==11 else f"C{int(combo)}"
 
 
+def hard_tp_sl(entry:float, direction:int, cfg:dict)->tuple[float,float]:
+    """Return locked FINAL14 hard TP/SL from decimal-fraction config values."""
+    tpp=float(cfg["tp_pct"])
+    slp=float(cfg["sl_pct"])
+    if direction==1:
+        return entry*(1+tpp), entry*(1-slp)
+    if direction==-1:
+        return entry*(1-tpp), entry*(1+slp)
+    raise ValueError("direction must be +1 or -1")
+
+
 def _symbol_configs(symbol:str)->dict[str,dict]:
     out={}
     for combo,cfg in FINAL14_CASES.get(symbol.upper(),{}).items():
@@ -156,12 +167,8 @@ def scan_latest(
         if not approved(side_code,sd,blocked,cfg["layer2"]):
             continue
 
-        # FINAL14 config stores percentages as decimal fractions: 0.02 == 2%.
-        # Do not divide by 100 again or 2% would become 0.02%.
-        tpp=float(cfg["tp_pct"])
-        slp=float(cfg["sl_pct"])
-        tp=entry*(1+tpp) if direction==1 else entry*(1-tpp)
-        sl=entry*(1-slp) if direction==1 else entry*(1+slp)
+        # Config values are decimal fractions (0.02 == 2%).
+        tp,sl=hard_tp_sl(entry,direction,cfg)
         out.append(Signal(
             symbol=symbol,
             combo=int(combo),
