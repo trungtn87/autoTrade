@@ -9,7 +9,7 @@ from .executor import Executor
 from .final14_config import case_name, get_case
 from .strategy import Signal
 
-log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)\n\nFINAL14_NOTIONAL_USDT = 100.0\nFINAL14_EXECUTION_LEVERAGE = 50
 
 
 class Final14Executor(Executor):
@@ -49,12 +49,12 @@ class Final14Executor(Executor):
             if signal.side.upper() == "BUY"
             else rules["max_short_leverage"]
         )
-        if max_lev > 0 and self.settings.leverage > max_lev:
+        if max_lev > 0 and FINAL14_EXECUTION_LEVERAGE > max_lev:
             raise RuntimeError(
-                f"{signal.symbol} max leverage is {max_lev}x, configured {self.settings.leverage}x"
+                f"{signal.symbol} max leverage is {max_lev}x, FINAL14 requires {FINAL14_EXECUTION_LEVERAGE}x"
             )
 
-        target_notional = self.settings.order_margin_usdt * self.settings.leverage
+        target_notional = FINAL14_NOTIONAL_USDT
         raw_qty = target_notional / float(signal.entry)
         qty = self._floor_precision(raw_qty, rules["quantity_precision"])
         if qty <= 0:
@@ -181,7 +181,7 @@ class Final14Executor(Executor):
         if signal.side=="SELL" and not (tp<entry<sl):
             raise ValueError("FINAL14 SELL TP/SL ordering invalid")
 
-        self._set_leverage(signal.symbol,signal.side,int(self.settings.leverage))
+        self._set_leverage(signal.symbol,signal.side,FINAL14_EXECUTION_LEVERAGE)
         before=self._positions(signal.symbol)
         before_ids=self._position_ids(before)
 
@@ -260,6 +260,7 @@ class Final14Executor(Executor):
             "executed_qty":executed_qty,
             "target_notional":float(sizing["target_notional"]),
             "actual_notional":float(sizing["actual_notional"]),
+            "execution_leverage":FINAL14_EXECUTION_LEVERAGE,
             "tp":tp,
             "sl":sl,
             "rr":float(cfg["rr"]),
