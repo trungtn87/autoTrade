@@ -23,6 +23,8 @@ from .strategy import (
     smc_direction,
 )
 from .timeframes import aggregate_15m
+from .final14_exact_strategy import combo_readiness as final14_combo_readiness
+from .final14_config import enabled_combos as final14_enabled_combos
 
 
 def _synthetic_15m(count: int = 2600) -> pd.DataFrame:
@@ -94,44 +96,31 @@ def run_startup_self_test(settings: Settings, state=None) -> dict:
     checks.append(_check("aggregation_light", aggregation_light))
 
     def readiness_light():
-        # combo_readiness only needs frame lengths, so do not create/aggregate
-        # thousands of synthetic candles during service startup.
-        cases = {
-            "1000": {
-                "lengths": (1000, 250, 62, 41),
-                "ready": {2, 3, 5, 6, 8, 9},
-            },
-            "1600": {
-                "lengths": (1600, 400, 100, 66),
-                "ready": {2, 3, 4, 5, 6, 7, 8, 9, 10},
-            },
-            "2600": {
-                "lengths": (2600, 650, 162, 108),
-                "ready": set(FIFTEEN_MIN_COMBOS | ONE_HOUR_COMBOS),
-            },
-        }
         details = {}
-        for label, case in cases.items():
-            n15, n1, n4, n6 = case["lengths"]
-            frames = [
-                pd.DataFrame(index=range(n15)),
-                pd.DataFrame(index=range(n1)),
-                pd.DataFrame(index=range(n4)),
-                pd.DataFrame(index=range(n6)),
-            ]
-            status = combo_readiness(
-                *frames,
-                smc_swing_len=settings.smc_swing_len,
-            )
-            ready = {combo for combo, item in status.items() if item["ready"]}
-            assert ready == case["ready"], (
-                f"{label} readiness mismatch: got={sorted(ready)} "
-                f"expected={sorted(case['ready'])}"
-            )
-            details[label] = {
-                "ready": sorted(ready),
-                "skipped": sorted(set(status) - ready),
-            }
+        for symbol in settings.symbols:
+            expected=set(final14_enabled_combos(symbol))
+            for count in (11999,12000):
+                frames=[
+                    pd.DataFrame(index=range(count)),
+                    pd.DataFrame(),
+                    pd.DataFrame(),
+                    pd.DataFrame(),
+                ]
+                status=final14_combo_readiness(
+                    *frames,
+                    smc_swing_len=settings.smc_swing_len,
+                    symbol=symbol,
+                )
+                ready={combo for combo,item in status.items() if item["ready"]}
+                want=expected if count>=12000 else set()
+                assert ready==want, (
+                    f"{symbol} {count} readiness mismatch: "
+                    f"got={sorted(ready)} expected={sorted(want)}"
+                )
+                details[f"{symbol}:{count}"]={
+                    "ready":sorted(ready),
+                    "skipped":sorted(set(status)-ready),
+                }
         return details
 
     checks.append(_check("combo_readiness_light", readiness_light))
