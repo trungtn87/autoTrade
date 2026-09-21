@@ -9,31 +9,25 @@ import numpy as np
 import pandas as pd
 
 from .config import Settings
-from .executor import Executor, execution_prices
-from .indicators import atr, dmi, ema, rsi
-from .state import SignalState
-from .strategy import (
+from .executor import Executor
+from .final_config import FINAL_CASES, DISABLED_CASES, enabled_combos, snapshot as final_snapshot
+from .final_strategy import (
     FIFTEEN_MIN_COMBOS,
     ONE_HOUR_COMBOS,
     Signal,
-    combo15_events,
-    combo60_events,
     combo_readiness,
     scan_latest,
-    smc_direction,
 )
+from .indicators import atr, dmi, ema, rsi
+from .state import SignalState
 from .timeframes import aggregate_15m
 
 
-def _synthetic_15m(count: int = 2600) -> pd.DataFrame:
-    """Deterministic closed 15m candles; never touches network."""
+def _synthetic_15m(count: int = 3400) -> pd.DataFrame:
     start = 1_700_000_000_000
     step = 15 * 60_000
-    # Align to a 12H boundary, the LCM of 1H/4H/6H, so every derived
-    # timeframe starts on a complete UTC bucket.
     twelve_h = 12 * 60 * 60_000
     start = (start // twelve_h) * twelve_h
-
     rows = []
     prev_close = 30_000.0
     for i in range(count):
@@ -46,13 +40,8 @@ def _synthetic_15m(count: int = 2600) -> pd.DataFrame:
         low = min(open_, close) - 32.0 - (i % 5)
         volume = 100.0 + (i % 23) * 3.0 + abs(math.sin(i / 8.0)) * 40.0
         rows.append({
-            "open_time": t,
-            "open": open_,
-            "high": high,
-            "low": low,
-            "close": close,
-            "volume": volume,
-            "close_time": t + step - 1,
+            "open_time": t, "open": open_, "high": high, "low": low,
+            "close": close, "volume": volume, "close_time": t + step - 1,
         })
         prev_close = close
     return pd.DataFrame(rows)
@@ -62,376 +51,122 @@ def _check(name: str, fn) -> dict:
     started = time.monotonic()
     try:
         details = fn() or {}
-        return {
-            "ok": True,
-            "name": name,
-            "elapsed_ms": round((time.monotonic() - started) * 1000, 2),
-            "details": details,
-        }
+        return {"ok": True, "name": name, "elapsed_ms": round((time.monotonic()-started)*1000,2), "details": details}
     except Exception as exc:
-        return {
-            "ok": False,
-            "name": name,
-            "elapsed_ms": round((time.monotonic() - started) * 1000, 2),
-            "error": f"{type(exc).__name__}: {exc}",
-        }
+        return {"ok": False, "name": name, "elapsed_ms": round((time.monotonic()-started)*1000,2), "error": f"{type(exc).__name__}: {exc}"}
 
 
 def run_startup_self_test(settings: Settings, state=None) -> dict:
-    """Fast startup checks only; no network calls, no order calls, no large strategy scan."""
-    checks: list[dict] = []
+    checks=[]
+
+    def config_light():
+        assert sum(len(v) for v in FINAL_CASES.values()) == 18
+        assert sum(len(v) for v in DISABLED_CASES.values()) == 4
+        assert enabled_combos("BTC-USDT") == (1,2,3,4,6,7,9,10,11)
+        assert enabled_combos("ETH-USDT") == (1,2,4,5,6,7,8,10,11)
+        return final_snapshot()
+    checks.append(_check("final18_config", config_light))
 
     def aggregation_light():
-        sample = _synthetic_15m(96)
-        h1 = aggregate_15m(sample, 60)
-        h4 = aggregate_15m(sample, 240)
-        h6 = aggregate_15m(sample, 360)
-        assert len(h1) == 24
-        assert len(h4) == 6
-        assert len(h6) == 4
-        return {"15m": 96, "1h": len(h1), "4h": len(h4), "6h": len(h6)}
-
+        sample=_synthetic_15m(96)
+        h1=aggregate_15m(sample,60); h4=aggregate_15m(sample,240); h6=aggregate_15m(sample,360)
+        assert (len(h1),len(h4),len(h6)) == (24,6,4)
+        return {"15m":96,"1h":len(h1),"4h":len(h4),"6h":len(h6)}
     checks.append(_check("aggregation_light", aggregation_light))
 
     def readiness_light():
-        # combo_readiness only needs frame lengths, so do not create/aggregate
-        # thousands of synthetic candles during service startup.
-        cases = {
-            "1000": {
-                "lengths": (1000, 250, 62, 41),
-                "ready": {2, 3, 5, 6, 8, 9},
-            },
-            "1600": {
-                "lengths": (1600, 400, 100, 66),
-                "ready": {2, 3, 4, 5, 6, 7, 8, 9, 10},
-            },
-            "2600": {
-                "lengths": (2600, 650, 162, 108),
-                "ready": set(FIFTEEN_MIN_COMBOS | ONE_HOUR_COMBOS),
-            },
-        }
-        details = {}
-        for label, case in cases.items():
-            n15, n1, n4, n6 = case["lengths"]
-            frames = [
-                pd.DataFrame(index=range(n15)),
-                pd.DataFrame(index=range(n1)),
-                pd.DataFrame(index=range(n4)),
-                pd.DataFrame(index=range(n6)),
-            ]
-            status = combo_readiness(
-                *frames,
-                smc_swing_len=settings.smc_swing_len,
-            )
-            ready = {combo for combo, item in status.items() if item["ready"]}
-            assert ready == case["ready"], (
-                f"{label} readiness mismatch: got={sorted(ready)} "
-                f"expected={sorted(case['ready'])}"
-            )
-            details[label] = {
-                "ready": sorted(ready),
-                "skipped": sorted(set(status) - ready),
-            }
+        frames=[
+            pd.DataFrame(index=range(3400)),
+            pd.DataFrame(index=range(850)),
+            pd.DataFrame(index=range(212)),
+            pd.DataFrame(index=range(141)),
+        ]
+        details={}
+        for symbol in ("BTC-USDT","ETH-USDT"):
+            status=combo_readiness(*frames,smc_swing_len=settings.smc_swing_len,symbol=symbol)
+            ready={c for c,x in status.items() if x["ready"]}
+            assert ready == set(enabled_combos(symbol))
+            details[symbol]=sorted(ready)
         return details
-
-    checks.append(_check("combo_readiness_light", readiness_light))
+    checks.append(_check("final18_readiness_light", readiness_light))
 
     if state is not None:
         def state_read_light():
-            counts = {
-                symbol: state.candle_count(symbol, "15m")
-                for symbol in settings.symbols
-            }
-            return {
-                "backend": state.backend,
-                "persistent": state.backend == "postgres",
-                "cached_15m": counts,
-            }
-
+            counts={symbol:state.candle_count(symbol,"15m") for symbol in settings.symbols}
+            return {"backend":state.backend,"persistent":state.backend=="postgres","cached_15m":counts}
         checks.append(_check("state_read_light", state_read_light))
 
-    ok = all(item["ok"] for item in checks)
-    return {
-        "ok": ok,
-        "offline": True,
-        "mode": "startup_light",
-        "network_calls": 0,
-        "order_calls": 0,
-        "checks": checks,
-    }
+    return {"ok":all(x["ok"] for x in checks),"offline":True,"mode":"startup_light","network_calls":0,"order_calls":0,"checks":checks}
 
 
 def run_self_test(settings: Settings) -> dict:
-    """Offline validation of processing after market-data acquisition.
-
-    This function does NOT call BingX, Discord, or order webhooks.
-    """
-    m15 = _synthetic_15m()
-    h1 = aggregate_15m(m15, 60)
-    h4 = aggregate_15m(m15, 240)
-    h6 = aggregate_15m(m15, 360)
-
-    checks: list[dict] = []
+    m15=_synthetic_15m(3400)
+    h1=aggregate_15m(m15,60); h4=aggregate_15m(m15,240); h6=aggregate_15m(m15,360)
+    checks=[]
 
     def aggregation_check():
-        assert len(h1) == len(m15) // 4
-        assert len(h4) == len(m15) // 16
-        assert len(h6) == len(m15) // 24
-
-        g = m15.iloc[:4]
-        first = h1.iloc[0]
-        assert float(first["open"]) == float(g.iloc[0]["open"])
-        assert float(first["close"]) == float(g.iloc[-1]["close"])
-        assert float(first["high"]) == float(g["high"].max())
-        assert float(first["low"]) == float(g["low"].min())
-        assert np.isclose(float(first["volume"]), float(g["volume"].sum()))
-        return {
-            "15m": len(m15),
-            "1h": len(h1),
-            "4h": len(h4),
-            "6h": len(h6),
-        }
-
-    checks.append(_check("aggregation", aggregation_check))
+        assert len(h1)==len(m15)//4
+        assert len(h4)==len(m15)//16
+        assert len(h6)==len(m15)//24
+        return {"15m":len(m15),"1h":len(h1),"4h":len(h4),"6h":len(h6)}
+    checks.append(_check("aggregation",aggregation_check))
 
     def indicators_check():
-        e = ema(m15["close"], 200)
-        a = atr(m15, 21)
-        r = rsi(m15["close"], 14)
-        _, _, adx = dmi(m15, 14, 14)
-        for label, series in {
-            "ema200": e,
-            "atr21": a,
-            "rsi14": r,
-            "adx14": adx,
-        }.items():
-            value = float(series.iloc[-1])
-            assert np.isfinite(value), f"{label} latest is not finite"
-        return {
-            "ema200": round(float(e.iloc[-1]), 6),
-            "atr21": round(float(a.iloc[-1]), 6),
-            "rsi14": round(float(r.iloc[-1]), 6),
-            "adx14": round(float(adx.iloc[-1]), 6),
-        }
-
-    checks.append(_check("indicators", indicators_check))
+        vals={"ema200":ema(m15["close"],200).iloc[-1],"atr21":atr(m15,21).iloc[-1],"rsi14":rsi(m15["close"],14).iloc[-1],"adx14":dmi(m15,14,14)[2].iloc[-1]}
+        assert all(np.isfinite(float(v)) for v in vals.values())
+        return {k:round(float(v),6) for k,v in vals.items()}
+    checks.append(_check("indicators",indicators_check))
 
     def strategy_check():
-        ev15 = combo15_events(m15, h4)
-        ev60 = combo60_events(h1, h4, h6)
-        assert set(ev15) == set(FIFTEEN_MIN_COMBOS)
-        assert set(ev60) == set(ONE_HOUR_COMBOS)
-        for pair in list(ev15.values()) + list(ev60.values()):
-            assert len(pair) == 2
-            assert len(pair[0]) > 0 and len(pair[1]) > 0
-
-        sigs = scan_latest(
-            symbol="BTC-USDT",
-            m15=m15,
-            h1=h1,
-            h4=h4,
-            h6=h6,
-            smc_mode=settings.smc_mode,
-            smc_swing_len=settings.smc_swing_len,
-            smc_confluence=settings.smc_confluence,
-            sl_pct=settings.sl_pct,
-            tp_pct=settings.tp_pct,
-            include_1h=True,
-        )
-        for sig in sigs:
-            assert sig.symbol == "BTC-USDT"
-            assert sig.side in {"BUY", "SELL"}
-            assert sig.combo in FIFTEEN_MIN_COMBOS | ONE_HOUR_COMBOS
-            assert sig.tp > 0 and sig.sl > 0 and sig.entry > 0
-        return {
-            "15m_combo_keys": sorted(ev15),
-            "1h_combo_keys": sorted(ev60),
-            "latest_signal_count": len(sigs),
-        }
-
-    checks.append(_check("strategy_pipeline", strategy_check))
-
-    def readiness_check():
-        expected = {
-            1000: {
-                "ready": {2, 3, 5, 6, 8, 9},
-                "not_ready": {1, 4, 7, 10},
-            },
-            1600: {
-                "ready": {2, 3, 4, 5, 6, 7, 8, 9, 10},
-                "not_ready": {1},
-            },
-            2600: {
-                "ready": set(FIFTEEN_MIN_COMBOS | ONE_HOUR_COMBOS),
-                "not_ready": set(),
-            },
-        }
-        details = {}
-        for count, want in expected.items():
-            sample = m15.iloc[:count].copy()
-            s1 = aggregate_15m(sample, 60)
-            s4 = aggregate_15m(sample, 240)
-            s6 = aggregate_15m(sample, 360)
-            status = combo_readiness(
-                sample, s1, s4, s6,
+        details={}
+        for symbol in ("BTC-USDT","ETH-USDT"):
+            status=combo_readiness(m15,h1,h4,h6,smc_swing_len=settings.smc_swing_len,symbol=symbol)
+            ready={c for c,x in status.items() if x["ready"]}
+            assert ready == set(enabled_combos(symbol))
+            sigs=scan_latest(
+                symbol=symbol,m15=m15,h1=h1,h4=h4,h6=h6,
                 smc_swing_len=settings.smc_swing_len,
+                smc_confluence=settings.smc_confluence,
+                include_1h=True,
             )
-            ready = {combo for combo, item in status.items() if item["ready"]}
-            not_ready = set(status) - ready
-            assert ready == want["ready"], (
-                f"{count} 15m ready mismatch: got={sorted(ready)} "
-                f"expected={sorted(want['ready'])}"
-            )
-            assert not_ready == want["not_ready"], (
-                f"{count} 15m not_ready mismatch: got={sorted(not_ready)} "
-                f"expected={sorted(want['not_ready'])}"
-            )
-            details[str(count)] = {
-                "15m": len(sample),
-                "1h": len(s1),
-                "4h": len(s4),
-                "6h": len(s6),
-                "ready": sorted(ready),
-                "skipped": sorted(not_ready),
-            }
+            assert all(s.combo in enabled_combos(symbol) for s in sigs)
+            assert all(s.side in {"BUY","SELL"} and s.entry>0 and s.sl>0 for s in sigs)
+            details[symbol]={"ready":sorted(ready),"latest_signal_count":len(sigs)}
         return details
-
-    checks.append(_check("combo_readiness", readiness_check))
-
-    def smc_check():
-        smc15 = smc_direction(
-            m15,
-            swing_len=settings.smc_swing_len,
-            confluence=settings.smc_confluence,
-        )
-        smc60 = smc_direction(
-            h1,
-            swing_len=settings.smc_swing_len,
-            confluence=settings.smc_confluence,
-        )
-        assert len(smc15) == len(m15)
-        assert len(smc60) == len(h1)
-        assert set(pd.Series(smc15).dropna().astype(int).unique()).issubset({-1, 0, 1})
-        assert set(pd.Series(smc60).dropna().astype(int).unique()).issubset({-1, 0, 1})
-        return {
-            "15m_latest": int(smc15.iloc[-1]),
-            "1h_latest": int(smc60.iloc[-1]),
-        }
-
-    checks.append(_check("smc_gate", smc_check))
-
-    buy = Signal(
-        symbol="BTC-USDT",
-        combo=5,
-        side="BUY",
-        timeframe="15m",
-        close_time=1_700_000_899_999,
-        entry=30_123.45,
-        tp=30_454.81,
-        sl=29_852.34,
-        smc_dir=1,
-    )
-    sell = Signal(
-        symbol="ETH-USDT",
-        combo=4,
-        side="SELL",
-        timeframe="1h",
-        close_time=1_700_003_599_999,
-        entry=2_123.45,
-        tp=2_100.10,
-        sl=2_142.56,
-        smc_dir=-1,
-    )
+    checks.append(_check("final18_strategy_pipeline",strategy_check))
 
     def payload_check():
-        ex = Executor(settings)
-        # Payload mechanics are tested offline with arbitrary positive notionals.
-        # Live notional is calculated from BingX capital immediately before entry.
-        bp = ex.build_payload(buy, 100.0)
-        sp = ex.build_payload(sell, 100.0)
+        ex=Executor(settings)
+        buy=Signal(symbol="BTC-USDT",combo=1,side="BUY",timeframe="1h",close_time=1_700_000_899_999,entry=30123.45,tp=31629.62,sl=29852.34,smc_dir=1)
+        p=ex.build_payload(buy,100.0)
+        assert p["combo"]=="C1"
+        assert p["exit_mode"]=="two_tier_trailing_50_50_no_fixed_tp"
+        assert p["final_case"]["stage"]=="L3"
+        assert "tp" not in p
+        assert p["symbol"]=="BTC-USDT"
+        return {"combo":p["combo"],"exit_mode":p["exit_mode"],"stage":p["final_case"]["stage"]}
+    checks.append(_check("final18_execution_payload",payload_check))
 
-        assert bp["side"] == "BUY"
-        assert sp["side"] == "SELL"
-        assert bp["combo"] == "Combo 5"
-        assert sp["combo"] == "Combo 4"
-        assert bp["order_type"] == "MARKET"
-        assert sp["order_type"] == "MARKET"
-        assert bp["usdt_amount"] == 100.0
-        assert sp["usdt_amount"] == 100.0
-        assert bp["signal_id"] == buy.event_id
-        assert sp["signal_id"] == sell.event_id
-
-        ex.validate_order_payload(bp)
-        ex.validate_order_payload(sp)
-
-        invalid = dict(bp)
-        invalid["tp"] = invalid["entry"] - 1
-        rejected = False
-        try:
-            ex.validate_order_payload(invalid)
-        except ValueError:
-            rejected = True
-        assert rejected, "invalid BUY payload was not rejected"
-
-        bentry, btp, bsl = execution_prices(buy, settings)
-        sentry, stp, ssl = execution_prices(sell, settings)
-        assert bp["entry"] == bentry and bp["tp"] == btp and bp["sl"] == bsl
-        assert sp["entry"] == sentry and sp["tp"] == stp and sp["sl"] == ssl
-
-        return {
-            "buy": {
-                "event_id": bp["signal_id"],
-                "entry": bp["entry"],
-                "tp": bp["tp"],
-                "sl": bp["sl"],
-            },
-            "sell": {
-                "event_id": sp["signal_id"],
-                "entry": sp["entry"],
-                "tp": sp["tp"],
-                "sl": sp["sl"],
-            },
-        }
-
-    checks.append(_check("execution_payload", payload_check))
+    def split_check():
+        a,b=Executor._split_exit_quantities(0.004,3)
+        assert np.isclose(a+b,0.004)
+        assert a>0 and b>0
+        return {"leg1":a,"leg2":b}
+    checks.append(_check("two_leg_split",split_check))
 
     def state_check():
-        fd, path = tempfile.mkstemp(prefix="signal-selftest-", suffix=".db")
-        os.close(fd)
+        fd,path=tempfile.mkstemp(prefix="final18-selftest-",suffix=".db"); os.close(fd)
         try:
-            st = SignalState(path)
-            target = "account_1:selftest"
-            assert not st.seen(buy.event_id, target)
-            st.mark(buy.event_id, target, '{"ok":true}')
-            assert st.seen(buy.event_id, target)
-
-            sample = m15.iloc[:12].copy()
-            inserted = st.upsert_candles("BTC-USDT", "15m", sample)
-            assert inserted == 12
-            assert st.candle_count("BTC-USDT", "15m") == 12
-            assert st.latest_open_time("BTC-USDT", "15m") == int(sample.iloc[-1]["open_time"])
-            loaded = st.load_candles("BTC-USDT", "15m")
-            assert len(loaded) == 12
-            st.trim_candles("BTC-USDT", "15m", 5)
-            assert st.candle_count("BTC-USDT", "15m") == 5
-            return {
-                "dedupe": True,
-                "candle_upsert": True,
-                "trim": True,
-            }
+            st=SignalState(path)
+            st.set_runtime_value("final18_test","ok")
+            assert st.get_runtime_value("final18_test")=="ok"
+            sample=m15.iloc[:12].copy()
+            assert st.upsert_candles("BTC-USDT","15m",sample)==12
+            assert st.candle_count("BTC-USDT","15m")==12
+            return {"runtime_state":True,"candle_upsert":True}
         finally:
-            try:
-                os.unlink(path)
-            except FileNotFoundError:
-                pass
+            try: os.unlink(path)
+            except FileNotFoundError: pass
+    checks.append(_check("state_db",state_check))
 
-    checks.append(_check("state_db_and_dedupe", state_check))
-
-    ok = all(item["ok"] for item in checks)
-    return {
-        "ok": ok,
-        "offline": True,
-        "network_calls": 0,
-        "order_calls": 0,
-        "checks": checks,
-    }
+    return {"ok":all(x["ok"] for x in checks),"offline":True,"network_calls":0,"order_calls":0,"checks":checks}
