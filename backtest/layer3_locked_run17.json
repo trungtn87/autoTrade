@@ -1,0 +1,33 @@
+{
+  "source_run": 17,
+  "source_run_id": 35596614817,
+  "artifact_id": 10636714622,
+  "selection_rule": "3Y primary; 1Y/6M confirmation; FULL stress",
+  "architecture": "two-tier trailing, no fixed TP, Layer 2 winner per coin/combo",
+  "BTCUSDT": {
+    "C1":{"layer2_variant":"SMC_STRICT","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.2,"t2_callback_pct":0.5,"protect_pct":0.0},
+    "C2":{"layer2_variant":"SMC_VETO_OB","sl_pct":0.9,"t1_callback_pct":0.5,"t2_activation_pct":1.2,"t2_callback_pct":0.8,"protect_pct":0.0},
+    "C3":{"layer2_variant":"SMC_VETO","sl_pct":0.9,"t1_callback_pct":0.5,"t2_activation_pct":1.2,"t2_callback_pct":0.8,"protect_pct":0.0},
+    "C4":{"layer2_variant":"SMC_VETO","sl_pct":0.5,"t1_callback_pct":0.5,"t2_activation_pct":1.2,"t2_callback_pct":0.5,"protect_pct":0.0},
+    "C5":{"layer2_variant":"SMC_STRICT","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.0,"t2_callback_pct":0.5,"protect_pct":0.0},
+    "C6":{"layer2_variant":"SMC_VETO_OB","sl_pct":0.9,"t1_callback_pct":0.5,"t2_activation_pct":1.2,"t2_callback_pct":0.5,"protect_pct":0.0},
+    "C7":{"layer2_variant":"OFF","sl_pct":0.9,"t1_callback_pct":0.5,"t2_activation_pct":1.2,"t2_callback_pct":0.5,"protect_pct":0.2},
+    "C8":{"layer2_variant":"SMC_STRICT","sl_pct":0.5,"t1_callback_pct":0.3,"t2_activation_pct":0.8,"t2_callback_pct":0.5,"protect_pct":0.2},
+    "C9":{"layer2_variant":"SMC_VETO","sl_pct":0.5,"t1_callback_pct":0.3,"t2_activation_pct":1.0,"t2_callback_pct":0.8,"protect_pct":0.0},
+    "C10":{"layer2_variant":"SMC_VETO","sl_pct":0.9,"t1_callback_pct":0.5,"t2_activation_pct":1.0,"t2_callback_pct":0.5,"protect_pct":0.2},
+    "TIER":{"layer2_variant":"OFF","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.2,"t2_callback_pct":0.8,"protect_pct":0.0}
+  },
+  "ETHUSDT": {
+    "C1":{"layer2_variant":"SMC_VETO","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.0,"t2_callback_pct":0.5,"protect_pct":0.0},
+    "C2":{"layer2_variant":"SMC_VETO_OB","sl_pct":0.7,"t1_callback_pct":0.3,"t2_activation_pct":1.0,"t2_callback_pct":0.5,"protect_pct":0.2},
+    "C3":{"layer2_variant":"SMC_STRICT","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.2,"t2_callback_pct":0.5,"protect_pct":0.0},
+    "C4":{"layer2_variant":"SMC_VETO","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.2,"t2_callback_pct":0.5,"protect_pct":0.0},
+    "C5":{"layer2_variant":"SMC_STRICT","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.0,"t2_callback_pct":0.5,"protect_pct":0.0},
+    "C6":{"layer2_variant":"SMC_VETO","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.2,"t2_callback_pct":0.8,"protect_pct":0.0},
+    "C7":{"layer2_variant":"OB","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.0,"t2_callback_pct":0.8,"protect_pct":0.0},
+    "C8":{"layer2_variant":"SMC_STRICT","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":0.8,"t2_callback_pct":0.5,"protect_pct":0.2},
+    "C9":{"layer2_variant":"OB","sl_pct":0.7,"t1_callback_pct":0.3,"t2_activation_pct":1.2,"t2_callback_pct":0.5,"protect_pct":0.0},
+    "C10":{"layer2_variant":"SMC_STRICT","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":1.2,"t2_callback_pct":0.8,"protect_pct":0.0},
+    "TIER":{"layer2_variant":"SMC_STRICT_OB","sl_pct":0.9,"t1_callback_pct":0.3,"t2_activation_pct":0.8,"t2_callback_pct":0.8,"protect_pct":0.0}
+  }
+}
