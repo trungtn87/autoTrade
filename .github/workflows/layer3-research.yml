@@ -1,0 +1,66 @@
+name: Layer 3 Long Research
+
+on:
+  push:
+    branches: [research-python-backtest]
+    paths: ['backtest/RUN_LAYER3']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  layer3:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    defaults:
+      run:
+        working-directory: backtest
+    env:
+      TZ: UTC
+      PYTHONHASHSEED: '0'
+      OPENBLAS_NUM_THREADS: '1'
+      RUN17_ARTIFACT_ID: '10636714622'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.14'
+
+      - run: pip install -r requirements.txt
+
+      - name: Download verified run 17 dataset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/run17
+          gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${RUN17_ARTIFACT_ID}/zip" > data/run17/run17.zip
+          unzip -q -o data/run17/run17.zip -d data/run17
+          test -f data/run17/data/multisource/BTCUSDT_hybrid_15m.pkl
+          test -f data/run17/data/multisource/ETHUSDT_hybrid_15m.pkl
+
+      - name: Run Layer 3 long-history tuning
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u layer3_long.py \
+            --btc data/run17/data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth data/run17/data/multisource/ETHUSDT_hybrid_15m.pkl \
+            --lock layer3_locked_run17.json \
+            --out-dir results/layer3_long
+
+      - name: Upload Layer 3 results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layer3-long-${{ github.run_id }}
+          path: |
+            backtest/results/layer3_long/*.csv
+            backtest/results/layer3_long/*.json
+          if-no-files-found: warn
+          retention-days: 90
