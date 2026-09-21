@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from app.final14_config import FINAL14_CASES, DISABLED_CASES, enabled_combos, get_case
 from app.final14_executor import Final14Executor
+from app.final14_exact_strategy import hard_tp_sl
 from app.strategy import Signal
 
 
@@ -70,6 +71,19 @@ def test_config():
     assert get_case("ETH-USDT",9) is None
 
 
+
+def test_locked_risk_percentages_are_not_double_scaled():
+    # Config semantics are decimal fractions: 0.02 == 2%.
+    for symbol,cases in FINAL14_CASES.items():
+        for combo,cfg in cases.items():
+            tp_long,sl_long=hard_tp_sl(100.0,1,cfg)
+            tp_short,sl_short=hard_tp_sl(100.0,-1,cfg)
+            assert abs(tp_long-(100.0*(1.0+cfg["tp_pct"]))) < 1e-12, (symbol,combo)
+            assert abs(sl_long-(100.0*(1.0-cfg["sl_pct"]))) < 1e-12, (symbol,combo)
+            assert abs(tp_short-(100.0*(1.0-cfg["tp_pct"]))) < 1e-12, (symbol,combo)
+            assert abs(sl_short-(100.0*(1.0+cfg["sl_pct"]))) < 1e-12, (symbol,combo)
+
+
 def test_attached_hard_tp_sl():
     ex=FakeFinal14Executor()
     sig=Signal(
@@ -102,5 +116,6 @@ def test_attached_hard_tp_sl():
 
 if __name__=="__main__":
     test_config()
+    test_locked_risk_percentages_are_not_double_scaled()
     test_attached_hard_tp_sl()
     print("FINAL14 unit tests PASS")
