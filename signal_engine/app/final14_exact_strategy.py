@@ -156,8 +156,10 @@ def scan_latest(
         if not approved(side_code,sd,blocked,cfg["layer2"]):
             continue
 
-        tpp=float(cfg["tp_pct"])/100.0
-        slp=float(cfg["sl_pct"])/100.0
+        # FINAL14 config stores percentages as decimal fractions: 0.02 == 2%.
+        # Do not divide by 100 again or 2% would become 0.02%.
+        tpp=float(cfg["tp_pct"])
+        slp=float(cfg["sl_pct"])
         tp=entry*(1+tpp) if direction==1 else entry*(1-tpp)
         sl=entry*(1-slp) if direction==1 else entry*(1+slp)
         out.append(Signal(
