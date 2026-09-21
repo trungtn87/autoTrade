@@ -12,6 +12,7 @@ import httpx
 
 from .config import Settings
 from .strategy import Signal
+from .final_config import get_case, case_name
 
 log = logging.getLogger(__name__)
 
@@ -99,23 +100,21 @@ class Executor:
             return str(value)
 
     def build_execution_discord_message(self, signal: Signal, result: dict) -> str:
-        """Compact trade notification matching the legacy Discord layout."""
         entry = self._fmt_discord_number(result.get("avg_price"))
-        tp = self._fmt_discord_number(result.get("tp_actual", result.get("tp")))
         sl = self._fmt_discord_number(result.get("sl_actual", result.get("sl")))
-        trailing = self._fmt_discord_number(
-            result.get("trailing_activation_actual", result.get("trailing_activation"))
+        t1 = self._fmt_discord_number(result.get("trail1_activation_actual", result.get("trail1_activation")))
+        t2 = self._fmt_discord_number(result.get("trail2_activation_actual", result.get("trail2_activation")))
+        return (
+            "✅ Đặt lệnh FINAL18\n"
+            f"{signal.symbol} {signal.side}\n\n"
+            f"📊 {case_name(signal.combo)}\n"
+            f"Entry: {entry}\n"
+            f"SL: {sl}\n"
+            f"T1 50%: {t1}\n"
+            f"T2 50%: {t2}\n"
+            "Exit: 2-Trailing"
         )
 
-        return (
-            "✅ Đặt lệnh\n"
-            f"{signal.symbol} {signal.side}\n\n"
-            f"📊 Combo {signal.combo}\n"
-            f"Entry: {entry}\n\n"
-            f"TP : {tp}\n"
-            f"SL : {sl}\n\n"
-            f"Trailing : {trailing}"
-        )
 
     def build_execution_error_message(self, signal: Signal, result: dict) -> str:
         """Short operator alert; detailed diagnostics stay in Render logs."""
@@ -261,22 +260,24 @@ class Executor:
         )
 
     def build_payload(self, signal: Signal, usdt_amount: float) -> dict:
-        entry, tp, sl = execution_prices(signal, self.settings)
+        cfg = get_case(signal.symbol, signal.combo)
+        entry = float(signal.entry)
         return {
             "signal_id": signal.event_id,
-            "combo": f"Combo {signal.combo}",
+            "combo": case_name(signal.combo),
             "side": signal.side,
             "entry": entry,
-            "tp": tp,
-            "sl": sl,
             "symbol": signal.symbol,
             "timeframe": signal.timeframe,
             "order_type": "MARKET",
             "usdt_amount": usdt_amount,
-            "source": "bingx-render-engine",
+            "source": "bingx-render-engine-final18",
             "smc_dir": signal.smc_dir,
             "signal_close_time": signal.close_time,
+            "exit_mode": "two_tier_trailing_50_50_no_fixed_tp",
+            "final_case": cfg,
         }
+
 
     @staticmethod
     def validate_order_payload(payload: dict) -> None:
@@ -480,11 +481,7 @@ class Executor:
         if rules["status"] != 1 or rules["api_state_open"] == "false":
             raise RuntimeError(f"{symbol} is not open for API entries")
 
-        max_lev = (
-            rules["max_long_leverage"]
-            if side.upper() == "BUY"
-            else rules["max_short_leverage"]
-        )
+        max_lev = rules["max_long_leverage"] if side.upper() == "BUY" else rules["max_short_leverage"]
         if max_lev > 0 and self.settings.leverage > max_lev:
             raise RuntimeError(
                 f"{symbol} max leverage is {max_lev}x, configured {self.settings.leverage}x"
@@ -498,49 +495,33 @@ class Executor:
 
         actual_notional = qty * entry
         if rules["min_qty"] > 0 and qty < rules["min_qty"]:
-            raise ValueError(
-                f"quantity {qty} is below BingX minimum {rules['min_qty']}"
-            )
+            raise ValueError(f"quantity {qty} is below BingX minimum {rules['min_qty']}")
         if rules["min_usdt"] > 0 and actual_notional < rules["min_usdt"]:
             raise ValueError(
                 f"notional {actual_notional:.8f} is below BingX minimum {rules['min_usdt']}"
             )
 
-        tp_qty, trailing_qty = self._split_exit_quantities(
-            qty, rules["quantity_precision"]
-        )
-        if not self._trailing_qty_is_valid(
-            trailing_qty,
-            entry,
-            rules["min_qty"],
-            rules["min_usdt"],
-        ):
-            # TP has priority. If the trailing leg cannot meet BingX quantity/
-            # notional constraints, route the entire closeable position to TP
-            # instead of rejecting or force-closing the entry.
-            tp_qty = qty
-            trailing_qty = 0.0
-
-        if tp_qty <= 0:
-            raise ValueError("TP exit quantity is zero")
-        if rules["min_qty"] > 0 and tp_qty < rules["min_qty"]:
-            raise ValueError(
-                f"TP exit quantity {tp_qty} is below BingX minimum {rules['min_qty']}"
-            )
-        if rules["min_usdt"] > 0 and tp_qty * entry < rules["min_usdt"]:
-            raise ValueError(
-                f"TP exit notional {tp_qty * entry:.8f} is below BingX minimum {rules['min_usdt']}"
-            )
+        leg1_qty, leg2_qty = self._split_exit_quantities(qty, rules["quantity_precision"])
+        for label, leg_qty in (("TRAIL1", leg1_qty), ("TRAIL2", leg2_qty)):
+            if leg_qty <= 0:
+                raise ValueError(f"{label} quantity is zero; FINAL18 requires two 50/50 trailing legs")
+            if rules["min_qty"] > 0 and leg_qty < rules["min_qty"]:
+                raise ValueError(
+                    f"{label} quantity {leg_qty} is below BingX minimum {rules['min_qty']}"
+                )
+            if rules["min_usdt"] > 0 and leg_qty * entry < rules["min_usdt"]:
+                raise ValueError(
+                    f"{label} notional {leg_qty * entry:.8f} is below BingX minimum {rules['min_usdt']}"
+                )
 
         return {
             **rules,
             "target_notional": notional,
             "actual_notional": actual_notional,
             "qty": qty,
-            # Backward-compatible alias used by the existing preflight response.
-            "half_qty": tp_qty,
-            "tp_qty": tp_qty,
-            "trailing_qty": trailing_qty,
+            "half_qty": leg1_qty,
+            "trail1_qty": leg1_qty,
+            "trail2_qty": leg2_qty,
         }
 
     def _place_order(
@@ -760,51 +741,30 @@ class Executor:
         return confirmed or created
 
     def _execute_direct_bingx(self, signal: Signal) -> dict:
-        entry, tp, sl = execution_prices(signal, self.settings)
+        cfg = get_case(signal.symbol, signal.combo)
+        if not cfg:
+            raise RuntimeError(
+                f"FINAL18 disabled/unknown case: {signal.symbol} {case_name(signal.combo)}"
+            )
 
-        # Fixed sizing: 1 USDT margin per order at 100x.
-        # TP/SL are strategy outputs and never participate in volume sizing.
+        reference_entry = float(signal.entry)
         self._assert_hedge_mode()
-        sizing = self._prepare_fixed_size(signal.symbol, signal.side, entry)
+        sizing = self._prepare_fixed_size(signal.symbol, signal.side, reference_entry)
         qty = float(sizing["qty"])
         notional = float(sizing["actual_notional"])
-
         price_precision = int(sizing["price_precision"])
-        tp = round(tp, price_precision)
-        sl = round(sl, price_precision)
-
-        payload = self.build_payload(signal, notional)
-        payload["tp"] = tp
-        payload["sl"] = sl
-        self.validate_order_payload(payload)
 
         log.info(
-            "FIXED_SIZE symbol=%s signal_id=%s margin_usdt=%.8f leverage=%s target_notional=%.8f actual_notional=%.8f qty=%s qty_precision=%s price_precision=%s",
-            signal.symbol,
-            signal.event_id,
-            self.settings.order_margin_usdt,
-            self.settings.leverage,
-            sizing["target_notional"],
-            sizing["actual_notional"],
-            sizing["qty"],
-            sizing["quantity_precision"],
-            sizing["price_precision"],
+            "FINAL18_SIZE symbol=%s case=%s margin_usdt=%.8f leverage=%s target_notional=%.8f actual_notional=%.8f qty=%s trail1_qty=%s trail2_qty=%s",
+            signal.symbol, case_name(signal.combo), self.settings.order_margin_usdt,
+            self.settings.leverage, sizing["target_notional"], sizing["actual_notional"],
+            qty, sizing["trail1_qty"], sizing["trail2_qty"],
         )
 
-        self._set_leverage(
-            signal.symbol, signal.side, int(self.settings.leverage)
-        )
-
-        # Deterministic ID protects against accidental duplicate MARKET entry.
-        client_order_id = "sig" + hashlib.sha256(
-            signal.event_id.encode("utf-8")
-        ).hexdigest()[:28]
-
+        self._set_leverage(signal.symbol, signal.side, int(self.settings.leverage))
+        client_order_id = "f18" + hashlib.sha256(signal.event_id.encode("utf-8")).hexdigest()[:28]
         entry_result = self._place_order(
-            signal.symbol,
-            signal.side,
-            qty,
-            client_order_id=client_order_id,
+            signal.symbol, signal.side, qty, client_order_id=client_order_id
         )
         order = self._extract_order(entry_result)
         order_id = order.get("orderID") or order.get("orderId")
@@ -815,14 +775,14 @@ class Executor:
             "processed": True,
             "entry_accepted": True,
             "entry_filled": False,
-            "protection_mode": "legacy_separate_orders",
+            "protection_mode": "FINAL18_two_tier_trailing",
             "order_id": str(order_id),
-            "tp": tp,
-            "sl": sl,
             "entry_result": entry_result,
-            "tp_ok": None,
             "sl_ok": None,
-            "trailing_ok": None,
+            "trail1_ok": None,
+            "trail2_ok": None,
+            "final_stage": cfg.get("stage"),
+            "layer2": cfg.get("layer2"),
         }
 
         executed_qty = 0.0
@@ -840,240 +800,151 @@ class Executor:
                 time.sleep(1.5)
         except Exception as exc:
             return {
-                **base_result,
-                "ok": False,
-                "stage": "entry_fill_check",
-                "status": status,
-                "executed_qty": executed_qty,
-                "avg_price": avg_price,
-                "error": str(exc),
+                **base_result, "ok": False, "stage": "entry_fill_check",
+                "status": status, "executed_qty": executed_qty,
+                "avg_price": avg_price, "error": str(exc),
             }
 
         if executed_qty <= 0 or avg_price <= 0:
             return {
-                **base_result,
-                "ok": False,
-                "stage": "entry_fill_check",
-                "status": status,
-                "executed_qty": executed_qty,
-                "avg_price": avg_price,
-                "error": (
-                    "entry accepted but fill not confirmed "
-                    f"status={status} executed_qty={executed_qty} avg_price={avg_price}"
-                ),
+                **base_result, "ok": False, "stage": "entry_fill_check",
+                "status": status, "executed_qty": executed_qty, "avg_price": avg_price,
+                "error": f"entry accepted but fill not confirmed status={status} executed_qty={executed_qty} avg_price={avg_price}",
             }
+
+        qty_precision = int(sizing["quantity_precision"])
+        full_qty = self._floor_precision(executed_qty, qty_precision)
+        trail1_qty, trail2_qty = self._split_exit_quantities(full_qty, qty_precision)
+        for label, leg_qty in (("TRAIL1", trail1_qty), ("TRAIL2", trail2_qty)):
+            if not self._trailing_qty_is_valid(
+                leg_qty, avg_price, float(sizing["min_qty"]), float(sizing["min_usdt"])
+            ):
+                try:
+                    emergency = self.emergency_close_position(
+                        signal.symbol, "LONG" if signal.side == "BUY" else "SHORT"
+                    )
+                except Exception as close_exc:
+                    emergency = {"ok": False, "error": str(close_exc)}
+                return {
+                    **base_result,
+                    "entry_filled": True,
+                    "avg_price": avg_price,
+                    "executed_qty": executed_qty,
+                    "ok": False,
+                    "stage": "invalid_two_trail_split",
+                    "error": f"{label} cannot satisfy BingX minimum constraints after fill",
+                    "emergency_close_attempted": True,
+                    "emergency_close_ok": bool(emergency.get("ok")),
+                    "emergency_close_result": emergency,
+                }
+
+        side_mult = 1.0 if signal.side == "BUY" else -1.0
+        sl = avg_price * (1.0 - side_mult * float(cfg["sl_pct"]))
+        t1_activation = avg_price * (1.0 + side_mult * float(cfg["t1_activation_pct"]))
+        t2_activation = avg_price * (1.0 + side_mult * float(cfg["t2_activation_pct"]))
+        sl = round(sl, price_precision)
+        t1_activation = round(t1_activation, price_precision)
+        t2_activation = round(t2_activation, price_precision)
 
         base_result.update({
             "entry_filled": True,
             "avg_price": avg_price,
             "executed_qty": executed_qty,
             "status": status,
+            "full_qty": full_qty,
+            "trail1_qty": trail1_qty,
+            "trail2_qty": trail2_qty,
+            "exit_qty_total": trail1_qty + trail2_qty,
+            "sl": sl,
+            "trail1_activation": t1_activation,
+            "trail2_activation": t2_activation,
+            "trail1_callback": float(cfg["t1_callback_pct"]),
+            "trail2_callback": float(cfg["t2_callback_pct"]),
+            "protect_pct": float(cfg.get("protect_pct", 0.0)),
         })
-
-        valid = (
-            (signal.side == "BUY" and sl < avg_price < tp)
-            or (signal.side == "SELL" and tp < avg_price < sl)
-        )
-        if not valid:
-            close_side = "SELL" if signal.side == "BUY" else "BUY"
-            try:
-                close_result = self._place_order(
-                    signal.symbol,
-                    close_side,
-                    executed_qty,
-                    order_type="MARKET",
-                    position_side="LONG" if signal.side == "BUY" else "SHORT",
-                )
-                close_ok = True
-                close_error = None
-            except Exception as exc:
-                close_result = None
-                close_ok = False
-                close_error = str(exc)
-
-            return {
-                **base_result,
-                "ok": False,
-                "stage": "invalid_fill_emergency_close",
-                "closed_for_invalid_fill": close_ok,
-                "emergency_close_attempted": True,
-                "emergency_close_ok": close_ok,
-                "close_result": close_result,
-                "reason": "filled_price_outside_tp_sl",
-                "error": close_error or "filled price outside TP/SL; position auto-closed",
-            }
 
         opposite = "SELL" if signal.side == "BUY" else "BUY"
-        entry_position_side = "LONG" if signal.side == "BUY" else "SHORT"
-        qty_precision = int(sizing["quantity_precision"])
-        full_qty = self._floor_precision(executed_qty, qty_precision)
-        tp_qty, trailing_qty = self._split_exit_quantities(full_qty, qty_precision)
+        position_side = "LONG" if signal.side == "BUY" else "SHORT"
 
-        # TP priority for unexpected partial fills. If the smaller trailing leg
-        # cannot satisfy BingX constraints, keep the position open and place TP
-        # for 100% of the filled quantity; SL still protects 100% as well.
-        if not self._trailing_qty_is_valid(
-            trailing_qty,
-            avg_price,
-            float(sizing["min_qty"]),
-            float(sizing["min_usdt"]),
-        ):
-            tp_qty = full_qty
-            trailing_qty = 0.0
-
-        base_result.update({
-            "full_qty": full_qty,
-            "tp_qty": tp_qty,
-            "trailing_qty": trailing_qty,
-            "exit_qty_total": tp_qty + trailing_qty,
-        })
-        log.info(
-            "EXIT_SPLIT symbol=%s signal_id=%s full_qty=%s tp_qty=%s trailing_qty=%s covered_qty=%s mode=%s",
-            signal.symbol,
-            signal.event_id,
-            full_qty,
-            tp_qty,
-            trailing_qty,
-            tp_qty + trailing_qty,
-            "tp_only" if trailing_qty <= 0 else "tp_priority_split",
-        )
-
-        # Legacy-proven protection format:
-        # opposite side + ORIGINAL positionSide + explicit quantity.
-        # Do not send closePosition=true here; the previous stable server did
-        # not use it for STOP_MARKET and some BingX account/mode combinations
-        # reject closePosition together with this conditional-order shape.
-        #
-        # SL is placed first because it is mandatory protection. If it fails,
-        # immediately try to flatten the filled position before creating TP/trailing.
         try:
             sl_result = self._place_order(
-                signal.symbol,
-                opposite,
-                full_qty,
-                order_type="STOP_MARKET",
-                stop_price=sl,
-                position_side=entry_position_side,
+                signal.symbol, opposite, full_qty,
+                order_type="STOP_MARKET", stop_price=sl, position_side=position_side,
             )
-            sl_order = self._confirm_protection_order(
-                signal.symbol, "SL", sl_result
-            )
+            sl_order = self._confirm_protection_order(signal.symbol, "SL", sl_result)
             sl_actual = float(sl_order.get("stopPrice") or sl)
-            base_result.update({
-                "sl_ok": True,
-                "sl_result": sl_result,
-                "sl_actual": sl_actual,
-            })
+            base_result.update({"sl_ok": True, "sl_result": sl_result, "sl_actual": sl_actual})
         except Exception as exc:
-            emergency_close = None
-            emergency_close_ok = False
-            emergency_close_error = None
             try:
-                emergency_close = self.emergency_close_position(
-                    signal.symbol,
-                    entry_position_side,
-                )
-                emergency_close_ok = bool(emergency_close.get("ok"))
-                if not emergency_close_ok:
-                    emergency_close_error = (
-                        f"remaining position after emergency close: "
-                        f"{emergency_close.get('remaining_qty')}"
-                    )
+                emergency = self.emergency_close_position(signal.symbol, position_side)
             except Exception as close_exc:
-                emergency_close_error = str(close_exc)
-
+                emergency = {"ok": False, "error": str(close_exc)}
             return {
-                **base_result,
-                "ok": False,
-                "stage": "stop_loss",
-                "sl_ok": False,
-                "error": str(exc),
-                "emergency_close_attempted": True,
-                "emergency_close_ok": emergency_close_ok,
-                "emergency_close_result": emergency_close,
-                "emergency_close_error": emergency_close_error,
+                **base_result, "ok": False, "stage": "stop_loss", "sl_ok": False,
+                "error": str(exc), "emergency_close_attempted": True,
+                "emergency_close_ok": bool(emergency.get("ok")),
+                "emergency_close_result": emergency,
             }
 
-        protection_errors: list[str] = []
-
-        try:
-            tp_result = self._place_order(
-                signal.symbol,
-                opposite,
-                tp_qty,
-                order_type="TAKE_PROFIT_MARKET",
-                stop_price=tp,
-                position_side=entry_position_side,
-            )
-            tp_order = self._confirm_protection_order(
-                signal.symbol, "TP", tp_result
-            )
-            tp_actual = float(tp_order.get("stopPrice") or tp)
-            base_result.update({
-                "tp_ok": True,
-                "tp_result": tp_result,
-                "tp_actual": tp_actual,
-            })
-        except Exception as exc:
-            base_result["tp_ok"] = False
-            protection_errors.append(f"TP: {exc}")
-
-        risk = abs(avg_price - sl)
-        activation = round(
-            avg_price + risk * 0.5 if signal.side == "BUY"
-            else avg_price - risk * 0.5,
-            price_precision,
-        )
-        base_result["trailing_activation"] = activation
-
-        if trailing_qty <= 0:
-            base_result.update({
-                "trailing_ok": True,
-                "trailing_skipped": True,
-                "trailing_skip_reason": "quantity_too_small_tp_priority",
-                "trailing_result": None,
-                "trailing_activation_actual": None,
-            })
-        else:
+        protection_errors = []
+        trailing_specs = [
+            ("TRAIL1", trail1_qty, t1_activation, float(cfg["t1_callback_pct"])),
+            ("TRAIL2", trail2_qty, t2_activation, float(cfg["t2_callback_pct"])),
+        ]
+        for label, leg_qty, activation, callback in trailing_specs:
+            key = label.lower()
             try:
-                trailing_result = self._place_order(
-                    signal.symbol,
-                    opposite,
-                    trailing_qty,
+                result = self._place_order(
+                    signal.symbol, opposite, leg_qty,
                     order_type="TRAILING_STOP_MARKET",
                     activation_price=activation,
-                    price_rate=0.005,
-                    position_side=entry_position_side,
+                    price_rate=callback,
+                    position_side=position_side,
                 )
-                trailing_order = self._confirm_protection_order(
-                    signal.symbol, "TRAILING", trailing_result
-                )
-                trailing_actual = float(
-                    trailing_order.get("activationPrice")
-                    or trailing_order.get("activatePrice")
+                confirmed = self._confirm_protection_order(signal.symbol, label, result)
+                actual = float(
+                    confirmed.get("activationPrice")
+                    or confirmed.get("activatePrice")
                     or activation
                 )
                 base_result.update({
-                    "trailing_ok": True,
-                    "trailing_skipped": False,
-                    "trailing_result": trailing_result,
-                    "trailing_activation_actual": trailing_actual,
+                    f"{key}_ok": True,
+                    f"{key}_result": result,
+                    f"{key}_activation_actual": actual,
                 })
             except Exception as exc:
-                base_result["trailing_ok"] = False
-                protection_errors.append(f"Trailing: {exc}")
+                base_result[f"{key}_ok"] = False
+                protection_errors.append(f"{label}: {exc}")
+                break
 
-        all_ok = bool(
-            base_result.get("sl_ok")
-            and base_result.get("tp_ok")
-            and base_result.get("trailing_ok")
-        )
+        if protection_errors:
+            try:
+                emergency = self.emergency_close_position(signal.symbol, position_side)
+            except Exception as close_exc:
+                emergency = {"ok": False, "error": str(close_exc)}
+            return {
+                **base_result,
+                "ok": False,
+                "stage": "two_trailing_setup",
+                "error": "; ".join(protection_errors),
+                "emergency_close_attempted": True,
+                "emergency_close_ok": bool(emergency.get("ok")),
+                "emergency_close_result": emergency,
+            }
+
+        protect_pending = bool(float(cfg.get("protect_pct", 0.0)) > 0)
         return {
             **base_result,
-            "ok": all_ok,
-            "stage": "complete" if all_ok else "protection_partial",
-            "error": "; ".join(protection_errors) if protection_errors else None,
+            "ok": True,
+            "stage": "complete",
+            "protect_pending": protect_pending,
+            "protect_note": (
+                "requires runtime stop promotion after T1 activation"
+                if protect_pending else None
+            ),
+            "error": None,
         }
+
 
     def send_target(self, signal: Signal, target_name: str, url: str, usdt_amount: float) -> dict:
         # usdt_amount is intentionally ignored. Live size is fixed by
