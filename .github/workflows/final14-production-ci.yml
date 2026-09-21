@@ -2,7 +2,7 @@ name: FINAL14 Production CI
 
 on:
   push:
-    branches: [final14-hardtp-production]
+    branches: [final14-hardtp-production, final14-backtest-parity, signal-engine-v1]
     paths:
       - 'signal_engine/**'
       - '.github/workflows/final14-production-ci.yml'
@@ -28,7 +28,7 @@ jobs:
       - name: Checkout research reference
         uses: actions/checkout@v4
         with:
-          ref: research-python-backtest
+          ref: 11c215db8cc1be1c0872360291f308bba7582cf7
           path: research
 
       - uses: actions/setup-python@v5
@@ -57,7 +57,9 @@ jobs:
       - name: FINAL14 unit tests
         env:
           PYTHONPATH: signal_engine
-        run: python signal_engine/tests/final14_test.py
+        run: |
+          python signal_engine/tests/final14_test.py
+          python signal_engine/tests/final14_contract_test.py
 
       - name: Exact research source parity
         env:
@@ -75,3 +77,13 @@ jobs:
           python signal_engine/tests/final14_warmup_parity.py \
             --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
             --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl
+
+
+      - name: Live adapter historical replay
+        env:
+          PYTHONPATH: signal_engine
+        run: |
+          python signal_engine/tests/final14_replay_parity.py \
+            --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl \
+            --research-dir research/backtest

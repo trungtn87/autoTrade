@@ -21,7 +21,7 @@ from .discord_diag import install_discord_log_handler, send_discord_scan_summary
 from .state import SignalState
 from .final14_exact_strategy import Signal, combo_readiness, scan_latest, strategy_static_snapshot
 from .self_test import run_self_test, run_startup_self_test
-from .final14_positions import is_case_active, refresh_symbol, register_execution, snapshot as final14_position_snapshot
+from .final14_positions import is_case_active, refresh_symbol, snapshot as final14_position_snapshot
 from .timeframes import aggregate_15m
 
 settings = Settings()
@@ -430,6 +430,12 @@ def run_scan(execute: bool = True) -> dict:
                         symbol_result["signals"].append(item)
                         continue
 
+                    if position_state.get("entry_blocked"):
+                        item["action"] = "unmanaged_positions_blocked"
+                        symbol_result["signals"].append(item)
+                        log.error("FINAL14_UNMANAGED_POSITIONS symbol=%s", symbol)
+                        continue
+
                     if is_case_active(state, sig.symbol, sig.combo):
                         item["action"] = "active_case_suppressed"
                         item["reason"] = "FINAL14 one-position-per-combo"
@@ -481,7 +487,7 @@ def run_scan(execute: bool = True) -> dict:
                             })
                             continue
 
-                        result = executor.send_target(sig, target_name, url, amount)
+                        result = executor.send_case(state, sig, target_name)
                         results.append(result)
 
                         # IMPORTANT: once BingX has accepted the entry, this
@@ -494,8 +500,6 @@ def run_scan(execute: bool = True) -> dict:
                                 json.dumps(result, ensure_ascii=False),
                             )
 
-                        if result.get("ok") and result.get("entry_filled"):
-                            register_execution(state, sig, result)
 
                         if result.get("ok"):
                             discord_state_key = f"discord:{sig.symbol}"
@@ -1063,7 +1067,11 @@ def health():
         "market_mode": "15m_only_incremental",
         "state_backend": state.backend,
         "execution_ready": state.backend == "postgres" and bool(executor.targets()),
-        "execution_mode": "direct_bingx_single_account_fixed_margin",
+        "execution_ready_scope": "database_and_credentials; margin, position and protection gates run per order",
+        "execution_mode": "final14_journaled_hard_tp_sl",
+        "strategy_profile": strategy_static_snapshot(),
+        "deployed_commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
+        "active_cases": final14_position_snapshot(state),
         "order_target_count": len(executor.targets()),
         "live_limit_15m": settings.live_limit_15m,
         "bingx_blocked_until_ms": _effective_bingx_blocked_until_ms(),
@@ -1319,3 +1327,4 @@ def scan(x_scan_token: str | None = Header(default=None)):
     if result.get("status") == "busy":
         raise HTTPException(status_code=409, detail=result)
     return result
+

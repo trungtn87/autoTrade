@@ -8,11 +8,13 @@ import time
 from .executor import Executor
 from .final14_config import case_name, get_case
 from .strategy import Signal
+from .final14_policy import validate_signal, NOTIONAL, LEVERAGE
+from .final14_positions import case_id
 
 log = logging.getLogger(__name__)
 
-FINAL14_NOTIONAL_USDT = 100.0
-FINAL14_EXECUTION_LEVERAGE = 50
+FINAL14_NOTIONAL_USDT = NOTIONAL
+FINAL14_EXECUTION_LEVERAGE = LEVERAGE
 
 
 class Final14Executor(Executor):
@@ -120,9 +122,9 @@ class Final14Executor(Executor):
                 qty_err=abs(amt-executed_qty)
                 px_err=abs(px-avg_price)/avg_price if avg_price>0 else 999
                 candidates.append((qty_err,px_err,pid))
-            if candidates:
-                candidates.sort()
-                return candidates[0][2]
+            exact = [c for c in candidates if c[0] <= max(1e-10, executed_qty*1e-8) and c[1] <= 1e-8]
+            if len(exact) == 1:
+                return exact[0][2]
             time.sleep(0.5)
         return None
 
@@ -161,7 +163,9 @@ class Final14Executor(Executor):
             f"PositionId: {result.get('position_id') or 'resolving'}"
         )
 
-    def _execute_direct_bingx(self, signal: Signal) -> dict:
+    def _execute_direct_bingx(self, signal: Signal, progress=None) -> dict:
+        validate_signal(signal)
+        progress = progress or (lambda **fields: None)
         cfg=get_case(signal.symbol,signal.combo)
         if not cfg:
             raise RuntimeError(
@@ -188,7 +192,7 @@ class Final14Executor(Executor):
         before=self._positions(signal.symbol)
         before_ids=self._position_ids(before)
 
-        client_order_id="f14"+hashlib.sha256(signal.event_id.encode("utf-8")).hexdigest()[:28]
+        client_order_id=self.client_order_id(signal.event_id)
         params={
             "symbol":signal.symbol,
             "side":signal.side.upper(),
@@ -210,6 +214,7 @@ class Final14Executor(Executor):
                 "stopGuaranteed":False,
             },separators=(",",":")),
         }
+        progress(status="submitting", tp=tp, sl=sl, qty=qty)
         entry_result=self._signed_trade_request(
             "POST","/openApi/swap/v2/trade/order",params
         )
@@ -218,6 +223,7 @@ class Final14Executor(Executor):
         if not order_id:
             raise RuntimeError("FINAL14 entry did not return orderId")
 
+        progress(status="accepted", entry_order_id=str(order_id))
         executed_qty=0.0
         avg_price=0.0
         status=""
@@ -228,11 +234,11 @@ class Final14Executor(Executor):
             executed_qty=float(order_detail.get("executedQty") or 0)
             avg_price=float(order_detail.get("avgPrice") or 0)
             status=str(order_detail.get("status") or "")
-            if executed_qty>0 and avg_price>0:
+            if executed_qty>0 and avg_price>0 and status.upper()=="FILLED":
                 break
             time.sleep(1.0)
 
-        if executed_qty<=0 or avg_price<=0:
+        if executed_qty<=0 or avg_price<=0 or status.upper()!="FILLED":
             return {
                 "processed":True,
                 "entry_accepted":True,
@@ -245,18 +251,22 @@ class Final14Executor(Executor):
             }
 
         position_id=(
-            str(order_detail.get("positionId") or order.get("positionId") or "")
+            str(order_detail.get("positionId") or order_detail.get("positionID") or order.get("positionId") or order.get("positionID") or "")
             or self._resolve_new_position_id(
                 signal.symbol,signal.side,before_ids,avg_price,executed_qty
             )
         )
 
+        verified = self.protection_matches(order_detail, {"tp":tp,"sl":sl,"qty":executed_qty})
+        progress(status="active" if verified and position_id else "protection_unverified",
+                 position_id=position_id, qty=executed_qty, avg_price=avg_price,
+                 protection_verified=verified)
         result={
             "processed":True,
             "entry_accepted":True,
             "entry_filled":True,
-            "ok":True,
-            "stage":"complete" if position_id else "complete_position_id_pending",
+            "ok":bool(verified and position_id),
+            "stage":"complete" if verified and position_id else "protection_or_position_pending",
             "order_id":str(order_id),
             "position_id":position_id,
             "avg_price":avg_price,
@@ -272,7 +282,7 @@ class Final14Executor(Executor):
             "protection_mode":"attached_hard_tp_sl",
             "working_type":"CONTRACT_PRICE",
             "entry_result":entry_result,
-            "error":None,
+            "error":None if verified and position_id else "Protection or position identity not yet verified",
         }
         log.info(
             "FINAL14_ENTRY symbol=%s combo=%s side=%s order_id=%s position_id=%s "
@@ -281,3 +291,65 @@ class Final14Executor(Executor):
             entry,avg_price,executed_qty,tp,sl,cfg["rr"],
         )
         return result
+
+
+    @staticmethod
+    def client_order_id(event_id):
+        return "f14" + hashlib.sha256(event_id.encode("utf-8")).hexdigest()[:28]
+
+    def query_entry(self, rec):
+        if rec.get('entry_order_id'):
+            return self._extract_order(self._order_detail(rec['symbol'],rec['entry_order_id']))
+        return self._extract_order(self._signed_trade_request(
+            'GET','/openApi/swap/v2/trade/order',
+            {'symbol':rec['symbol'],'clientOrderId':rec['client_order_id']}))
+
+    @staticmethod
+    def protection_matches(detail, rec):
+        for name,typ,level in [('takeProfit','TAKE_PROFIT_MARKET','tp'),('stopLoss','STOP_MARKET','sl')]:
+            obj = detail.get(name)
+            if isinstance(obj,str):
+                try: obj=json.loads(obj)
+                except (ValueError,TypeError): return False
+            if not isinstance(obj,dict): return False
+            try:
+                if str(obj.get('type')).upper()!=typ: return False
+                if str(obj.get('workingType')).upper()!='CONTRACT_PRICE': return False
+                if abs(float(obj.get('stopPrice') or 0)-float(rec[level])) > max(1e-9,abs(float(rec[level]))*1e-10): return False
+                # Absent/zero quantity on attached TP/SL means parent quantity.
+                amount=float(obj.get('quantity') or 0)
+                if amount>0 and amount+1e-12<float(rec.get('qty') or 0): return False
+            except (ValueError,TypeError,KeyError): return False
+        return True
+
+    def send_case(self, state, signal, target_name):
+        """The only production entry path: journal before network, never blind retry."""
+        if self.settings.dry_run:
+            return {'ok':False,'processed':False,'stage':'policy','error':'dry_run'}
+        rec={'case_id':case_id(signal.symbol,signal.combo), 'event_id':signal.event_id,
+             'symbol':signal.symbol,'combo':signal.combo,'side':signal.side,
+             'entry_close_time':signal.close_time,'signal_entry':signal.entry,
+             'tp':signal.tp,'sl':signal.sl,'client_order_id':self.client_order_id(signal.event_id)}
+        if not state.claim_final14(rec):
+            return {'ok':False,'processed':True,'stage':'duplicate_or_active_case',
+                    'target':target_name,'error':'Event already claimed or case active'}
+        submitted=False
+        def progress(**fields):
+            nonlocal submitted
+            state.update_final14(signal.event_id,fields)
+            if fields.get('status')=='submitting': submitted=True
+        try:
+            result=self._execute_direct_bingx(signal,progress=progress)
+            result['target']=target_name
+            return result
+        except Exception as exc:
+            # A timeout after POST may hide a successful exchange submission.
+            # Keep the slot pending and query by the deterministic client ID.
+            try:
+                state.update_final14(signal.event_id,{'status':'unknown' if submitted else 'rejected',
+                                                      'error':str(exc)})
+            except Exception:
+                log.exception('FINAL14_JOURNAL_UPDATE_FAILED event=%s',signal.event_id)
+            return {'ok':False,'processed':True,'entry_accepted':None if submitted else False,
+                    'entry_filled':False,'stage':'reconcile_pending' if submitted else 'pre_entry',
+                    'target':target_name,'error':str(exc)}

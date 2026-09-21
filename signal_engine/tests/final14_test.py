@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from app.final14_config import FINAL14_CASES, DISABLED_CASES, enabled_combos, get_case
 from app.final14_executor import Final14Executor
@@ -23,7 +24,8 @@ class FakeFinal14Executor(Final14Executor):
             discord_webhook_eth="",
             discord_webhook_error="",
         )
-        super().__init__(settings)
+        with patch("app.executor.httpx.Client"):
+            super().__init__(settings)
         self.order_params=None
         self.position_calls=0
 
@@ -58,7 +60,9 @@ class FakeFinal14Executor(Final14Executor):
             return {"code":0,"data":{"orderID":"o1","status":"FILLED"}}
         raise AssertionError((method,path,params))
     def _order_detail(self,symbol,order_id):
-        return {"code":0,"data":{"orderID":"o1","status":"FILLED","executedQty":"1.0","avgPrice":"100.0"}}
+        return {"code":0,"data":{"orderID":"o1","status":"FILLED","executedQty":"1.0","avgPrice":"100.0",
+                "takeProfit":json.loads(self.order_params["takeProfit"]),
+                "stopLoss":json.loads(self.order_params["stopLoss"])}}
 
 
 def test_config():
@@ -104,3 +108,4 @@ if __name__=="__main__":
     test_config()
     test_attached_hard_tp_sl()
     print("FINAL14 unit tests PASS")
+

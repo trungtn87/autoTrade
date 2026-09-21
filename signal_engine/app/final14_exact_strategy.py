@@ -4,6 +4,7 @@ import pandas as pd
 
 from .final14_config import FINAL14_CASES, enabled_combos, get_case, snapshot as final14_snapshot
 from .strategy import Signal
+from .final14_policy import levels, VERSION, SOURCE_COMMIT
 from .final14_research.layer3_long import precompute, entry_variants, NATIVE
 from .final14_research.signals import ensure_dt, resample_ohlcv
 from .final14_research.smc_structure import smc_direction
@@ -74,6 +75,8 @@ def strategy_static_snapshot()->dict:
     return {
         **final14_snapshot(),
         "signal_engine":"vendored_exact_research",
+        "execution_contract":VERSION,
+        "source_commit":SOURCE_COMMIT,
         "min_live_15m_bars":MIN_LIVE_15M_BARS,
         "native_timeframes":{
             _combo_name(k):NATIVE[_combo_name(k)]
@@ -156,10 +159,7 @@ def scan_latest(
         if not approved(side_code,sd,blocked,cfg["layer2"]):
             continue
 
-        tpp=float(cfg["tp_pct"])/100.0
-        slp=float(cfg["sl_pct"])/100.0
-        tp=entry*(1+tpp) if direction==1 else entry*(1-tpp)
-        sl=entry*(1-slp) if direction==1 else entry*(1+slp)
+        tp, sl = levels(symbol, combo, "BUY" if direction == 1 else "SELL", entry)
         out.append(Signal(
             symbol=symbol,
             combo=int(combo),
@@ -172,3 +172,4 @@ def scan_latest(
             smc_dir=sd,
         ))
     return out
+
