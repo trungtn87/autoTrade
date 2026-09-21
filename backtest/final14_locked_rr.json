@@ -1,0 +1,28 @@
+{
+  "source_run_id": 35623101331,
+  "source_artifact_id": 10650213856,
+  "rule": "Locked FINAL14. No optimization. 100% hard TP/SL, no trailing, no partial exit.",
+  "fee_per_side": 0.0005,
+  "notional": 100.0,
+  "initial_equity": 1000.0,
+  "cases": {
+    "BTCUSDT": {
+      "C1":   {"entry_variant":"MFI_L50_S50","layer2":"SMC_STRICT","tp_pct":2.0,"sl_pct":0.8,"rr":2.5},
+      "C2":   {"entry_variant":"ADX_20","layer2":"SMC_VETO_OB","tp_pct":1.2,"sl_pct":0.8,"rr":1.5},
+      "C4":   {"entry_variant":"ADX_23","layer2":"SMC_VETO","tp_pct":1.8,"sl_pct":0.9,"rr":2.0},
+      "C6":   {"entry_variant":"BODY_1.4","layer2":"SMC_VETO_OB","tp_pct":2.0,"sl_pct":0.666667,"rr":3.0},
+      "C7":   {"entry_variant":"BODY1.6_VOL2.0","layer2":"OFF","tp_pct":2.0,"sl_pct":0.8,"rr":2.5},
+      "C9":   {"entry_variant":"RSI45_FIXST","layer2":"SMC_VETO","tp_pct":1.0,"sl_pct":0.4,"rr":2.5},
+      "C10":  {"entry_variant":"ADX_22","layer2":"SMC_VETO","tp_pct":1.0,"sl_pct":0.8,"rr":1.25},
+      "TIER": {"entry_variant":"ADX30_T27_T35_V1.3","layer2":"OFF","tp_pct":1.8,"sl_pct":0.9,"rr":2.0}
+    },
+    "ETHUSDT": {
+      "C1":  {"entry_variant":"MFI_L50_S50","layer2":"SMC_VETO","tp_pct":2.0,"sl_pct":0.666667,"rr":3.0},
+      "C3":  {"entry_variant":"ADX_34","layer2":"SMC_STRICT","tp_pct":1.8,"sl_pct":0.6,"rr":3.0},
+      "C4":  {"entry_variant":"ADX_23","layer2":"SMC_VETO","tp_pct":2.0,"sl_pct":0.8,"rr":2.5},
+      "C6":  {"entry_variant":"BODY_1.8","layer2":"SMC_VETO","tp_pct":2.0,"sl_pct":0.666667,"rr":3.0},
+      "C7":  {"entry_variant":"BODY1.3_VOL1.5","layer2":"OB","tp_pct":1.8,"sl_pct":0.9,"rr":2.0},
+      "C10": {"entry_variant":"ADX_28","layer2":"SMC_STRICT","tp_pct":1.8,"sl_pct":0.9,"rr":2.0}
+    }
+  }
+}
