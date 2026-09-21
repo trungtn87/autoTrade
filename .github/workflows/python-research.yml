@@ -114,6 +114,15 @@ jobs:
             --eth data/multisource/ETHUSDT_hybrid_15m.pkl \
             --out-dir results/c1_layer1_long
 
+      - name: Layer 1 remaining combos long-history sweep
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u layer1_remaining_long.py \
+            --btc data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth data/multisource/ETHUSDT_hybrid_15m.pkl \
+            --out-dir results/layer1_remaining_long
+
       - name: Record exact environment
         if: always()
         run: |
@@ -145,5 +154,7 @@ jobs:
             backtest/results/long_windows/*.json
             backtest/results/c1_layer1_long/*.csv
             backtest/results/c1_layer1_long/*.json
+            backtest/results/layer1_remaining_long/*.csv
+            backtest/results/layer1_remaining_long/*.json
           retention-days: 90
           if-no-files-found: error
