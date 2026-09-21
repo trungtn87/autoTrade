@@ -71,9 +71,16 @@ def download_history(client,symbol,interval,start,end,out_path=None,sleep_s=.12)
             mid=lo+((hi-lo)//step//2)*step
             return pd.concat([fetch(lo,mid,depth+1),fetch(mid,hi,depth+1)])
         raise ValueError(f'Incomplete BingX data {symbol} {interval} [{lo},{hi}): {report}')
-    for lo in range(a,b,500*step):
-        hi=min(b,lo+500*step);chunks.append(fetch(lo,hi))
-        if len(chunks)%25==0: print(f'{symbol} {interval}: {lo-a}/{b-a} ms covered',flush=True)
+    # Walk backward from the newest boundary. BingX historical availability can be
+    # asymmetric, so reverse pagination lets us preserve/cache the newest valid
+    # pages before encountering an older unavailable range.
+    hi=b
+    while hi>a:
+        lo=max(a,hi-500*step)
+        chunks.append(fetch(lo,hi))
+        if len(chunks)%25==0:
+            print(f'{symbol} {interval}: reverse covered {(b-hi)}/{b-a} ms',flush=True)
+        hi=lo
     df=pd.concat(chunks).sort_index(); report=validate(df,interval,start,end)
     if not report['valid']: raise ValueError(str(report))
     if path:
