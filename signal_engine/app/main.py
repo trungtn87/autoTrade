@@ -16,11 +16,12 @@ from fastapi import FastAPI, Header, HTTPException
 from .bingx_market import BingXApiError, BingXMarketClient, closed_only
 from .data_validation import DataValidationError, validate_15m_candles
 from .config import Settings, safe_config_snapshot, validate_settings
-from .executor import Executor
+from .final14_executor import Final14Executor
 from .discord_diag import install_discord_log_handler, send_discord_scan_summary, send_discord_startup_test
 from .state import SignalState
-from .strategy import Signal, combo_readiness, scan_latest, strategy_static_snapshot
+from .final14_strategy import Signal, combo_readiness, scan_latest, strategy_static_snapshot
 from .self_test import run_self_test, run_startup_self_test
+from .final14_positions import is_case_active, refresh_symbol, register_execution, snapshot as final14_position_snapshot
 from .timeframes import aggregate_15m
 
 settings = Settings()
@@ -36,7 +37,7 @@ log = logging.getLogger("autotrade")
 
 market = BingXMarketClient(base_url=settings.bingx_base_url, api_key=settings.bingx_api_key, api_secret=settings.bingx_api_secret)
 state = SignalState(settings.state_db, settings.database_url)
-executor = Executor(settings)
+executor = Final14Executor(settings)
 scan_lock = threading.Lock()
 scheduler: BackgroundScheduler | None = None
 last_scan_summary: dict = {"status": "not_run"}
@@ -328,9 +329,16 @@ def run_scan(execute: bool = True) -> dict:
             try:
                 log.info("SYMBOL_SCAN_START symbol=%s execute=%s", symbol, execute)
                 now_ms, m15, h1, h4, h6, bootstrap, data_validation = fetch_bundle(symbol)
+
+                # Reconcile independent SEPARATE_ISOLATED positions before
+                # evaluating new entries. This enforces one active position
+                # per symbol+combo exactly like backtest.
+                position_state = refresh_symbol(state, executor, symbol)
+
                 readiness = combo_readiness(
                     m15, h1, h4, h6,
                     smc_swing_len=settings.smc_swing_len,
+                    symbol=symbol,
                 )
                 ready_combos = sorted(
                     combo for combo, item in readiness.items() if item.get("ready")
@@ -380,6 +388,7 @@ def run_scan(execute: bool = True) -> dict:
                         "skipped": skipped_combos,
                     },
                     "signals": [],
+                    "final14_positions": position_state,
                 }
                 for sig in signals:
                     item = asdict(sig)
@@ -417,7 +426,18 @@ def run_scan(execute: bool = True) -> dict:
 
                     if not execute:
                         item["action"] = "preview"
+                        item["case_active"] = is_case_active(state, sig.symbol, sig.combo)
                         symbol_result["signals"].append(item)
+                        continue
+
+                    if is_case_active(state, sig.symbol, sig.combo):
+                        item["action"] = "active_case_suppressed"
+                        item["reason"] = "FINAL14 one-position-per-combo"
+                        symbol_result["signals"].append(item)
+                        log.info(
+                            "FINAL14_ACTIVE_SUPPRESS symbol=%s combo=%s event_id=%s",
+                            sig.symbol, sig.combo, sig.event_id,
+                        )
                         continue
 
                     targets = executor.targets()
@@ -473,6 +493,9 @@ def run_scan(execute: bool = True) -> dict:
                                 state_target,
                                 json.dumps(result, ensure_ascii=False),
                             )
+
+                        if result.get("ok") and result.get("entry_filled"):
+                            register_execution(state, sig, result)
 
                         if result.get("ok"):
                             discord_state_key = f"discord:{sig.symbol}"
@@ -1017,7 +1040,7 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown(wait=False)
 
 
-app = FastAPI(title="BingX 10 Combo + SMC Autotrade Engine", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="BingX FINAL14 RR Hard-TP Autotrade Engine", version="14.0.0", lifespan=lifespan)
 
 
 @app.get("/health")
