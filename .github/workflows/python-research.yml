@@ -80,11 +80,11 @@ jobs:
 
       - name: BTC C1-C10 RAW baseline
         run: |
-          python combo_matrix.py             --symbol BTCUSDT             --data15 data/store/BTCUSDT_15m.pkl             --data1h data/store/BTCUSDT_1h.pkl             --data4h data/store/BTCUSDT_4h.pkl             --data6h data/store/BTCUSDT_6h.pkl             --combos C1,C2,C3,C4,C5,C6,C7,C8,C9,C10             --variants RAW             --policy stop_first             --trade-start "$TRADE_START"             --commission 0             --out-dir results/by_combo/BTCUSDT
+          python combo_matrix.py             --symbol BTCUSDT             --data15 data/store/BTCUSDT_15m.pkl             --data1h data/store/BTCUSDT_1h.pkl             --data4h data/store/BTCUSDT_4h.pkl             --data6h data/store/BTCUSDT_6h.pkl             --combos C1,C2,C3,C4,C5,C6,C7,C8,C9,C10             --variants RAW             --policy stop_first             --trade-start "$TRADE_START"             --commission 0.05             --out-dir results/by_combo/BTCUSDT
 
       - name: ETH C1-C10 RAW baseline
         run: |
-          python combo_matrix.py             --symbol ETHUSDT             --data15 data/store/ETHUSDT_15m.pkl             --data1h data/store/ETHUSDT_1h.pkl             --data4h data/store/ETHUSDT_4h.pkl             --data6h data/store/ETHUSDT_6h.pkl             --combos C1,C2,C3,C4,C5,C6,C7,C8,C9,C10             --variants RAW             --policy stop_first             --trade-start "$TRADE_START"             --commission 0             --out-dir results/by_combo/ETHUSDT
+          python combo_matrix.py             --symbol ETHUSDT             --data15 data/store/ETHUSDT_15m.pkl             --data1h data/store/ETHUSDT_1h.pkl             --data4h data/store/ETHUSDT_4h.pkl             --data6h data/store/ETHUSDT_6h.pkl             --combos C1,C2,C3,C4,C5,C6,C7,C8,C9,C10             --variants RAW             --policy stop_first             --trade-start "$TRADE_START"             --commission 0.05             --out-dir results/by_combo/ETHUSDT
 
       - name: Record exact environment
         if: always()
