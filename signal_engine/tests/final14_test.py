@@ -82,6 +82,8 @@ def test_attached_hard_tp_sl():
     assert result["tp"]==102.0
     assert result["sl"]==99.2
     assert result["protection_mode"]=="attached_hard_tp_sl"
+    assert result["target_notional"]==100.0
+    assert result["execution_leverage"]==50
 
     p=ex.order_params
     assert p["type"]=="MARKET"
