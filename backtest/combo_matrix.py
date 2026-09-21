@@ -44,7 +44,7 @@ def main():
     ap.add_argument("--data4h",required=True); ap.add_argument("--data6h",required=True)
     ap.add_argument("--combos",default=",".join(ALL))
     ap.add_argument("--variants",default="RAW")
-    ap.add_argument("--commission",type=float,default=0.0)
+    ap.add_argument("--commission",type=float,default=0.05)
     ap.add_argument("--policy",default="stop_first",choices=["tv_heuristic","stop_first","tp_first"])
     ap.add_argument("--trade-start",default="")
     ap.add_argument("--out-dir",default="results/by_combo")
