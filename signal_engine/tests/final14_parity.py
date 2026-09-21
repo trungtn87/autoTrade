@@ -41,7 +41,7 @@ def production_events(symbol: str, raw: pd.DataFrame) -> dict[int, set[tuple[int
         e1[11]=tier
 
     out={}
-    for combo,cfg in FINAL14_CASES[config_symbol].items():
+    for combo,cfg in FINAL14_CASES[symbol].items():
         native15=combo in FIFTEEN_MIN_COMBOS
         frame=m15 if native15 else h1
         sd=s15 if native15 else s1
@@ -77,10 +77,10 @@ def research_events(config_symbol: str, research_symbol: str, pkl: str, research
     }
     ctx=r.build_context(d,lock,variants)
     out={}
-    for combo,cfg in FINAL14_CASES[symbol].items():
+    for combo,cfg in FINAL14_CASES[config_symbol].items():
         cname="TIER" if combo==11 else f"C{combo}"
         variant=cfg["entry_variant"]
-        assert variant in ctx[cname], (symbol,cname,variant)
+        assert variant in ctx[cname], (config_symbol,cname,variant)
         ev=set()
         for pos,side,ot,sd,blocked in ctx[cname][variant]:
             if approved(side,sd,blocked,cfg["layer2"]):
