@@ -8,7 +8,7 @@ on:
     inputs:
       backfill_start:
         description: 'UTC inclusive public-market backfill start'
-        default: '2025-01-01'
+        default: '2021-01-01'
       backfill_end:
         description: 'UTC exclusive backfill end; must meet existing store without a gap'
         default: '2026-04-01'
@@ -32,7 +32,7 @@ jobs:
       run:
         working-directory: backtest
     env:
-      BACKFILL_START: ${{ inputs.backfill_start || '2025-01-01' }}
+      BACKFILL_START: ${{ inputs.backfill_start || '2021-01-01' }}
       BACKFILL_END: ${{ inputs.backfill_end || '2026-04-01' }}
       TRADE_START: ${{ inputs.trade_start || '2026-07-01' }}
       TZ: UTC
