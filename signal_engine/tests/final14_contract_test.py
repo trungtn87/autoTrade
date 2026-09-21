@@ -130,6 +130,16 @@ class ContractTests(unittest.TestCase):
         self.ex.mode='post_timeout';sig=make_signal();self.ex.send_case(self.state,sig,'test')
         self.ex.remote.clear();refresh_symbol(self.state,self.ex,sig.symbol)
         self.assertTrue(is_case_active(self.state,sig.symbol,sig.combo))
+    def test_malformed_positions_never_mean_flat(self):
+        from app.final14_executor import Final14Executor
+        for body in [{},{'code':0,'data':{}},{'code':0,'data':[{}]},
+                     {'code':0,'data':[{'positionAmt':'NaN','positionId':'p1'}]}]:
+            with patch.object(self.ex,'_signed_trade_request',return_value=body):
+                with self.assertRaises((RuntimeError,ValueError)):
+                    Final14Executor._positions(self.ex,'BTC-USDT')
+        with patch.object(self.ex,'_signed_trade_request',return_value={'code':0,'data':[]}):
+            self.assertEqual(Final14Executor._positions(self.ex,'BTC-USDT'),[])
+
     def test_legacy_state_migration_is_idempotent(self):
         self.state.set_runtime_value('final14_active_cases_v1',json.dumps([{'event_id':'old','case_id':'ETH-USDT|C1','symbol':'ETH-USDT'}]))
         upgraded=SignalState(self.db);self.assertTrue(is_case_active(upgraded,'ETH-USDT',1))

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import math
 import time
 
 from .executor import Executor
@@ -24,6 +25,23 @@ class Final14Executor(Executor):
     BingX SEPARATE_ISOLATED is required so each combo gets an independent
     positionId even when several combos open the same symbol/direction.
     """
+
+    def _positions(self, symbol: str) -> list[dict]:
+        body = self._signed_trade_request('GET','/openApi/swap/v2/user/positions',{'symbol':symbol})
+        if not isinstance(body,dict) or body.get('code') not in (0,'0') or 'data' not in body:
+            raise RuntimeError('Invalid positions response; cannot infer flat')
+        rows = body['data']
+        if isinstance(rows,dict):
+            rows = rows.get('positions', rows.get('data'))
+        if not isinstance(rows,list):
+            raise RuntimeError('Invalid positions data; cannot infer flat')
+        for row in rows:
+            if not isinstance(row,dict) or 'positionAmt' not in row:
+                raise RuntimeError('Invalid position row')
+            amount = float(row['positionAmt'])
+            if not math.isfinite(amount) or (amount != 0 and not self.position_id(row)):
+                raise RuntimeError('Invalid position identity or quantity')
+        return rows
 
     def _margin_type(self, symbol: str) -> str:
         body = self._signed_trade_request(
@@ -320,7 +338,8 @@ class Final14Executor(Executor):
             try:
                 if str(obj.get('type')).upper()!=typ: return False
                 if str(obj.get('workingType')).upper()!='CONTRACT_PRICE': return False
-                if abs(float(obj.get('stopPrice') or 0)-float(rec[level])) > max(1e-9,abs(float(rec[level]))*1e-10): return False
+                price=float(obj.get('stopPrice') or 0)
+                if not math.isfinite(price) or abs(price-float(rec[level])) > max(1e-9,abs(float(rec[level]))*1e-10): return False
                 # Absent/zero quantity on attached TP/SL means parent quantity.
                 amount=float(obj.get('quantity') or 0)
                 if amount>0 and amount+1e-12<float(rec.get('qty') or 0): return False
