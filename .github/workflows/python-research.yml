@@ -105,6 +105,15 @@ jobs:
             --eth data/multisource/ETHUSDT_hybrid_15m.pkl \
             --out-dir results/long_windows
 
+      - name: C1 Layer 1 long-history sweep
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u c1_layer1_long.py \
+            --btc data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth data/multisource/ETHUSDT_hybrid_15m.pkl \
+            --out-dir results/c1_layer1_long
+
       - name: Record exact environment
         if: always()
         run: |
@@ -134,5 +143,7 @@ jobs:
             backtest/data/multisource/*.pkl
             backtest/results/long_windows/*.csv
             backtest/results/long_windows/*.json
+            backtest/results/c1_layer1_long/*.csv
+            backtest/results/c1_layer1_long/*.json
           retention-days: 90
           if-no-files-found: error
