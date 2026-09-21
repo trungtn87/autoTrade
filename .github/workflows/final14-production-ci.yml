@@ -1,0 +1,77 @@
+name: FINAL14 Production CI
+
+on:
+  push:
+    branches: [final14-hardtp-production]
+    paths:
+      - 'signal_engine/**'
+      - '.github/workflows/final14-production-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    env:
+      TZ: UTC
+      PYTHONHASHSEED: '0'
+      OPENBLAS_NUM_THREADS: '1'
+      RUN17_ARTIFACT_ID: '10636714622'
+    steps:
+      - name: Checkout production branch
+        uses: actions/checkout@v4
+
+      - name: Checkout research reference
+        uses: actions/checkout@v4
+        with:
+          ref: research-python-backtest
+          path: research
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.14'
+
+      - name: Install production and research dependencies
+        run: |
+          pip install -r signal_engine/requirements.txt
+          pip install -r research/backtest/requirements.txt
+
+      - name: Download verified long dataset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p final14_data
+          gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${RUN17_ARTIFACT_ID}/zip" > final14_data/run17.zip
+          unzip -q -o final14_data/run17.zip -d final14_data
+          test -f final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl
+          test -f final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl
+
+      - name: Compile FINAL14
+        run: python -m compileall signal_engine/app signal_engine/tests
+
+      - name: FINAL14 unit tests
+        env:
+          PYTHONPATH: signal_engine
+        run: python signal_engine/tests/final14_test.py
+
+      - name: Exact research source parity
+        env:
+          PYTHONPATH: signal_engine
+        run: |
+          python signal_engine/tests/final14_exact_parity.py \
+            --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl \
+            --research-dir research/backtest
+
+      - name: Live warmup parity
+        env:
+          PYTHONPATH: signal_engine
+        run: |
+          python signal_engine/tests/final14_warmup_parity.py \
+            --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl
