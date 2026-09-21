@@ -1,0 +1,50 @@
+{
+  "standard_version": "1.0",
+  "locked_at_utc": "2026-09-21T08:15:00Z",
+  "data": {
+    "source": "BingX public perpetual futures",
+    "timeframe": "15m",
+    "timezone": "UTC",
+    "range_convention": "[start,end)",
+    "allow_gaps": false,
+    "allow_duplicates": false,
+    "forward_fill": false,
+    "derive_timeframes": [
+      "1h",
+      "4h",
+      "6h"
+    ]
+  },
+  "account": {
+    "initial_equity_usd": 1000,
+    "margin_mode": "isolated",
+    "margin_per_trade_usd": 1,
+    "leverage": 100,
+    "notional_per_trade_usd": 100
+  },
+  "execution": {
+    "default_fee_model": "taker",
+    "taker_fee_pct_per_side": 0.05,
+    "maker_fee_pct_per_side": 0.02,
+    "default_intrabar_policy": "stop_first",
+    "entry_price": "signal_15m_close",
+    "exit_check_before_entry": true,
+    "same_entry_bar_exit": false,
+    "liquidation_model": "bankruptcy_proxy_1_over_leverage",
+    "funding_included": false,
+    "slippage_included": false
+  },
+  "storage": {
+    "github_branch": "research-python-backtest",
+    "drive_root": "Trade Backtest",
+    "required_run_files": [
+      "run_manifest.json",
+      "run_config.json",
+      "summary.csv",
+      "trades.csv",
+      "equity.csv",
+      "environment.txt",
+      "data_checksums.json"
+    ]
+  }
+}
