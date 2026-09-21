@@ -18,7 +18,7 @@ FINAL14_CASES: dict[str, dict[int, dict]] = {
     "ETH-USDT": {
         1: {"entry_variant":"MFI_L50_S50","entry":{"mfi_long":50.0,"mfi_short":50.0},"layer2":"SMC_VETO","tp_pct":0.020,"sl_pct":0.00666667,"rr":3.0},
         3: {"entry_variant":"ADX_34","entry":{"adx":34.0},"layer2":"SMC_STRICT","tp_pct":0.018,"sl_pct":0.006,"rr":3.0},
-        4: {"entry_variant":"ADX_23","layer2":"SMC_VETO","tp_pct":0.020,"sl_pct":0.008,"rr":2.5},
+        4: {"entry_variant":"ADX_23","entry":{"adx":23.0},"layer2":"SMC_VETO","tp_pct":0.020,"sl_pct":0.008,"rr":2.5},
         6: {"entry_variant":"BODY_1.8","entry":{"body_atr":1.8},"layer2":"SMC_VETO","tp_pct":0.020,"sl_pct":0.00666667,"rr":3.0},
         7: {"entry_variant":"BODY1.3_VOL1.5","entry":{"body_atr":1.3,"volume_mult":1.5},"layer2":"OB","tp_pct":0.018,"sl_pct":0.009,"rr":2.0},
         10:{"entry_variant":"ADX_28","entry":{"adx":28.0},"layer2":"SMC_STRICT","tp_pct":0.018,"sl_pct":0.009,"rr":2.0},
