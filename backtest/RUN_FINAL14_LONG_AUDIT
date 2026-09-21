@@ -1,0 +1,7 @@
+trigger FINAL14 locked long audit
+scope: 14 locked RR TP<=2% cases
+period: 2021-01-01 through 2026-09-20
+no optimization: true
+data validation: gaps, duplicates, OHLC, NaN, SHA256
+acceptance: 14/14 nonnegative in 6M/1Y/3Y/FULL
+requested: 2026-09-21
