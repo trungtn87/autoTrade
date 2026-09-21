@@ -1,0 +1,6 @@
+trigger locked final 11 validation
+source data: run17 artifact 10636714622
+cases: production_candidates_11.json
+rules: no optimization; reject if any 6M/1Y/3Y/FULL PnL < 0
+portfolio: all 11 cases simultaneous on shared $1000 balance
+requested 2026-09-21
