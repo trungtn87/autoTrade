@@ -21,6 +21,7 @@ from .discord_diag import install_discord_log_handler, send_discord_scan_summary
 from .state import SignalState
 from .final_strategy import Signal, combo_readiness, scan_latest, strategy_static_snapshot
 from .self_test import run_self_test, run_startup_self_test
+from .position_manager import manage_symbol_positions, is_case_active, register_execution
 from .timeframes import aggregate_15m
 
 settings = Settings()
@@ -328,6 +329,22 @@ def run_scan(execute: bool = True) -> dict:
             try:
                 log.info("SYMBOL_SCAN_START symbol=%s execute=%s", symbol, execute)
                 now_ms, m15, h1, h4, h6, bootstrap, data_validation = fetch_bundle(symbol)
+
+                # Advance all FINAL18 managed positions before scanning new signals.
+                # Replaying recent cached bars makes restart/recovery deterministic
+                # without any extra BingX market-data requests.
+                manager_results = []
+                for _, managed_row in m15.tail(100).iterrows():
+                    manager_results.extend(
+                        manage_symbol_positions(state, executor, symbol, managed_row)
+                    )
+                if manager_results:
+                    log.info(
+                        "FINAL18_MANAGER symbol=%s actions=%s details=%s",
+                        symbol, len(manager_results),
+                        json.dumps(manager_results, ensure_ascii=False)[:3000],
+                    )
+
                 readiness = combo_readiness(
                     m15, h1, h4, h6,
                     smc_swing_len=settings.smc_swing_len,
@@ -381,6 +398,7 @@ def run_scan(execute: bool = True) -> dict:
                         "skipped": skipped_combos,
                     },
                     "signals": [],
+                    "position_manager": manager_results,
                 }
                 for sig in signals:
                     item = asdict(sig)
@@ -418,7 +436,18 @@ def run_scan(execute: bool = True) -> dict:
 
                     if not execute:
                         item["action"] = "preview"
+                        item["case_active"] = is_case_active(state, sig.symbol, sig.combo)
                         symbol_result["signals"].append(item)
+                        continue
+
+                    if is_case_active(state, sig.symbol, sig.combo):
+                        item["action"] = "active_case_suppressed"
+                        item["reason"] = "FINAL18 allows one active position per symbol+combo"
+                        symbol_result["signals"].append(item)
+                        log.info(
+                            "FINAL18_ACTIVE_CASE_SUPPRESS symbol=%s combo=%s event_id=%s",
+                            sig.symbol, sig.combo, sig.event_id,
+                        )
                         continue
 
                     targets = executor.targets()
@@ -474,6 +503,41 @@ def run_scan(execute: bool = True) -> dict:
                                 state_target,
                                 json.dumps(result, ensure_ascii=False),
                             )
+
+                        if result.get("ok") and result.get("manager_required"):
+                            try:
+                                register_execution(state, sig, result)
+                            except Exception as register_exc:
+                                log.exception(
+                                    "FINAL18_STATE_REGISTER_FAILED symbol=%s combo=%s event_id=%s",
+                                    sig.symbol, sig.combo, sig.event_id,
+                                )
+                                cancel_results = []
+                                for oid in (result.get("leg1_order_id"), result.get("leg2_order_id")):
+                                    if oid:
+                                        try:
+                                            cancel_results.append(executor.final18_cancel_order(sig.symbol, str(oid)))
+                                        except Exception as cancel_exc:
+                                            cancel_results.append({"error": str(cancel_exc), "order_id": str(oid)})
+                                try:
+                                    close_result = executor.final18_close_slice(
+                                        sig.symbol,
+                                        "LONG" if sig.side == "BUY" else "SHORT",
+                                        float(result.get("full_qty") or result.get("executed_qty") or 0),
+                                    )
+                                    close_ok = True
+                                except Exception as close_exc:
+                                    close_result = {"error": str(close_exc)}
+                                    close_ok = False
+                                result.update({
+                                    "ok": False,
+                                    "stage": "state_register",
+                                    "error": str(register_exc),
+                                    "cancel_results": cancel_results,
+                                    "emergency_close_attempted": True,
+                                    "emergency_close_ok": close_ok,
+                                    "emergency_close_result": close_result,
+                                })
 
                         if result.get("ok"):
                             discord_state_key = f"discord:{sig.symbol}"
