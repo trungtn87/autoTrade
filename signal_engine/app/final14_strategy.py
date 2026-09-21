@@ -359,10 +359,9 @@ def _signal(symbol: str, combo: int, direction: int, timeframe: str, row: pd.Ser
     cfg=get_case(symbol,combo)
     entry=float(row["close"])
     slp=float(cfg["sl_pct"])
+    tpp=float(cfg["tp_pct"])
     sl=entry*(1-slp if direction==1 else 1+slp)
-    # TP is retained only as a compatibility field. FINAL18 execution ignores it
-    # and uses two trailing legs with no fixed TP.
-    tp=entry*(1+0.05 if direction==1 else 1-0.05)
+    tp=entry*(1+tpp if direction==1 else 1-tpp)
     return Signal(symbol=symbol,combo=combo,side="BUY" if direction==1 else "SELL",timeframe=timeframe,close_time=int(row["close_time"]),entry=entry,tp=tp,sl=sl,smc_dir=int(smc_dir))
 
 
