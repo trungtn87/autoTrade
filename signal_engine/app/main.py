@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 
@@ -1071,7 +1072,7 @@ def health():
         "execution_mode": "final14_journaled_hard_tp_sl",
         "strategy_profile": strategy_static_snapshot(),
         "deployed_commit": os.getenv("RENDER_GIT_COMMIT", "unknown"),
-        "active_cases": final14_position_snapshot(state),
+        "active_case_count": len(final14_position_snapshot(state)),
         "order_target_count": len(executor.targets()),
         "live_limit_15m": settings.live_limit_15m,
         "bingx_blocked_until_ms": _effective_bingx_blocked_until_ms(),

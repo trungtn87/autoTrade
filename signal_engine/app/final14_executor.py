@@ -251,7 +251,7 @@ class Final14Executor(Executor):
             }
 
         position_id=(
-            str(order_detail.get("positionId") or order_detail.get("positionID") or order.get("positionId") or order.get("positionID") or "")
+            self.position_id(order_detail) or self.position_id(order)
             or self._resolve_new_position_id(
                 signal.symbol,signal.side,before_ids,avg_price,executed_qty
             )
@@ -292,6 +292,11 @@ class Final14Executor(Executor):
         )
         return result
 
+
+    @staticmethod
+    def position_id(row):
+        value = str(row.get("positionId") or row.get("positionID") or "")
+        return "" if value == "0" else value
 
     @staticmethod
     def client_order_id(event_id):

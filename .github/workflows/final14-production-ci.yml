@@ -16,6 +16,17 @@ jobs:
   test:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: final14_test
+          POSTGRES_PASSWORD: final14_test
+          POSTGRES_DB: final14_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U final14_test -d final14_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       TZ: UTC
       PYTHONHASHSEED: '0'
@@ -60,6 +71,28 @@ jobs:
         run: |
           python signal_engine/tests/final14_test.py
           python signal_engine/tests/final14_contract_test.py
+
+      - name: PostgreSQL order journal
+        env:
+          PYTHONPATH: signal_engine
+          FINAL14_TEST_POSTGRES_URL: postgresql://final14_test:final14_test@localhost:5432/final14_test
+        run: python signal_engine/tests/final14_postgres_test.py
+
+      - name: Import app and read health without starting scheduler
+        env:
+          PYTHONPATH: signal_engine
+          STATE_DB: /tmp/final14_ci_health.sqlite
+          DATABASE_URL: ""
+          BINGX_API_KEY: ""
+          BINGX_API_SECRET: ""
+        run: |
+          python - <<'PY'
+          from app.main import health
+          h = health()
+          assert h['strategy_profile']['execution_contract'] == 'FINAL14_PARITY_V2'
+          assert h['execution_ready'] is False
+          print('FINAL14 import/health smoke PASS')
+          PY
 
       - name: Exact research source parity
         env:
