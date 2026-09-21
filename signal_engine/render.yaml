@@ -23,7 +23,7 @@ services:
       - key: LIVE_LIMIT_15M
         value: "8"
       - key: BOOTSTRAP_LIMIT_15M
-        value: "3400"
+        value: "12000"
       - key: RECOVERY_LIMIT_15M
         value: "8"
       - key: CANDLE_KEEP_15M
