@@ -1,8 +1,9 @@
-trigger Layer 1 remaining combos long-history sweep
+trigger Layer 1 cross-margin long-history sweep
 dataset: hybrid BTC/ETH 15m 2021-01-01 to 2026-09-20
 windows: 6M,1Y,3Y,FULL
-combos: C2,C3,C4,C5,C6,C7,C8,C9,C10,TIER
+combos: C1-C10,TIER
 entry: original
 filters: SMC OFF, OB OFF
-exit families: original ATR/PCT
+margin: cross account-level proxy
+mmr: 0.004 base; stress 0.005 and 0.01
 requested 2026-09-21
