@@ -740,6 +740,28 @@ class Executor:
         )
         return confirmed or created
 
+    def final18_cancel_order(self, symbol: str, order_id: str) -> dict:
+        return self._signed_trade_request(
+            "DELETE",
+            "/openApi/swap/v2/trade/order",
+            {"symbol": symbol, "orderId": str(order_id)},
+        )
+
+    def final18_close_slice(
+        self,
+        symbol: str,
+        position_side: str,
+        qty: float,
+    ) -> dict:
+        side = "SELL" if position_side.upper() == "LONG" else "BUY"
+        return self._place_order(
+            symbol,
+            side,
+            qty,
+            order_type="MARKET",
+            position_side=position_side.upper(),
+        )
+
     def final18_order_detail(self, symbol: str, order_id: str) -> dict:
         return self._extract_order(self._order_detail(symbol, order_id))
 
@@ -858,12 +880,13 @@ class Executor:
             if not self._trailing_qty_is_valid(
                 leg_qty, avg_price, float(sizing["min_qty"]), float(sizing["min_usdt"])
             ):
+                position_side = "LONG" if signal.side == "BUY" else "SHORT"
                 try:
-                    emergency = self.emergency_close_position(
-                        signal.symbol, "LONG" if signal.side == "BUY" else "SHORT"
-                    )
+                    emergency = self.final18_close_slice(signal.symbol, position_side, full_qty)
+                    emergency_ok = True
                 except Exception as close_exc:
-                    emergency = {"ok": False, "error": str(close_exc)}
+                    emergency = {"error": str(close_exc)}
+                    emergency_ok = False
                 return {
                     **base_result,
                     "entry_filled": True,
@@ -873,7 +896,7 @@ class Executor:
                     "stage": "invalid_two_leg_split",
                     "error": f"{label} cannot satisfy BingX minimum constraints after fill",
                     "emergency_close_attempted": True,
-                    "emergency_close_ok": bool(emergency.get("ok")),
+                    "emergency_close_ok": emergency_ok,
                     "emergency_close_result": emergency,
                 }
 
@@ -941,18 +964,29 @@ class Executor:
                     "result": result,
                 })
         except Exception as exc:
+            cancel_results = []
+            for item in stop_orders:
+                try:
+                    cancel_results.append(
+                        self.final18_cancel_order(signal.symbol, item["order_id"])
+                    )
+                except Exception as cancel_exc:
+                    cancel_results.append({"error": str(cancel_exc)})
             try:
-                emergency = self.emergency_close_position(signal.symbol, position_side)
+                emergency = self.final18_close_slice(signal.symbol, position_side, full_qty)
+                emergency_ok = True
             except Exception as close_exc:
-                emergency = {"ok": False, "error": str(close_exc)}
+                emergency = {"error": str(close_exc)}
+                emergency_ok = False
             return {
                 **base_result,
                 "ok": False,
                 "stage": "initial_leg_stops",
                 "error": str(exc),
                 "emergency_close_attempted": True,
-                "emergency_close_ok": bool(emergency.get("ok")),
+                "emergency_close_ok": emergency_ok,
                 "emergency_close_result": emergency,
+                "cancel_results": cancel_results,
                 "initial_stop_orders": stop_orders,
             }
 
