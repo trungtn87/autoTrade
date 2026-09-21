@@ -1,4 +1,6 @@
-trigger multisource 15m BTC/ETH historical data probe
-sources: bingx-swap,bingx-historical,bingx-spot,binance-futures-api,binance-vision,bybit-linear,okx-swap
-build: binance-vision fallback + bingx tail
+trigger long-window baseline backtest
+dataset: hybrid BTC/ETH 15m 2021-01-01 to 2026-09-20
+windows: 6M,1Y,3Y,FULL
+combos: C1-C10,TIER
+mode: BASE original logic
 requested 2026-09-21
