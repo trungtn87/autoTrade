@@ -1,0 +1,6 @@
+trigger hard TP 22 backtest
+exit: hard TP only, no trailing stop
+scope: 22 BTC/ETH cases
+dataset: verified long hybrid 15m
+selection: non-negative 6M/1Y/3Y/FULL, maximize 3Y PnL
+requested: 2026-09-21
