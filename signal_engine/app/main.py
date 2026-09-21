@@ -19,7 +19,7 @@ from .config import Settings, safe_config_snapshot, validate_settings
 from .executor import Executor
 from .discord_diag import install_discord_log_handler, send_discord_scan_summary, send_discord_startup_test
 from .state import SignalState
-from .strategy import Signal, combo_readiness, scan_latest, strategy_static_snapshot
+from .final_strategy import Signal, combo_readiness, scan_latest, strategy_static_snapshot
 from .self_test import run_self_test, run_startup_self_test
 from .timeframes import aggregate_15m
 
@@ -331,6 +331,7 @@ def run_scan(execute: bool = True) -> dict:
                 readiness = combo_readiness(
                     m15, h1, h4, h6,
                     smc_swing_len=settings.smc_swing_len,
+                    symbol=symbol,
                 )
                 ready_combos = sorted(
                     combo for combo, item in readiness.items() if item.get("ready")
