@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 from pathlib import Path
@@ -82,6 +83,28 @@ class SignalState:
                 )
                 """
             )
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS final14_orders (
+                    event_id TEXT PRIMARY KEY, case_id TEXT NOT NULL,
+                    symbol TEXT NOT NULL, status TEXT NOT NULL, payload TEXT NOT NULL
+                )
+            """)
+            cur.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS final14_one_active_case
+                ON final14_orders(case_id) WHERE status NOT IN ('closed', 'rejected')
+            """)
+            # Upgrade existing FINAL14 positions without reopening closed events.
+            cur.execute("SELECT value FROM runtime_state WHERE key='final14_active_cases_v1'")
+            legacy = cur.fetchone()
+            if legacy:
+                rows = json.loads(legacy[0])
+                if not isinstance(rows, list):
+                    raise ValueError("Invalid legacy FINAL14 state")
+                for rec in rows:
+                    cur.execute(self._sql("""
+                        INSERT INTO final14_orders(event_id,case_id,symbol,status,payload)
+                        VALUES (?,?,?,?,?) ON CONFLICT(event_id) DO NOTHING
+                    """), (rec['event_id'],rec['case_id'],rec['symbol'],'active',json.dumps(rec)))
             con.commit()
 
     def seen(self, event_id: str, target: str) -> bool:
@@ -261,3 +284,51 @@ class SignalState:
                 (symbol, timeframe, symbol, timeframe, int(keep)),
             )
             con.commit()
+
+
+    def claim_final14(self, rec: dict) -> bool:
+        """Atomic event dedupe AND one active/pending position per case."""
+        with self._lock, self._connect() as con:
+            cur = con.cursor()
+            cur.execute(self._sql("""
+                INSERT INTO final14_orders(event_id,case_id,symbol,status,payload)
+                VALUES (?,?,?,?,?) ON CONFLICT DO NOTHING
+            """), (rec['event_id'],rec['case_id'],rec['symbol'],'reserved',json.dumps(rec)))
+            claimed = cur.rowcount == 1
+            con.commit()
+        return claimed
+
+    def update_final14(self, event_id: str, changes: dict) -> dict:
+        with self._lock, self._connect() as con:
+            cur = con.cursor()
+            if not self.is_postgres:
+                cur.execute("BEGIN IMMEDIATE")
+            sql = "SELECT payload,status FROM final14_orders WHERE event_id=?"
+            if self.is_postgres:
+                sql += " FOR UPDATE"
+            cur.execute(self._sql(sql), (event_id,))
+            row = cur.fetchone()
+            if row is None:
+                raise KeyError(event_id)
+            rec = json.loads(row[0])
+            # A late response cannot resurrect a completed case.
+            if row[1] in ('closed','rejected'):
+                return rec
+            rec.update(changes)
+            cur.execute(self._sql("UPDATE final14_orders SET status=?,payload=? WHERE event_id=?"),
+                        (rec.get('status',row[1]),json.dumps(rec),event_id))
+            con.commit()
+            return rec
+
+    def final14_records(self, symbol: str | None = None, active_only: bool = True) -> list[dict]:
+        sql = "SELECT payload,status FROM final14_orders WHERE 1=1"
+        params = []
+        if active_only:
+            sql += " AND status NOT IN ('closed','rejected')"
+        if symbol is not None:
+            sql += " AND symbol=?"
+            params.append(symbol)
+        with self._lock, self._connect() as con:
+            cur = con.cursor()
+            cur.execute(self._sql(sql),params)
+            return [{**json.loads(p),'status':status} for p,status in cur.fetchall()]
