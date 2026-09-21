@@ -1,102 +1,81 @@
+"""Public-only BingX candles. UTC half-open ranges, bounded requests, strict coverage."""
 from __future__ import annotations
-import os, time, hmac, hashlib, json
+import json,time,urllib.request,urllib.parse
 from pathlib import Path
-from urllib.parse import urlencode
-import requests
 import pandas as pd
-
-BASE_URL = 'https://open-api.bingx.com'
-ENDPOINT = '/openApi/swap/v3/quote/klines'
-INTERVAL_MS = {
-    '1m':60_000,'3m':180_000,'5m':300_000,'15m':900_000,'30m':1_800_000,
-    '1h':3_600_000,'2h':7_200_000,'4h':14_400_000,'6h':21_600_000,'8h':28_800_000,
-    '12h':43_200_000,'1d':86_400_000,'3d':259_200_000,'1w':604_800_000,
-}
-
+BASE_URL='https://open-api.bingx.com'
+ENDPOINT='/openApi/swap/v3/quote/klines'
+INTERVAL_MS={'1m':60000,'15m':900000,'1h':3600000,'4h':14400000,'6h':21600000}
+COLS=['open_time','open','high','low','close','volume']
+def utc(value):
+    t=pd.Timestamp(value)
+    return t.tz_localize('UTC') if t.tzinfo is None else t.tz_convert('UTC')
 class BingXClient:
-    def __init__(self, api_key: str|None=None, secret: str|None=None, base_url: str=BASE_URL, timeout: int=20):
-        self.api_key = api_key or os.getenv('BINGX_API_KEY')
-        self.secret = secret or os.getenv('BINGX_API_SECRET')
-        self.base_url = base_url.rstrip('/')
-        self.timeout = timeout
-        self.s = requests.Session()
+    def klines(self,symbol,interval,start_ms,end_ms,limit=500):
+        query=urllib.parse.urlencode(dict(symbol=symbol,interval=interval,startTime=start_ms,endTime=end_ms,limit=limit))
+        for attempt in range(5):
+            try:
+                with urllib.request.urlopen(BASE_URL+ENDPOINT+'?'+query,timeout=30) as r: obj=json.load(r)
+                if obj.get('code')!=0: raise RuntimeError(str(obj))
+                if not isinstance(obj.get('data'),list): raise ValueError('Invalid API data')
+                return obj['data']
+            except Exception:
+                if attempt==4: raise
+                time.sleep(min(2**attempt,8))
+def parse_klines(rows):
+    records=[]
+    for x in rows:
+        if not isinstance(x,dict): raise ValueError('Unexpected kline schema')
+        records.append([int(x.get('time',x.get('openTime')))]+[float(x[k]) for k in COLS[1:]])
+    df=pd.DataFrame(records,columns=COLS)
+    df.index=pd.to_datetime(df.open_time,unit='ms',utc=True)
+    return df.sort_index()
+def validate(df,interval,start,end):
+    step=INTERVAL_MS[interval]; a=int(utc(start).timestamp()*1000); b=int(utc(end).timestamp()*1000)
+    if a%step or b%step or b<=a: raise ValueError('Range must be aligned, nonempty [start,end) UTC')
+    expected=set(range(a,b,step)); times=df.open_time.astype('int64') if len(df) else pd.Series([],dtype='int64')
+    actual=set(times); bad=0
+    if len(df):
+        import numpy as np
+        v=df[COLS[1:]]
+        bad=int((~np.isfinite(v).all(axis=1)|(df.low>df[['open','close']].min(axis=1))|(df.high<df[['open','close']].max(axis=1))|(df.low>df.high)|(df[COLS[1:5]]<=0).any(axis=1)|(df.volume<0)).sum())
+    report=dict(rows=len(df),expected_rows=len(expected),first=None if df.empty else str(df.index.min()),last=None if df.empty else str(df.index.max()),duplicates=int(times.duplicated().sum()),missing_intervals=len(expected-actual),out_of_range=len(actual-expected),invalid_rows=bad)
+    report['valid']=not any(report[k] for k in ['duplicates','missing_intervals','out_of_range','invalid_rows'])
+    return report
 
-    def _signed_params(self, params: dict) -> tuple[dict, dict]:
-        p = dict(params)
-        p['timestamp'] = int(time.time()*1000)
-        headers = {}
-        if self.api_key and self.secret:
-            query = urlencode(sorted((k, v) for k,v in p.items() if v is not None))
-            p['signature'] = hmac.new(self.secret.encode(), query.encode(), hashlib.sha256).hexdigest()
-            headers['X-BX-APIKEY'] = self.api_key
-        return p, headers
-
-    def klines(self, symbol: str, interval: str, start_ms: int|None=None, end_ms: int|None=None, limit: int=1440):
-        p={'symbol':symbol,'interval':interval,'limit':min(int(limit),1440)}
-        if start_ms is not None: p['startTime']=int(start_ms)
-        if end_ms is not None: p['endTime']=int(end_ms)
-        p,h=self._signed_params(p)
-        r=self.s.get(self.base_url+ENDPOINT, params=p, headers=h, timeout=self.timeout)
-        r.raise_for_status()
-        obj=r.json()
-        if isinstance(obj,dict) and obj.get('code') not in (None,0):
-            raise RuntimeError(f"BingX error: {obj}")
-        return obj.get('data', obj)
-
-def parse_klines(rows) -> pd.DataFrame:
-    rec=[]
-    for x in rows or []:
-        if isinstance(x, dict):
-            ot=x.get('time',x.get('openTime')); ct=x.get('closeTime')
-            rec.append([ot,x.get('open'),x.get('high'),x.get('low'),x.get('close'),x.get('volume'),ct])
-        else:
-            rec.append([x[0],x[1],x[2],x[3],x[4],x[5],x[6] if len(x)>6 else None])
-    df=pd.DataFrame(rec,columns=['open_time','open','high','low','close','volume','close_time'])
-    if df.empty: return df
-    for c in ['open','high','low','close','volume']: df[c]=pd.to_numeric(df[c],errors='coerce')
-    df['open_time']=pd.to_numeric(df['open_time'],errors='coerce').astype('Int64')
-    df['close_time']=pd.to_numeric(df['close_time'],errors='coerce').astype('Int64')
-    df=df.dropna(subset=['open_time']).drop_duplicates('open_time').sort_values('open_time')
-    df.index=pd.to_datetime(df['open_time'].astype('int64'),unit='ms',utc=True)
-    df.index.name=None
-    return df
-
-def download_history(client: BingXClient, symbol: str, interval: str, start: str|pd.Timestamp, end: str|pd.Timestamp,
-                     out_path: str|Path|None=None, sleep_s: float=0.12) -> pd.DataFrame:
-    if interval not in INTERVAL_MS: raise ValueError(f'Unsupported interval: {interval}')
-    start_ts=pd.Timestamp(start, tz='UTC') if pd.Timestamp(start).tzinfo is None else pd.Timestamp(start).tz_convert('UTC')
-    end_ts=pd.Timestamp(end, tz='UTC') if pd.Timestamp(end).tzinfo is None else pd.Timestamp(end).tz_convert('UTC')
-    cur=int(start_ts.timestamp()*1000); end_ms=int(end_ts.timestamp()*1000); step=INTERVAL_MS[interval]
+def download_history(client,symbol,interval,start,end,out_path=None,sleep_s=.12):
+    step=INTERVAL_MS[interval]; a=int(utc(start).timestamp()*1000); b=int(utc(end).timestamp()*1000)
+    if a%step or b%step or b<=a: raise ValueError('Unaligned range')
+    if b>int(pd.Timestamp.now(tz='UTC').timestamp()*1000)//step*step: raise ValueError('Range includes unclosed candles')
+    path=Path(out_path) if out_path else None
+    # Per-page JSON checkpoints survive a failed job. Revalidate on every reuse.
+    cache=path.parent/'pages'/symbol/interval if path else None
+    if cache: cache.mkdir(parents=True,exist_ok=True)
     chunks=[]
-    while cur <= end_ms:
-        batch_end=min(end_ms, cur + step*1439)
-        rows=client.klines(symbol,interval,cur,batch_end,1440)
+    def fetch(lo,hi,depth=0):
+        page=cache/f'{lo}-{hi}.json' if cache else None
+        if page and page.exists(): rows=json.loads(page.read_text())
+        else:
+            rows=client.klines(symbol,interval,lo,hi,min(500,(hi-lo)//step));time.sleep(sleep_s)
         df=parse_klines(rows)
-        if df.empty:
-            cur=batch_end+step; time.sleep(sleep_s); continue
-        chunks.append(df)
-        last=int(df['open_time'].max())
-        nxt=max(last+step, batch_end+step if last < cur else last+step)
-        if nxt <= cur: break
-        cur=nxt
-        time.sleep(sleep_s)
-    if not chunks: return pd.DataFrame()
-    out=pd.concat(chunks,ignore_index=True).drop_duplicates('open_time').sort_values('open_time')
-    out.index=pd.to_datetime(out['open_time'].astype('int64'),unit='ms',utc=True)
-    out.index.name=None
-    out=out[(out.index>=start_ts)&(out.index<=end_ts)]
-    if out_path:
-        p=Path(out_path); p.parent.mkdir(parents=True,exist_ok=True)
-        if p.suffix.lower()=='.csv': out.to_csv(p,index=False)
-        else: out.to_pickle(p)
-    return out
-
-if __name__=='__main__':
-    import argparse
-    ap=argparse.ArgumentParser()
-    ap.add_argument('--symbol',required=True); ap.add_argument('--interval',required=True)
-    ap.add_argument('--start',required=True); ap.add_argument('--end',required=True); ap.add_argument('--out',required=True)
-    args=ap.parse_args()
-    cli=BingXClient()
-    df=download_history(cli,args.symbol,args.interval,args.start,args.end,args.out)
-    print(json.dumps({'rows':len(df),'first':None if df.empty else str(df.index.min()),'last':None if df.empty else str(df.index.max()),'out':args.out}))
+        # Some endpoints include the end boundary. It belongs to the next page.
+        df=df[(df.open_time>=lo)&(df.open_time<hi)]
+        if df.open_time.duplicated().any(): raise ValueError(f'Duplicate API candles: {symbol} {interval} {lo}')
+        report=validate(df,interval,pd.to_datetime(lo,unit='ms',utc=True),pd.to_datetime(hi,unit='ms',utc=True))
+        if report['valid']:
+            if page and not page.exists():
+                tmp=page.with_suffix('.tmp');tmp.write_text(json.dumps(rows));tmp.replace(page)
+            return df
+        if report['invalid_rows']: raise ValueError(f'Invalid OHLCV: {report}')
+        if depth<3 and (hi-lo)//step>1:
+            mid=lo+((hi-lo)//step//2)*step
+            return pd.concat([fetch(lo,mid,depth+1),fetch(mid,hi,depth+1)])
+        raise ValueError(f'Incomplete BingX data {symbol} {interval} [{lo},{hi}): {report}')
+    for lo in range(a,b,500*step):
+        hi=min(b,lo+500*step);chunks.append(fetch(lo,hi))
+        if len(chunks)%25==0: print(f'{symbol} {interval}: {lo-a}/{b-a} ms covered',flush=True)
+    df=pd.concat(chunks).sort_index(); report=validate(df,interval,start,end)
+    if not report['valid']: raise ValueError(str(report))
+    if path:
+        path.parent.mkdir(parents=True,exist_ok=True);tmp=path.with_suffix('.tmp');df.to_pickle(tmp);tmp.replace(path)
+    return df

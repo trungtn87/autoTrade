@@ -1,46 +1,40 @@
-from __future__ import annotations
-import argparse
-import json
+"""Data-only pipeline. Never launch strategy research on incomplete data."""
+import argparse,json,hashlib,platform,sys
 from pathlib import Path
-from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor,as_completed
 import pandas as pd
-from bingx_data import BingXClient, download_history, INTERVAL_MS
-
-def gap_report(df: pd.DataFrame, interval: str) -> dict:
-    if df.empty:
-        return {"rows": 0, "first": None, "last": None, "duplicates": 0, "missing_intervals": None}
-    times = pd.to_numeric(df["open_time"], errors="coerce").dropna().astype("int64").sort_values()
-    step = INTERVAL_MS[interval]
-    diffs = times.diff().dropna()
-    missing = int(((diffs / step) - 1).clip(lower=0).round().sum()) if len(diffs) else 0
-    duplicates = int(times.duplicated().sum())
-    return {"rows": int(len(df)), "first": str(df.index.min()), "last": str(df.index.max()), "duplicates": duplicates, "missing_intervals": missing}
+import numpy as np
+from bingx_data import BingXClient,download_history,validate,utc
 
 def main():
-    ap = argparse.ArgumentParser(description="Download/cache BingX perpetual OHLCV for research")
-    ap.add_argument("--symbols", default="BTC-USDT,ETH-USDT")
-    ap.add_argument("--intervals", default="15m,1h,4h,6h")
-    ap.add_argument("--start", default="2021-01-01")
-    ap.add_argument("--end", default=datetime.now(timezone.utc).strftime("%Y-%m-%d"))
-    ap.add_argument("--out-dir", default="data")
-    ap.add_argument("--sleep", type=float, default=0.15)
-    args = ap.parse_args()
-    out_dir = Path(args.out_dir); out_dir.mkdir(parents=True, exist_ok=True)
-    cli = BingXClient()
-    manifest = {"source":"BingX perpetual futures","endpoint":"/openApi/swap/v3/quote/klines","downloaded_at_utc":datetime.now(timezone.utc).isoformat(),"requested_start":args.start,"requested_end":args.end,"datasets":{}}
-    for symbol in [x.strip() for x in args.symbols.split(",") if x.strip()]:
-        manifest["datasets"][symbol] = {}
-        slug = symbol.replace("-", "")
-        for interval in [x.strip() for x in args.intervals.split(",") if x.strip()]:
-            out = out_dir / f"{slug}_{interval}.pkl"
-            print(f"Downloading {symbol} {interval} {args.start} -> {args.end} ...", flush=True)
-            df = download_history(cli, symbol, interval, args.start, args.end, out, sleep_s=args.sleep)
-            report = gap_report(df, interval); report["path"] = str(out)
-            manifest["datasets"][symbol][interval] = report
-            print(json.dumps({"symbol": symbol, "interval": interval, **report}), flush=True)
-    manifest_path = out_dir / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    print(f"Manifest: {manifest_path}")
-
-if __name__ == "__main__":
-    main()
+    p=argparse.ArgumentParser();p.add_argument('--symbols',default='BTC-USDT,ETH-USDT');p.add_argument('--start',default='2026-04-01');p.add_argument('--end',default='2026-09-21');p.add_argument('--out-dir',default='data');p.add_argument('--intervals',default='1m,15m,1h,4h,6h');args=p.parse_args()
+    if args.intervals!='1m,15m,1h,4h,6h':p.error('This validated pipeline requires 1m,15m,1h,4h,6h')
+    out=Path(args.out_dir);out.mkdir(parents=True,exist_ok=True)
+    manifest=dict(source='BingX perpetual futures',requested_start=args.start,requested_end_exclusive=args.end,created_at=str(pd.Timestamp.now(tz='UTC')),environment=dict(python=sys.version,platform=platform.platform(),pandas=pd.__version__,numpy=np.__version__),datasets={},errors=[],status='INCOMPLETE')
+    def worker(symbol):
+        slug=symbol.replace('-','');client=BingXClient();reports={}
+        # Download native candles and independently compare against 1m aggregation.
+        minute=download_history(client,symbol,'1m',args.start,args.end,out/f'{slug}_1m.pkl')
+        for interval in args.intervals.split(','):
+            path=out/f'{slug}_{interval}.pkl'
+            d=minute if interval=='1m' else download_history(client,symbol,interval,args.start,args.end,path)
+            r=validate(d,interval,args.start,args.end)
+            if interval!='1m':
+                freq='15min' if interval=='15m' else interval
+                agg=minute.resample(freq,origin='epoch',closed='left',label='left').agg({'open':'first','high':'max','low':'min','close':'last','volume':'sum'})
+                mismatches={c:int((~np.isclose(d[c].to_numpy(),agg[c].to_numpy(),rtol=1e-7 if c=='volume' else 1e-10,atol=1e-8)).sum()) for c in agg.columns}
+                r['aggregation_mismatches']=mismatches
+                if any(mismatches.values()):r['valid']=False
+            r['sha256']=hashlib.sha256(path.read_bytes()).hexdigest();reports[interval]=r
+        return reports
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        jobs={pool.submit(worker,s):s for s in args.symbols.split(',')}
+        for future in as_completed(jobs):
+            s=jobs[future]
+            try:manifest['datasets'][s]=future.result()
+            except Exception as e:manifest['errors'].append({'symbol':s,'error':str(e)})
+            (out/'manifest.json').write_text(json.dumps(manifest,indent=2))
+    good=not manifest['errors'] and all(r['valid'] for rows in manifest['datasets'].values() for r in rows.values())
+    manifest['status']='PASS' if good else 'FAIL';(out/'manifest.json').write_text(json.dumps(manifest,indent=2));print(json.dumps(manifest,indent=2))
+    if not good:raise SystemExit(1)
+if __name__=='__main__':main()

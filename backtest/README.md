@@ -75,3 +75,27 @@ The workflow uses public market data only and needs no BingX secrets.
 ## Calibration requirement
 
 Before trusting multi-year PnL, compare a known TradingView period trade-by-trade. Pine-specific details that may need calibration include EMA warmup, PSAR, daily VWAP anchor, higher-timeframe confirmation timing, and ambiguous same-candle TP/SL ordering.
+
+## Data gate v2 (supersedes the workflow instructions above)
+
+WHAT: data-only workflow, 1m plus native 15m/1h/4h/6h; strict UTC
+[start,end) validation, bounded 500-candle pages, recursive retry of partial
+pages, resumable public JSON page cache, OHLCV checks and cross-timeframe
+aggregation comparison. No trading credentials are read.
+WHY: run #6 accepted thousands of missing intervals and had no 1m execution data.
+BEFORE: request 2021 onward, skip empty responses, continue to strategy reports.
+AFTER: default collection 2026-04-01 to 2026-09-21 exclusive; April-June is
+prehistory for the July reference window. This is not a claim of complete
+2021 history or sufficient warmup for every future strategy. Missing data,
+duplicate API candles, invalid OHLCV or aggregation mismatch fail the job.
+IMPACT: no backtest or optimization runs in this workflow until a separate
+execution-engine review is complete. Existing live trading files are unchanged.
+
+Run `python -m unittest -v test_data`, then
+`python bootstrap_data.py --start 2026-04-01 --end 2026-09-21`.
+`manifest.json` records coverage, checksums and actual runtime versions.
+Only a manifest with status PASS is accepted. Cache is an acceleration aid;
+final data artifacts are retained for 90 days, not permanent archival storage.
+Pandas/NumPy and all listed runtime dependencies are pinned; Python is 3.12.14.
+No absent candle is forward-filled. Exchange-native OHLCV must agree with
+aggregation of 1m (price rtol 1e-10, volume rtol 1e-7, atol 1e-8).

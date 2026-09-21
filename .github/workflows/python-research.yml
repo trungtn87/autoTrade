@@ -1,109 +1,63 @@
-name: Python Research Backtest
-
+name: Python Research Data Validation
 on:
   push:
     branches: [research-python-backtest]
-    paths:
-      - 'backtest/**'
-      - '.github/workflows/python-research.yml'
+    paths: ['backtest/**', '.github/workflows/python-research.yml']
   workflow_dispatch:
     inputs:
       start:
-        description: 'History start date (UTC)'
-        required: false
-        default: '2021-01-01'
+        description: 'UTC inclusive start (aligned to 00:00)'
+        default: '2026-04-01'
       end:
-        description: 'History end date (UTC, YYYY-MM-DD)'
-        required: false
-        default: ''
-      commission:
-        description: 'Commission percent per side'
-        required: false
-        default: '0.0'
-
+        description: 'UTC exclusive end'
+        default: '2026-09-21'
 permissions:
   contents: read
-
+concurrency:
+  group: research-data
+  cancel-in-progress: false
 jobs:
-  research:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+  data:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
     defaults:
       run:
         working-directory: backtest
     env:
-      START_DATE: ${{ github.event.inputs.start || '2021-01-01' }}
-      END_DATE: ${{ github.event.inputs.end || '' }}
-      COMMISSION: ${{ github.event.inputs.commission || '0.0' }}
-
+      START_DATE: ${{ inputs.start || '2026-04-01' }}
+      END_DATE: ${{ inputs.end || '2026-09-21' }}
+      TZ: UTC
+      PYTHONHASHSEED: '0'
+      OPENBLAS_NUM_THREADS: '1'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
-          cache-dependency-path: backtest/requirements.txt
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Synthetic self-test
-        run: python selftest.py
-
-      - name: Resolve end date
-        id: dates
-        shell: bash
-        run: |
-          if [ -z "$END_DATE" ]; then
-            END_DATE="$(date -u +%F)"
-          fi
-          echo "start=$START_DATE" >> "$GITHUB_OUTPUT"
-          echo "end=$END_DATE" >> "$GITHUB_OUTPUT"
-          echo "Downloading $START_DATE -> $END_DATE"
-
-      - name: Download BingX BTC/ETH history
-        run: |
-          python bootstrap_data.py             --symbols BTC-USDT,ETH-USDT             --intervals 15m,1h,4h,6h             --start "${{ steps.dates.outputs.start }}"             --end "${{ steps.dates.outputs.end }}"             --out-dir data
-
-      - name: Standalone BTC combos (RAW first)
-        run: |
-          python combo_matrix.py             --symbol BTCUSDT             --data15 data/BTCUSDT_15m.pkl             --data1h data/BTCUSDT_1h.pkl             --data4h data/BTCUSDT_4h.pkl             --data6h data/BTCUSDT_6h.pkl             --variants RAW             --commission "$COMMISSION"             --out-dir results/by_combo/BTCUSDT
-
-      - name: Standalone ETH combos (RAW first)
-        run: |
-          python combo_matrix.py             --symbol ETHUSDT             --data15 data/ETHUSDT_15m.pkl             --data1h data/ETHUSDT_1h.pkl             --data4h data/ETHUSDT_4h.pkl             --data6h data/ETHUSDT_6h.pkl             --variants RAW             --commission "$COMMISSION"             --out-dir results/by_combo/ETHUSDT
-
-      - name: Research BTC RAW vs OB
-        run: |
-          python research_pipeline.py             --symbol BTCUSDT             --data15 data/BTCUSDT_15m.pkl             --data1h data/BTCUSDT_1h.pkl             --data4h data/BTCUSDT_4h.pkl             --data6h data/BTCUSDT_6h.pkl             --commission "$COMMISSION"             --danger 0.0,0.5             --out-dir results/BTCUSDT
-
-      - name: Research ETH RAW vs OB
-        run: |
-          python research_pipeline.py             --symbol ETHUSDT             --data15 data/ETHUSDT_15m.pkl             --data1h data/ETHUSDT_1h.pkl             --data4h data/ETHUSDT_4h.pkl             --data6h data/ETHUSDT_6h.pkl             --commission "$COMMISSION"             --danger 0.0,0.5             --out-dir results/ETHUSDT
-
-      - name: Print data manifest
-        if: always()
-        run: cat data/manifest.json || true
-
-      - name: Upload research results
-        if: always()
-        uses: actions/upload-artifact@v4
+          python-version: '3.12.14'
+      - run: pip install -r requirements.txt
+      - run: python -m unittest -v test_data
+      - uses: actions/cache/restore@v4
         with:
-          name: research-results-${{ github.run_id }}
-          path: backtest/results/
-          if-no-files-found: warn
-          retention-days: 30
-
-      - name: Upload BingX datasets
+          path: backtest/data/pages
+          key: bingx-pages-v2-${{ github.run_id }}
+          restore-keys: bingx-pages-v2-
+      - name: Download and validate only (no backtest)
+        run: python -u bootstrap_data.py --start "$START_DATE" --end "$END_DATE"
+      - name: Record exact environment
         if: always()
-        uses: actions/upload-artifact@v4
+        run: pip freeze > data/environment.txt
+      - uses: actions/cache/save@v4
+        if: always()
         with:
-          name: bingx-market-data-${{ github.run_id }}
+          path: backtest/data/pages
+          key: bingx-pages-v2-${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bingx-validated-data-${{ github.run_id }}
           path: |
             backtest/data/*.pkl
             backtest/data/manifest.json
-          if-no-files-found: warn
-          retention-days: 14
+            backtest/data/environment.txt
+          retention-days: 90
+          if-no-files-found: error
