@@ -25,10 +25,11 @@ def resample_ohlcv(df: pd.DataFrame, rule: str) -> pd.DataFrame:
 def align_confirmed(series: pd.Series, target_index: pd.DatetimeIndex, tf: str) -> pd.Series:
     delta=pd.Timedelta(tf)
     s=series.copy()
-    src_idx=pd.DatetimeIndex(s.index)+delta
-    tgt_idx=pd.DatetimeIndex(target_index)
-    # Merge on integer nanoseconds to avoid pandas datetime unit mismatches
-    # (e.g. datetime64[ms, UTC] vs datetime64[us, UTC]).
+    src_idx=(pd.DatetimeIndex(s.index)+delta).as_unit('ns')
+    tgt_idx=pd.DatetimeIndex(target_index).as_unit('ns')
+    # Normalize BOTH indexes to nanoseconds before integer merge. Pandas 3 may
+    # preserve ms/us resolution in .asi8, so raw .asi8 values can differ by
+    # powers of 1000 even for the same timestamp.
     left=pd.DataFrame({'t':tgt_idx.asi8}).sort_values('t')
     right=pd.DataFrame({'t':src_idx.asi8,'v':s.values}).sort_values('t')
     out=pd.merge_asof(left,right,on='t',direction='backward')['v'].to_numpy()
