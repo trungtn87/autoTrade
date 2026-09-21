@@ -123,6 +123,16 @@ jobs:
             --eth data/multisource/ETHUSDT_hybrid_15m.pkl \
             --out-dir results/layer1_remaining_long
 
+      - name: Layer 1 cross-margin long-history sweep
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u layer1_cross_long.py \
+            --btc data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth data/multisource/ETHUSDT_hybrid_15m.pkl \
+            --out-dir results/layer1_cross_long \
+            --mmr 0.004
+
       - name: Record exact environment
         if: always()
         run: |
@@ -156,5 +166,7 @@ jobs:
             backtest/results/c1_layer1_long/*.json
             backtest/results/layer1_remaining_long/*.csv
             backtest/results/layer1_remaining_long/*.json
+            backtest/results/layer1_cross_long/*.csv
+            backtest/results/layer1_cross_long/*.json
           retention-days: 90
           if-no-files-found: error
