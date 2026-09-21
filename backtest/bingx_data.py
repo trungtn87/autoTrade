@@ -58,6 +58,7 @@ def parse_klines(rows) -> pd.DataFrame:
     df['close_time']=pd.to_numeric(df['close_time'],errors='coerce').astype('Int64')
     df=df.dropna(subset=['open_time']).drop_duplicates('open_time').sort_values('open_time')
     df.index=pd.to_datetime(df['open_time'].astype('int64'),unit='ms',utc=True)
+    df.index.name=None
     return df
 
 def download_history(client: BingXClient, symbol: str, interval: str, start: str|pd.Timestamp, end: str|pd.Timestamp,
@@ -80,7 +81,9 @@ def download_history(client: BingXClient, symbol: str, interval: str, start: str
         cur=nxt
         time.sleep(sleep_s)
     if not chunks: return pd.DataFrame()
-    out=pd.concat(chunks).sort_values('open_time').drop_duplicates('open_time')
+    out=pd.concat(chunks,ignore_index=True).drop_duplicates('open_time').sort_values('open_time')
+    out.index=pd.to_datetime(out['open_time'].astype('int64'),unit='ms',utc=True)
+    out.index.name=None
     out=out[(out.index>=start_ts)&(out.index<=end_ts)]
     if out_path:
         p=Path(out_path); p.parent.mkdir(parents=True,exist_ok=True)
