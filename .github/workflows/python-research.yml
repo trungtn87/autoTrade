@@ -90,6 +90,12 @@ jobs:
           run_year 2022 2022-01-01 2023-01-01
           run_year 2021 2021-01-01 2022-01-01
 
+      - name: Probe all public sources and build fallback dataset
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u multisource_backfill.py --out-dir data/multisource --store-dir data/store
+
       - name: Record exact environment
         if: always()
         run: |
@@ -115,5 +121,7 @@ jobs:
             backtest/data/manifests/*.json
             backtest/data/environment.txt
             backtest/data/store/*.pkl
+            backtest/data/multisource/*.json
+            backtest/data/multisource/*.pkl
           retention-days: 90
           if-no-files-found: error
