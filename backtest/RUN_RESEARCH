@@ -1,7 +1,8 @@
-trigger C1 Layer 1 long-history exit sweep
+trigger Layer 1 remaining combos long-history sweep
 dataset: hybrid BTC/ETH 15m 2021-01-01 to 2026-09-20
 windows: 6M,1Y,3Y,FULL
-entry: C1 original
+combos: C2,C3,C4,C5,C6,C7,C8,C9,C10,TIER
+entry: original
 filters: SMC OFF, OB OFF
-exit families: ATR and fixed percent
+exit families: original ATR/PCT
 requested 2026-09-21
