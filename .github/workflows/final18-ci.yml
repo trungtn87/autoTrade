@@ -1,0 +1,29 @@
+name: FINAL18 CI
+
+on:
+  push:
+    branches:
+      - integrate-layer3-run2-18-combos
+    paths:
+      - 'signal_engine/**'
+      - '.github/workflows/final18-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: signal_engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.14'
+      - run: pip install -r requirements.txt
+      - name: Compile
+        run: python -m compileall app tests
+      - name: Legacy smoke
+        run: python tests/smoke_test.py
+      - name: FINAL18 smoke
+        run: python tests/final18_test.py
