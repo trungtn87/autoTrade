@@ -9,7 +9,10 @@ from .executor import Executor
 from .final14_config import case_name, get_case
 from .strategy import Signal
 
-log = logging.getLogger(__name__)\n\nFINAL14_NOTIONAL_USDT = 100.0\nFINAL14_EXECUTION_LEVERAGE = 50
+log = logging.getLogger(__name__)
+
+FINAL14_NOTIONAL_USDT = 100.0
+FINAL14_EXECUTION_LEVERAGE = 50
 
 
 class Final14Executor(Executor):
