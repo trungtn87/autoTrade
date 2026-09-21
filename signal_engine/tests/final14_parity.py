@@ -23,6 +23,8 @@ from app.timeframes import aggregate_15m
 
 def production_events(symbol: str, raw: pd.DataFrame) -> dict[int, set[tuple[int,str]]]:
     m15=raw.reset_index(drop=True).copy()
+    if "close_time" not in m15.columns:
+        m15["close_time"]=m15["open_time"].astype("int64")+15*60_000-1
     h1=aggregate_15m(m15,60)
     h4=aggregate_15m(m15,240)
     h6=aggregate_15m(m15,360)
