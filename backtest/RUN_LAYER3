@@ -1,7 +1,7 @@
-trigger Layer 3 long-history entry tuning
+rerun Layer 3 after Tier scoring + exact C1 baseline fix
 source: run17 verified artifact 10636714622
 dataset: BTC/ETH hybrid 15m 2021-01-01 to 2026-09-20
 locked: Layer 1 two-tier trailing + Layer 2 winner per coin/combo
-Layer 3: original entry + short-backtest candidates + local neighborhood
+fixes: numeric Tier scoring; C1 BASE Long MFI>65 / Short MFI<45
 selection: 3Y primary; 1Y/6M confirmation; FULL stress
 requested 2026-09-21
