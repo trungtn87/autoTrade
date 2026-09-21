@@ -19,7 +19,7 @@ from .config import Settings, safe_config_snapshot, validate_settings
 from .final14_executor import Final14Executor
 from .discord_diag import install_discord_log_handler, send_discord_scan_summary, send_discord_startup_test
 from .state import SignalState
-from .final14_strategy import Signal, combo_readiness, scan_latest, strategy_static_snapshot
+from .final14_exact_strategy import Signal, combo_readiness, scan_latest, strategy_static_snapshot
 from .self_test import run_self_test, run_startup_self_test
 from .final14_positions import is_case_active, refresh_symbol, register_execution, snapshot as final14_position_snapshot
 from .timeframes import aggregate_15m
@@ -175,7 +175,7 @@ def fetch_bundle(symbol: str):
     now_ms = int(time.time() * 1000)
     cached_count = state.candle_count(symbol, "15m")
     bootstrap = cached_count == 0
-    target = max(2600, int(settings.bootstrap_limit_15m))
+    target = max(12000, int(settings.bootstrap_limit_15m))
 
     # Always refresh the latest closed candle first. This keeps live data current
     # even while the historical warmup is still being filled.
