@@ -2,7 +2,7 @@ name: FINAL14 Production CI
 
 on:
   push:
-    branches: [final14-hardtp-production]
+    branches: [final14-hardtp-production, signal-engine-v1]
     paths:
       - 'signal_engine/**'
       - '.github/workflows/final14-production-ci.yml'
