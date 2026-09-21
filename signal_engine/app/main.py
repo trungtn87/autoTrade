@@ -175,7 +175,7 @@ def fetch_bundle(symbol: str):
     now_ms = int(time.time() * 1000)
     cached_count = state.candle_count(symbol, "15m")
     bootstrap = cached_count == 0
-    target = max(2600, int(settings.bootstrap_limit_15m))
+    target = max(3400, int(settings.bootstrap_limit_15m))
 
     # Always refresh the latest closed candle first. This keeps live data current
     # even while the historical warmup is still being filled.
