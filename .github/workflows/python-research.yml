@@ -96,6 +96,15 @@ jobs:
           set -euo pipefail
           python -u multisource_backfill.py --out-dir data/multisource --store-dir data/store
 
+      - name: Long-window baseline backtest 6M 1Y 3Y FULL
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u long_window_backtest.py \
+            --btc data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth data/multisource/ETHUSDT_hybrid_15m.pkl \
+            --out-dir results/long_windows
+
       - name: Record exact environment
         if: always()
         run: |
@@ -123,5 +132,7 @@ jobs:
             backtest/data/store/*.pkl
             backtest/data/multisource/*.json
             backtest/data/multisource/*.pkl
+            backtest/results/long_windows/*.csv
+            backtest/results/long_windows/*.json
           retention-days: 90
           if-no-files-found: error
