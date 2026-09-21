@@ -1,0 +1,9 @@
+trigger RR TP22 backtest
+scope: 22 BTC/ETH cases
+exit: 100% hard TP/SL, no trailing
+TP cap: 2.0%
+TP grid: 0.5,0.8,1.0,1.2,1.5,1.8,2.0
+RR grid: 1.0,1.25,1.5,2.0,2.5,3.0
+SL = TP/RR, max SL 0.9%
+selection: non-negative 6M/1Y/3Y/FULL, maximize 3Y PnL
+requested: 2026-09-21
