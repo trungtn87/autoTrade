@@ -39,7 +39,7 @@ def production_events(symbol: str, raw: pd.DataFrame) -> dict[int, set[tuple[int
         e1[11]=tier
 
     out={}
-    for combo,cfg in FINAL14_CASES[symbol].items():
+    for combo,cfg in FINAL14_CASES[config_symbol].items():
         native15=combo in FIFTEEN_MIN_COMBOS
         frame=m15 if native15 else h1
         sd=s15 if native15 else s1
@@ -59,7 +59,7 @@ def production_events(symbol: str, raw: pd.DataFrame) -> dict[int, set[tuple[int
     return out
 
 
-def research_events(symbol: str, pkl: str, research_dir: str):
+def research_events(config_symbol: str, research_symbol: str, pkl: str, research_dir: str):
     # Research modules use top-level names; add them only after production app
     # modules have already been imported.
     sys.path.insert(0,research_dir)
@@ -71,7 +71,7 @@ def research_events(symbol: str, pkl: str, research_dir: str):
     variants=r.entry_variants(pc)
     lock={
         ("C"+str(k) if k!=11 else "TIER"):{"layer2_variant":v["layer2"]}
-        for k,v in FINAL14_CASES[symbol].items()
+        for k,v in FINAL14_CASES[config_symbol].items()
     }
     ctx=r.build_context(d,lock,variants)
     out={}
@@ -103,6 +103,7 @@ def main():
             raise RuntimeError("hybrid pkl missing open_time")
         prod=production_events(symbol,raw)
         ref=research_events(
+            symbol,
             "BTCUSDT" if symbol=="BTC-USDT" else "ETHUSDT",
             pkl,args.research_dir,
         )
