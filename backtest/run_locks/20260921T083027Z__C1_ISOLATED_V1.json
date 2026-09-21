@@ -1,0 +1,50 @@
+{
+  "run_lock_id": "20260921T083027Z__C1_ISOLATED_V1",
+  "standard_version": "1.0",
+  "scope": "C1",
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT"
+  ],
+  "data_15m": {
+    "BTCUSDT": {
+      "sha256": "715e866f04b88952bb0de8d8e10f335f9cdee8e0ce15e4f6885a4d0d73f7979",
+      "rows": 16608,
+      "first": "2026-04-01T00:00:00Z",
+      "last": "2026-09-20T23:45:00Z"
+    },
+    "ETHUSDT": {
+      "sha256": "f30ee5ba81dd8acd0e3a2a5d5d84c6719d609707472d33f658714463c53c445a",
+      "rows": 16608,
+      "first": "2026-04-01T00:00:00Z",
+      "last": "2026-09-20T23:45:00Z"
+    }
+  },
+  "execution": {
+    "initial_equity_usd": 1000,
+    "margin_mode": "isolated",
+    "margin_usd": 1,
+    "leverage": 100,
+    "notional_usd": 100,
+    "taker_fee_pct_per_side": 0.05,
+    "intrabar_policy": "stop_first",
+    "liquidation_model": "bankruptcy_proxy_1_over_leverage"
+  },
+  "windows": {
+    "train": [
+      "2026-05-01",
+      "2026-07-01"
+    ],
+    "validation": [
+      "2026-07-01",
+      "2026-08-01"
+    ],
+    "test": [
+      "2026-08-01",
+      "2026-09-21"
+    ]
+  },
+  "local_research_script_sha256": "7dd5fd0232a0d6fa4db4c9841bef08529b44035c3739160c0bc0939b01e8c08b",
+  "fine_grid_script_sha256": "e8fdc6df0014b24a2ba733e3169b7f6b35cb0d3c554de7ec7b03afc1328c4051",
+  "note": "Layer2 off to isolate C1 exit calibration. Current 15m dataset was deterministically aggregated from validated run7 1m artifact."
+}
