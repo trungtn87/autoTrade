@@ -68,6 +68,14 @@ jobs:
         run: |
           python bootstrap_data.py             --symbols BTC-USDT,ETH-USDT             --intervals 15m,1h,4h,6h             --start "${{ steps.dates.outputs.start }}"             --end "${{ steps.dates.outputs.end }}"             --out-dir data
 
+      - name: Standalone BTC combos (RAW first)
+        run: |
+          python combo_matrix.py             --symbol BTCUSDT             --data15 data/BTCUSDT_15m.pkl             --data1h data/BTCUSDT_1h.pkl             --data4h data/BTCUSDT_4h.pkl             --data6h data/BTCUSDT_6h.pkl             --variants RAW             --commission "$COMMISSION"             --out-dir results/by_combo/BTCUSDT
+
+      - name: Standalone ETH combos (RAW first)
+        run: |
+          python combo_matrix.py             --symbol ETHUSDT             --data15 data/ETHUSDT_15m.pkl             --data1h data/ETHUSDT_1h.pkl             --data4h data/ETHUSDT_4h.pkl             --data6h data/ETHUSDT_6h.pkl             --variants RAW             --commission "$COMMISSION"             --out-dir results/by_combo/ETHUSDT
+
       - name: Research BTC RAW vs OB
         run: |
           python research_pipeline.py             --symbol BTCUSDT             --data15 data/BTCUSDT_15m.pkl             --data1h data/BTCUSDT_1h.pkl             --data4h data/BTCUSDT_4h.pkl             --data6h data/BTCUSDT_6h.pkl             --commission "$COMMISSION"             --danger 0.0,0.5             --out-dir results/BTCUSDT
