@@ -5,16 +5,6 @@ on:
     branches: [research-python-backtest]
     paths: ['backtest/RUN_RESEARCH']
   workflow_dispatch:
-    inputs:
-      backfill_start:
-        description: 'UTC inclusive public-market backfill start'
-        default: '2021-01-01'
-      backfill_end:
-        description: 'UTC exclusive backfill end; must meet existing store without a gap'
-        default: '2026-04-01'
-      trade_start:
-        description: 'UTC first candle allowed to open a test trade'
-        default: '2026-07-01'
 
 permissions:
   contents: read
@@ -32,9 +22,7 @@ jobs:
       run:
         working-directory: backtest
     env:
-      BACKFILL_START: ${{ inputs.backfill_start || '2021-01-01' }}
-      BACKFILL_END: ${{ inputs.backfill_end || '2026-04-01' }}
-      TRADE_START: ${{ inputs.trade_start || '2026-07-01' }}
+      TRADE_START: '2026-07-01'
       TZ: UTC
       PYTHONHASHSEED: '0'
       OPENBLAS_NUM_THREADS: '1'
@@ -58,8 +46,9 @@ jobs:
           path: |
             backtest/data/pages
             backtest/data/store
-          key: public-market-v3-${{ github.run_id }}
+          key: public-market-v4-${{ github.run_id }}
           restore-keys: |
+            public-market-v4-
             public-market-v3-
 
       - name: Seed store from validated run 7 when cache is empty
@@ -74,17 +63,33 @@ jobs:
             python seed_store.py --seed-dir data/seed --store-dir data/store
           fi
 
-      - name: Backfill public BingX market data only
+      - name: Reverse yearly BingX 15m backfill
+        shell: bash
         run: |
-          python -u bootstrap_data.py             --start "$BACKFILL_START"             --end "$BACKFILL_END"             --out-dir data             --sleep 1.05
+          set -euo pipefail
+          mkdir -p data/manifests
 
-      - name: BTC C1-C10 RAW baseline
-        run: |
-          python combo_matrix.py             --symbol BTCUSDT             --data15 data/store/BTCUSDT_15m.pkl             --data1h data/store/BTCUSDT_1h.pkl             --data4h data/store/BTCUSDT_4h.pkl             --data6h data/store/BTCUSDT_6h.pkl             --combos C1,C2,C3,C4,C5,C6,C7,C8,C9,C10             --variants RAW             --policy stop_first             --trade-start "$TRADE_START"             --commission 0.05             --out-dir results/by_combo/BTCUSDT
+          run_year () {
+            year="$1"
+            start="$2"
+            end="$3"
+            echo "===== BACKFILL ${year}: ${start} -> ${end} ====="
+            if python -u bootstrap_data.py --start "$start" --end "$end" --out-dir data --sleep 1.05; then
+              cp data/manifest.json "data/manifests/${year}.json"
+              echo "===== ${year} PASS ====="
+            else
+              cp data/manifest.json "data/manifests/${year}.json" || true
+              echo "===== ${year} FAIL; keeping completed newer years in cache/store ====="
+              exit 1
+            fi
+          }
 
-      - name: ETH C1-C10 RAW baseline
-        run: |
-          python combo_matrix.py             --symbol ETHUSDT             --data15 data/store/ETHUSDT_15m.pkl             --data1h data/store/ETHUSDT_1h.pkl             --data4h data/store/ETHUSDT_4h.pkl             --data6h data/store/ETHUSDT_6h.pkl             --combos C1,C2,C3,C4,C5,C6,C7,C8,C9,C10             --variants RAW             --policy stop_first             --trade-start "$TRADE_START"             --commission 0.05             --out-dir results/by_combo/ETHUSDT
+          run_year 2026 2026-01-01 2026-09-21
+          run_year 2025 2025-01-01 2026-01-01
+          run_year 2024 2024-01-01 2025-01-01
+          run_year 2023 2023-01-01 2024-01-01
+          run_year 2022 2022-01-01 2023-01-01
+          run_year 2021 2021-01-01 2022-01-01
 
       - name: Record exact environment
         if: always()
@@ -99,17 +104,17 @@ jobs:
           path: |
             backtest/data/pages
             backtest/data/store
-          key: public-market-v3-${{ github.run_id }}
+          key: public-market-v4-${{ github.run_id }}
 
-      - name: Upload data and baseline results
+      - name: Upload data checkpoint
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: public-backtest-${{ github.run_id }}
+          name: reverse-year-backfill-${{ github.run_id }}
           path: |
             backtest/data/manifest.json
+            backtest/data/manifests/*.json
             backtest/data/environment.txt
             backtest/data/store/*.pkl
-            backtest/results/
           retention-days: 90
           if-no-files-found: error
