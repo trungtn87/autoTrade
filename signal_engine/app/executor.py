@@ -740,6 +740,46 @@ class Executor:
         )
         return confirmed or created
 
+    def final18_order_detail(self, symbol: str, order_id: str) -> dict:
+        return self._extract_order(self._order_detail(symbol, order_id))
+
+    def final18_replace_stop(
+        self,
+        symbol: str,
+        old_order_id: str,
+        side: str,
+        position_side: str,
+        qty: float,
+        stop_price: float,
+    ) -> dict:
+        """Atomically replace one FINAL18 leg stop for the next candle."""
+        body = self._signed_trade_request(
+            "POST",
+            "/openApi/swap/v1/trade/cancelReplace",
+            {
+                "symbol": symbol,
+                "cancelOrderId": str(old_order_id),
+                "side": side,
+                "positionSide": position_side,
+                "type": "STOP_MARKET",
+                "quantity": f"{qty:.8f}".rstrip("0").rstrip("."),
+                "stopPrice": stop_price,
+            },
+        )
+        order = self._extract_order(body)
+        new_id = order.get("orderID") or order.get("orderId")
+        if not new_id:
+            # Some cancelReplace responses wrap replacement order differently.
+            data = body.get("data") or {}
+            if isinstance(data, dict):
+                candidate = data.get("newOrder") or data.get("order") or data
+                if isinstance(candidate, dict):
+                    new_id = candidate.get("orderID") or candidate.get("orderId")
+                    order = candidate
+        if not new_id:
+            raise RuntimeError("cancelReplace did not return replacement orderId")
+        return {"result": body, "order": order, "order_id": str(new_id)}
+
     def _execute_direct_bingx(self, signal: Signal) -> dict:
         cfg = get_case(signal.symbol, signal.combo)
         if not cfg:
@@ -775,12 +815,11 @@ class Executor:
             "processed": True,
             "entry_accepted": True,
             "entry_filled": False,
-            "protection_mode": "FINAL18_two_tier_trailing",
+            "protection_mode": "FINAL18_server_managed_two_tier_trailing",
             "order_id": str(order_id),
             "entry_result": entry_result,
-            "sl_ok": None,
-            "trail1_ok": None,
-            "trail2_ok": None,
+            "leg1_stop_ok": None,
+            "leg2_stop_ok": None,
             "final_stage": cfg.get("stage"),
             "layer2": cfg.get("layer2"),
         }
@@ -814,8 +853,8 @@ class Executor:
 
         qty_precision = int(sizing["quantity_precision"])
         full_qty = self._floor_precision(executed_qty, qty_precision)
-        trail1_qty, trail2_qty = self._split_exit_quantities(full_qty, qty_precision)
-        for label, leg_qty in (("TRAIL1", trail1_qty), ("TRAIL2", trail2_qty)):
+        leg1_qty, leg2_qty = self._split_exit_quantities(full_qty, qty_precision)
+        for label, leg_qty in (("LEG1", leg1_qty), ("LEG2", leg2_qty)):
             if not self._trailing_qty_is_valid(
                 leg_qty, avg_price, float(sizing["min_qty"]), float(sizing["min_usdt"])
             ):
@@ -831,7 +870,7 @@ class Executor:
                     "avg_price": avg_price,
                     "executed_qty": executed_qty,
                     "ok": False,
-                    "stage": "invalid_two_trail_split",
+                    "stage": "invalid_two_leg_split",
                     "error": f"{label} cannot satisfy BingX minimum constraints after fill",
                     "emergency_close_attempted": True,
                     "emergency_close_ok": bool(emergency.get("ok")),
@@ -839,12 +878,24 @@ class Executor:
                 }
 
         side_mult = 1.0 if signal.side == "BUY" else -1.0
-        sl = avg_price * (1.0 - side_mult * float(cfg["sl_pct"]))
-        t1_activation = avg_price * (1.0 + side_mult * float(cfg["t1_activation_pct"]))
-        t2_activation = avg_price * (1.0 + side_mult * float(cfg["t2_activation_pct"]))
-        sl = round(sl, price_precision)
-        t1_activation = round(t1_activation, price_precision)
-        t2_activation = round(t2_activation, price_precision)
+        sl = round(
+            avg_price * (1.0 - side_mult * float(cfg["sl_pct"])),
+            price_precision,
+        )
+        t1_activation = round(
+            avg_price * (1.0 + side_mult * float(cfg["t1_activation_pct"])),
+            price_precision,
+        )
+        t2_activation = round(
+            avg_price * (1.0 + side_mult * float(cfg["t2_activation_pct"])),
+            price_precision,
+        )
+        protect_price = None
+        if float(cfg.get("protect_pct", 0.0)) > 0:
+            protect_price = round(
+                avg_price * (1.0 + side_mult * float(cfg["protect_pct"])),
+                price_precision,
+            )
 
         base_result.update({
             "entry_filled": True,
@@ -852,72 +903,44 @@ class Executor:
             "executed_qty": executed_qty,
             "status": status,
             "full_qty": full_qty,
-            "trail1_qty": trail1_qty,
-            "trail2_qty": trail2_qty,
-            "exit_qty_total": trail1_qty + trail2_qty,
+            "leg1_qty": leg1_qty,
+            "leg2_qty": leg2_qty,
+            "exit_qty_total": leg1_qty + leg2_qty,
             "sl": sl,
             "trail1_activation": t1_activation,
             "trail2_activation": t2_activation,
             "trail1_callback": float(cfg["t1_callback_pct"]),
             "trail2_callback": float(cfg["t2_callback_pct"]),
             "protect_pct": float(cfg.get("protect_pct", 0.0)),
+            "protect_price": protect_price,
+            "price_precision": price_precision,
         })
 
         opposite = "SELL" if signal.side == "BUY" else "BUY"
         position_side = "LONG" if signal.side == "BUY" else "SHORT"
-
+        stop_orders = []
         try:
-            sl_result = self._place_order(
-                signal.symbol, opposite, full_qty,
-                order_type="STOP_MARKET", stop_price=sl, position_side=position_side,
-            )
-            sl_order = self._confirm_protection_order(signal.symbol, "SL", sl_result)
-            sl_actual = float(sl_order.get("stopPrice") or sl)
-            base_result.update({"sl_ok": True, "sl_result": sl_result, "sl_actual": sl_actual})
-        except Exception as exc:
-            try:
-                emergency = self.emergency_close_position(signal.symbol, position_side)
-            except Exception as close_exc:
-                emergency = {"ok": False, "error": str(close_exc)}
-            return {
-                **base_result, "ok": False, "stage": "stop_loss", "sl_ok": False,
-                "error": str(exc), "emergency_close_attempted": True,
-                "emergency_close_ok": bool(emergency.get("ok")),
-                "emergency_close_result": emergency,
-            }
-
-        protection_errors = []
-        trailing_specs = [
-            ("TRAIL1", trail1_qty, t1_activation, float(cfg["t1_callback_pct"])),
-            ("TRAIL2", trail2_qty, t2_activation, float(cfg["t2_callback_pct"])),
-        ]
-        for label, leg_qty, activation, callback in trailing_specs:
-            key = label.lower()
-            try:
+            for label, leg_qty in (("LEG1", leg1_qty), ("LEG2", leg2_qty)):
                 result = self._place_order(
-                    signal.symbol, opposite, leg_qty,
-                    order_type="TRAILING_STOP_MARKET",
-                    activation_price=activation,
-                    price_rate=callback,
+                    signal.symbol,
+                    opposite,
+                    leg_qty,
+                    order_type="STOP_MARKET",
+                    stop_price=sl,
                     position_side=position_side,
                 )
                 confirmed = self._confirm_protection_order(signal.symbol, label, result)
-                actual = float(
-                    confirmed.get("activationPrice")
-                    or confirmed.get("activatePrice")
-                    or activation
-                )
-                base_result.update({
-                    f"{key}_ok": True,
-                    f"{key}_result": result,
-                    f"{key}_activation_actual": actual,
+                oid = confirmed.get("orderID") or confirmed.get("orderId")
+                if not oid:
+                    raise RuntimeError(f"{label} stop did not return orderId")
+                stop_orders.append({
+                    "label": label,
+                    "qty": leg_qty,
+                    "order_id": str(oid),
+                    "stop_price": float(confirmed.get("stopPrice") or sl),
+                    "result": result,
                 })
-            except Exception as exc:
-                base_result[f"{key}_ok"] = False
-                protection_errors.append(f"{label}: {exc}")
-                break
-
-        if protection_errors:
+        except Exception as exc:
             try:
                 emergency = self.emergency_close_position(signal.symbol, position_side)
             except Exception as close_exc:
@@ -925,23 +948,28 @@ class Executor:
             return {
                 **base_result,
                 "ok": False,
-                "stage": "two_trailing_setup",
-                "error": "; ".join(protection_errors),
+                "stage": "initial_leg_stops",
+                "error": str(exc),
                 "emergency_close_attempted": True,
                 "emergency_close_ok": bool(emergency.get("ok")),
                 "emergency_close_result": emergency,
+                "initial_stop_orders": stop_orders,
             }
 
-        protect_pending = bool(float(cfg.get("protect_pct", 0.0)) > 0)
+        base_result.update({
+            "leg1_stop_ok": True,
+            "leg2_stop_ok": True,
+            "leg1_order_id": stop_orders[0]["order_id"],
+            "leg2_order_id": stop_orders[1]["order_id"],
+            "leg1_stop_price": stop_orders[0]["stop_price"],
+            "leg2_stop_price": stop_orders[1]["stop_price"],
+            "initial_stop_orders": stop_orders,
+        })
         return {
             **base_result,
             "ok": True,
             "stage": "complete",
-            "protect_pending": protect_pending,
-            "protect_note": (
-                "requires runtime stop promotion after T1 activation"
-                if protect_pending else None
-            ),
+            "manager_required": True,
             "error": None,
         }
 
