@@ -1,5 +1,4 @@
-trigger reverse-page yearly 15m BTC/ETH backfill
-order: 2026,2025,2024,2023,2022,2021
-pagination: newest-to-oldest within each year
-continue-after-year-failure: true
+trigger multisource 15m BTC/ETH historical data probe
+sources: bingx-swap,bingx-historical,bingx-spot,binance-futures-api,binance-vision,bybit-linear,okx-swap
+build: binance-vision fallback + bingx tail
 requested 2026-09-21
