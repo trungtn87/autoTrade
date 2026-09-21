@@ -41,7 +41,7 @@ def production_events(symbol: str, raw: pd.DataFrame) -> dict[int, set[tuple[int
         e1[11]=tier
 
     out={}
-    for combo,cfg in FINAL14_CASES[config_symbol].items():
+    for combo,cfg in FINAL14_CASES[symbol].items():
         native15=combo in FIFTEEN_MIN_COMBOS
         frame=m15 if native15 else h1
         sd=s15 if native15 else s1
