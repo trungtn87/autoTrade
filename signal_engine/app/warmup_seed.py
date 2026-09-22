@@ -37,6 +37,10 @@ def load_warmup_seed(symbol: str, limit: int = 12000) -> pd.DataFrame:
     if missing:
         raise ValueError(f"{symbol} seed missing columns: {missing}")
 
+    # Canonical PKLs keep open_time both as a DatetimeIndex name and as a
+    # numeric column. Drop the index before label-based sorting to avoid
+    # pandas' "both an index level and a column label" ambiguity.
+    d = d.reset_index(drop=True)
     d = d[_REQUIRED].copy()
     for col in _REQUIRED:
         d[col] = pd.to_numeric(d[col], errors="raise")
