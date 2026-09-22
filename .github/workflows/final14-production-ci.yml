@@ -69,6 +69,11 @@ jobs:
           PYTHONPATH: signal_engine
         run: python signal_engine/tests/db_migration_test.py
 
+      - name: BingX circuit breaker tests
+        env:
+          PYTHONPATH: signal_engine
+        run: python signal_engine/tests/bingx_circuit_test.py
+
       - name: Exact research source parity
         env:
           PYTHONPATH: signal_engine
