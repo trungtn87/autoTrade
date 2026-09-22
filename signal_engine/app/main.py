@@ -402,6 +402,7 @@ def run_scan(execute: bool = True) -> dict:
                 list(settings.symbols), len(supported),
             )
             state.set_runtime_value(BINGX_COOLDOWN_STATE_KEY, "0")
+            market.clear_blocked_until_ms()
 
         for symbol in settings.symbols:
             symbol_started = time.monotonic()
