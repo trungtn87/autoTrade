@@ -1404,6 +1404,27 @@ def discord_test(x_scan_token: str | None = Header(default=None)):
     return result
 
 
+@app.get("/state-export")
+def state_export(
+    table: str,
+    offset: int = 0,
+    limit: int = 1000,
+    x_scan_token: str | None = Header(default=None),
+):
+    """Read-only, token-protected migration export. Never places orders."""
+    _require_scan_token(x_scan_token)
+    if table not in {"candles", "processed_targets", "runtime_state"}:
+        raise HTTPException(status_code=400, detail="unsupported table")
+    try:
+        return state.export_table_batch(table, offset=offset, limit=limit)
+    except Exception as exc:
+        log.exception(
+            "STATE_EXPORT_FAILED table=%s offset=%s limit=%s error=%s",
+            table, offset, limit, exc,
+        )
+        raise HTTPException(status_code=500, detail="state export failed")
+
+
 @app.get("/status")
 def status():
     return last_scan_summary
