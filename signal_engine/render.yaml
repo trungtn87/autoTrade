@@ -31,7 +31,7 @@ services:
       - key: SCAN_TOKEN
         generateValue: true
       - key: DISCORD_LOG_ENABLED
-        value: "false"
+        value: "true"
       - key: DISCORD_LOG_LEVEL
         value: "ERROR"
       - key: DISCORD_PERIODIC_LOG_ENABLED

@@ -2,7 +2,7 @@ name: FINAL14 Production CI
 
 on:
   push:
-    branches: [final14-hardtp-production, signal-engine-v1]
+    branches: [final14-hardtp-production, signal-engine-v1, final14-seed-discord-fix-20260923]
     paths:
       - 'signal_engine/**'
       - '.github/workflows/final14-production-ci.yml'
@@ -58,6 +58,11 @@ jobs:
         env:
           PYTHONPATH: signal_engine
         run: python signal_engine/tests/final14_test.py
+
+      - name: Production warmup seed and Discord guard tests
+        env:
+          PYTHONPATH: signal_engine
+        run: python signal_engine/tests/ops_guard_test.py
 
       - name: Exact research source parity
         env:

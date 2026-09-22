@@ -17,12 +17,18 @@ from .bingx_market import BingXApiError, BingXMarketClient, closed_only
 from .data_validation import DataValidationError, validate_15m_candles
 from .config import Settings, safe_config_snapshot, validate_settings
 from .final14_executor import Final14Executor
-from .discord_diag import install_discord_log_handler, send_discord_scan_summary, send_discord_startup_test
+from .discord_diag import (
+    install_discord_log_handler,
+    send_discord_scan_alert,
+    send_discord_scan_summary,
+    send_discord_startup_test,
+)
 from .state import SignalState
 from .final14_exact_strategy import Signal, combo_readiness, scan_latest, strategy_static_snapshot
 from .self_test import run_self_test, run_startup_self_test
 from .final14_positions import is_case_active, refresh_symbol, register_execution, snapshot as final14_position_snapshot
 from .timeframes import aggregate_15m
+from .warmup_seed import load_warmup_seed
 
 settings = Settings()
 logging.basicConfig(
@@ -176,6 +182,30 @@ def fetch_bundle(symbol: str):
     cached_count = state.candle_count(symbol, "15m")
     bootstrap = cached_count == 0
     target = max(12000, int(settings.bootstrap_limit_15m))
+
+    # Production seed: fill the deterministic warmup window from the canonical
+    # BingX 15m snapshot bundled with the service before asking BingX for older
+    # history. This avoids the exchange history boundary that can return an
+    # empty page even though the request itself succeeds.
+    if cached_count < target:
+        try:
+            seed = load_warmup_seed(symbol, target)
+            if len(seed):
+                before_seed = cached_count
+                state.upsert_candles(symbol, "15m", seed)
+                cached_count = state.candle_count(symbol, "15m")
+                log.info(
+                    "WARMUP_SEED_APPLIED symbol=%s seed_rows=%s cached_before=%s cached_after=%s first_open=%s last_open=%s",
+                    symbol,
+                    len(seed),
+                    before_seed,
+                    cached_count,
+                    int(seed.iloc[0]["open_time"]),
+                    int(seed.iloc[-1]["open_time"]),
+                )
+        except Exception as exc:
+            log.exception("WARMUP_SEED_FAILED symbol=%s error=%s", symbol, exc)
+            cached_count = state.candle_count(symbol, "15m")
 
     # Always refresh the latest closed candle first. This keeps live data current
     # even while the historical warmup is still being filled.
@@ -900,6 +930,16 @@ def scheduled_scan():
         "SCHEDULE_DONE status=%s elapsed_sec=%s summary=%s",
         result.get("status"), result.get("elapsed_sec"),
         json.dumps(result, ensure_ascii=False)[:3000],
+    )
+
+    discord_alert = send_discord_scan_alert(settings, result)
+    log.info(
+        "DISCORD_SCAN_ALERT ok=%s sent=%s status_code=%s reason=%s error=%s",
+        discord_alert.get("ok"),
+        discord_alert.get("sent"),
+        discord_alert.get("status_code"),
+        discord_alert.get("reason"),
+        discord_alert.get("error"),
     )
 
     discord_report = send_discord_scan_summary(settings, result)
