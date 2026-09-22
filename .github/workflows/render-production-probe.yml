@@ -1,0 +1,36 @@
+name: Render Production Probe
+
+on:
+  push:
+    branches: [signal-engine-v1]
+    paths:
+      - '.github/workflows/render-production-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Wait for Render production and verify FINAL14
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://autotrade-1-ndqp.onrender.com"
+          for i in $(seq 1 40); do
+            echo "probe attempt=$i"
+            if curl -fsS --connect-timeout 10 --max-time 30 "$BASE/health" -o health.json; then
+              cat health.json
+              if grep -q '"engine":"BingX FINAL14 RR Hard-TP Autotrade Engine"' health.json; then
+                break
+              fi
+            fi
+            sleep 20
+          done
+          grep -q '"engine":"BingX FINAL14 RR Hard-TP Autotrade Engine"' health.json
+          curl -fsS --connect-timeout 10 --max-time 30 "$BASE/openapi.json" -o openapi.json
+          grep -q '"/state-export"' openapi.json
+          echo "RENDER_PROBE_PASS"
