@@ -261,3 +261,44 @@ class SignalState:
                 (symbol, timeframe, symbol, timeframe, int(keep)),
             )
             con.commit()
+
+
+    def export_table_batch(self, table: str, offset: int = 0, limit: int = 1000) -> dict:
+        """Read a bounded, deterministic batch for one-time state migration."""
+        allowed = {
+            "candles": (
+                "SELECT symbol,timeframe,open_time,open,high,low,close,volume,close_time "
+                "FROM candles ORDER BY symbol,timeframe,open_time LIMIT ? OFFSET ?"
+            ),
+            "processed_targets": (
+                "SELECT event_id,target,processed_at,payload "
+                "FROM processed_targets ORDER BY event_id,target LIMIT ? OFFSET ?"
+            ),
+            "runtime_state": (
+                "SELECT key,value,updated_at "
+                "FROM runtime_state ORDER BY key LIMIT ? OFFSET ?"
+            ),
+        }
+        if table not in allowed:
+            raise ValueError("unsupported export table")
+        limit = max(1, min(int(limit), 2000))
+        offset = max(0, int(offset))
+        with self._lock, self._connect() as con:
+            cur = con.cursor()
+            cur.execute(self._sql(allowed[table]), (limit, offset))
+            rows = list(cur.fetchall())
+            cur.execute(f"SELECT COUNT(*) FROM {table}")
+            total = int(cur.fetchone()[0])
+        normalized = []
+        for row in rows:
+            normalized.append([
+                value.isoformat() if hasattr(value, "isoformat") else value
+                for value in row
+            ])
+        return {
+            "table": table,
+            "offset": offset,
+            "limit": limit,
+            "total": total,
+            "rows": normalized,
+        }
