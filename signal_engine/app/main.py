@@ -1045,8 +1045,16 @@ app = FastAPI(title="BingX FINAL14 RR Hard-TP Autotrade Engine", version="14.0.0
 
 @app.get("/health")
 def health():
+    profile = strategy_static_snapshot()
     return {
         "ok": True,
+        "engine": "BingX FINAL14 RR Hard-TP Autotrade Engine",
+        "engine_version": "14.0.0",
+        "strategy_version": profile.get("version"),
+        "strategy_source_run_id": profile.get("source_run_id"),
+        "final14_enabled": profile.get("enabled"),
+        "exit_mode": profile.get("exit"),
+        "layer2_source": "locked_per_case_FINAL14_config",
         "dry_run": settings.dry_run,
         "symbols": settings.symbols,
         "smc_mode": settings.smc_mode,
