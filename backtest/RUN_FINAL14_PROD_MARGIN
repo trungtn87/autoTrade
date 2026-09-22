@@ -1,0 +1,5 @@
+FINAL14 production-logic margin comparison
+source: signal-engine-v1
+dataset artifact: 10636714622
+models: cross x100, isolated x50, isolated x100
+requested: 2026-09-22
