@@ -1,0 +1,74 @@
+name: FINAL14 Production Logic Margin Compare
+
+on:
+  push:
+    branches: [research-python-backtest]
+    paths:
+      - 'backtest/RUN_FINAL14_PROD_MARGIN'
+      - 'backtest/final14_prodlogic_margin_compare.py'
+      - '.github/workflows/final14-prod-margin.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      TZ: UTC
+      PYTHONHASHSEED: '0'
+      OPENBLAS_NUM_THREADS: '1'
+      VERIFIED_LONG_ARTIFACT_ID: '10636714622'
+    steps:
+      - name: Checkout research
+        uses: actions/checkout@v4
+
+      - name: Checkout production autotrade logic
+        uses: actions/checkout@v4
+        with:
+          ref: signal-engine-v1
+          path: production
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.14'
+
+      - name: Install dependencies
+        run: |
+          pip install -r backtest/requirements.txt
+          pip install -r production/signal_engine/requirements.txt
+
+      - name: Download verified long dataset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p final14_data
+          gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${VERIFIED_LONG_ARTIFACT_ID}/zip" > final14_data/verified.zip
+          unzip -q -o final14_data/verified.zip -d final14_data
+          test -f final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl
+          test -f final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl
+
+      - name: Run exact-production margin comparison
+        run: |
+          set -euo pipefail
+          python -u backtest/final14_prodlogic_margin_compare.py \
+            --prod-root production \
+            --prod-ref signal-engine-v1 \
+            --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl \
+            --out-dir backtest/results/final14_prodlogic_margin_compare \
+            --mmr 0.004
+
+      - name: Upload comparison results
+        uses: actions/upload-artifact@v4
+        with:
+          name: final14-prod-margin-${{ github.run_id }}
+          path: |
+            backtest/results/final14_prodlogic_margin_compare/*.csv
+            backtest/results/final14_prodlogic_margin_compare/*.json
+          retention-days: 90
+          if-no-files-found: error
