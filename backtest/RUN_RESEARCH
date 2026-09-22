@@ -1,8 +1,8 @@
-trigger two-tier trailing Layer 1 and Layer 2 research
-dataset: hybrid BTC/ETH 15m 2021-01-01 to 2026-09-20
-windows: 6M,1Y,3Y,FULL
-exit: no fixed TP; T1 50% trailing, T2 50% trailing
-T1 activation: +0.5%
-Layer 2: OFF, OB, SMC Veto, SMC Strict, SMC+OB
-priority: 3Y primary; 1Y/6M confirmation; FULL stress
-requested 2026-09-21
+trigger FINAL14 exact-production margin comparison
+dataset: hybrid BTC/ETH 15m 2021-01-01 to 2026-09-21
+entry source: signal-engine-v1 production FINAL14 logic
+models: cross x100, isolated x50, isolated x100
+notional: 100 USDT per trade
+exit: locked FINAL14 hard TP/SL
+mmr proxy: 0.004
+requested: 2026-09-22
