@@ -67,6 +67,7 @@ def _effective_bingx_blocked_until_ms() -> int:
         persisted = int(state.get_runtime_value(BINGX_COOLDOWN_STATE_KEY, "0") or 0)
     except Exception:
         persisted = 0
+    market.set_blocked_until_ms(persisted)
     return max(int(market.blocked_until_ms), persisted)
 
 
@@ -352,6 +353,54 @@ def run_scan(execute: bool = True) -> dict:
             return summary
 
         if cooldown_until:
+            # A persisted breaker has just expired. Verify the configured
+            # symbols against BingX's contract list before resuming klines.
+            # This is especially important after 109425, whose documented
+            # meaning is unsupported/non-existent trading pair.
+            try:
+                supported = market.contract_symbols()
+            except BingXApiError as exc:
+                blocked_until = max(
+                    int(exc.retry_at_ms or 0),
+                    int(market.blocked_until_ms),
+                    int(time.time() * 1000) + 60_000,
+                )
+                state.set_runtime_value(BINGX_COOLDOWN_STATE_KEY, str(blocked_until))
+                summary.update({
+                    "status": "bingx_recovery_check_error",
+                    "retry_at_ms": blocked_until,
+                    "elapsed_sec": round(time.time() - started, 3),
+                    "recovery_error": str(exc),
+                })
+                last_scan_summary = summary
+                log.error(
+                    "BINGX_RECOVERY_CHECK_ERROR retry_at_ms=%s code=%s error=%s",
+                    blocked_until, exc.code, exc,
+                )
+                return summary
+
+            missing_symbols = sorted(set(settings.symbols) - set(supported))
+            if missing_symbols:
+                blocked_until = int(time.time() * 1000) + 16 * 60 * 1000
+                market.set_blocked_until_ms(blocked_until)
+                state.set_runtime_value(BINGX_COOLDOWN_STATE_KEY, str(blocked_until))
+                summary.update({
+                    "status": "bingx_symbol_guard_failed",
+                    "retry_at_ms": blocked_until,
+                    "missing_symbols": missing_symbols,
+                    "elapsed_sec": round(time.time() - started, 3),
+                })
+                last_scan_summary = summary
+                log.error(
+                    "BINGX_SYMBOL_GUARD_FAILED missing=%s supported_count=%s retry_at_ms=%s",
+                    missing_symbols, len(supported), blocked_until,
+                )
+                return summary
+
+            log.warning(
+                "BINGX_COOLDOWN_RECOVERY_CHECK ok=true configured=%s supported_count=%s",
+                list(settings.symbols), len(supported),
+            )
             state.set_runtime_value(BINGX_COOLDOWN_STATE_KEY, "0")
 
         for symbol in settings.symbols:
@@ -969,6 +1018,14 @@ async def lifespan(app: FastAPI):
         log.error(
             "DISCORD_LOG_FORWARD installed=false reason=%s",
             discord_log.get("reason"),
+        )
+
+    persisted_cooldown = _effective_bingx_blocked_until_ms()
+    if persisted_cooldown > int(time.time() * 1000):
+        log.warning(
+            "BINGX_COOLDOWN_RESTORED retry_at_ms=%s remaining_sec=%s",
+            persisted_cooldown,
+            int((persisted_cooldown - int(time.time() * 1000) + 999) / 1000),
         )
 
     errors, warnings = validate_settings(settings)
