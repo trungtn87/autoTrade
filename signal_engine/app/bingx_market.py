@@ -56,6 +56,9 @@ class BingXMarketClient:
         self._blocked_until_ms = max(int(self._blocked_until_ms), candidate)
         return int(self._blocked_until_ms)
 
+    def clear_blocked_until_ms(self) -> None:
+        self._blocked_until_ms = 0
+
     def cooldown_remaining_ms(self) -> int:
         return max(0, int(self._blocked_until_ms) - int(time.time() * 1000))
 
