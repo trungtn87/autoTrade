@@ -33,6 +33,7 @@ class BingXMarketClient:
     timeout: float = 15.0
     min_interval_sec: float = 1.10
     recv_window_ms: int = 5000
+    cooldown_guard_ms: int = 60_000
 
     def __post_init__(self):
         self._last_call = 0.0
@@ -46,6 +47,15 @@ class BingXMarketClient:
     def blocked_until_ms(self) -> int:
         return int(self._blocked_until_ms)
 
+    def set_blocked_until_ms(self, value: int | None) -> int:
+        """Restore/persist a circuit-breaker deadline across process restarts."""
+        try:
+            candidate = int(value or 0)
+        except Exception:
+            candidate = 0
+        self._blocked_until_ms = max(int(self._blocked_until_ms), candidate)
+        return int(self._blocked_until_ms)
+
     def cooldown_remaining_ms(self) -> int:
         return max(0, int(self._blocked_until_ms) - int(time.time() * 1000))
 
@@ -53,7 +63,13 @@ class BingXMarketClient:
         now_ms = int(time.time() * 1000)
         if now_ms < self._blocked_until_ms:
             remain = int((self._blocked_until_ms - now_ms + 999) / 1000)
-            raise RuntimeError(f"BingX circuit breaker active; retry after about {remain}s")
+            raise BingXApiError(
+                "CIRCUIT_BREAKER",
+                f"local circuit breaker active; retry after about {remain}s",
+                "local://circuit-breaker",
+                int(self._blocked_until_ms),
+                {},
+            )
 
         wait = self.min_interval_sec - (time.monotonic() - self._last_call)
         if wait > 0:
@@ -105,13 +121,17 @@ class BingXMarketClient:
         if code != 0:
             msg = str(payload.get("msg", ""))
             retry_at_ms = self._retry_at_from_message(msg)
-            if str(code) == "109429":
-                # Stop hammering the endpoint until BingX says it is safe again.
-                self._blocked_until_ms = retry_at_ms or (int(time.time() * 1000) + 15 * 60 * 1000)
-            elif str(code) in {"109415", "109425"}:
-                # One invalid/paused/unsupported market-data response is enough.
-                # Repeating it can trigger BingX 109429 for the whole quote API.
-                self._blocked_until_ms = int(time.time() * 1000) + 15 * 60 * 1000
+            if str(code) in {"109415", "109425", "109429"}:
+                # 109425 is an invalid/unsupported-symbol class error and BingX
+                # escalates repeated invalid calls to 109429. Stop immediately,
+                # honor the server retry timestamp when supplied, and keep a
+                # small guard window so scheduler/manual calls do not hit the
+                # boundary at the same millisecond.
+                now_ms = int(time.time() * 1000)
+                base_retry = retry_at_ms or (now_ms + 15 * 60 * 1000)
+                effective_retry = max(base_retry, now_ms + 60_000) + int(self.cooldown_guard_ms)
+                self._blocked_until_ms = max(int(self._blocked_until_ms), effective_retry)
+                retry_at_ms = int(self._blocked_until_ms)
             log.warning(
                 "BINGX_API_ERROR code=%s path=%s params=%s retry_at_ms=%s msg=%s",
                 code, path, safe_params, retry_at_ms, msg,
