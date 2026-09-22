@@ -142,6 +142,24 @@ jobs:
             --eth data/multisource/ETHUSDT_hybrid_15m.pkl \
             --out-dir results/two_trail_layer12
 
+      - name: Checkout production autotrade logic
+        uses: actions/checkout@v4
+        with:
+          ref: signal-engine-v1
+          path: production
+
+      - name: FINAL14 exact-production margin comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -u final14_prodlogic_margin_compare.py \
+            --prod-root ../production \
+            --prod-ref signal-engine-v1 \
+            --btc data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth data/multisource/ETHUSDT_hybrid_15m.pkl \
+            --out-dir results/final14_prodlogic_margin_compare \
+            --mmr 0.004
+
       - name: Record exact environment
         if: always()
         run: |
@@ -179,5 +197,7 @@ jobs:
             backtest/results/layer1_cross_long/*.json
             backtest/results/two_trail_layer12/*.csv
             backtest/results/two_trail_layer12/*.json
+            backtest/results/final14_prodlogic_margin_compare/*.csv
+            backtest/results/final14_prodlogic_margin_compare/*.json
           retention-days: 90
           if-no-files-found: error
