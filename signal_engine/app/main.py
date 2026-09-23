@@ -7,14 +7,14 @@ import threading
 import time
 
 import pandas as pd
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import asdict, replace
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, Header, HTTPException
 
-from .bingx_market import BingXApiError, BingXMarketClient, closed_only
+from .bingx_market import BINGX_BLOCK_CODES, BingXApiError, BingXMarketClient, closed_only
 from .data_validation import DataValidationError, validate_15m_candles
 from .config import Settings, safe_config_snapshot, validate_settings
 from .final14_executor import Final14Executor
@@ -83,8 +83,10 @@ market = BingXMarketClient(
     api_key=settings.bingx_api_key,
     api_secret=settings.bingx_api_secret,
     error_recorder=_record_bingx_api_error,
+    cooldown_reader=lambda: state.get_runtime_value("bingx_market_blocked_until_ms", "0"),
+    cooldown_writer=lambda deadline: state.set_runtime_value("bingx_market_blocked_until_ms", str(deadline)),
 )
-executor = Final14Executor(settings, api_error_recorder=_record_bingx_api_error)
+executor = Final14Executor(settings, api_error_recorder=_record_bingx_api_error, request_guard=market)
 scan_lock = threading.Lock()
 scheduler: BackgroundScheduler | None = None
 last_scan_summary: dict = {"status": "not_run"}
@@ -384,7 +386,11 @@ def run_scan(execute: bool = True) -> dict:
     if not scan_lock.acquire(blocking=False):
         return {"status": "busy", "message": "scan already running"}
 
-    cluster_lock_handle = state.try_acquire_cluster_lock(CLUSTER_SCAN_LOCK_ID)
+    try:
+        cluster_lock_handle = state.try_acquire_cluster_lock(CLUSTER_SCAN_LOCK_ID)
+    except Exception:
+        scan_lock.release()
+        raise
     if cluster_lock_handle is None:
         scan_lock.release()
         log.warning("SCHEDULE_SKIP_CLUSTER_LOCK reason=another_instance_scanning")
@@ -641,6 +647,17 @@ def run_scan(execute: bool = True) -> dict:
                                 json.dumps(result, ensure_ascii=False),
                             )
 
+                        api_error = result.get("bingx_error") or {}
+                        if str(api_error.get("code")) in BINGX_BLOCK_CODES | {"CIRCUIT_BREAKER"}:
+                            # Persist an accepted entry above before stopping. Never
+                            # let another combo continue into a known API lockout.
+                            executor.send_execution_error_discord(sig, result)
+                            raise BingXApiError(
+                                api_error["code"], api_error.get("message", ""),
+                                api_error.get("path", ""), api_error.get("retry_at_ms"),
+                                {"symbol": sig.symbol},
+                            )
+
                         if result.get("ok") and result.get("entry_filled"):
                             register_execution(state, sig, result)
 
@@ -736,7 +753,7 @@ def run_scan(execute: bool = True) -> dict:
                             str(blocked_until),
                         )
                         summary["retry_at_ms"] = blocked_until
-                    if str(exc.code) in {"109415", "109425", "109429"}:
+                    if str(exc.code) in BINGX_BLOCK_CODES | {"CIRCUIT_BREAKER"}:
                         summary["stopped_early"] = True
                         summary["stop_reason"] = f"BingX {exc.code}; stopped to avoid further invalid requests"
                         break
@@ -1255,6 +1272,7 @@ def engine_status():
         "final14_active_case_count": len(final14_position_snapshot(state)),
         "live_limit_15m": settings.live_limit_15m,
         "bingx_blocked_until_ms": _effective_bingx_blocked_until_ms(),
+        "bingx_guard_version": "shared-persistent-v1",
         "bingx_cooldown_remaining_ms": max(
             0, _effective_bingx_blocked_until_ms() - int(time.time() * 1000)
         ),
@@ -1274,11 +1292,31 @@ def _require_scan_token(x_scan_token: str | None) -> None:
         raise HTTPException(status_code=403, detail="invalid scan token")
 
 
+@contextmanager
+def _diagnostic_slot():
+    """Diagnostics must not race a scan or another service instance."""
+    if not scan_lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="scan or diagnostic already running")
+    handle = None
+    try:
+        handle = state.try_acquire_cluster_lock(CLUSTER_SCAN_LOCK_ID)
+        if handle is None:
+            raise HTTPException(status_code=409, detail="another instance is scanning")
+        yield
+    finally:
+        try:
+            if handle is not None:
+                state.release_cluster_lock(handle, CLUSTER_SCAN_LOCK_ID)
+        finally:
+            scan_lock.release()
+
+
 @app.get("/market-check")
 def market_check(x_scan_token: str | None = Header(default=None)):
     _require_scan_token(x_scan_token)
     try:
-        symbols = market.contract_symbols()
+        with _diagnostic_slot():
+            symbols = market.contract_symbols()
         configured = list(settings.symbols)
         return {
             "ok": True,
@@ -1298,9 +1336,13 @@ def market_check(x_scan_token: str | None = Header(default=None)):
 def kline_check(symbol: str = "BTC-USDT", interval: str = "15m", limit: int = 3, x_scan_token: str | None = Header(default=None)):
     _require_scan_token(x_scan_token)
     """Single Kline request with timestamp diagnostics; never places orders."""
+    symbol = symbol.upper().strip()
+    if symbol not in settings.symbols:
+        raise HTTPException(status_code=400, detail="symbol is not configured for this engine")
     try:
         now_ms = int(time.time() * 1000)
-        df = market.klines(symbol.upper(), interval, limit)
+        with _diagnostic_slot():
+            df = market.klines(symbol, interval, limit)
         rows = []
         for _, row in df.tail(3).iterrows():
             rows.append({

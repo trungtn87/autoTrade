@@ -5,6 +5,7 @@ on:
     branches: [signal-engine-v1]
     paths:
       - '.github/workflows/render-production-probe.yml'
+      - 'signal_engine/**'
   workflow_dispatch:
 
 permissions:
@@ -33,6 +34,7 @@ jobs:
                       h = json.load(response)
                   checks = {
                       "commit": h.get("build_commit") == expected,
+                      "shared_bingx_guard": h.get("bingx_guard_version") == "shared-persistent-v1",
                       "engine": h.get("engine_version") == "14.0.0",
                       "strategy": h.get("strategy_version") == "FINAL14_RR_TP2_2026-09-21",
                       "live": h.get("dry_run") is False,

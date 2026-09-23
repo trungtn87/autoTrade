@@ -218,66 +218,72 @@ class Final14Executor(Executor):
         if not order_id:
             raise RuntimeError("FINAL14 entry did not return orderId")
 
-        executed_qty=0.0
-        avg_price=0.0
-        status=""
-        order_detail={}
-        for _ in range(10):
-            raw=self._order_detail(signal.symbol,str(order_id))
-            order_detail=self._extract_order(raw)
-            executed_qty=float(order_detail.get("executedQty") or 0)
-            avg_price=float(order_detail.get("avgPrice") or 0)
-            status=str(order_detail.get("status") or "")
-            if executed_qty>0 and avg_price>0:
-                break
-            time.sleep(1.0)
+        try:
+            executed_qty=0.0
+            avg_price=0.0
+            status=""
+            order_detail={}
+            for _ in range(10):
+                raw=self._order_detail(signal.symbol,str(order_id))
+                order_detail=self._extract_order(raw)
+                executed_qty=float(order_detail.get("executedQty") or 0)
+                avg_price=float(order_detail.get("avgPrice") or 0)
+                status=str(order_detail.get("status") or "")
+                if executed_qty>0 and avg_price>0:
+                    break
+                time.sleep(1.0)
 
-        if executed_qty<=0 or avg_price<=0:
-            return {
+            if executed_qty<=0 or avg_price<=0:
+                return {
+                    "processed":True,
+                    "entry_accepted":True,
+                    "entry_filled":False,
+                    "ok":False,
+                    "stage":"entry_fill_check",
+                    "order_id":str(order_id),
+                    "status":status,
+                    "error":"entry accepted but fill not confirmed",
+                }
+
+            position_id=(
+                str(order_detail.get("positionId") or order.get("positionId") or "")
+                or self._resolve_new_position_id(
+                    signal.symbol,signal.side,before_ids,avg_price,executed_qty
+                )
+            )
+
+            result={
                 "processed":True,
                 "entry_accepted":True,
-                "entry_filled":False,
-                "ok":False,
-                "stage":"entry_fill_check",
+                "entry_filled":True,
+                "ok":True,
+                "stage":"complete" if position_id else "complete_position_id_pending",
                 "order_id":str(order_id),
-                "status":status,
-                "error":"entry accepted but fill not confirmed",
+                "position_id":position_id,
+                "avg_price":avg_price,
+                "executed_qty":executed_qty,
+                "target_notional":float(sizing["target_notional"]),
+                "actual_notional":float(sizing["actual_notional"]),
+                "execution_leverage":FINAL14_EXECUTION_LEVERAGE,
+                "tp":tp,
+                "sl":sl,
+                "rr":float(cfg["rr"]),
+                "tp_pct":float(cfg["tp_pct"]),
+                "sl_pct":float(cfg["sl_pct"]),
+                "protection_mode":"attached_hard_tp_sl",
+                "working_type":"CONTRACT_PRICE",
+                "entry_result":entry_result,
+                "error":None,
             }
-
-        position_id=(
-            str(order_detail.get("positionId") or order.get("positionId") or "")
-            or self._resolve_new_position_id(
-                signal.symbol,signal.side,before_ids,avg_price,executed_qty
+            log.info(
+                "FINAL14_ENTRY symbol=%s combo=%s side=%s order_id=%s position_id=%s "
+                "signal_entry=%s avg_fill=%s qty=%s tp=%s sl=%s rr=%s",
+                signal.symbol,case_name(signal.combo),signal.side,order_id,position_id,
+                entry,avg_price,executed_qty,tp,sl,cfg["rr"],
             )
-        )
-
-        result={
-            "processed":True,
-            "entry_accepted":True,
-            "entry_filled":True,
-            "ok":True,
-            "stage":"complete" if position_id else "complete_position_id_pending",
-            "order_id":str(order_id),
-            "position_id":position_id,
-            "avg_price":avg_price,
-            "executed_qty":executed_qty,
-            "target_notional":float(sizing["target_notional"]),
-            "actual_notional":float(sizing["actual_notional"]),
-            "execution_leverage":FINAL14_EXECUTION_LEVERAGE,
-            "tp":tp,
-            "sl":sl,
-            "rr":float(cfg["rr"]),
-            "tp_pct":float(cfg["tp_pct"]),
-            "sl_pct":float(cfg["sl_pct"]),
-            "protection_mode":"attached_hard_tp_sl",
-            "working_type":"CONTRACT_PRICE",
-            "entry_result":entry_result,
-            "error":None,
-        }
-        log.info(
-            "FINAL14_ENTRY symbol=%s combo=%s side=%s order_id=%s position_id=%s "
-            "signal_entry=%s avg_fill=%s qty=%s tp=%s sl=%s rr=%s",
-            signal.symbol,case_name(signal.combo),signal.side,order_id,position_id,
-            entry,avg_price,executed_qty,tp,sl,cfg["rr"],
-        )
-        return result
+            return result
+        except Exception as exc:
+            # Entry already exists. Preserve deduplication even if a subsequent
+            # fill/position lookup hits the shared BingX circuit breaker.
+            exc.accepted_order_id = str(order_id)
+            raise

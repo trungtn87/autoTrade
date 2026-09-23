@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import httpx
 
 from .config import Settings
+from .bingx_market import BingXApiError, BingXMarketClient
 from .strategy import Signal
 
 log = logging.getLogger(__name__)
@@ -47,11 +48,17 @@ def execution_prices(signal: Signal, settings: Settings) -> tuple[float, float, 
 
 
 class Executor:
-    def __init__(self, settings: Settings, api_error_recorder=None):
+    def __init__(self, settings: Settings, api_error_recorder=None, request_guard=None):
         self.settings = settings
         self.client = httpx.Client(timeout=20.0)
         self._contract_cache: dict[str, dict] = {}
         self.api_error_recorder = api_error_recorder
+        self.request_guard = request_guard or BingXMarketClient(
+            base_url=settings.bingx_base_url,
+            api_key=settings.bingx_api_key,
+            api_secret=settings.bingx_api_secret,
+            error_recorder=api_error_recorder,
+        )
 
     def targets(self) -> list[tuple[str, str, float]]:
         """One live BingX account using the configured API credentials directly."""
@@ -322,6 +329,11 @@ class Executor:
         return True
 
     def _signed_trade_request(self, method: str, path: str, params: dict) -> dict:
+        with self.request_guard.request_slot():
+            return self._signed_trade_request_locked(method, path, params)
+
+    def _signed_trade_request_locked(self, method: str, path: str, params: dict) -> dict:
+        log.info("BINGX_TRADE_REQ method=%s path=%s symbol=%s", method, path, params.get("symbol"))
         params = dict(params)
         params.setdefault("recvWindow", 5000)
         params["timestamp"] = int(time.time() * 1000)
@@ -366,37 +378,17 @@ class Executor:
         except Exception:
             body = {}
 
-        if not (200 <= r.status_code < 300):
-            snippet = (r.text or "")[:500].replace("\n", " ")
-            raise RuntimeError(
-                f"BingX HTTP {r.status_code} | endpoint={path} | body={snippet}"
-            )
-
+        log.info("BINGX_TRADE_HTTP method=%s path=%s status=%s", method, path, r.status_code)
         code = body.get("code") if isinstance(body, dict) else None
         if code not in (None, 0, "0"):
             msg = body.get("msg", "") if isinstance(body, dict) else ""
-            if callable(self.api_error_recorder):
-                try:
-                    safe_params = {
-                        k: v for k, v in params.items()
-                        if k not in {"timestamp", "recvWindow"}
-                    }
-                    self.api_error_recorder(
-                        source="executor",
-                        endpoint=path,
-                        params=safe_params,
-                        code=code,
-                        message=str(msg),
-                        retry_at_ms=None,
-                    )
-                except Exception as diag_exc:
-                    log.error(
-                        "BINGX_DIAG_RECORD_FAILED source=executor path=%s code=%s error=%s",
-                        path, code, diag_exc,
-                    )
-            raise RuntimeError(
-                f"BingX trade error {code}: {msg} | endpoint={path}"
-            )
+            raise self.request_guard.api_error("executor", code, str(msg), path, params)
+        if r.status_code == 429:
+            raise self.request_guard.api_error("executor", "HTTP_429", "BingX HTTP rate limit", path, params)
+        if not (200 <= r.status_code < 300):
+            raise RuntimeError(f"BingX HTTP {r.status_code} | endpoint={path}")
+        if code not in (0, "0"):
+            raise self.request_guard.api_error("executor", "INVALID_RESPONSE", "missing success code", path, params)
         return body
 
     @staticmethod
@@ -1134,14 +1126,20 @@ class Executor:
                 target_name, signal.event_id, exc,
                 exc_info=True,
             )
+            accepted_order_id = getattr(exc, "accepted_order_id", None)
             return {
                 "target": target_name,
                 "ok": False,
-                "processed": False,
-                "entry_accepted": False,
+                "processed": bool(accepted_order_id),
+                "entry_accepted": bool(accepted_order_id),
                 "entry_filled": False,
-                "stage": "pre_entry",
+                "order_id": accepted_order_id,
+                "stage": "entry_fill_check" if accepted_order_id else "pre_entry",
                 "error": str(exc),
+                "bingx_error": {
+                    "code": exc.code, "message": exc.message, "path": exc.path,
+                    "retry_at_ms": exc.retry_at_ms,
+                } if isinstance(exc, BingXApiError) else None,
                 "payload": self.build_payload(
                     signal, self.settings.order_margin_usdt * self.settings.leverage
                 ),
