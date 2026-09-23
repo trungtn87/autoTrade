@@ -68,7 +68,7 @@ class Settings:
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     scan_token: str = os.getenv("SCAN_TOKEN", "")
 
-    bootstrap_limit_15m: int = _int("BOOTSTRAP_LIMIT_15M", 12000)
+    bootstrap_limit_15m: int = _int("BOOTSTRAP_LIMIT_15M", 3400)
     live_limit_15m: int = _int("LIVE_LIMIT_15M", 8)
     recovery_limit_15m: int = _int("RECOVERY_LIMIT_15M", 8)
     candle_keep_15m: int = _int("CANDLE_KEEP_15M", 15000)
@@ -157,9 +157,9 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         warnings.append("DISCORD_WEBHOOK_ETH is empty; ETH trade notifications are disabled")
     if settings.discord_log_enabled and not settings.discord_webhook_error:
         warnings.append("DISCORD_WEBHOOK_ERROR is empty; error notifications are disabled")
-    if settings.bootstrap_limit_15m < 12000:
+    if settings.bootstrap_limit_15m < 3400:
         warnings.append(
-            f"BOOTSTRAP_LIMIT_15M={settings.bootstrap_limit_15m} is below 12000; runtime will use 12000 for exact FINAL14 research parity warmup"
+            f"BOOTSTRAP_LIMIT_15M={settings.bootstrap_limit_15m} is below 3400; runtime will use 3400 for FINAL14 warmup"
         )
     if not settings.scan_token:
         warnings.append("SCAN_TOKEN is empty; manual market/scan endpoints will stay disabled")
@@ -177,7 +177,7 @@ def safe_config_snapshot(settings: Settings) -> dict:
         ),
         "market_mode": "15m_only_incremental",
         "bootstrap_limit_15m": settings.bootstrap_limit_15m,
-        "bootstrap_limit_15m_effective": max(12000, settings.bootstrap_limit_15m),
+        "bootstrap_limit_15m_effective": max(3400, settings.bootstrap_limit_15m),
         "bootstrap_page_limit_15m": 1000,
         "live_limit_15m": settings.live_limit_15m,
         "recovery_limit_15m": settings.recovery_limit_15m,
