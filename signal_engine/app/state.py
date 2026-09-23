@@ -40,6 +40,23 @@ class SignalState:
     def _init(self):
         with self._connect() as con:
             cur = con.cursor()
+
+            # Managed Postgres targets (e.g. Supabase) can use a least-privilege
+            # login role with DML-only access. If the production schema already
+            # exists, do not require CREATE/OWNER privileges on every restart.
+            if self.is_postgres:
+                cur.execute(
+                    """
+                    SELECT
+                        to_regclass('public.processed_targets'),
+                        to_regclass('public.candles'),
+                        to_regclass('public.runtime_state')
+                    """
+                )
+                existing = cur.fetchone()
+                if existing and all(existing):
+                    return
+
             cur.execute(
                 """
                 CREATE TABLE IF NOT EXISTS processed_targets (
