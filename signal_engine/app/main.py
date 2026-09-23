@@ -223,12 +223,13 @@ def fetch_bundle(symbol: str):
         market.klines(symbol, "15m", settings.live_limit_15m),
         now_ms,
     )
-    if len(latest):
+    latest_count = len(latest)
+    if latest_count:
         state.upsert_candles(symbol, "15m", latest)
         log.info(
             "FETCH_DATA symbol=%s received_closed=%s first_open=%s last_open=%s last_close=%s",
             symbol,
-            len(latest),
+            latest_count,
             int(latest.iloc[0]["open_time"]),
             int(latest.iloc[-1]["open_time"]),
             int(latest.iloc[-1]["close_time"]),
@@ -237,9 +238,12 @@ def fetch_bundle(symbol: str):
         log.warning("FETCH_DATA symbol=%s received_closed=0", symbol)
 
     # Historical warmup is intentionally incremental: at most one older page
-    # per scheduled scan. This avoids hammering BingX and, critically, every
-    # successful page is persisted immediately so progress is never lost.
-    cached_count = state.candle_count(symbol, "15m")
+    # per scheduled scan. Once the cache is already warm, avoid an extra
+    # COUNT(*) round-trip after every tiny live upsert.
+    count_after_latest_known = False
+    if cached_count < target:
+        cached_count = state.candle_count(symbol, "15m")
+        count_after_latest_known = True
     if cached_count < target:
         earliest = state.earliest_open_time(symbol, "15m")
         if earliest is not None:
@@ -266,13 +270,15 @@ def fetch_bundle(symbol: str):
             )
             if len(older):
                 state.upsert_candles(symbol, "15m", older)
+                cached_count = state.candle_count(symbol, "15m")
+                count_after_latest_known = True
                 log.info(
                     "WARMUP_BACKFILL_SAVED symbol=%s recovered=%s first_open=%s last_open=%s cached_after=%s",
                     symbol,
                     len(older),
                     int(older.iloc[0]["open_time"]),
                     int(older.iloc[-1]["open_time"]),
-                    state.candle_count(symbol, "15m"),
+                    cached_count,
                 )
             else:
                 log.warning(
@@ -280,8 +286,17 @@ def fetch_bundle(symbol: str):
                     symbol, history_start, history_end,
                 )
 
-    state.trim_candles(symbol, "15m", settings.candle_keep_15m)
-    m15 = state.load_candles(symbol, "15m")
+    # Trimming is unnecessary while even the maximum possible post-upsert
+    # row count is still below the keep limit. This removes one PostgreSQL
+    # connection and an expensive DELETE subquery from normal 15m scans.
+    potential_count = cached_count if count_after_latest_known else cached_count + latest_count
+    if potential_count > settings.candle_keep_15m:
+        state.trim_candles(symbol, "15m", settings.candle_keep_15m)
+
+    # FINAL14 is explicitly parity-locked to the latest warmup window. Loading
+    # only that window avoids transferring/constructing thousands of unused
+    # historical rows once the persistent cache grows toward candle_keep_15m.
+    m15 = state.load_candles(symbol, "15m", limit=target)
 
     try:
         validation = validate_15m_candles(m15, now_ms)

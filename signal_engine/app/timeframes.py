@@ -9,7 +9,11 @@ CANDLE_COLUMNS = [
 
 
 def aggregate_15m(df: pd.DataFrame, target_minutes: int) -> pd.DataFrame:
-    """Build complete UTC-aligned HTF candles from closed 15m candles."""
+    """Build complete UTC-aligned HTF candles from closed 15m candles.
+
+    This is vectorized but preserves the original completeness rules exactly:
+    only buckets containing every expected 15m open time are emitted.
+    """
     if df.empty:
         return pd.DataFrame(columns=CANDLE_COLUMNS)
     if target_minutes not in {60, 240, 360}:
@@ -19,8 +23,6 @@ def aggregate_15m(df: pd.DataFrame, target_minutes: int) -> pd.DataFrame:
     target_ms = target_minutes * 60_000
     required = target_minutes // 15
 
-    # Materialize an independent frame before adding the helper column.
-    # This is Copy-on-Write safe for pandas 3.x and avoids chained-assignment warnings.
     x = df.loc[:, CANDLE_COLUMNS].copy(deep=True)
     x = (
         x.sort_values("open_time")
@@ -30,25 +32,32 @@ def aggregate_15m(df: pd.DataFrame, target_minutes: int) -> pd.DataFrame:
     bucket = (x["open_time"].to_numpy(dtype="int64") // target_ms) * target_ms
     x = x.assign(bucket=bucket)
 
-    rows = []
-    for bucket, g in x.groupby("bucket", sort=True):
-        g = g.sort_values("open_time")
-        if len(g) != required:
-            continue
+    # Avoid Python-per-group loops: aggregate all buckets in one pandas pass,
+    # then keep only fully populated UTC-aligned buckets.
+    out = (
+        x.groupby("bucket", sort=True, as_index=False)
+        .agg(
+            first_open=("open_time", "first"),
+            last_open=("open_time", "last"),
+            n=("open_time", "size"),
+            open=("open", "first"),
+            high=("high", "max"),
+            low=("low", "min"),
+            close=("close", "last"),
+            volume=("volume", "sum"),
+        )
+    )
 
-        expected = [int(bucket) + i * source_ms for i in range(required)]
-        actual = [int(v) for v in g["open_time"].tolist()]
-        if actual != expected:
-            continue
+    complete = (
+        (out["n"] == required)
+        & (out["first_open"] == out["bucket"])
+        & (out["last_open"] == out["bucket"] + (required - 1) * source_ms)
+    )
+    out = out.loc[complete].copy()
+    if out.empty:
+        return pd.DataFrame(columns=CANDLE_COLUMNS)
 
-        rows.append({
-            "open_time": int(bucket),
-            "open": float(g.iloc[0]["open"]),
-            "high": float(g["high"].max()),
-            "low": float(g["low"].min()),
-            "close": float(g.iloc[-1]["close"]),
-            "volume": float(g["volume"].sum()),
-            "close_time": int(bucket) + target_ms - 1,
-        })
+    out["open_time"] = out["bucket"].astype("int64")
+    out["close_time"] = out["open_time"] + target_ms - 1
 
-    return pd.DataFrame(rows, columns=CANDLE_COLUMNS)
+    return out.loc[:, CANDLE_COLUMNS].reset_index(drop=True)

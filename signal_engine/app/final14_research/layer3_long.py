@@ -46,7 +46,20 @@ def precompute(d15):
     pc["1"].update(A14=A14,A21=A21h,R=R1,M=M1,ADX=ADX1,dip=dip1,dim=dim1,volma=volma1,K=K,D=D,C=C,ema1504=ema1504)
     return pc
 
-def entry_variants(pc):
+def _want_variant(selected_names, combo, name):
+    if selected_names is None:
+        return True
+    return name in selected_names.get(combo, set())
+
+def _want_combo(selected_names, combo):
+    return selected_names is None or combo in selected_names
+
+def entry_variants(pc, selected_names=None):
+    """Build research variants, optionally only the exact locked production names.
+
+    selected_names is a mapping like {"C1": {"MFI_L50_S50"}, "TIER": {...}}.
+    Passing None preserves the original research/backtest behavior exactly.
+    """
     d15=pc["d15"]; d1=pc["d1"]; d4=pc["d4"]; d6=pc["d6"]; p15=pc["15"]; p1=pc["1"]
     out={}
 
@@ -59,17 +72,24 @@ def entry_variants(pc):
     longc=(K>30)&(K>D)&(C>80)&(C>C.shift(1)); shortc=(K<70)&(K<D)&(C>-80)&(C<C.shift(1))
     basis=sma(d.close,20); dev=1.8*d.close.rolling(20,min_periods=20).std(ddof=0); ub=basis+dev; lb=basis-dev
     bbup=d.close>ub; bbdn=d.close<lb
-    # ATR trailing stop same as signals.py
-    trstop=1.5*p1["A14"]; x=d.close.to_numpy(float); ts=trstop.to_numpy(float); arr=np.full(len(d),np.nan)
-    for i in range(len(d)):
-        prev=arr[i-1] if i else np.nan; nz=0 if not np.isfinite(prev) else prev; prevsrc=x[i-1] if i else np.nan
-        if i and x[i]>nz and prevsrc>nz: arr[i]=max(nz,x[i]-ts[i])
-        elif i and x[i]<nz and prevsrc<nz: arr[i]=min(nz,x[i]+ts[i])
-        else: arr[i]=x[i]-ts[i] if x[i]>nz else x[i]+ts[i]
-    ats=pd.Series(arr,index=d.index)
-    above=crossover(ema(d.close,1),ats); below=crossover(ats,ema(d.close,1))
-    sar=parabolic_sar(d,0.05,0.2,0.3); bull_eng=(d.close>d.open)&(d.close.shift(1)<d.open.shift(1))&(d.close>d.open.shift(1))&(d.open<d.close.shift(1)); bear_eng=(d.close<d.open)&(d.close.shift(1)>d.open.shift(1))&(d.close<d.open.shift(1))&(d.open>d.close.shift(1))
-    stdir1=pine_custom_supertrend_dir(d,8,4.0); O=obv_variant(d); oup=O>O.shift(1); odn=O<O.shift(1)
+    # ATR trailing stop same as signals.py. Skip it for symbols where C2
+    # is not part of the locked production set.
+    if _want_combo(selected_names,"C2"):
+        trstop=1.5*p1["A14"]; x=d.close.to_numpy(float); ts=trstop.to_numpy(float); arr=np.full(len(d),np.nan)
+        for i in range(len(d)):
+            prev=arr[i-1] if i else np.nan; nz=0 if not np.isfinite(prev) else prev; prevsrc=x[i-1] if i else np.nan
+            if i and x[i]>nz and prevsrc>nz: arr[i]=max(nz,x[i]-ts[i])
+            elif i and x[i]<nz and prevsrc<nz: arr[i]=min(nz,x[i]+ts[i])
+            else: arr[i]=x[i]-ts[i] if x[i]>nz else x[i]+ts[i]
+        ats=pd.Series(arr,index=d.index)
+        above=crossover(ema(d.close,1),ats); below=crossover(ats,ema(d.close,1))
+
+    stdir1=pine_custom_supertrend_dir(d,8,4.0)
+    if _want_combo(selected_names,"C3"):
+        sar=parabolic_sar(d,0.05,0.2,0.3)
+        bull_eng=(d.close>d.open)&(d.close.shift(1)<d.open.shift(1))&(d.close>d.open.shift(1))&(d.open<d.close.shift(1))
+        bear_eng=(d.close<d.open)&(d.close.shift(1)>d.open.shift(1))&(d.close<d.open.shift(1))&(d.open>d.close.shift(1))
+        O=obv_variant(d); oup=O>O.shift(1); odn=O<O.shift(1)
     e50_6=align_confirmed(ema(d6.close,50),d.index,"6h"); tfast=ema(d.close,21); tslow=ema(d.close,42); bt=tfast>tslow; br=tfast<tslow
     std20=d.close.rolling(20,min_periods=20).std(ddof=0); bbu=sma(d.close,20)+2*std20; bbl=sma(d.close,20)-2*std20; ku=sma(d.close,20)+1.7*atr(d,20); kl=sma(d.close,20)-1.7*atr(d,20)
     breakout_b=crossover(d.close,bbu)&(d.close>ku); breakout_s=crossunder(d.close,bbl)&(d.close<kl)
@@ -88,95 +108,124 @@ def entry_variants(pc):
         (50,55,"L50_S55_SEED"),
     ]
     for lth,sth,label in c1_pairs:
+        name=f"MFI_{label}"
+        if not _want_variant(selected_names,"C1",name): continue
         L=longc&(R>55)&(hist>0)&(M>lth)&adxr&sb08&tu&volsp
         S=shortc&(R<45)&(hist<0)&(M<sth)&adxr&ss08&td&volsp
-        out.setdefault("C1",[]).append((f"MFI_{label}",edge_event(L),edge_event(S)))
+        out.setdefault("C1",[]).append((name,edge_event(L),edge_event(S)))
 
     # C2: base ADX20 and nearby; no historical entry candidate => narrow local test
     for adxth in [18,20,22,25,28]:
+        name=f"ADX_{adxth}"
+        if not _want_variant(selected_names,"C2",name): continue
         L=(d.close>ats)&above&(e10>e25)&(macd>sig)&(ADX>adxth)&bbup
         S=(d.close<ats)&below&(e10<e25)&(macd<sig)&(ADX>adxth)&bbdn
-        out.setdefault("C2",[]).append((f"ADX_{adxth}",edge_event(L),edge_event(S)))
+        out.setdefault("C2",[]).append((name,edge_event(L),edge_event(S)))
 
     # C3: ADX around base 30
     for adxth in [26,28,30,32,34]:
+        name=f"ADX_{adxth}"
+        if not _want_variant(selected_names,"C3",name): continue
         L=(stdir1==1)&(ADX>adxth)&(d.close>sar)&bull_eng&oup
         S=(stdir1==-1)&(ADX>adxth)&(d.close<sar)&bear_eng&odn
-        out.setdefault("C3",[]).append((f"ADX_{adxth}",edge_event(L),edge_event(S)))
+        out.setdefault("C3",[]).append((name,edge_event(L),edge_event(S)))
 
     # C4: prior short-data candidate ADX 26/30; include base 23 + neighbors
     for adxth in [23,26,28,30,32]:
+        name=f"ADX_{adxth}"
+        if not _want_variant(selected_names,"C4",name): continue
         L=bt&breakout_b&(d.close>e50_6)&(stdir1==1)&sb08&volsp&(ADX>adxth)
         S=br&breakout_s&(d.close<e50_6)&(stdir1==-1)&ss08&volsp&(ADX>adxth)
-        out.setdefault("C4",[]).append((f"ADX_{adxth}",edge_event(L),edge_event(S)))
+        out.setdefault("C4",[]).append((name,edge_event(L),edge_event(S)))
 
     # C6: prior candidate body >1.6 ATR vs base 1.2
     lc6=(R>30)&(K>30)&(K>D)&(C>100)&(C>C.shift(1)); sc6=(R<70)&(K<70)&(K<D)&(C>-100)&(C<C.shift(1)); adxs=(ADX>20)&adxr
     for bm in [1.0,1.2,1.4,1.6,1.8]:
+        name=f"BODY_{bm:.1f}"
+        if not _want_variant(selected_names,"C6",name): continue
         sb=(d.close>d.open)&((d.close-d.open)>A21*bm); ss=(d.close<d.open)&((d.open-d.close)>A21*bm)
-        out.setdefault("C6",[]).append((f"BODY_{bm:.1f}",edge_event(sb&breakout_b&lc6&adxs),edge_event(ss&breakout_s&sc6&adxs)))
+        out.setdefault("C6",[]).append((name,edge_event(sb&breakout_b&lc6&adxs),edge_event(ss&breakout_s&sc6&adxs)))
 
     # ----- 15m components -----
     d=d15; A=p15["A"]; R=p15["R"]; M=p15["M"]; ADX=p15["ADX"]; volSMA=p15["volSMA"]; body_ratio=p15["body_ratio"]; valid=body_ratio>0.75
-    sar15=parabolic_sar(d,0.05,0.1,0.2); ef=ema(d.close,21); es=ema(d.close,55)
+    ef=ema(d.close,21); es=ema(d.close,55)
     ema150=p15["ema150"]; ema200=p15["ema200"]; stdir15=p15["stdir"]
+    if _want_combo(selected_names,"C5"):
+        sar15=parabolic_sar(d,0.05,0.1,0.2)
     # C5 tune volume multiplier around prior 2.0 candidate
     for vm in [1.3,1.5,1.8,2.0,2.2]:
+        name=f"VOL_{vm:.1f}"
+        if not _want_variant(selected_names,"C5",name): continue
         volSpike=d.volume>volSMA*vm; adx_strong=(ADX>23)&(ADX>ADX.shift(1))
         L=(stdir15==1)&(ema150>ema200)&(ema150>ema150.shift(1))&volSpike&(R>45)&valid&adx_strong&(M>55)&(d.close>sar15)&p15["trend50"]
         S=(stdir15==-1)&volSpike&(ema150<ema200)&(ema150<ema150.shift(1))&(R<55)&valid&adx_strong&(M<55)&(d.close<sar15)&p15["trend50s"]
-        out.setdefault("C5",[]).append((f"VOL_{vm:.1f}",edge_event(L),edge_event(S)))
+        out.setdefault("C5",[]).append((name,edge_event(L),edge_event(S)))
 
     # C7 tune strong candle ATR and volSpike SMA multiplier; keep volume_surge prev*1.8
     adxr=ADX>ADX.shift(1); volume_surge=d.volume>d.volume.shift(1)*1.8; tu=d.close>p15["trend100"]; td=d.close<p15["trend100"]
     for bm,vm in itertools.product([1.3,1.5,1.6,1.8],[1.3,1.5,1.8,2.0]):
+        name=f"BODY{bm:.1f}_VOL{vm:.1f}"
+        if not _want_variant(selected_names,"C7",name): continue
         strong_b=(d.close>d.open)&((d.close-d.open)>A*bm); strong_s=(d.close<d.open)&((d.open-d.close)>A*bm)
         volsp=d.volume>volSMA*vm
         L=volume_surge&(ef>es)&tu&adxr&(ADX>25)&strong_b&volsp&valid&(R>60)&(R<85)
         S=volume_surge&(ef<es)&td&adxr&(ADX>25)&strong_s&volsp&valid&(R<40)&(R>15)
-        out.setdefault("C7",[]).append((f"BODY{bm:.1f}_VOL{vm:.1f}",edge_event(L),edge_event(S)))
+        out.setdefault("C7",[]).append((name,edge_event(L),edge_event(S)))
 
     # C8 prior candidate ADX30 vs base25
-    C8=cci(d.close,d.high,d.low,10); longc8=(C8>100)&(C8>C8.shift(1))&(d.volume>volSMA*0.8)&(d.volume>d.volume.shift(1)); shortc8=(C8<-100)&(C8<C8.shift(1))&(d.volume>volSMA*0.8)&(d.volume>d.volume.shift(1))
-    macd8=ema(d.close,12)-ema(d.close,26); sig8=ema(macd8,9); hist8=macd8-sig8; bull=(d.close>d.open)&(d.close>d.open.shift(1))&(d.open<d.close.shift(1)); bear=(d.close<d.open)&(d.close<d.open.shift(1))&(d.open>d.close.shift(1))
-    for adxth in [23,25,28,30,32,35]:
-        L=longc8&(M>70)&(ADX>adxth)&(ADX>ADX.shift(1))&bull&p15["trend50"]&(hist8>0)&valid
-        S=shortc8&(M<30)&(ADX>adxth)&(ADX>ADX.shift(1))&bear&p15["trend50s"]&(hist8<0)&valid
-        out.setdefault("C8",[]).append((f"ADX_{adxth}",edge_event(L),edge_event(S)))
+    if _want_combo(selected_names,"C8"):
+        C8=cci(d.close,d.high,d.low,10); longc8=(C8>100)&(C8>C8.shift(1))&(d.volume>volSMA*0.8)&(d.volume>d.volume.shift(1)); shortc8=(C8<-100)&(C8<C8.shift(1))&(d.volume>volSMA*0.8)&(d.volume>d.volume.shift(1))
+        macd8=ema(d.close,12)-ema(d.close,26); sig8=ema(macd8,9); hist8=macd8-sig8; bull=(d.close>d.open)&(d.close>d.open.shift(1))&(d.open<d.close.shift(1)); bear=(d.close<d.open)&(d.close<d.open.shift(1))&(d.open>d.close.shift(1))
+        for adxth in [23,25,28,30,32,35]:
+            name=f"ADX_{adxth}"
+            if not _want_variant(selected_names,"C8",name): continue
+            L=longc8&(M>70)&(ADX>adxth)&(ADX>ADX.shift(1))&bull&p15["trend50"]&(hist8>0)&valid
+            S=shortc8&(M<30)&(ADX>adxth)&(ADX>ADX.shift(1))&bear&p15["trend50s"]&(hist8<0)&valid
+            out.setdefault("C8",[]).append((name,edge_event(L),edge_event(S)))
 
     # C9 original plus corrected-short-ST branch and RSI neighborhoods
-    mid=_nadaraya(d.close,24,3.0); nr=d.close.rolling(24,min_periods=24).std(ddof=0)*2.3; upper=mid+nr; lower=mid-nr
-    for rth in [35,40,45]:
-        L=(d.close>ema200)&(R<rth)&(d.close<lower)&(stdir15==1)&(body_ratio>0.4)
-        S0=(d.close<ema200)&(R>(100-rth))&(d.close>upper)&(stdir15==1)&(body_ratio>0.4)
-        S1=(d.close<ema200)&(R>(100-rth))&(d.close>upper)&(stdir15==-1)&(body_ratio>0.4)
-        out.setdefault("C9",[]).append((f"RSI{rth}_ORIGST",edge_event(L),edge_event(S0)))
-        out.setdefault("C9",[]).append((f"RSI{rth}_FIXST",edge_event(L),edge_event(S1)))
+    if _want_combo(selected_names,"C9"):
+        mid=_nadaraya(d.close,24,3.0); nr=d.close.rolling(24,min_periods=24).std(ddof=0)*2.3; upper=mid+nr; lower=mid-nr
+        for rth in [35,40,45]:
+            name0=f"RSI{rth}_ORIGST"; name1=f"RSI{rth}_FIXST"
+            if not (_want_variant(selected_names,"C9",name0) or _want_variant(selected_names,"C9",name1)): continue
+            L=(d.close>ema200)&(R<rth)&(d.close<lower)&(stdir15==1)&(body_ratio>0.4)
+            S0=(d.close<ema200)&(R>(100-rth))&(d.close>upper)&(stdir15==1)&(body_ratio>0.4)
+            S1=(d.close<ema200)&(R>(100-rth))&(d.close>upper)&(stdir15==-1)&(body_ratio>0.4)
+            if _want_variant(selected_names,"C9",name0):
+                out.setdefault("C9",[]).append((name0,edge_event(L),edge_event(S0)))
+            if _want_variant(selected_names,"C9",name1):
+                out.setdefault("C9",[]).append((name1,edge_event(L),edge_event(S1)))
 
     # C10 ADX neighborhood
     ao=sma((d.high+d.low)/2,5)-sma((d.high+d.low)/2,34); squeeze=ema(d.close,20)-ema(d.close,50); mean=sma(d.close,20); sd=d.close.rolling(20,min_periods=20).std(ddof=0); z=(d.close-mean)/sd
     tu4=d.close>p15["trend100"]; td4=d.close<p15["trend100"]; upper_w=d.high-pd.concat([d.close,d.open],axis=1).max(axis=1); lower_w=pd.concat([d.close,d.open],axis=1).min(axis=1)-d.low; body=(d.close-d.open).abs(); bull_pin=(lower_w>body*1.5)&(d.close>d.open); bear_pin=(upper_w>body*1.5)&(d.close<d.open)
     for adxth in [18,20,22,25,28]:
+        name=f"ADX_{adxth}"
+        if not _want_variant(selected_names,"C10",name): continue
         L=(ao>0)&(squeeze>0)&(z<-1.5)&tu4&(ADX>adxth)&bull_pin
         S=(ao<0)&(squeeze<0)&(z>1.5)&td4&(ADX>adxth)&bear_pin
-        out.setdefault("C10",[]).append((f"ADX_{adxth}",edge_event(L),edge_event(S)))
+        out.setdefault("C10",[]).append((name,edge_event(L),edge_event(S)))
 
     # TIER: historical candidate around ADX26, T2=8,T3=6; local grid.
-    d=d1; dip=p1["dip"]; dim=p1["dim"]; ADX=p1["ADX"]; R=p1["R"]; M=p1["M"]; A20=atr(d,20)
-    e50=align_confirmed(ema(d4.close,50),d.index,"4h"); e150=align_confirmed(ema(d4.close,150),d.index,"4h"); e200=align_confirmed(ema(d4.close,200),d.index,"4h"); V=session_vwap(d); macd=ema(d.close,12)-ema(d.close,26); sig=ema(macd,9); hist=macd-sig; C9=cci(d.close,d.high,d.low,9); K14=stochastic(d.close,d.high,d.low,14); D14=sma(K14,3); e9=ema(d.close,9); e21=ema(d.close,21); sup=sma(d.close,8)+2*A20; strong=(d.close-d.open).abs()>A20*0.8
-    sd=d.close.rolling(20,min_periods=20).std(ddof=0); z=(d.close-sma(d.close,20))/sd; ao=ema(d.close,5)-ema(d.close,34); sq=ema(d.close,20)-ema(d.close,50); rav=sma(R,14); stdt=pine_custom_supertrend_dir(d,8,4.0); pcL=d.close>d.close.rolling(20,min_periods=20).max().shift(1); pcS=d.close<d.close.rolling(20,min_periods=20).min().shift(1)
-    for adxth,t2,t3,vm in itertools.product([23,25,26,28,30],[7,8,9],[5,6,7],[1.3,1.5,1.8]):
-        vs=d.volume>sma(d.volume,20)*vm; tdL=(dip>dim)&(dip>22); tdS=(dip<dim)&(dim>22); trL=(e50>e200)&tdL&(d.close>V)&(e50>e50.shift(1)); trS=(e50<e200)&tdS&(d.close<V)&(e50<e50.shift(1)); t1L=trL&vs&(ADX>adxth); t1S=trS&vs&(ADX>adxth)
-        s2L=(hist>0)*2+(e150>e200)*2+(C9>100)*1+(R>50)*1+(d.close>sup)*1+crossover(K14,D14)*0.5+(d.close>e21)*1+(strong&(d.close>d.open))*1
-        s2S=(hist<0)*2+(e150<e200)*2+(C9<-100)*1+(R<50)*1+(d.close<sup)*1+crossunder(K14,D14)*0.5+(d.close<e21)*1+(strong&(d.close<d.open))*1
-        s2L=s2L+(M>55)*1+(A20>A20.shift(1))*1+(e9>e21)*1+((C9>C9.shift(1))&(C9>100))*1+((K14>K14.shift(1))&(K14>50))*1
-        s2S=s2S+(M<45)*1+(A20>A20.shift(1))*1+(e9<e21)*1+((C9<C9.shift(1))&(C9<-100))*1+((K14<K14.shift(1))&(K14<50))*1
-        s3L=(z<-1.5)*1+(ao>0)*1+(sq>0)*1+(R>rav)*1+(e9>e21)*1+(hist>0)*1+(stdt==1)*1
-        s3S=(z>1.5)*1+(ao<0)*1+(sq<0)*1+(R<rav)*1+(e9<e21)*1+(hist<0)*1+(stdt==-1)*1
-        vma=sma(d.volume,20); vsp=d.volume>vma*vm; mrL=(M>60)&(M>M.shift(1))&vsp; mrS=(M<40)&(M<M.shift(1))&vsp
-        s3L=s3L+pcL*1+mrL*1+(R>50)*1+vsp*1; s3S=s3S+pcS*1+mrS*1+(R<50)*1+vsp*1
-        L=t1L&(s2L>=t2)&(s3L>=t3); S=t1S&(s2S>=t2)&(s3S>=t3)
-        out.setdefault("TIER",[]).append((f"ADX{adxth}_T2{t2}_T3{t3}_V{vm:.1f}",edge_event(L),edge_event(S)))
+    if _want_combo(selected_names,"TIER"):
+        d=d1; dip=p1["dip"]; dim=p1["dim"]; ADX=p1["ADX"]; R=p1["R"]; M=p1["M"]; A20=atr(d,20)
+        e50=align_confirmed(ema(d4.close,50),d.index,"4h"); e150=align_confirmed(ema(d4.close,150),d.index,"4h"); e200=align_confirmed(ema(d4.close,200),d.index,"4h"); V=session_vwap(d); macd=ema(d.close,12)-ema(d.close,26); sig=ema(macd,9); hist=macd-sig; C9=cci(d.close,d.high,d.low,9); K14=stochastic(d.close,d.high,d.low,14); D14=sma(K14,3); e9=ema(d.close,9); e21=ema(d.close,21); sup=sma(d.close,8)+2*A20; strong=(d.close-d.open).abs()>A20*0.8
+        sd=d.close.rolling(20,min_periods=20).std(ddof=0); z=(d.close-sma(d.close,20))/sd; ao=ema(d.close,5)-ema(d.close,34); sq=ema(d.close,20)-ema(d.close,50); rav=sma(R,14); stdt=pine_custom_supertrend_dir(d,8,4.0); pcL=d.close>d.close.rolling(20,min_periods=20).max().shift(1); pcS=d.close<d.close.rolling(20,min_periods=20).min().shift(1)
+        for adxth,t2,t3,vm in itertools.product([23,25,26,28,30],[7,8,9],[5,6,7],[1.3,1.5,1.8]):
+            name=f"ADX{adxth}_T2{t2}_T3{t3}_V{vm:.1f}"
+            if not _want_variant(selected_names,"TIER",name): continue
+            vs=d.volume>sma(d.volume,20)*vm; tdL=(dip>dim)&(dip>22); tdS=(dip<dim)&(dim>22); trL=(e50>e200)&tdL&(d.close>V)&(e50>e50.shift(1)); trS=(e50<e200)&tdS&(d.close<V)&(e50<e50.shift(1)); t1L=trL&vs&(ADX>adxth); t1S=trS&vs&(ADX>adxth)
+            s2L=(hist>0)*2+(e150>e200)*2+(C9>100)*1+(R>50)*1+(d.close>sup)*1+crossover(K14,D14)*0.5+(d.close>e21)*1+(strong&(d.close>d.open))*1
+            s2S=(hist<0)*2+(e150<e200)*2+(C9<-100)*1+(R<50)*1+(d.close<sup)*1+crossunder(K14,D14)*0.5+(d.close<e21)*1+(strong&(d.close<d.open))*1
+            s2L=s2L+(M>55)*1+(A20>A20.shift(1))*1+(e9>e21)*1+((C9>C9.shift(1))&(C9>100))*1+((K14>K14.shift(1))&(K14>50))*1
+            s2S=s2S+(M<45)*1+(A20>A20.shift(1))*1+(e9<e21)*1+((C9<C9.shift(1))&(C9<-100))*1+((K14<K14.shift(1))&(K14<50))*1
+            s3L=(z<-1.5)*1+(ao>0)*1+(sq>0)*1+(R>rav)*1+(e9>e21)*1+(hist>0)*1+(stdt==1)*1
+            s3S=(z>1.5)*1+(ao<0)*1+(sq<0)*1+(R<rav)*1+(e9<e21)*1+(hist<0)*1+(stdt==-1)*1
+            vma=sma(d.volume,20); vsp=d.volume>vma*vm; mrL=(M>60)&(M>M.shift(1))&vsp; mrS=(M<40)&(M<M.shift(1))&vsp
+            s3L=s3L+pcL*1+mrL*1+(R>50)*1+vsp*1; s3S=s3S+pcS*1+mrS*1+(R<50)*1+vsp*1
+            L=t1L&(s2L>=t2)&(s3L>=t3); S=t1S&(s2S>=t2)&(s3S>=t3)
+            out.setdefault("TIER",[]).append((name,edge_event(L),edge_event(S)))
     return out
 
 def load_lock(path):
