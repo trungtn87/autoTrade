@@ -42,16 +42,7 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 log = logging.getLogger("autotrade")
 
 market = BingXMarketClient(base_url=settings.bingx_base_url, api_key=settings.bingx_api_key, api_secret=settings.bingx_api_secret)
-state = SignalState(
-    settings.state_db,
-    settings.database_url,
-    settings.database_host,
-    settings.database_port,
-    settings.database_name,
-    settings.database_user,
-    settings.database_password,
-    settings.database_sslmode,
-)
+state = SignalState(settings.state_db, settings.database_url)
 executor = Final14Executor(settings)
 scan_lock = threading.Lock()
 scheduler: BackgroundScheduler | None = None
