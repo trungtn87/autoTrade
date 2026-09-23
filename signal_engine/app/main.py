@@ -42,9 +42,49 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 log = logging.getLogger("autotrade")
 
-market = BingXMarketClient(base_url=settings.bingx_base_url, api_key=settings.bingx_api_key, api_secret=settings.bingx_api_secret)
 state = SignalState(settings.state_db, settings.database_url)
-executor = Final14Executor(settings)
+
+
+def _record_bingx_api_error(
+    *,
+    source: str,
+    endpoint: str,
+    params: dict,
+    code,
+    message: str,
+    retry_at_ms: int | None = None,
+) -> None:
+    """Persist safe BingX diagnostics without changing request/strategy behavior."""
+    symbol = str((params or {}).get("symbol") or "")
+    state.record_bingx_api_error(
+        source=source,
+        endpoint=endpoint,
+        symbol=symbol,
+        code=code,
+        message=message,
+        retry_at_ms=retry_at_ms,
+    )
+    if str(code) == "109429":
+        diag = state.bingx_api_error_summary(window_ms=15 * 60 * 1000)
+        by_source = diag.get("109425_by_source") or {}
+        log.error(
+            "BINGX_109429_DIAG local_109425_15m=%s market_109425_15m=%s "
+            "executor_109425_15m=%s total_local_errors_15m=%s recent_109425=%s",
+            diag.get("109425_count", 0),
+            by_source.get("market", 0),
+            by_source.get("executor", 0),
+            diag.get("total_errors", 0),
+            json.dumps(diag.get("recent_109425", []), ensure_ascii=False)[:1200],
+        )
+
+
+market = BingXMarketClient(
+    base_url=settings.bingx_base_url,
+    api_key=settings.bingx_api_key,
+    api_secret=settings.bingx_api_secret,
+    error_recorder=_record_bingx_api_error,
+)
+executor = Final14Executor(settings, api_error_recorder=_record_bingx_api_error)
 scan_lock = threading.Lock()
 scheduler: BackgroundScheduler | None = None
 last_scan_summary: dict = {"status": "not_run"}
@@ -682,6 +722,10 @@ def run_scan(execute: bool = True) -> dict:
                 summary["status"] = "partial_error"
                 summary["symbols"][symbol] = {"error": str(exc)}
                 if isinstance(exc, BingXApiError):
+                    if str(exc.code) in {"109425", "109429"}:
+                        summary["bingx_api_error_diag_15m"] = state.bingx_api_error_summary(
+                            window_ms=15 * 60 * 1000
+                        )
                     blocked_until = max(
                         int(exc.retry_at_ms or 0),
                         int(market.blocked_until_ms),
@@ -732,7 +776,7 @@ def _run_one_shot_btc_buy_test() -> None:
     symbol = "BTC-USDT"
     side = "BUY"
     test_settings = replace(settings, order_margin_usdt=1.0, leverage=100)
-    test_executor = Executor(test_settings)
+    test_executor = Executor(test_settings, api_error_recorder=_record_bingx_api_error)
 
     try:
         cooldown_ms = max(
@@ -854,7 +898,7 @@ def _run_one_shot_eth_buy_test() -> None:
     symbol = "ETH-USDT"
     side = "BUY"
     test_settings = replace(settings, order_margin_usdt=1.0, leverage=100)
-    test_executor = Executor(test_settings)
+    test_executor = Executor(test_settings, api_error_recorder=_record_bingx_api_error)
 
     try:
         cooldown_ms = max(
@@ -1213,6 +1257,9 @@ def engine_status():
         "bingx_blocked_until_ms": _effective_bingx_blocked_until_ms(),
         "bingx_cooldown_remaining_ms": max(
             0, _effective_bingx_blocked_until_ms() - int(time.time() * 1000)
+        ),
+        "bingx_api_error_diag_15m": state.bingx_api_error_summary(
+            window_ms=15 * 60 * 1000
         ),
     }
 
