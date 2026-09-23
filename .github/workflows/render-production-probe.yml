@@ -33,4 +33,7 @@ jobs:
           grep -q '"engine":"BingX FINAL14 RR Hard-TP Autotrade Engine"' health.json
           curl -fsS --connect-timeout 10 --max-time 30 "$BASE/openapi.json" -o openapi.json
           grep -q '"/state-export"' openapi.json
+          echo "----- STATUS -----"
+          curl -fsS --connect-timeout 10 --max-time 30 "$BASE/status"
+          echo
           echo "RENDER_PROBE_PASS"
