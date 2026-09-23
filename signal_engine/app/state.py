@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import sqlite3
 import threading
@@ -7,6 +8,10 @@ import time
 from pathlib import Path
 
 log = logging.getLogger("app.state")
+
+BINGX_ERROR_LEDGER_KEY = "bingx_api_error_ledger_v1"
+BINGX_ERROR_LEDGER_KEEP_MS = 24 * 60 * 60 * 1000
+BINGX_ERROR_LEDGER_MAX = 500
 
 
 class SignalState:
@@ -212,6 +217,136 @@ class SignalState:
                 (key, str(value)),
             )
             con.commit()
+
+    def record_bingx_api_error(
+        self,
+        source: str,
+        endpoint: str,
+        symbol: str,
+        code,
+        message: str,
+        retry_at_ms: int | None = None,
+        at_ms: int | None = None,
+    ) -> dict:
+        """Persist a bounded BingX API error ledger inside runtime_state.
+
+        This deliberately reuses the existing runtime_state table so production
+        needs no schema migration and no additional CREATE privilege.
+        """
+        now_ms = int(at_ms if at_ms is not None else time.time() * 1000)
+        record = {
+            "at_ms": now_ms,
+            "source": str(source or "unknown"),
+            "endpoint": str(endpoint or ""),
+            "symbol": str(symbol or ""),
+            "code": str(code),
+            "message": str(message or "")[:800],
+            "retry_at_ms": int(retry_at_ms or 0),
+        }
+        cutoff = now_ms - BINGX_ERROR_LEDGER_KEEP_MS
+
+        with self._lock, self._connect() as con:
+            cur = con.cursor()
+            cur.execute(
+                self._sql("SELECT value FROM runtime_state WHERE key = ?"),
+                (BINGX_ERROR_LEDGER_KEY,),
+            )
+            row = cur.fetchone()
+            try:
+                ledger = json.loads(str(row[0])) if row and row[0] else []
+            except Exception:
+                ledger = []
+            if not isinstance(ledger, list):
+                ledger = []
+
+            kept = []
+            for item in ledger:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    item_at = int(item.get("at_ms") or 0)
+                except Exception:
+                    item_at = 0
+                if item_at >= cutoff:
+                    kept.append(item)
+
+            kept.append(record)
+            kept = kept[-BINGX_ERROR_LEDGER_MAX:]
+            payload = json.dumps(kept, ensure_ascii=False, separators=(",", ":"))
+            cur.execute(
+                self._sql(
+                    """
+                    INSERT INTO runtime_state(key, value, updated_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(key) DO UPDATE SET
+                        value=excluded.value,
+                        updated_at=CURRENT_TIMESTAMP
+                    """
+                ),
+                (BINGX_ERROR_LEDGER_KEY, payload),
+            )
+            con.commit()
+        return record
+
+    def bingx_api_error_summary(
+        self,
+        window_ms: int = 15 * 60 * 1000,
+        now_ms: int | None = None,
+    ) -> dict:
+        """Return a safe diagnostic summary for recent BingX API failures."""
+        now = int(now_ms if now_ms is not None else time.time() * 1000)
+        cutoff = now - max(1, int(window_ms))
+
+        with self._lock, self._connect() as con:
+            cur = con.cursor()
+            cur.execute(
+                self._sql("SELECT value FROM runtime_state WHERE key = ?"),
+                (BINGX_ERROR_LEDGER_KEY,),
+            )
+            row = cur.fetchone()
+
+        try:
+            ledger = json.loads(str(row[0])) if row and row[0] else []
+        except Exception:
+            ledger = []
+        if not isinstance(ledger, list):
+            ledger = []
+
+        recent = []
+        for item in ledger:
+            if not isinstance(item, dict):
+                continue
+            try:
+                item_at = int(item.get("at_ms") or 0)
+            except Exception:
+                item_at = 0
+            if item_at >= cutoff:
+                recent.append(item)
+
+        code_counts: dict[str, int] = {}
+        source_counts_109425: dict[str, int] = {}
+        recent_109425 = []
+        for item in recent:
+            code = str(item.get("code") or "")
+            source = str(item.get("source") or "unknown")
+            code_counts[code] = code_counts.get(code, 0) + 1
+            if code == "109425":
+                source_counts_109425[source] = source_counts_109425.get(source, 0) + 1
+                recent_109425.append({
+                    "at_ms": int(item.get("at_ms") or 0),
+                    "source": source,
+                    "endpoint": str(item.get("endpoint") or ""),
+                    "symbol": str(item.get("symbol") or ""),
+                })
+
+        return {
+            "window_ms": int(window_ms),
+            "total_errors": len(recent),
+            "code_counts": code_counts,
+            "109425_count": int(code_counts.get("109425", 0)),
+            "109425_by_source": source_counts_109425,
+            "recent_109425": recent_109425[-20:],
+        }
 
     def upsert_candles(self, symbol: str, timeframe: str, df) -> int:
         if df is None or len(df) == 0:
