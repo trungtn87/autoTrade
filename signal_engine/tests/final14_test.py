@@ -6,7 +6,24 @@ from types import SimpleNamespace
 from app.final14_config import FINAL14_CASES, DISABLED_CASES, enabled_combos, get_case
 from app.final14_executor import Final14Executor
 from app.final14_exact_strategy import hard_tp_sl, _layer2_requirements
+from app.final14_positions import claim_case, is_case_active, refresh_symbol, register_execution, snapshot
 from app.strategy import Signal
+
+
+class FakeState:
+    def __init__(self):
+        self.values={}
+
+    def get_runtime_value(self,key,default=""):
+        return self.values.get(key,default)
+
+    def set_runtime_value(self,key,value):
+        self.values[key]=str(value)
+
+
+class EmptyPositionsExecutor:
+    def _positions(self,symbol):
+        return []
 
 
 class FakeFinal14Executor(Final14Executor):
@@ -94,6 +111,47 @@ def test_locked_risk_percentages_are_not_double_scaled():
             assert abs(sl_short-(100.0*(1.0+cfg["sl_pct"]))) < 1e-12, (symbol,combo)
 
 
+def test_entry_claim_is_fail_closed_until_confirmed():
+    st=FakeState()
+    sig=Signal(
+        symbol="BTC-USDT",combo=1,side="BUY",timeframe="1h",
+        close_time=123456789,entry=100.0,tp=102.0,sl=99.2,smc_dir=1,
+    )
+
+    assert is_case_active(st,sig.symbol,sig.combo) is False
+    first=claim_case(st,sig)
+    assert first["lifecycle"]=="CLAIMED"
+    assert is_case_active(st,sig.symbol,sig.combo) is True
+
+    # Re-claiming is idempotent and must not duplicate state.
+    second=claim_case(st,sig)
+    assert second["event_id"]==sig.event_id
+    assert len(snapshot(st))==1
+
+    # A reconciliation pass with no visible BingX position must NOT remove an
+    # unresolved pre-submit claim. Unknown is fail-closed, not "closed".
+    refreshed=refresh_symbol(st,EmptyPositionsExecutor(),sig.symbol)
+    assert refreshed["active"]==1
+    assert refreshed["closed"]==[]
+    assert is_case_active(st,sig.symbol,sig.combo) is True
+
+    # Once fill is confirmed, the claim is replaced by one FILLED record.
+    register_execution(st,sig,{
+        "order_id":"o1",
+        "position_id":"p1",
+        "avg_price":100.0,
+        "executed_qty":1.0,
+        "tp":102.0,
+        "sl":99.2,
+        "rr":2.5,
+    })
+    rows=snapshot(st)
+    assert len(rows)==1
+    assert rows[0]["lifecycle"]=="FILLED"
+    assert rows[0]["position_id"]=="p1"
+    assert rows[0]["event_id"]==sig.event_id
+
+
 def test_attached_hard_tp_sl():
     ex=FakeFinal14Executor()
     sig=Signal(
@@ -128,5 +186,6 @@ if __name__=="__main__":
     test_config()
     test_layer2_runtime_requirements()
     test_locked_risk_percentages_are_not_double_scaled()
+    test_entry_claim_is_fail_closed_until_confirmed()
     test_attached_hard_tp_sl()
     print("FINAL14 unit tests PASS")
