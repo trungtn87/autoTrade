@@ -103,3 +103,11 @@ jobs:
           python signal_engine/tests/final14_fast_variant_parity.py \
             --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
             --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl
+
+      - name: Optimized live scan benchmark
+        env:
+          PYTHONPATH: signal_engine
+        run: |
+          python signal_engine/tests/final14_scan_benchmark.py \
+            --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl
