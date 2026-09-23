@@ -19,9 +19,8 @@ from .config import Settings, safe_config_snapshot, validate_settings
 from .executor import Executor
 from .discord_diag import install_discord_log_handler, send_discord_scan_summary, send_discord_startup_test
 from .state import SignalState
-from .strategy import scan_latest, strategy_static_snapshot
+from .final14_exact_strategy import combo_readiness, scan_latest, strategy_static_snapshot
 from .self_test import run_self_test
-from .timeframes import aggregate_15m
 
 settings = Settings()
 logging.basicConfig(
@@ -156,7 +155,7 @@ def fetch_bundle(symbol: str):
     now_ms = int(time.time() * 1000)
     cached_count = state.candle_count(symbol, "15m")
     bootstrap = cached_count == 0
-    target = max(2600, int(settings.bootstrap_limit_15m))
+    target = max(3400, int(settings.bootstrap_limit_15m))
 
     # Always refresh the latest closed candle first. This keeps live data current
     # even while the historical warmup is still being filled.
@@ -253,23 +252,12 @@ def fetch_bundle(symbol: str):
         validation.get("latest_close"),
     )
 
-    h1 = aggregate_15m(m15, 60)
-    h4 = aggregate_15m(m15, 240)
-    h6 = aggregate_15m(m15, 360)
-
     log.info(
-        "DERIVED symbol=%s 15m=%s 1h=%s 4h=%s 6h=%s elapsed_ms=%s",
-        symbol, len(m15), len(h1), len(h4), len(h6),
-        round((time.monotonic() - started) * 1000, 1),
+        "FETCH_READY symbol=%s 15m=%s elapsed_ms=%s",
+        symbol, len(m15), round((time.monotonic() - started) * 1000, 1),
     )
 
-    if min(len(m15), len(h1), len(h4), len(h6)) == 0:
-        raise RuntimeError(
-            f"Warmup incomplete for {symbol}: "
-            f"15m={len(m15)} 1h={len(h1)} 4h={len(h4)} 6h={len(h6)}"
-        )
-
-    return now_ms, m15, h1, h4, h6, bootstrap, validation
+    return now_ms, m15, bootstrap, validation
 
 
 def run_scan(execute: bool = True) -> dict:
@@ -289,21 +277,21 @@ def run_scan(execute: bool = True) -> dict:
             symbol_started = time.monotonic()
             try:
                 log.info("SYMBOL_SCAN_START symbol=%s execute=%s", symbol, execute)
-                now_ms, m15, h1, h4, h6, bootstrap, data_validation = fetch_bundle(symbol)
-                calc_started = time.monotonic()
-                signals = scan_latest(
-                    symbol=symbol,
-                    m15=m15,
-                    h1=h1,
-                    h4=h4,
-                    h6=h6,
-                    smc_mode=settings.smc_mode,
-                    smc_swing_len=settings.smc_swing_len,
-                    smc_confluence=settings.smc_confluence,
-                    sl_pct=settings.sl_pct,
-                    tp_pct=settings.tp_pct,
-                    include_1h=True,
+                now_ms, m15, bootstrap, data_validation = fetch_bundle(symbol)
+                readiness = combo_readiness(m15, symbol=symbol)
+                ready_combos = sorted(
+                    combo for combo, item in readiness.items() if item.get("ready")
                 )
+                skipped_combos = sorted(
+                    combo for combo, item in readiness.items() if not item.get("ready")
+                )
+                log.info(
+                    "COMBO_READINESS symbol=%s ready=%s skipped=%s 15m=%s",
+                    symbol, ready_combos, skipped_combos, len(m15),
+                )
+
+                calc_started = time.monotonic()
+                signals = scan_latest(symbol=symbol, m15=m15)
                 calc_ms = round((time.monotonic() - calc_started) * 1000, 1)
                 log.info(
                     "SIGNAL_CALC symbol=%s signals=%s calc_ms=%s ids=%s",
@@ -312,15 +300,15 @@ def run_scan(execute: bool = True) -> dict:
                 symbol_result = {
                     "server_time": now_ms,
                     "latest_15m_close": int(m15.iloc[-1]["close_time"]),
-                    "latest_1h_close": int(h1.iloc[-1]["close_time"]),
                     "market_source": "bingx_15m_only",
                     "state_backend": state.backend,
                     "bootstrap": bootstrap,
                     "data_validation": data_validation,
                     "cached_15m": len(m15),
-                    "derived_1h": len(h1),
-                    "derived_4h": len(h4),
-                    "derived_6h": len(h6),
+                    "combo_readiness": {
+                        "ready": ready_combos,
+                        "skipped": skipped_combos,
+                    },
                     "signals": [],
                 }
                 for sig in signals:
@@ -342,11 +330,7 @@ def run_scan(execute: bool = True) -> dict:
                         )
                         continue
 
-                    expected_close = (
-                        int(m15.iloc[-1]["close_time"])
-                        if sig.timeframe == "15m"
-                        else int(h1.iloc[-1]["close_time"])
-                    )
+                    expected_close = int(m15.iloc[-1]["close_time"])
                     if sig.close_time != expected_close:
                         item["action"] = "rejected_stale_signal"
                         item["expected_close_time"] = expected_close
@@ -361,6 +345,18 @@ def run_scan(execute: bool = True) -> dict:
                         item["action"] = "preview"
                         symbol_result["signals"].append(item)
                         continue
+
+                    # Rebuild stage: calculate FINAL14 signals only. No BingX
+                    # trade endpoint is called until execution is added back as
+                    # a separate, tested layer.
+                    item["action"] = "calculation_only"
+                    item["reason"] = "FINAL14 calculation stage; order execution disabled"
+                    symbol_result["signals"].append(item)
+                    log.info(
+                        "FINAL14_CALC_ONLY symbol=%s combo=%s side=%s tf=%s event_id=%s",
+                        sig.symbol, sig.combo, sig.side, sig.timeframe, sig.event_id,
+                    )
+                    continue
 
                     discord_result = None
                     discord_state_key = f"discord:{sig.symbol}"
