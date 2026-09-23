@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 import threading
 import time
 
@@ -26,6 +27,7 @@ settings = Settings()
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
     format="%(asctime)s %(levelname)s %(name)s | %(message)s",
+    stream=sys.stdout,
 )
 # httpx/httpcore INFO records include the full request URL, which may contain
 # Discord/order webhook secrets. Keep only warnings/errors from these libraries.
