@@ -2,7 +2,7 @@ name: FINAL14 Production CI
 
 on:
   push:
-    branches: [final14-hardtp-production, signal-engine-v1, final14-seed-discord-fix-20260923]
+    branches: [final14-hardtp-production, signal-engine-v1, final14-seed-discord-fix-20260923, final14-production-fastpath]
     paths:
       - 'signal_engine/**'
       - '.github/workflows/final14-production-ci.yml'
@@ -88,5 +88,13 @@ jobs:
           PYTHONPATH: signal_engine
         run: |
           python signal_engine/tests/final14_warmup_parity.py \
+            --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl
+
+      - name: Selected variant fast-path parity and benchmark
+        env:
+          PYTHONPATH: signal_engine
+        run: |
+          python signal_engine/tests/final14_fast_variant_parity.py \
             --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
             --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl
