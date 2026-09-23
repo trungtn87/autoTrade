@@ -27,23 +27,37 @@ def _nadaraya(close,length=24,smooth=3.0):
         w=np.exp(-((i/length*smooth)**2)); num=num+close.shift(i)*w; denom+=w
     return num/denom
 
-def precompute(d15):
+def precompute(d15, selected_names=None):
     d15=ensure_dt(d15); d1=resample_ohlcv(d15,"1h"); d4=resample_ohlcv(d15,"4h"); d6=resample_ohlcv(d15,"6h")
     pc={"15":{},"1":{},"d15":d15,"d1":d1,"d4":d4,"d6":d6}
     # 15m shared
     d=d15; h4=d4
-    A=atr(d,14); A21=atr(d,21); R=rsi(d.close,14); M=mfi(d,14); dip,dim,ADX=dmi(d,14,14)
+    A=atr(d,14); R=rsi(d.close,14); M=mfi(d,14); dip,dim,ADX=dmi(d,14,14)
     volSMA=sma(d.volume,20); body=(d.close-d.open).abs(); rng=d.high-d.low; body_ratio=body/rng.replace(0,np.nan)
-    ema150=ema(d.close,150); ema200=ema(d.close,200); stdir=pine_combo15_supertrend_dir(d)
-    trend50=d.close>align_confirmed(ema(h4.close,50),d.index,"4h"); trend50s=d.close<align_confirmed(ema(h4.close,50),d.index,"4h")
     trend100=align_confirmed(ema(h4.close,100),d.index,"4h")
-    pc["15"].update(A=A,A21=A21,R=R,M=M,ADX=ADX,volSMA=volSMA,body=body,body_ratio=body_ratio,ema150=ema150,ema200=ema200,stdir=stdir,trend50=trend50,trend50s=trend50s,trend100=trend100)
+    pc["15"].update(A=A,R=R,M=M,ADX=ADX,volSMA=volSMA,body_ratio=body_ratio,trend100=trend100)
+
+    want_c5 = selected_names is None or "C5" in selected_names
+    want_c8 = selected_names is None or "C8" in selected_names
+    want_c9 = selected_names is None or "C9" in selected_names
+    if want_c5:
+        pc["15"]["ema150"]=ema(d.close,150)
+    if want_c5 or want_c9:
+        pc["15"]["ema200"]=ema(d.close,200)
+        pc["15"]["stdir"]=pine_combo15_supertrend_dir(d)
+    if want_c5 or want_c8:
+        ema50_4h=align_confirmed(ema(h4.close,50),d.index,"4h")
+        pc["15"]["trend50"]=d.close>ema50_4h
+        pc["15"]["trend50s"]=d.close<ema50_4h
+
     # 1h shared
     d=d1; h4=d4; h6=d6
-    A14=atr(d,14); A21h=atr(d,21); R1=rsi(d.close,14); M1=mfi(d,14); dip1,dim1,ADX1=dmi(d,14,14)
+    A21h=atr(d,21); R1=rsi(d.close,14); M1=mfi(d,14); dip1,dim1,ADX1=dmi(d,14,14)
     volma1=sma(d.volume,20); K=stochastic(d.close,d.high,d.low,11); D=sma(K,3); C=cci(d.close,d.high,d.low,9)
     ema1504=align_confirmed(ema(h4.close,150),d.index,"4h")
-    pc["1"].update(A14=A14,A21=A21h,R=R1,M=M1,ADX=ADX1,dip=dip1,dim=dim1,volma=volma1,K=K,D=D,C=C,ema1504=ema1504)
+    pc["1"].update(A21=A21h,R=R1,M=M1,ADX=ADX1,dip=dip1,dim=dim1,volma=volma1,K=K,D=D,C=C,ema1504=ema1504)
+    if selected_names is None or "C2" in selected_names:
+        pc["1"]["A14"]=atr(d,14)
     return pc
 
 def _want_variant(selected_names, combo, name):
@@ -65,16 +79,16 @@ def entry_variants(pc, selected_names=None):
 
     # ----- 1H base components -----
     d=d1; A21=p1["A21"]; R=p1["R"]; M=p1["M"]; ADX=p1["ADX"]; K=p1["K"]; D=p1["D"]; C=p1["C"]
-    e10=ema(d.close,10); e25=ema(d.close,25); macd=ema(d.close,8)-ema(d.close,21); sig=ema(macd,9); hist=macd-sig
+    macd=ema(d.close,8)-ema(d.close,21); sig=ema(macd,9); hist=macd-sig
     volma=p1["volma"]; volsp=d.volume>volma*1.5; adxr=ADX>ADX.shift(1)
     sb08=(d.close>d.open)&((d.close-d.open)>A21*0.8); ss08=(d.close<d.open)&((d.open-d.close)>A21*0.8)
     tu=d.close>p1["ema1504"]; td=d.close<p1["ema1504"]
     longc=(K>30)&(K>D)&(C>80)&(C>C.shift(1)); shortc=(K<70)&(K<D)&(C>-80)&(C<C.shift(1))
-    basis=sma(d.close,20); dev=1.8*d.close.rolling(20,min_periods=20).std(ddof=0); ub=basis+dev; lb=basis-dev
-    bbup=d.close>ub; bbdn=d.close<lb
-    # ATR trailing stop same as signals.py. Skip it for symbols where C2
-    # is not part of the locked production set.
+    # ATR trailing stop/Bollinger components are C2-only.
     if _want_combo(selected_names,"C2"):
+        e10=ema(d.close,10); e25=ema(d.close,25)
+        basis=sma(d.close,20); dev=1.8*d.close.rolling(20,min_periods=20).std(ddof=0); ub=basis+dev; lb=basis-dev
+        bbup=d.close>ub; bbdn=d.close<lb
         trstop=1.5*p1["A14"]; x=d.close.to_numpy(float); ts=trstop.to_numpy(float); arr=np.full(len(d),np.nan)
         for i in range(len(d)):
             prev=arr[i-1] if i else np.nan; nz=0 if not np.isfinite(prev) else prev; prevsrc=x[i-1] if i else np.nan
@@ -149,8 +163,8 @@ def entry_variants(pc, selected_names=None):
     # ----- 15m components -----
     d=d15; A=p15["A"]; R=p15["R"]; M=p15["M"]; ADX=p15["ADX"]; volSMA=p15["volSMA"]; body_ratio=p15["body_ratio"]; valid=body_ratio>0.75
     ef=ema(d.close,21); es=ema(d.close,55)
-    ema150=p15["ema150"]; ema200=p15["ema200"]; stdir15=p15["stdir"]
     if _want_combo(selected_names,"C5"):
+        ema150=p15["ema150"]; ema200=p15["ema200"]; stdir15=p15["stdir"]
         sar15=parabolic_sar(d,0.05,0.1,0.2)
     # C5 tune volume multiplier around prior 2.0 candidate
     for vm in [1.3,1.5,1.8,2.0,2.2]:
@@ -185,6 +199,7 @@ def entry_variants(pc, selected_names=None):
 
     # C9 original plus corrected-short-ST branch and RSI neighborhoods
     if _want_combo(selected_names,"C9"):
+        ema200=p15["ema200"]; stdir15=p15["stdir"]
         mid=_nadaraya(d.close,24,3.0); nr=d.close.rolling(24,min_periods=24).std(ddof=0)*2.3; upper=mid+nr; lower=mid-nr
         for rth in [35,40,45]:
             name0=f"RSI{rth}_ORIGST"; name1=f"RSI{rth}_FIXST"
