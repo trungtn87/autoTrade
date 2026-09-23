@@ -47,10 +47,11 @@ def execution_prices(signal: Signal, settings: Settings) -> tuple[float, float, 
 
 
 class Executor:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, api_error_recorder=None):
         self.settings = settings
         self.client = httpx.Client(timeout=20.0)
         self._contract_cache: dict[str, dict] = {}
+        self.api_error_recorder = api_error_recorder
 
     def targets(self) -> list[tuple[str, str, float]]:
         """One live BingX account using the configured API credentials directly."""
@@ -374,6 +375,25 @@ class Executor:
         code = body.get("code") if isinstance(body, dict) else None
         if code not in (None, 0, "0"):
             msg = body.get("msg", "") if isinstance(body, dict) else ""
+            if callable(self.api_error_recorder):
+                try:
+                    safe_params = {
+                        k: v for k, v in params.items()
+                        if k not in {"timestamp", "recvWindow"}
+                    }
+                    self.api_error_recorder(
+                        source="executor",
+                        endpoint=path,
+                        params=safe_params,
+                        code=code,
+                        message=str(msg),
+                        retry_at_ms=None,
+                    )
+                except Exception as diag_exc:
+                    log.error(
+                        "BINGX_DIAG_RECORD_FAILED source=executor path=%s code=%s error=%s",
+                        path, code, diag_exc,
+                    )
             raise RuntimeError(
                 f"BingX trade error {code}: {msg} | endpoint={path}"
             )
