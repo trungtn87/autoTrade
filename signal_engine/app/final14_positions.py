@@ -35,6 +35,46 @@ def is_case_active(state,symbol:str,combo:int)->bool:
     return any(x.get("case_id")==cid for x in _load(state))
 
 
+def claim_case(state,signal)->dict:
+    """Persist a fail-closed combo claim before any live entry submission.
+
+    A claim is intentionally treated as active even before BingX returns an
+    orderId. It is replaced by register_execution() only after a fill is
+    confirmed. Until explicit recovery proves that no entry exists, the claim
+    remains and suppresses later signals for the same symbol+combo.
+    """
+    cid=case_id(signal.symbol,signal.combo)
+    rows=_load(state)
+    existing=next((x for x in rows if x.get("case_id")==cid),None)
+    if existing is not None:
+        return existing
+
+    rec={
+        "case_id":cid,
+        "symbol":signal.symbol,
+        "combo":int(signal.combo),
+        "side":signal.side,
+        "position_side":"LONG" if signal.side=="BUY" else "SHORT",
+        "event_id":signal.event_id,
+        "entry_close_time":int(signal.close_time),
+        "lifecycle":"CLAIMED",
+        "entry_order_id":"",
+        "position_id":"",
+        "avg_price":0.0,
+        "qty":0.0,
+        "tp":float(signal.tp),
+        "sl":float(signal.sl),
+        "rr":0.0,
+    }
+    rows.append(rec)
+    _save(state,rows)
+    log.warning(
+        "FINAL14_STATE_CLAIM case_id=%s event_id=%s side=%s",
+        cid,signal.event_id,signal.side,
+    )
+    return rec
+
+
 def register_execution(state,signal,result:dict)->dict:
     cid=case_id(signal.symbol,signal.combo)
     rows=[x for x in _load(state) if x.get("case_id")!=cid]
@@ -46,6 +86,7 @@ def register_execution(state,signal,result:dict)->dict:
         "position_side":"LONG" if signal.side=="BUY" else "SHORT",
         "event_id":signal.event_id,
         "entry_close_time":int(signal.close_time),
+        "lifecycle":"FILLED",
         "entry_order_id":str(result.get("order_id") or ""),
         "position_id":str(result.get("position_id") or ""),
         "avg_price":float(result.get("avg_price") or 0),
