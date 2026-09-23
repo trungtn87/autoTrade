@@ -189,6 +189,8 @@ def entry_variants(pc, selected_names=None):
     ao=sma((d.high+d.low)/2,5)-sma((d.high+d.low)/2,34); squeeze=ema(d.close,20)-ema(d.close,50); mean=sma(d.close,20); sd=d.close.rolling(20,min_periods=20).std(ddof=0); z=(d.close-mean)/sd
     tu4=d.close>p15["trend100"]; td4=d.close<p15["trend100"]; upper_w=d.high-pd.concat([d.close,d.open],axis=1).max(axis=1); lower_w=pd.concat([d.close,d.open],axis=1).min(axis=1)-d.low; body=(d.close-d.open).abs(); bull_pin=(lower_w>body*1.5)&(d.close>d.open); bear_pin=(upper_w>body*1.5)&(d.close<d.open)
     for adxth in [18,20,22,25,28]:
+        name=f"ADX_{adxth}"
+        if not _want_variant(selected_names,"C10",name): continue
         L=(ao>0)&(squeeze>0)&(z<-1.5)&tu4&(ADX>adxth)&bull_pin
         S=(ao<0)&(squeeze<0)&(z>1.5)&td4&(ADX>adxth)&bear_pin
         out.setdefault("C10",[]).append((name,edge_event(L),edge_event(S)))
