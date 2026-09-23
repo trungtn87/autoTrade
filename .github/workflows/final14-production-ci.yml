@@ -6,6 +6,11 @@ on:
     paths:
       - 'signal_engine/**'
       - '.github/workflows/final14-production-ci.yml'
+  pull_request:
+    paths:
+      - 'signal_engine/**'
+      - '.python-version'
+      - '.github/workflows/final14-production-ci.yml'
   workflow_dispatch:
 
 permissions:
