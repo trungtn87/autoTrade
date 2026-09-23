@@ -8,7 +8,7 @@ from app.final14_research.layer3_long import load
 
 
 def bench(symbol: str, path: str) -> dict:
-    d = load(path).tail(12000).copy()
+    d = load(path).tail(3400).copy()
     started = time.perf_counter()
     signals = scan_latest(symbol=symbol, m15=d)
     elapsed = time.perf_counter() - started
