@@ -1171,6 +1171,7 @@ def health():
         "execution_ready": state.backend == "postgres" and bool(executor.targets()),
         "execution_mode": "direct_bingx_single_account_fixed_margin",
         "order_target_count": len(executor.targets()),
+        "final14_active_case_count": len(final14_position_snapshot(state)),
         "live_limit_15m": settings.live_limit_15m,
         "bingx_blocked_until_ms": _effective_bingx_blocked_until_ms(),
         "bingx_cooldown_remaining_ms": max(
