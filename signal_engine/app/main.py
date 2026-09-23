@@ -60,6 +60,7 @@ ONE_SHOT_ETH_CLOSE_STATE_KEY = "one_shot_eth_close_long_v1"
 
 INTERVAL_15M_MS = 15 * 60_000
 BINGX_COOLDOWN_STATE_KEY = "bingx_market_blocked_until_ms"
+CLUSTER_SCAN_LOCK_ID = 5141400014
 
 
 def _effective_bingx_blocked_until_ms() -> int:
@@ -326,6 +327,16 @@ def run_scan(execute: bool = True) -> dict:
     global last_scan_summary
     if not scan_lock.acquire(blocking=False):
         return {"status": "busy", "message": "scan already running"}
+
+    cluster_lock_handle = state.try_acquire_cluster_lock(CLUSTER_SCAN_LOCK_ID)
+    if cluster_lock_handle is None:
+        scan_lock.release()
+        log.warning("SCHEDULE_SKIP_CLUSTER_LOCK reason=another_instance_scanning")
+        return {
+            "status": "busy_cluster",
+            "message": "another Render instance is already scanning",
+        }
+
     started = time.time()
     summary = {
         "status": "ok",
@@ -673,7 +684,10 @@ def run_scan(execute: bool = True) -> dict:
         last_scan_summary = summary
         return summary
     finally:
-        scan_lock.release()
+        try:
+            state.release_cluster_lock(cluster_lock_handle, CLUSTER_SCAN_LOCK_ID)
+        finally:
+            scan_lock.release()
 
 
 def _run_one_shot_btc_buy_test() -> None:
