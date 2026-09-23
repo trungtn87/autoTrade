@@ -45,16 +45,15 @@ def _symbol_configs(symbol:str)->dict[str,dict]:
     return out
 
 
-def _selected_variants(pc, symbol:str):
+def _selected_variants(pc, symbol:str, wanted:dict[str,set[str]]):
     configs=_symbol_configs(symbol)
-    wanted={cname:{cfg["entry_variant"]} for cname,cfg in configs.items()}
     allv=entry_variants(pc,wanted)
     selected={}
     for cname,cfg in configs.items():
-        wanted=cfg["entry_variant"]
-        matches=[x for x in allv[cname] if x[0]==wanted]
+        variant=cfg["entry_variant"]
+        matches=[x for x in allv[cname] if x[0]==variant]
         if len(matches)!=1:
-            raise RuntimeError(f"FINAL14 variant mismatch {symbol} {cname} {wanted}: {len(matches)}")
+            raise RuntimeError(f"FINAL14 variant mismatch {symbol} {cname} {variant}: {len(matches)}")
         selected[cname]=matches[0]
     return selected
 
@@ -112,8 +111,10 @@ def scan_latest(
         return []
 
     d=_research_frame(m15)
-    pc=precompute(d)
-    chosen=_selected_variants(pc,symbol)
+    configs=_symbol_configs(symbol)
+    wanted={cname:{cfg["entry_variant"]} for cname,cfg in configs.items()}
+    pc=precompute(d,wanted)
+    chosen=_selected_variants(pc,symbol,wanted)
 
     # precompute() already built the exact 1H research frame; reuse it.
     d1=pc["d1"]
