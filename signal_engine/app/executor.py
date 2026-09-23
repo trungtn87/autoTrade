@@ -363,6 +363,17 @@ class Executor:
             "POST", "/openApi/swap/v2/trade/order", params
         )
 
+    def _positions(self, symbol: str) -> list[dict]:
+        body = self._signed_trade_request(
+            "GET",
+            "/openApi/swap/v2/user/positions",
+            {"symbol": symbol},
+        )
+        data = body.get("data") or []
+        if isinstance(data, dict):
+            data = data.get("positions") or data.get("data") or [data]
+        return [x for x in data if isinstance(x, dict)]
+
     def _set_leverage(self, symbol: str, side: str, leverage: int) -> dict:
         return self._signed_trade_request(
             "POST",
@@ -536,13 +547,22 @@ class Executor:
             )
             return result
         except Exception as exc:
+            accepted_order_id = str(getattr(exc, "accepted_order_id", "") or "")
             log.exception(
-                "BINGX_DIRECT_EXEC_FAILED target=%s signal_id=%s",
-                target_name, signal.event_id,
+                "BINGX_DIRECT_EXEC_FAILED target=%s signal_id=%s accepted_order_id=%s",
+                target_name, signal.event_id, accepted_order_id or None,
             )
             return {
                 "target": target_name,
                 "ok": False,
+                "processed": bool(accepted_order_id),
+                "entry_accepted": bool(accepted_order_id),
+                "entry_filled": False,
+                "stage": "post_entry_error" if accepted_order_id else "pre_entry_error",
+                "order_id": accepted_order_id,
                 "error": str(exc),
-                "payload": self.build_payload(signal, 1.0),
+                "payload": self.build_payload(
+                    signal,
+                    self.settings.order_margin_usdt * self.settings.leverage,
+                ),
             }
