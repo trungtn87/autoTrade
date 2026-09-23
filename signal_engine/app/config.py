@@ -44,9 +44,9 @@ class Settings:
     auto_scheduler: bool = _bool("AUTO_SCHEDULER", True)
     scheduler_second: int = _int("SCHEDULER_SECOND", 8)
 
-    # FINAL14 production sizing: 100 USDT notional at 50x leverage.
-    order_margin_usdt: float = _float("BINGX_ORDER_MARGIN_USDT", 2.0)
-    leverage: int = _int("BINGX_LEVERAGE", 50)
+    # FINAL14 production sizing is locked: 100 USDT notional at 50x leverage.
+    order_margin_usdt: float = 2.0
+    leverage: int = 50
 
     discord_enabled: bool = _bool("DISCORD_ENABLED", True)
     discord_on_dry_run: bool = _bool("DISCORD_ON_DRY_RUN", True)
