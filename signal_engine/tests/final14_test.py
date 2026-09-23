@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from app.final14_config import FINAL14_CASES, DISABLED_CASES, enabled_combos, get_case
 from app.final14_executor import Final14Executor
-from app.final14_exact_strategy import hard_tp_sl
+from app.final14_exact_strategy import hard_tp_sl, _layer2_requirements
 from app.strategy import Signal
 
 
@@ -72,6 +72,16 @@ def test_config():
 
 
 
+
+
+def test_layer2_runtime_requirements():
+    assert _layer2_requirements("BTC-USDT") == {
+        "smc15": True, "smc1": True, "ob15": False, "ob1": True,
+    }
+    assert _layer2_requirements("ETH-USDT") == {
+        "smc15": True, "smc1": True, "ob15": True, "ob1": False,
+    }
+
 def test_locked_risk_percentages_are_not_double_scaled():
     # Config semantics are decimal fractions: 0.02 == 2%.
     for symbol,cases in FINAL14_CASES.items():
@@ -116,6 +126,7 @@ def test_attached_hard_tp_sl():
 
 if __name__=="__main__":
     test_config()
+    test_layer2_runtime_requirements()
     test_locked_risk_percentages_are_not_double_scaled()
     test_attached_hard_tp_sl()
     print("FINAL14 unit tests PASS")
