@@ -118,7 +118,8 @@ def scan_latest(
     pc=precompute(d)
     chosen=_selected_variants(pc,symbol)
 
-    d1=resample_ohlcv(d,"1h")
+    # precompute() already built the exact 1H research frame; reuse it.
+    d1=pc["d1"]
     smc15=smc_direction(d,50,False)
     smc1=smc_direction(d1,50,False)
     obcfg=OBConfig(pivot_len=5,search_bars=12,max_age=80,danger_atr=0.5)
