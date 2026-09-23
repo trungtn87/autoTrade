@@ -182,17 +182,18 @@ def entry_variants(pc, selected_names=None):
             out.setdefault("C8",[]).append((name,edge_event(L),edge_event(S)))
 
     # C9 original plus corrected-short-ST branch and RSI neighborhoods
-    mid=_nadaraya(d.close,24,3.0); nr=d.close.rolling(24,min_periods=24).std(ddof=0)*2.3; upper=mid+nr; lower=mid-nr
-    for rth in [35,40,45]:
-        name0=f"RSI{rth}_ORIGST"; name1=f"RSI{rth}_FIXST"
-        if not (_want_variant(selected_names,"C9",name0) or _want_variant(selected_names,"C9",name1)): continue
-        L=(d.close>ema200)&(R<rth)&(d.close<lower)&(stdir15==1)&(body_ratio>0.4)
-        S0=(d.close<ema200)&(R>(100-rth))&(d.close>upper)&(stdir15==1)&(body_ratio>0.4)
-        S1=(d.close<ema200)&(R>(100-rth))&(d.close>upper)&(stdir15==-1)&(body_ratio>0.4)
-        if _want_variant(selected_names,"C9",name0):
-            out.setdefault("C9",[]).append((name0,edge_event(L),edge_event(S0)))
-        if _want_variant(selected_names,"C9",name1):
-            out.setdefault("C9",[]).append((name1,edge_event(L),edge_event(S1)))
+    if _want_combo(selected_names,"C9"):
+        mid=_nadaraya(d.close,24,3.0); nr=d.close.rolling(24,min_periods=24).std(ddof=0)*2.3; upper=mid+nr; lower=mid-nr
+        for rth in [35,40,45]:
+            name0=f"RSI{rth}_ORIGST"; name1=f"RSI{rth}_FIXST"
+            if not (_want_variant(selected_names,"C9",name0) or _want_variant(selected_names,"C9",name1)): continue
+            L=(d.close>ema200)&(R<rth)&(d.close<lower)&(stdir15==1)&(body_ratio>0.4)
+            S0=(d.close<ema200)&(R>(100-rth))&(d.close>upper)&(stdir15==1)&(body_ratio>0.4)
+            S1=(d.close<ema200)&(R>(100-rth))&(d.close>upper)&(stdir15==-1)&(body_ratio>0.4)
+            if _want_variant(selected_names,"C9",name0):
+                out.setdefault("C9",[]).append((name0,edge_event(L),edge_event(S0)))
+            if _want_variant(selected_names,"C9",name1):
+                out.setdefault("C9",[]).append((name1,edge_event(L),edge_event(S1)))
 
     # C10 ADX neighborhood
     ao=sma((d.high+d.low)/2,5)-sma((d.high+d.low)/2,34); squeeze=ema(d.close,20)-ema(d.close,50); mean=sma(d.close,20); sd=d.close.rolling(20,min_periods=20).std(ddof=0); z=(d.close-mean)/sd
