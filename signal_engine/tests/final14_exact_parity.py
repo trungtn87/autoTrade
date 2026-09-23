@@ -1,7 +1,14 @@
 from __future__ import annotations
 import argparse, json, sys
 
-from app.final14_config import FINAL14_CASES
+from app.final14_config import FINAL14_CASES, NATIVE_TIMEFRAME, snapshot as production_snapshot
+from final14_locked_manifest import (
+    LOCKED_FINAL14_CASES,
+    LOCKED_NATIVE,
+    LOCKED_SOURCE_ARTIFACT_ID,
+    LOCKED_SOURCE_RUN_ID,
+    LOCKED_STRATEGY_VERSION,
+)
 from app.final14_research import layer3_long as prod_l3
 from app.final14_research.two_trail_layer12 import approved as prod_approved
 
@@ -9,7 +16,7 @@ from app.final14_research.two_trail_layer12 import approved as prod_approved
 def prod_events(path,symbol):
     d=prod_l3.load(path); pc=prod_l3.precompute(d); av=prod_l3.entry_variants(pc)
     lock={}; selected={}
-    for combo,cfg in FINAL14_CASES[symbol].items():
+    for combo,cfg in LOCKED_FINAL14_CASES[symbol].items():
         cname="TIER" if combo==11 else f"C{combo}"
         lock[cname]={"layer2_variant":cfg["layer2"]}
         m=[x for x in av[cname] if x[0]==cfg["entry_variant"]]
@@ -17,7 +24,7 @@ def prod_events(path,symbol):
         selected[cname]=m
     ctx=prod_l3.build_context(d,lock,selected)
     out={}
-    for combo,cfg in FINAL14_CASES[symbol].items():
+    for combo,cfg in LOCKED_FINAL14_CASES[symbol].items():
         cname="TIER" if combo==11 else f"C{combo}"
         out[combo]={
             (int(d.index[pos].value//1_000_000),side,int(sd),bool(blocked))
@@ -34,7 +41,7 @@ def ref_events(path,symbol,research_dir):
     from two_trail_layer12 import approved as ref_approved
     d=ref_l3.load(path); pc=ref_l3.precompute(d); av=ref_l3.entry_variants(pc)
     lock={}; selected={}
-    for combo,cfg in FINAL14_CASES[symbol].items():
+    for combo,cfg in LOCKED_FINAL14_CASES[symbol].items():
         cname="TIER" if combo==11 else f"C{combo}"
         lock[cname]={"layer2_variant":cfg["layer2"]}
         m=[x for x in av[cname] if x[0]==cfg["entry_variant"]]
@@ -42,7 +49,7 @@ def ref_events(path,symbol,research_dir):
         selected[cname]=m
     ctx=ref_l3.build_context(d,lock,selected)
     out={}
-    for combo,cfg in FINAL14_CASES[symbol].items():
+    for combo,cfg in LOCKED_FINAL14_CASES[symbol].items():
         cname="TIER" if combo==11 else f"C{combo}"
         out[combo]={
             (int(d.index[pos].value//1_000_000),side,int(sd),bool(blocked))
@@ -57,6 +64,18 @@ def main():
     ap.add_argument("--btc",required=True);ap.add_argument("--eth",required=True)
     ap.add_argument("--research-dir",required=True)
     args=ap.parse_args()
+    snap=production_snapshot()
+    if FINAL14_CASES != LOCKED_FINAL14_CASES:
+        raise SystemExit("FINAL14 locked config mismatch: production FINAL14_CASES changed")
+    if NATIVE_TIMEFRAME != LOCKED_NATIVE:
+        raise SystemExit("FINAL14 locked native timeframe mismatch")
+    if snap.get("version") != LOCKED_STRATEGY_VERSION:
+        raise SystemExit(f"FINAL14 strategy version mismatch: {snap.get('version')!r}")
+    if int(snap.get("source_run_id") or 0) != LOCKED_SOURCE_RUN_ID:
+        raise SystemExit("FINAL14 source run id mismatch")
+    if int(snap.get("source_artifact_id") or 0) != LOCKED_SOURCE_ARTIFACT_ID:
+        raise SystemExit("FINAL14 source artifact id mismatch")
+
     report={};fail=[]
     for symbol,path in [("BTC-USDT",args.btc),("ETH-USDT",args.eth)]:
         p=prod_events(path,symbol);r=ref_events(path,symbol,args.research_dir)
