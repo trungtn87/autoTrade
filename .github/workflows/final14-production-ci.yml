@@ -59,6 +59,11 @@ jobs:
           PYTHONPATH: signal_engine
         run: python signal_engine/tests/final14_test.py
 
+      - name: Vectorized timeframe parity and benchmark
+        env:
+          PYTHONPATH: signal_engine
+        run: python signal_engine/tests/timeframe_fastpath_test.py
+
       - name: Production warmup seed and Discord guard tests
         env:
           PYTHONPATH: signal_engine
