@@ -16,34 +16,9 @@ from .strategy import Signal
 log = logging.getLogger(__name__)
 
 
-def _js_round_positive(x: float) -> int:
-    return int(math.floor(x + 0.5))
-
-
-def _round2_js(x: float) -> float:
-    return math.floor(x * 100.0 + 0.5) / 100.0
-
-
 def execution_prices(signal: Signal, settings: Settings) -> tuple[float, float, float]:
-    """Mirror the current Gmail Apps Script execution transformation."""
-    entry = signal.entry
-    tp = signal.tp
-    sl = signal.sl
-
-    if settings.legacy_rounding:
-        entry = float(_js_round_positive(entry))
-        tp = float(_js_round_positive(tp))
-        sl = float(_js_round_positive(sl))
-
-    shift = settings.adjust_tp_sl_bps / 10000.0
-    if signal.side == "BUY":
-        tp *= 1.0 + shift
-        sl *= 1.0 + shift
-    else:
-        tp *= 1.0 - shift
-        sl *= 1.0 - shift
-
-    return entry, _round2_js(tp), _round2_js(sl)
+    """Use the locked FINAL14 strategy levels without legacy price transforms."""
+    return float(signal.entry), float(signal.tp), float(signal.sl)
 
 
 class Executor:
@@ -151,7 +126,8 @@ class Executor:
             "timeframe": signal.timeframe,
             "order_type": "MARKET",
             "usdt_amount": usdt_amount,
-            "source": "bingx-render-engine",
+            "source": "bingx-final14-hardtp",
+            "exit_mode": "100pct_hard_tp_sl",
             "smc_dir": signal.smc_dir,
             "signal_close_time": signal.close_time,
         }
@@ -340,26 +316,11 @@ class Executor:
                 f"notional {actual_notional:.8f} is below BingX minimum {rules['min_usdt']}"
             )
 
-        half_qty = self._floor_precision(
-            qty * 0.5, rules["quantity_precision"]
-        )
-        if half_qty <= 0:
-            raise ValueError("half-position quantity is zero")
-        if rules["min_qty"] > 0 and half_qty < rules["min_qty"]:
-            raise ValueError(
-                f"50% exit quantity {half_qty} is below BingX minimum {rules['min_qty']}"
-            )
-        if rules["min_usdt"] > 0 and half_qty * entry < rules["min_usdt"]:
-            raise ValueError(
-                f"50% exit notional {half_qty * entry:.8f} is below BingX minimum {rules['min_usdt']}"
-            )
-
         return {
             **rules,
             "target_notional": notional,
             "actual_notional": actual_notional,
             "qty": qty,
-            "half_qty": half_qty,
         }
 
     def _place_order(
@@ -423,8 +384,8 @@ class Executor:
     def _execute_direct_bingx(self, signal: Signal) -> dict:
         entry, tp, sl = execution_prices(signal, self.settings)
 
-        # Fixed sizing: 1 USDT margin per order at 100x.
-        # TP/SL are strategy outputs and never participate in volume sizing.
+        # FINAL14 sizing: 100 USDT notional at 50x.
+        # TP/SL are locked strategy outputs and never participate in volume sizing.
         self._assert_hedge_mode()
         sizing = self._prepare_fixed_size(signal.symbol, signal.side, entry)
         qty = float(sizing["qty"])
@@ -515,14 +476,16 @@ class Executor:
 
         opposite = "SELL" if signal.side == "BUY" else "BUY"
         entry_position_side = "LONG" if signal.side == "BUY" else "SHORT"
-        # Preserve the previous live-account behavior:
-        # TP closes 50%, SL protects the full filled quantity.
+        exit_qty = self._floor_precision(
+            executed_qty, int(sizing["quantity_precision"])
+        )
+
+        # FINAL14 exit contract: 100% hard TP + 100% hard SL.
+        # No partial exit and no trailing stop.
         tp_result = self._place_order(
             signal.symbol,
             opposite,
-            self._floor_precision(
-                executed_qty * 0.5, int(sizing["quantity_precision"])
-            ),
+            exit_qty,
             order_type="TAKE_PROFIT_MARKET",
             stop_price=tp,
             position_side=entry_position_side,
@@ -530,31 +493,11 @@ class Executor:
         sl_result = self._place_order(
             signal.symbol,
             opposite,
-            self._floor_precision(
-                executed_qty, int(sizing["quantity_precision"])
-            ),
+            exit_qty,
             order_type="STOP_MARKET",
             stop_price=sl,
             position_side=entry_position_side,
             close_position=True,
-        )
-
-        risk = abs(avg_price - sl)
-        activation = round(
-            avg_price + risk * 0.5 if signal.side == "BUY"
-            else avg_price - risk * 0.5,
-            int(sizing["price_precision"]),
-        )
-        trailing_result = self._place_order(
-            signal.symbol,
-            opposite,
-            self._floor_precision(
-                executed_qty * 0.5, int(sizing["quantity_precision"])
-            ),
-            order_type="TRAILING_STOP_MARKET",
-            activation_price=activation,
-            price_rate=0.005,
-            position_side=entry_position_side,
         )
 
         return {
@@ -564,11 +507,10 @@ class Executor:
             "executed_qty": executed_qty,
             "tp": tp,
             "sl": sl,
-            "trailing_activation": activation,
+            "exit_mode": "100pct_hard_tp_sl",
             "entry_result": entry_result,
             "tp_result": tp_result,
             "sl_result": sl_result,
-            "trailing_result": trailing_result,
         }
 
     def send_target(self, signal: Signal, target_name: str, url: str, usdt_amount: float) -> dict:
