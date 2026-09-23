@@ -12,9 +12,32 @@ class SignalState:
     SQLite for development/self-test.
     """
 
-    def __init__(self, db_path: str, database_url: str = ""):
+    def __init__(
+        self,
+        db_path: str,
+        database_url: str = "",
+        database_host: str = "",
+        database_port: int = 5432,
+        database_name: str = "postgres",
+        database_user: str = "",
+        database_password: str = "",
+        database_sslmode: str = "require",
+    ):
         self.database_url = (database_url or "").strip()
-        self.is_postgres = bool(self.database_url)
+        self.database_host = (database_host or "").strip()
+        self.database_port = int(database_port or 5432)
+        self.database_name = (database_name or "postgres").strip()
+        self.database_user = (database_user or "").strip()
+        self.database_password = database_password or ""
+        self.database_sslmode = (database_sslmode or "require").strip()
+
+        # Split env vars intentionally override DATABASE_URL. This avoids URI
+        # parsing issues when passwords contain reserved characters such as
+        # @, #, %, /, or :.
+        self._use_split_postgres = bool(
+            self.database_host and self.database_user and self.database_password
+        )
+        self.is_postgres = bool(self._use_split_postgres or self.database_url)
         self.path = Path(db_path)
         self._lock = threading.Lock()
         self._init()
@@ -31,6 +54,15 @@ class SignalState:
                 raise RuntimeError(
                     "DATABASE_URL is configured but psycopg is not installed"
                 ) from exc
+            if self._use_split_postgres:
+                return psycopg.connect(
+                    host=self.database_host,
+                    port=self.database_port,
+                    dbname=self.database_name,
+                    user=self.database_user,
+                    password=self.database_password,
+                    sslmode=self.database_sslmode,
+                )
             return psycopg.connect(self.database_url)
         return sqlite3.connect(self.path)
 
