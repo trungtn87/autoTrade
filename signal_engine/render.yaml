@@ -24,8 +24,6 @@ services:
         value: "2"
       - key: BOOTSTRAP_LIMIT_15M
         value: "3400"
-      - key: RECOVERY_LIMIT_15M
-        value: "8"
       - key: CANDLE_KEEP_15M
         value: "3400"
       - key: SCAN_TOKEN

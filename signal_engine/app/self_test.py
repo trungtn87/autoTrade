@@ -100,15 +100,8 @@ def run_startup_self_test(settings: Settings, state=None) -> dict:
         for symbol in settings.symbols:
             expected=set(final14_enabled_combos(symbol))
             for count in (3399,3400):
-                frames=[
-                    pd.DataFrame(index=range(count)),
-                    pd.DataFrame(),
-                    pd.DataFrame(),
-                    pd.DataFrame(),
-                ]
                 status=final14_combo_readiness(
-                    *frames,
-                    smc_swing_len=settings.smc_swing_len,
+                    pd.DataFrame(index=range(count)),
                     symbol=symbol,
                 )
                 ready={combo for combo,item in status.items() if item["ready"]}

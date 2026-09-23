@@ -5,7 +5,6 @@ import pandas as pd
 from .final14_config import FINAL14_CASES, enabled_combos, get_case, snapshot as final14_snapshot
 from .strategy import Signal
 from .final14_research.layer3_long import precompute, entry_variants, NATIVE
-from .final14_research.signals import ensure_dt, resample_ohlcv
 from .final14_research.smc_structure import smc_direction
 from .final14_research.smc_ob import ob_context, OBConfig
 from .final14_research.two_trail_layer12 import approved
@@ -46,16 +45,15 @@ def _symbol_configs(symbol:str)->dict[str,dict]:
     return out
 
 
-def _selected_variants(pc, symbol:str):
+def _selected_variants(pc, symbol:str, wanted:dict[str,set[str]]):
     configs=_symbol_configs(symbol)
-    wanted={cname:{cfg["entry_variant"]} for cname,cfg in configs.items()}
     allv=entry_variants(pc,wanted)
     selected={}
     for cname,cfg in configs.items():
-        wanted=cfg["entry_variant"]
-        matches=[x for x in allv[cname] if x[0]==wanted]
+        variant=cfg["entry_variant"]
+        matches=[x for x in allv[cname] if x[0]==variant]
         if len(matches)!=1:
-            raise RuntimeError(f"FINAL14 variant mismatch {symbol} {cname} {wanted}: {len(matches)}")
+            raise RuntimeError(f"FINAL14 variant mismatch {symbol} {cname} {variant}: {len(matches)}")
         selected[cname]=matches[0]
     return selected
 
@@ -73,10 +71,6 @@ def _layer2_requirements(symbol:str)->dict[str,bool]:
 
 def combo_readiness(
     m15:pd.DataFrame,
-    h1:pd.DataFrame|None=None,
-    h4:pd.DataFrame|None=None,
-    h6:pd.DataFrame|None=None,
-    smc_swing_len:int=50,
     symbol:str|None=None,
 )->dict[int,dict]:
     symbol=(symbol or "").upper()
@@ -111,23 +105,16 @@ def strategy_static_snapshot()->dict:
 def scan_latest(
     symbol:str,
     m15:pd.DataFrame,
-    h1:pd.DataFrame|None=None,
-    h4:pd.DataFrame|None=None,
-    h6:pd.DataFrame|None=None,
-    smc_mode:str="Veto Only",
-    smc_swing_len:int=50,
-    smc_confluence:bool=False,
-    sl_pct:float=0.009,
-    tp_pct:float=0.011,
-    include_1h:bool=True,
 )->list[Signal]:
     symbol=symbol.upper()
     if len(m15)<MIN_LIVE_15M_BARS:
         return []
 
     d=_research_frame(m15)
-    pc=precompute(d)
-    chosen=_selected_variants(pc,symbol)
+    configs=_symbol_configs(symbol)
+    wanted={cname:{cfg["entry_variant"]} for cname,cfg in configs.items()}
+    pc=precompute(d,wanted)
+    chosen=_selected_variants(pc,symbol,wanted)
 
     # precompute() already built the exact 1H research frame; reuse it.
     d1=pc["d1"]
@@ -153,8 +140,6 @@ def scan_latest(
         name,L,S=chosen[cname]
         native=NATIVE[cname]
         if native=="1h":
-            if not include_1h:
-                continue
             ot=latest-pd.Timedelta("45min")
             # 1H signals are actionable only on the final 15m candle of the hour.
             if latest.minute%60!=45 or ot not in L.index:

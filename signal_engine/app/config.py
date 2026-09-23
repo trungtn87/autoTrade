@@ -70,7 +70,6 @@ class Settings:
 
     bootstrap_limit_15m: int = _int("BOOTSTRAP_LIMIT_15M", 3400)
     live_limit_15m: int = _int("LIVE_LIMIT_15M", 2)
-    recovery_limit_15m: int = _int("RECOVERY_LIMIT_15M", 8)
     candle_keep_15m: int = _int("CANDLE_KEEP_15M", 3400)
 
 
@@ -120,8 +119,6 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         errors.append("LIVE_LIMIT_15M must be between 2 and 20")
     if settings.bootstrap_limit_15m < 24:
         errors.append("BOOTSTRAP_LIMIT_15M must be >= 24")
-    if not (settings.live_limit_15m <= settings.recovery_limit_15m <= 100):
-        errors.append("RECOVERY_LIMIT_15M must be >= LIVE_LIMIT_15M and <= 100")
     if settings.candle_keep_15m < settings.bootstrap_limit_15m:
         errors.append("CANDLE_KEEP_15M must be >= BOOTSTRAP_LIMIT_15M")
 
@@ -180,7 +177,6 @@ def safe_config_snapshot(settings: Settings) -> dict:
         "bootstrap_limit_15m_effective": max(3400, settings.bootstrap_limit_15m),
         "bootstrap_page_limit_15m": 1000,
         "live_limit_15m": settings.live_limit_15m,
-        "recovery_limit_15m": settings.recovery_limit_15m,
         "candle_keep_15m": settings.candle_keep_15m,
         "auto_scheduler": settings.auto_scheduler,
         "scheduler_minutes_utc": [0, 15, 30, 45],

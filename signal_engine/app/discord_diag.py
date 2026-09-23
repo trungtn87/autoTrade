@@ -145,9 +145,6 @@ def send_discord_scan_summary(settings: Settings, result: dict) -> dict:
         sigs = item.get("signals") or []
         lines.append(
             f"{symbol}: 15m={item.get('cached_15m', '?')} "
-            f"1H={item.get('derived_1h', '?')} "
-            f"4H={item.get('derived_4h', '?')} "
-            f"6H={item.get('derived_6h', '?')} "
             f"signals={len(sigs)}"
         )
 
