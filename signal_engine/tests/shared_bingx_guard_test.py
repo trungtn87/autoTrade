@@ -167,7 +167,7 @@ class ScanTests(GuardHelpers, unittest.TestCase):
             def signals(**kw):return [Signal(kw['symbol'],n,'BUY','15m',123,100,102,98,0) for n in FINAL14_CASES[kw['symbol']]]
             with patch.multiple(m,state=LiveTestState(),market=c,executor=ex,scan_lock=threading.Lock(),
                                 settings=replace(ex.settings,symbols=('BTC-USDT','ETH-USDT')),
-                                fetch_bundle=lambda s:(123,frame,frame,frame,frame,False,{}),
+                                fetch_bundle=lambda s:(123,frame,False,{}),
                                 refresh_symbol=lambda *a:{},combo_readiness=lambda *a,**k:{},scan_latest=signals):
                 result=m.run_scan()
                 self.assertEqual(result['status'],'partial_error')
