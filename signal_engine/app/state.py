@@ -73,6 +73,15 @@ class SignalState:
                 ON candles(symbol, timeframe, open_time)
                 """
             )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS runtime_state (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
             con.commit()
 
     def seen(self, event_id: str, target: str) -> bool:
@@ -98,6 +107,33 @@ class SignalState:
                     """
                 ),
                 (event_id, target, payload),
+            )
+            con.commit()
+
+    def get_runtime_value(self, key: str, default: str = "") -> str:
+        with self._lock, self._connect() as con:
+            cur = con.cursor()
+            cur.execute(
+                self._sql("SELECT value FROM runtime_state WHERE key = ?"),
+                (key,),
+            )
+            row = cur.fetchone()
+        return str(row[0]) if row and row[0] is not None else default
+
+    def set_runtime_value(self, key: str, value: str) -> None:
+        with self._lock, self._connect() as con:
+            cur = con.cursor()
+            cur.execute(
+                self._sql(
+                    """
+                    INSERT INTO runtime_state(key, value, updated_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(key) DO UPDATE SET
+                        value=excluded.value,
+                        updated_at=CURRENT_TIMESTAMP
+                    """
+                ),
+                (key, str(value)),
             )
             con.commit()
 
