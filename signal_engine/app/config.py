@@ -65,12 +65,6 @@ class Settings:
 
     state_db: str = os.getenv("STATE_DB", "state.db")
     database_url: str = os.getenv("DATABASE_URL", "")
-    database_host: str = os.getenv("DB_HOST", "")
-    database_port: int = _int("DB_PORT", 5432)
-    database_name: str = os.getenv("DB_NAME", "postgres")
-    database_user: str = os.getenv("DB_USER", "")
-    database_password: str = os.getenv("DB_PASSWORD", "")
-    database_sslmode: str = os.getenv("DB_SSLMODE", "require")
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     scan_token: str = os.getenv("SCAN_TOKEN", "")
 
@@ -167,14 +161,6 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
         warnings.append(
             f"BOOTSTRAP_LIMIT_15M={settings.bootstrap_limit_15m} is below 12000; runtime will use 12000 for exact FINAL14 research parity warmup"
         )
-    split_db = [
-        bool(settings.database_host),
-        bool(settings.database_user),
-        bool(settings.database_password),
-    ]
-    if any(split_db) and not all(split_db):
-        errors.append("DB_HOST, DB_USER and DB_PASSWORD must be set together")
-
     if not settings.scan_token:
         warnings.append("SCAN_TOKEN is empty; manual market/scan endpoints will stay disabled")
 
@@ -208,16 +194,7 @@ def safe_config_snapshot(settings: Settings) -> dict:
         "legacy_rounding": settings.legacy_rounding,
         "dry_run": settings.dry_run,
         "execution_ready": bool(
-            settings.bingx_api_key
-            and settings.bingx_api_secret
-            and (
-                settings.database_url
-                or (
-                    settings.database_host
-                    and settings.database_user
-                    and settings.database_password
-                )
-            )
+            settings.bingx_api_key and settings.bingx_api_secret and settings.database_url
         ),
         "order_execution": {
             "mode": "direct_bingx_single_account_fixed_margin",
@@ -238,21 +215,7 @@ def safe_config_snapshot(settings: Settings) -> dict:
             "startup_test": settings.discord_startup_test,
         },
         "state_db": settings.state_db,
-        "state_backend": "postgres" if (
-            settings.database_url
-            or (settings.database_host and settings.database_user and settings.database_password)
-        ) else "sqlite",
-        "database_connection": {
-            "mode": "split_env" if (
-                settings.database_host and settings.database_user and settings.database_password
-            ) else ("url" if settings.database_url else "sqlite"),
-            "host": settings.database_host or "",
-            "port": settings.database_port if settings.database_host else None,
-            "name": settings.database_name if settings.database_host else None,
-            "user_present": bool(settings.database_user),
-            "password_present": bool(settings.database_password),
-            "sslmode": settings.database_sslmode if settings.database_host else None,
-        },
+        "state_backend": "postgres" if settings.database_url else "sqlite",
         "log_level": settings.log_level,
         "manual_scan_enabled": bool(settings.scan_token),
     }
