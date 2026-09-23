@@ -1,4 +1,5 @@
 name: FINAL14 Production CI
+# Safety gate: every relevant change must prove FINAL14 parity before merge.
 
 on:
   push:
