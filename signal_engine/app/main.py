@@ -17,10 +17,11 @@ from fastapi import FastAPI, Header, HTTPException
 from .bingx_market import BingXApiError, BingXMarketClient, closed_only
 from .data_validation import DataValidationError, validate_15m_candles
 from .config import Settings, safe_config_snapshot, validate_settings
-from .executor import Executor
+from .final14_executor import Final14Executor
 from .discord_diag import install_discord_log_handler, send_discord_scan_summary, send_discord_startup_test
 from .state import SignalState
 from .final14_exact_strategy import combo_readiness, scan_latest, strategy_static_snapshot
+from .final14_positions import refresh_symbol, register_execution, snapshot as final14_position_snapshot
 from .self_test import run_self_test
 
 settings = Settings()
@@ -37,7 +38,7 @@ log = logging.getLogger("autotrade")
 
 market = BingXMarketClient(base_url=settings.bingx_base_url, api_key=settings.bingx_api_key, api_secret=settings.bingx_api_secret)
 state = SignalState(settings.state_db, settings.database_url)
-executor = Executor(settings)
+executor = Final14Executor(settings)
 scan_lock = threading.Lock()
 scheduler: BackgroundScheduler | None = None
 last_scan_summary: dict = {"status": "not_run"}
@@ -299,6 +300,27 @@ def run_scan(execute: bool = True) -> dict:
                     "SIGNAL_CALC symbol=%s signals=%s calc_ms=%s ids=%s",
                     symbol, len(signals), calc_ms, [s.event_id for s in signals],
                 )
+
+                # FINAL14 backtest semantics: one independent active position
+                # per symbol+combo. Reconcile against BingX only when a new
+                # signal exists; zero-signal scans keep the same request surface.
+                position_state = {
+                    "symbol": symbol,
+                    "active": 0,
+                    "closed": [],
+                    "resolved": [],
+                    "checked": False,
+                }
+                if execute and signals:
+                    position_state = refresh_symbol(state, executor, symbol)
+                    position_state["checked"] = True
+
+                active_case_keys = {
+                    (str(row.get("symbol") or "").upper(), int(row.get("combo")))
+                    for row in final14_position_snapshot(state)
+                    if row.get("combo") is not None
+                } if signals else set()
+
                 symbol_result = {
                     "server_time": now_ms,
                     "latest_15m_close": int(m15.iloc[-1]["close_time"]),
@@ -312,6 +334,7 @@ def run_scan(execute: bool = True) -> dict:
                         "skipped": skipped_combos,
                     },
                     "signals": [],
+                    "final14_positions": position_state,
                 }
                 for sig in signals:
                     item = asdict(sig)
@@ -345,9 +368,22 @@ def run_scan(execute: bool = True) -> dict:
 
                     if not execute:
                         item["action"] = "preview"
+                        item["case_active"] = (
+                            sig.symbol.upper(), int(sig.combo)
+                        ) in active_case_keys
                         symbol_result["signals"].append(item)
                         continue
 
+                    case_key = (sig.symbol.upper(), int(sig.combo))
+                    if case_key in active_case_keys:
+                        item["action"] = "active_case_suppressed"
+                        item["reason"] = "FINAL14 one-position-per-symbol-combo"
+                        symbol_result["signals"].append(item)
+                        log.info(
+                            "FINAL14_ACTIVE_SUPPRESS symbol=%s combo=%s event_id=%s",
+                            sig.symbol, sig.combo, sig.event_id,
+                        )
+                        continue
 
                     discord_result = None
                     discord_state_key = f"discord:{sig.symbol}"
@@ -398,18 +434,30 @@ def run_scan(execute: bool = True) -> dict:
                             continue
                         result = executor.send_target(sig, target_name, url, amount)
                         results.append(result)
-                        if result.get("ok"):
-                            state.mark(sig.event_id, state_target, json.dumps(result, ensure_ascii=False))
+
+                        # Once BingX accepts the MARKET entry, the event is
+                        # permanently processed even if a later fill/position
+                        # lookup fails. This prevents duplicate live entries.
+                        if result.get("processed"):
+                            state.mark(
+                                sig.event_id,
+                                state_target,
+                                json.dumps(result, ensure_ascii=False),
+                            )
+
+                        if result.get("entry_accepted"):
+                            register_execution(state, sig, result)
+                            active_case_keys.add(case_key)
 
                     item["execution"] = results
                     if not targets:
                         item["action"] = "discord_only" if discord_result and discord_result.get("ok") else "no_order_webhook_configured"
                     elif all(r.get("ok") for r in results):
                         item["action"] = "dry_run" if settings.dry_run else "sent"
-                    elif any(r.get("ok") for r in results):
-                        item["action"] = "partial"
+                    elif any(r.get("processed") for r in results):
+                        item["action"] = "processed_with_error"
                     else:
-                        item["action"] = "failed"
+                        item["action"] = "failed_before_entry"
                     symbol_result["signals"].append(item)
                 summary["symbols"][symbol] = symbol_result
                 log.info(
