@@ -34,6 +34,7 @@ class BingXMarketClient:
     min_interval_sec: float = 1.10
     recv_window_ms: int = 5000
     cooldown_guard_ms: int = 60_000
+    error_recorder: object | None = None
 
     def __post_init__(self):
         self._last_call = 0.0
@@ -135,6 +136,21 @@ class BingXMarketClient:
                 effective_retry = max(base_retry, now_ms + 60_000) + int(self.cooldown_guard_ms)
                 self._blocked_until_ms = max(int(self._blocked_until_ms), effective_retry)
                 retry_at_ms = int(self._blocked_until_ms)
+            if callable(self.error_recorder):
+                try:
+                    self.error_recorder(
+                        source="market",
+                        endpoint=path,
+                        params=safe_params,
+                        code=code,
+                        message=msg,
+                        retry_at_ms=retry_at_ms,
+                    )
+                except Exception as diag_exc:
+                    log.error(
+                        "BINGX_DIAG_RECORD_FAILED source=market path=%s code=%s error=%s",
+                        path, code, diag_exc,
+                    )
             log.warning(
                 "BINGX_API_ERROR code=%s path=%s params=%s retry_at_ms=%s msg=%s",
                 code, path, safe_params, retry_at_ms, msg,
