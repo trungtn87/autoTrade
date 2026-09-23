@@ -31,6 +31,10 @@ def _as_research_frame(raw: pd.DataFrame) -> pd.DataFrame:
             raise RuntimeError("dataset missing open_time")
     if "close_time" not in d.columns:
         d["close_time"] = d["open_time"].astype("int64") + 15 * 60_000 - 1
+    # The verified PKLs may keep open_time both as a DatetimeIndex name
+    # and as a numeric column. Drop the old index before label-based sorting
+    # to avoid pandas' index/column ambiguity.
+    d = d.reset_index(drop=True)
     d = d.sort_values("open_time").drop_duplicates("open_time", keep="last").reset_index(drop=True)
     d.index = pd.to_datetime(d["open_time"], unit="ms", utc=True)
     return d
