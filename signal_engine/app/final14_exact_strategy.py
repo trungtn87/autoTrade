@@ -59,6 +59,17 @@ def _selected_variants(pc, symbol:str):
         selected[cname]=matches[0]
     return selected
 
+def _layer2_requirements(symbol:str)->dict[str,bool]:
+    req={"smc15":False,"smc1":False,"ob15":False,"ob1":False}
+    for combo,cfg in FINAL14_CASES.get(symbol.upper(),{}).items():
+        native=NATIVE[_combo_name(combo)]
+        layer2=str(cfg["layer2"])
+        if "STRICT" in layer2 or "VETO" in layer2:
+            req["smc1" if native=="1h" else "smc15"]=True
+        if "OB" in layer2:
+            req["ob1" if native=="1h" else "ob15"]=True
+    return req
+
 
 def combo_readiness(
     m15:pd.DataFrame,
@@ -120,11 +131,12 @@ def scan_latest(
 
     # precompute() already built the exact 1H research frame; reuse it.
     d1=pc["d1"]
+    layer2_req=_layer2_requirements(symbol)
     smc15=smc_direction(d,50,False)
     smc1=smc_direction(d1,50,False)
     obcfg=OBConfig(pivot_len=5,search_bars=12,max_age=80,danger_atr=0.5)
-    ob15=ob_context(d,obcfg)
-    ob1=ob_context(d1,obcfg)
+    ob15=ob_context(d,obcfg) if layer2_req["ob15"] else None
+    ob1=ob_context(d1,obcfg) if layer2_req["ob1"] else None
 
     latest=d.index[-1]
     latest_close_ms=(
@@ -148,13 +160,13 @@ def scan_latest(
             if latest.minute%60!=45 or ot not in L.index:
                 continue
             sd=int(smc1.loc[ot]) if ot in smc1.index else 0
-            obrow=ob1.loc[ot] if ot in ob1.index else None
+            obrow=ob1.loc[ot] if ob1 is not None and ot in ob1.index else None
         else:
             ot=latest
             if ot not in L.index:
                 continue
             sd=int(smc15.loc[ot]) if ot in smc15.index else 0
-            obrow=ob15.loc[ot] if ot in ob15.index else None
+            obrow=ob15.loc[ot] if ob15 is not None and ot in ob15.index else None
 
         direction=0
         side_code=""
