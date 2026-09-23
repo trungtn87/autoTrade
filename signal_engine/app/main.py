@@ -27,8 +27,7 @@ from .discord_diag import (
 from .state import SignalState
 from .final14_exact_strategy import Signal, combo_readiness, scan_latest, strategy_static_snapshot
 from .self_test import run_self_test, run_startup_self_test
-from .final14_positions import is_case_active, refresh_symbol, register_execution, snapshot as final14_position_snapshot
-from .timeframes import aggregate_15m
+from .final14_positions import refresh_symbol, register_execution, snapshot as final14_position_snapshot
 from .warmup_seed import load_warmup_seed
 
 settings = Settings()
@@ -362,23 +361,12 @@ def fetch_bundle(symbol: str):
         validation.get("latest_close"),
     )
 
-    h1 = aggregate_15m(m15, 60)
-    h4 = aggregate_15m(m15, 240)
-    h6 = aggregate_15m(m15, 360)
-
     log.info(
-        "DERIVED symbol=%s 15m=%s 1h=%s 4h=%s 6h=%s elapsed_ms=%s",
-        symbol, len(m15), len(h1), len(h4), len(h6),
-        round((time.monotonic() - started) * 1000, 1),
+        "FETCH_READY symbol=%s 15m=%s elapsed_ms=%s",
+        symbol, len(m15), round((time.monotonic() - started) * 1000, 1),
     )
 
-    if min(len(m15), len(h1), len(h4), len(h6)) == 0:
-        raise RuntimeError(
-            f"Warmup incomplete for {symbol}: "
-            f"15m={len(m15)} 1h={len(h1)} 4h={len(h4)} 6h={len(h6)}"
-        )
-
-    return now_ms, m15, h1, h4, h6, bootstrap, validation
+    return now_ms, m15, bootstrap, validation
 
 
 def run_scan(execute: bool = True) -> dict:
@@ -481,18 +469,14 @@ def run_scan(execute: bool = True) -> dict:
             symbol_started = time.monotonic()
             try:
                 log.info("SYMBOL_SCAN_START symbol=%s execute=%s", symbol, execute)
-                now_ms, m15, h1, h4, h6, bootstrap, data_validation = fetch_bundle(symbol)
+                now_ms, m15, bootstrap, data_validation = fetch_bundle(symbol)
 
                 # Reconcile independent SEPARATE_ISOLATED positions before
                 # evaluating new entries. This enforces one active position
                 # per symbol+combo exactly like backtest.
                 position_state = refresh_symbol(state, executor, symbol)
 
-                readiness = combo_readiness(
-                    m15, h1, h4, h6,
-                    smc_swing_len=settings.smc_swing_len,
-                    symbol=symbol,
-                )
+                readiness = combo_readiness(m15, symbol=symbol)
                 ready_combos = sorted(
                     combo for combo, item in readiness.items() if item.get("ready")
                 )
@@ -500,25 +484,12 @@ def run_scan(execute: bool = True) -> dict:
                     combo for combo, item in readiness.items() if not item.get("ready")
                 )
                 log.info(
-                    "COMBO_READINESS symbol=%s ready=%s skipped=%s frames={15m:%s,1h:%s,4h:%s,6h:%s}",
-                    symbol, ready_combos, skipped_combos,
-                    len(m15), len(h1), len(h4), len(h6),
+                    "COMBO_READINESS symbol=%s ready=%s skipped=%s 15m=%s",
+                    symbol, ready_combos, skipped_combos, len(m15),
                 )
 
                 calc_started = time.monotonic()
-                signals = scan_latest(
-                    symbol=symbol,
-                    m15=m15,
-                    h1=h1,
-                    h4=h4,
-                    h6=h6,
-                    smc_mode=settings.smc_mode,
-                    smc_swing_len=settings.smc_swing_len,
-                    smc_confluence=settings.smc_confluence,
-                    sl_pct=settings.sl_pct,
-                    tp_pct=settings.tp_pct,
-                    include_1h=True,
-                )
+                signals = scan_latest(symbol=symbol, m15=m15)
                 calc_ms = round((time.monotonic() - calc_started) * 1000, 1)
                 log.info(
                     "SIGNAL_CALC symbol=%s signals=%s calc_ms=%s ids=%s",
@@ -527,15 +498,11 @@ def run_scan(execute: bool = True) -> dict:
                 symbol_result = {
                     "server_time": now_ms,
                     "latest_15m_close": int(m15.iloc[-1]["close_time"]),
-                    "latest_1h_close": int(h1.iloc[-1]["close_time"]),
                     "market_source": "bingx_15m_only",
                     "state_backend": state.backend,
                     "bootstrap": bootstrap,
                     "data_validation": data_validation,
                     "cached_15m": len(m15),
-                    "derived_1h": len(h1),
-                    "derived_4h": len(h4),
-                    "derived_6h": len(h6),
                     "combo_readiness": {
                         "ready": ready_combos,
                         "skipped": skipped_combos,
@@ -543,6 +510,16 @@ def run_scan(execute: bool = True) -> dict:
                     "signals": [],
                     "final14_positions": position_state,
                 }
+
+                active_case_keys = set()
+                if signals:
+                    active_case_keys = {
+                        (str(row.get("symbol") or "").upper(), int(row.get("combo")))
+                        for row in final14_position_snapshot(state)
+                        if row.get("combo") is not None
+                    }
+                targets = executor.targets() if execute and signals else []
+
                 for sig in signals:
                     item = asdict(sig)
                     item["event_id"] = sig.event_id
@@ -562,11 +539,7 @@ def run_scan(execute: bool = True) -> dict:
                         )
                         continue
 
-                    expected_close = (
-                        int(m15.iloc[-1]["close_time"])
-                        if sig.timeframe == "15m"
-                        else int(h1.iloc[-1]["close_time"])
-                    )
+                    expected_close = int(m15.iloc[-1]["close_time"])
                     if sig.close_time != expected_close:
                         item["action"] = "rejected_stale_signal"
                         item["expected_close_time"] = expected_close
@@ -579,11 +552,11 @@ def run_scan(execute: bool = True) -> dict:
 
                     if not execute:
                         item["action"] = "preview"
-                        item["case_active"] = is_case_active(state, sig.symbol, sig.combo)
+                        item["case_active"] = (sig.symbol.upper(), int(sig.combo)) in active_case_keys
                         symbol_result["signals"].append(item)
                         continue
 
-                    if is_case_active(state, sig.symbol, sig.combo):
+                    if (sig.symbol.upper(), int(sig.combo)) in active_case_keys:
                         item["action"] = "active_case_suppressed"
                         item["reason"] = "FINAL14 one-position-per-combo"
                         symbol_result["signals"].append(item)
@@ -593,7 +566,6 @@ def run_scan(execute: bool = True) -> dict:
                         )
                         continue
 
-                    targets = executor.targets()
                     results = []
 
                     # Engine stays LIVE, but unsafe execution conditions block
@@ -660,6 +632,7 @@ def run_scan(execute: bool = True) -> dict:
 
                         if result.get("ok") and result.get("entry_filled"):
                             register_execution(state, sig, result)
+                            active_case_keys.add((sig.symbol.upper(), int(sig.combo)))
 
                         if result.get("ok"):
                             discord_state_key = f"discord:{sig.symbol}"
