@@ -59,8 +59,8 @@ class Settings:
     discord_log_level: str = "ERROR"
     discord_startup_test: bool = _bool("DISCORD_STARTUP_TEST", False)
 
-    adjust_tp_sl_bps: float = _float("ADJUST_TP_SL_BPS", 0.0)
-    legacy_rounding: bool = _bool("LEGACY_ROUNDING", False)
+    adjust_tp_sl_bps: float = 0.0
+    legacy_rounding: bool = False
 
     state_db: str = os.getenv("STATE_DB", "state.db")
     database_url: str = os.getenv("DATABASE_URL", "")
