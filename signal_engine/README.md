@@ -36,11 +36,12 @@ Then copy the values from .env.example into Render Environment.
 
 ## Endpoints
 
-- GET /health
-- GET /status
+- GET /health — lightweight Render liveness check (no DB/network I/O)
+- GET /engine-status — detailed engine/runtime diagnostics
+- GET /status — latest scan summary
 - POST /preview
 - POST /scan
 
-First call /health, then POST /preview from /docs.
+Use /health for Render liveness. Use /engine-status for detailed engine diagnostics, and /status for the latest scan summary.
 
 Do not set DRY_RUN=false until the generated signals have been compared with TradingView/BingX and the persistent idempotency state has been addressed.
