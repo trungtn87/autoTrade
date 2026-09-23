@@ -44,10 +44,9 @@ class Settings:
     auto_scheduler: bool = _bool("AUTO_SCHEDULER", True)
     scheduler_second: int = _int("SCHEDULER_SECOND", 8)
 
-    # Single-account direct BingX execution with fixed margin per order.
-    # 1 USDT margin at 100x leverage -> about 100 USDT position notional.
-    order_margin_usdt: float = _float("BINGX_ORDER_MARGIN_USDT", 1.0)
-    leverage: int = _int("BINGX_LEVERAGE", 100)
+    # FINAL14 production sizing: 100 USDT notional at 50x leverage.
+    order_margin_usdt: float = _float("BINGX_ORDER_MARGIN_USDT", 2.0)
+    leverage: int = _int("BINGX_LEVERAGE", 50)
 
     discord_enabled: bool = _bool("DISCORD_ENABLED", True)
     discord_on_dry_run: bool = _bool("DISCORD_ON_DRY_RUN", True)
@@ -60,8 +59,8 @@ class Settings:
     discord_log_level: str = "ERROR"
     discord_startup_test: bool = _bool("DISCORD_STARTUP_TEST", False)
 
-    adjust_tp_sl_bps: float = _float("ADJUST_TP_SL_BPS", 10.0)
-    legacy_rounding: bool = _bool("LEGACY_ROUNDING", True)
+    adjust_tp_sl_bps: float = _float("ADJUST_TP_SL_BPS", 0.0)
+    legacy_rounding: bool = _bool("LEGACY_ROUNDING", False)
 
     state_db: str = os.getenv("STATE_DB", "state.db")
     database_url: str = os.getenv("DATABASE_URL", "")
@@ -195,7 +194,7 @@ def safe_config_snapshot(settings: Settings) -> dict:
         "dry_run": settings.dry_run,
         "execution_ready": bool(settings.bingx_api_key and settings.bingx_api_secret and settings.database_url),
         "order_execution": {
-            "mode": "direct_bingx_single_account_fixed_margin",
+            "mode": "final14_hard_tp_sl",
             "configured": bool(settings.bingx_api_key and settings.bingx_api_secret),
             "margin_usdt": settings.order_margin_usdt,
             "leverage": settings.leverage,
