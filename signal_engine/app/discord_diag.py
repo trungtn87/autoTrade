@@ -188,6 +188,22 @@ def build_discord_scan_alert(settings: Settings, result: dict) -> tuple[str, str
         lines.append(f"Engine status: {status}")
         signature_parts.append(f"status:{status}")
 
+    bingx_diag = result.get("bingx_api_error_diag_15m") or {}
+    if isinstance(bingx_diag, dict) and bingx_diag:
+        by_source = bingx_diag.get("109425_by_source") or {}
+        local_109425 = int(bingx_diag.get("109425_count") or 0)
+        lines.append(
+            "Local BingX 109425 / 15m: "
+            f"{local_109425} "
+            f"(market={int(by_source.get('market') or 0)}, "
+            f"executor={int(by_source.get('executor') or 0)})"
+        )
+        signature_parts.append(
+            f"bingx109425:{local_109425}:"
+            f"{int(by_source.get('market') or 0)}:"
+            f"{int(by_source.get('executor') or 0)}"
+        )
+
     symbols = result.get("symbols") or {}
     for symbol in settings.symbols:
         item = symbols.get(symbol)
