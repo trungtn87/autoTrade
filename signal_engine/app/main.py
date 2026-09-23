@@ -564,7 +564,7 @@ def health():
         "market_mode": "15m_only_incremental",
         "state_backend": state.backend,
         "execution_ready": state.backend == "postgres" and bool(executor.targets()),
-        "execution_mode": "direct_bingx_single_account_fixed_margin",
+        "execution_mode": "final14_100pct_hard_tp_sl",
         "order_target_count": len(executor.targets()),
         "live_limit_15m": settings.live_limit_15m,
     }
