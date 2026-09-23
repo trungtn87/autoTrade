@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 import threading
+import time
 from pathlib import Path
+
+log = logging.getLogger("app.state")
 
 
 class SignalState:
@@ -31,7 +35,28 @@ class SignalState:
                 raise RuntimeError(
                     "DATABASE_URL is configured but psycopg is not installed"
                 ) from exc
-            return psycopg.connect(self.database_url)
+            last_exc = None
+            delays = (0.0, 0.5, 1.0, 2.0)
+            for attempt, delay_s in enumerate(delays, start=1):
+                if delay_s:
+                    time.sleep(delay_s)
+                try:
+                    return psycopg.connect(
+                        self.database_url,
+                        connect_timeout=10,
+                        application_name="final14_autotrade",
+                    )
+                except psycopg.OperationalError as exc:
+                    last_exc = exc
+                    if attempt < len(delays):
+                        log.warning(
+                            "POSTGRES_CONNECT_RETRY attempt=%d/%d next_delay_s=%.1f error=%s",
+                            attempt,
+                            len(delays),
+                            delays[attempt],
+                            type(exc).__name__,
+                        )
+            raise last_exc
         return sqlite3.connect(self.path)
 
     def _sql(self, sql: str) -> str:
