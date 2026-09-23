@@ -51,6 +51,9 @@ def _want_variant(selected_names, combo, name):
         return True
     return name in selected_names.get(combo, set())
 
+def _want_combo(selected_names, combo):
+    return selected_names is None or combo in selected_names
+
 def entry_variants(pc, selected_names=None):
     """Build research variants, optionally only the exact locked production names.
 
@@ -69,17 +72,24 @@ def entry_variants(pc, selected_names=None):
     longc=(K>30)&(K>D)&(C>80)&(C>C.shift(1)); shortc=(K<70)&(K<D)&(C>-80)&(C<C.shift(1))
     basis=sma(d.close,20); dev=1.8*d.close.rolling(20,min_periods=20).std(ddof=0); ub=basis+dev; lb=basis-dev
     bbup=d.close>ub; bbdn=d.close<lb
-    # ATR trailing stop same as signals.py
-    trstop=1.5*p1["A14"]; x=d.close.to_numpy(float); ts=trstop.to_numpy(float); arr=np.full(len(d),np.nan)
-    for i in range(len(d)):
-        prev=arr[i-1] if i else np.nan; nz=0 if not np.isfinite(prev) else prev; prevsrc=x[i-1] if i else np.nan
-        if i and x[i]>nz and prevsrc>nz: arr[i]=max(nz,x[i]-ts[i])
-        elif i and x[i]<nz and prevsrc<nz: arr[i]=min(nz,x[i]+ts[i])
-        else: arr[i]=x[i]-ts[i] if x[i]>nz else x[i]+ts[i]
-    ats=pd.Series(arr,index=d.index)
-    above=crossover(ema(d.close,1),ats); below=crossover(ats,ema(d.close,1))
-    sar=parabolic_sar(d,0.05,0.2,0.3); bull_eng=(d.close>d.open)&(d.close.shift(1)<d.open.shift(1))&(d.close>d.open.shift(1))&(d.open<d.close.shift(1)); bear_eng=(d.close<d.open)&(d.close.shift(1)>d.open.shift(1))&(d.close<d.open.shift(1))&(d.open>d.close.shift(1))
-    stdir1=pine_custom_supertrend_dir(d,8,4.0); O=obv_variant(d); oup=O>O.shift(1); odn=O<O.shift(1)
+    # ATR trailing stop same as signals.py. Skip it for symbols where C2
+    # is not part of the locked production set.
+    if _want_combo(selected_names,"C2"):
+        trstop=1.5*p1["A14"]; x=d.close.to_numpy(float); ts=trstop.to_numpy(float); arr=np.full(len(d),np.nan)
+        for i in range(len(d)):
+            prev=arr[i-1] if i else np.nan; nz=0 if not np.isfinite(prev) else prev; prevsrc=x[i-1] if i else np.nan
+            if i and x[i]>nz and prevsrc>nz: arr[i]=max(nz,x[i]-ts[i])
+            elif i and x[i]<nz and prevsrc<nz: arr[i]=min(nz,x[i]+ts[i])
+            else: arr[i]=x[i]-ts[i] if x[i]>nz else x[i]+ts[i]
+        ats=pd.Series(arr,index=d.index)
+        above=crossover(ema(d.close,1),ats); below=crossover(ats,ema(d.close,1))
+
+    stdir1=pine_custom_supertrend_dir(d,8,4.0)
+    if _want_combo(selected_names,"C3"):
+        sar=parabolic_sar(d,0.05,0.2,0.3)
+        bull_eng=(d.close>d.open)&(d.close.shift(1)<d.open.shift(1))&(d.close>d.open.shift(1))&(d.open<d.close.shift(1))
+        bear_eng=(d.close<d.open)&(d.close.shift(1)>d.open.shift(1))&(d.close<d.open.shift(1))&(d.open>d.close.shift(1))
+        O=obv_variant(d); oup=O>O.shift(1); odn=O<O.shift(1)
     e50_6=align_confirmed(ema(d6.close,50),d.index,"6h"); tfast=ema(d.close,21); tslow=ema(d.close,42); bt=tfast>tslow; br=tfast<tslow
     std20=d.close.rolling(20,min_periods=20).std(ddof=0); bbu=sma(d.close,20)+2*std20; bbl=sma(d.close,20)-2*std20; ku=sma(d.close,20)+1.7*atr(d,20); kl=sma(d.close,20)-1.7*atr(d,20)
     breakout_b=crossover(d.close,bbu)&(d.close>ku); breakout_s=crossunder(d.close,bbl)&(d.close<kl)
