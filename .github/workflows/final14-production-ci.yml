@@ -2,9 +2,14 @@ name: FINAL14 Production CI
 
 on:
   push:
-    branches: [final14-hardtp-production, signal-engine-v1, final14-seed-discord-fix-20260923, final14-production-fastpath, fix-bingx-shared-guard-20260923, live-limit-2-20260923]
     paths:
       - 'signal_engine/**'
+      - '.python-version'
+      - '.github/workflows/final14-production-ci.yml'
+  pull_request:
+    paths:
+      - 'signal_engine/**'
+      - '.python-version'
       - '.github/workflows/final14-production-ci.yml'
   workflow_dispatch:
 
@@ -14,6 +19,7 @@ permissions:
 
 jobs:
   test:
+    name: FINAL14 parity gate
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     env:
@@ -89,6 +95,15 @@ jobs:
           PYTHONPATH: signal_engine
         run: |
           python signal_engine/tests/final14_exact_parity.py \
+            --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl \
+            --research-dir research/backtest
+
+      - name: Live scan parity against locked backtest
+        env:
+          PYTHONPATH: signal_engine
+        run: |
+          python signal_engine/tests/final14_live_scan_parity.py \
             --btc final14_data/data/multisource/BTCUSDT_hybrid_15m.pkl \
             --eth final14_data/data/multisource/ETHUSDT_hybrid_15m.pkl \
             --research-dir research/backtest
