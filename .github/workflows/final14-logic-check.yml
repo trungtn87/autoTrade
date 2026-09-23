@@ -1,0 +1,46 @@
+name: FINAL14 Logic Check
+
+on:
+  push:
+    branches: [signal-engine-v1]
+    paths:
+      - 'signal_engine/app/**'
+      - 'signal_engine/requirements.txt'
+      - '.python-version'
+      - '.github/workflows/final14-logic-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-final14:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.14'
+
+      - name: Install runtime dependencies
+        run: pip install -r signal_engine/requirements.txt
+
+      - name: Compile production code
+        run: python -m compileall -q signal_engine/app
+
+      - name: Run FINAL14 offline self-test
+        env:
+          PYTHONPATH: signal_engine
+          AUTO_SCHEDULER: 'false'
+        run: |
+          python - <<'PY'
+          from app.config import Settings
+          from app.self_test import run_self_test
+          result = run_self_test(Settings())
+          print(result)
+          assert result["ok"], result
+          assert result["network_calls"] == 0
+          assert result["order_calls"] == 0
+          PY
