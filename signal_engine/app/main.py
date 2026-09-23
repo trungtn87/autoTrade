@@ -1173,6 +1173,12 @@ app = FastAPI(title="BingX FINAL14 RR Hard-TP Autotrade Engine", version="14.0.0
 
 @app.get("/health")
 def health():
+    """Render liveness endpoint: intentionally no database or network I/O."""
+    return {"ok": True}
+
+
+@app.get("/engine-status")
+def engine_status():
     profile = strategy_static_snapshot()
     return {
         "ok": True,

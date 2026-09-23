@@ -25,7 +25,11 @@ jobs:
           expected = os.environ["EXPECTED_COMMIT"]
           for attempt in range(1, 31):
               try:
-                  with urllib.request.urlopen(base + "/health", timeout=30) as response:
+                  with urllib.request.urlopen(base + "/health", timeout=5) as response:
+                      live = json.load(response)
+                  if live.get("ok") is not True:
+                      raise RuntimeError(f"health failed: {live}")
+                  with urllib.request.urlopen(base + "/engine-status", timeout=30) as response:
                       h = json.load(response)
                   checks = {
                       "commit": h.get("build_commit") == expected,
@@ -43,7 +47,7 @@ jobs:
                       "scheduler", "state_backend", "execution_ready", "final14_enabled",
                       "exit_mode", "bingx_cooldown_remaining_ms"
                   )}
-                  print(json.dumps({"attempt": attempt, "checks": checks, "health": summary}), flush=True)
+                  print(json.dumps({"attempt": attempt, "liveness": live, "checks": checks, "engine_status": summary}), flush=True)
                   if all(checks.values()):
                       with urllib.request.urlopen(base + "/status", timeout=30) as response:
                           status = json.load(response)
