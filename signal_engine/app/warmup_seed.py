@@ -14,7 +14,7 @@ _SEED_FILES = {
 _REQUIRED = ["open_time", "open", "high", "low", "close", "volume"]
 
 
-def load_warmup_seed(symbol: str, limit: int = 12000) -> pd.DataFrame:
+def load_warmup_seed(symbol: str, limit: int = 3400) -> pd.DataFrame:
     """Load canonical BingX 15m seed rows bundled with production."""
     name = _SEED_FILES.get(symbol.upper())
     if not name:

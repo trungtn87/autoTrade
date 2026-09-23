@@ -226,7 +226,7 @@ def fetch_bundle(symbol: str):
     now_ms = int(time.time() * 1000)
     cached_count = state.candle_count(symbol, "15m")
     bootstrap = cached_count == 0
-    target = max(12000, int(settings.bootstrap_limit_15m))
+    target = max(3400, int(settings.bootstrap_limit_15m))
 
     # Production seed: fill the deterministic warmup window from the canonical
     # BingX 15m snapshot bundled with the service before asking BingX for older

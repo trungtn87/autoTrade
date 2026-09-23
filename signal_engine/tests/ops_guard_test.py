@@ -11,8 +11,8 @@ from app.warmup_seed import INTERVAL_15M_MS, load_warmup_seed
 
 def test_seed():
     for symbol in ("BTC-USDT", "ETH-USDT"):
-        d = load_warmup_seed(symbol, 12000)
-        assert len(d) == 12000, (symbol, len(d))
+        d = load_warmup_seed(symbol, 3400)
+        assert len(d) == 3400, (symbol, len(d))
         assert d["open_time"].is_unique
         assert bool((d["open_time"].diff().dropna() == INTERVAL_15M_MS).all())
         assert bool((d["close_time"] == d["open_time"] + INTERVAL_15M_MS - 1).all())
@@ -24,7 +24,7 @@ def test_discord_guard():
         "status": "ok",
         "symbols": {
             symbol: {
-                "cached_15m": 12000,
+                "cached_15m": 3400,
                 "data_validation": {"ok": True},
                 "combo_readiness": {"ready": [1], "skipped": []},
             }
@@ -43,7 +43,7 @@ def test_discord_guard():
         },
         "symbols": {
             symbol: {
-                "cached_15m": 9713,
+                "cached_15m": 3200,
                 "data_validation": {"ok": True},
                 "combo_readiness": {"ready": [], "skipped": [1, 2]},
             }
@@ -53,7 +53,7 @@ def test_discord_guard():
     content, signature = build_discord_scan_alert(settings, broken)
     assert "FINAL14 AUTOTRADE ALERT" in content
     assert "NOT READY" in content
-    assert "9713" in content
+    assert "3200" in content
     assert "Local BingX 109425 / 15m: 2" in content
     assert "not_ready" in signature
     assert "bingx109425:2:1:1" in signature

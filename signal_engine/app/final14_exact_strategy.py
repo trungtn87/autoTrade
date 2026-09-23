@@ -10,7 +10,7 @@ from .final14_research.smc_structure import smc_direction
 from .final14_research.smc_ob import ob_context, OBConfig
 from .final14_research.two_trail_layer12 import approved
 
-MIN_LIVE_15M_BARS = 12000
+MIN_LIVE_15M_BARS = 3400
 
 
 def _research_frame(m15: pd.DataFrame) -> pd.DataFrame:

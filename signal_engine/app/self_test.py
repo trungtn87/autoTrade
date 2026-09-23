@@ -99,7 +99,7 @@ def run_startup_self_test(settings: Settings, state=None) -> dict:
         details = {}
         for symbol in settings.symbols:
             expected=set(final14_enabled_combos(symbol))
-            for count in (11999,12000):
+            for count in (3399,3400):
                 frames=[
                     pd.DataFrame(index=range(count)),
                     pd.DataFrame(),
@@ -112,7 +112,7 @@ def run_startup_self_test(settings: Settings, state=None) -> dict:
                     symbol=symbol,
                 )
                 ready={combo for combo,item in status.items() if item["ready"]}
-                want=expected if count>=12000 else set()
+                want=expected if count>=3400 else set()
                 assert ready==want, (
                     f"{symbol} {count} readiness mismatch: "
                     f"got={sorted(ready)} expected={sorted(want)}"
