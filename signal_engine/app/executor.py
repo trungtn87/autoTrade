@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import httpx
 
 from .config import Settings
+from .bingx_market import BingXMarketClient
 from .strategy import Signal
 
 log = logging.getLogger(__name__)
@@ -22,10 +23,17 @@ def execution_prices(signal: Signal, settings: Settings) -> tuple[float, float, 
 
 
 class Executor:
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, api_error_recorder=None, request_guard=None):
         self.settings = settings
         self.client = httpx.Client(timeout=20.0)
         self._contract_cache: dict[str, dict] = {}
+        self.api_error_recorder = api_error_recorder
+        self.request_guard = request_guard or BingXMarketClient(
+            base_url=settings.bingx_base_url,
+            api_key=settings.bingx_api_key,
+            api_secret=settings.bingx_api_secret,
+            error_recorder=api_error_recorder,
+        )
 
     def targets(self) -> list[tuple[str, str, float]]:
         """One live BingX account using the configured API credentials directly."""
@@ -175,6 +183,11 @@ class Executor:
         return True
 
     def _signed_trade_request(self, method: str, path: str, params: dict) -> dict:
+        with self.request_guard.request_slot():
+            return self._signed_trade_request_locked(method, path, params)
+
+    def _signed_trade_request_locked(self, method: str, path: str, params: dict) -> dict:
+        log.info("BINGX_TRADE_REQ method=%s path=%s symbol=%s", method, path, params.get("symbol"))
         params = dict(params)
         params.setdefault("recvWindow", 5000)
         params["timestamp"] = int(time.time() * 1000)
@@ -209,12 +222,24 @@ class Executor:
         else:
             raise ValueError(f"unsupported BingX method: {method}")
 
-        r.raise_for_status()
-        body = r.json()
-        code = body.get("code")
+        try:
+            body = r.json()
+        except Exception:
+            body = {}
+
+        log.info("BINGX_TRADE_HTTP method=%s path=%s status=%s", method, path, r.status_code)
+        code = body.get("code") if isinstance(body, dict) else None
         if code not in (None, 0, "0"):
-            raise RuntimeError(
-                f"BingX trade error {code}: {body.get('msg', '')} | endpoint={path}"
+            msg = body.get("msg", "") if isinstance(body, dict) else ""
+            raise self.request_guard.api_error("executor", code, str(msg), path, params)
+        if r.status_code == 429:
+            raise self.request_guard.api_error(
+                "executor", "HTTP_429", "BingX HTTP rate limit", path, params
+            )
+        r.raise_for_status()
+        if code not in (0, "0"):
+            raise self.request_guard.api_error(
+                "executor", "INVALID_RESPONSE", "missing success code", path, params
             )
         return body
 

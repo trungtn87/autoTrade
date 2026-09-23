@@ -5,6 +5,8 @@ import hmac
 import logging
 import re
 import time
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass
 from urllib.parse import urlencode
 
@@ -12,6 +14,7 @@ import httpx
 import pandas as pd
 
 log = logging.getLogger(__name__)
+BINGX_BLOCK_CODES = {"109415", "109425", "109429", "HTTP_429"}
 
 
 class BingXApiError(RuntimeError):
@@ -33,8 +36,13 @@ class BingXMarketClient:
     timeout: float = 15.0
     min_interval_sec: float = 1.10
     recv_window_ms: int = 5000
+    cooldown_guard_ms: int = 60_000
+    error_recorder: object | None = None
+    cooldown_reader: object | None = None
+    cooldown_writer: object | None = None
 
     def __post_init__(self):
+        self._request_lock = threading.RLock()
         self._last_call = 0.0
         self._blocked_until_ms = 0
         self._client = httpx.Client(timeout=self.timeout, headers={
@@ -42,11 +50,78 @@ class BingXMarketClient:
             "X-SOURCE-KEY": "BX-AI-SKILL",
         })
 
+    @property
+    def blocked_until_ms(self) -> int:
+        return int(self._blocked_until_ms)
+
+    def set_blocked_until_ms(self, value: int | None) -> int:
+        """Restore/persist a circuit-breaker deadline across process restarts."""
+        try:
+            candidate = int(value or 0)
+        except Exception:
+            candidate = 0
+        self._blocked_until_ms = max(int(self._blocked_until_ms), candidate)
+        return int(self._blocked_until_ms)
+
+    def clear_blocked_until_ms(self) -> None:
+        self._blocked_until_ms = 0
+
+    def cooldown_remaining_ms(self) -> int:
+        return max(0, int(self._blocked_until_ms) - int(time.time() * 1000))
+
+    @contextmanager
+    def request_slot(self):
+        """One in-flight BingX request across market, trade and diagnostics.
+
+        Keep the lock until the response has been classified and the breaker
+        persisted. Sign timestamps only after waiting for this slot.
+        """
+        with self._request_lock:
+            if callable(self.cooldown_reader):
+                # Fail closed on a state read failure; never guess that a
+                # different instance's persisted cooldown has expired.
+                self.set_blocked_until_ms(self.cooldown_reader())
+            self._throttle()
+            try:
+                yield
+            finally:
+                self._last_call = time.monotonic()
+
+    def api_error(self, source: str, code, message: str, path: str, params: dict) -> BingXApiError:
+        safe = {k: v for k, v in params.items() if k not in {"signature", "timestamp", "recvWindow"}}
+        retry_at_ms = self._retry_at_from_message(message)
+        if str(code) in BINGX_BLOCK_CODES:
+            now_ms = int(time.time() * 1000)
+            base_retry = retry_at_ms or (now_ms + 15 * 60 * 1000)
+            self.set_blocked_until_ms(max(base_retry, now_ms + 60_000) + self.cooldown_guard_ms)
+            retry_at_ms = self.blocked_until_ms
+            if callable(self.cooldown_writer):
+                try:
+                    self.cooldown_writer(retry_at_ms)
+                except Exception:
+                    # RAM remains blocked even if persistence is unavailable.
+                    log.exception("BINGX_COOLDOWN_PERSIST_FAILED source=%s path=%s", source, path)
+        if callable(self.error_recorder):
+            try:
+                self.error_recorder(source=source, endpoint=path, params=safe,
+                                    code=code, message=message, retry_at_ms=retry_at_ms)
+            except Exception:
+                log.exception("BINGX_DIAG_RECORD_FAILED source=%s path=%s code=%s", source, path, code)
+        log.warning("BINGX_API_ERROR source=%s code=%s path=%s params=%s retry_at_ms=%s msg=%s",
+                    source, code, path, safe, retry_at_ms, message)
+        return BingXApiError(code, message, path, retry_at_ms, safe)
+
     def _throttle(self):
         now_ms = int(time.time() * 1000)
         if now_ms < self._blocked_until_ms:
             remain = int((self._blocked_until_ms - now_ms + 999) / 1000)
-            raise RuntimeError(f"BingX circuit breaker active; retry after about {remain}s")
+            raise BingXApiError(
+                "CIRCUIT_BREAKER",
+                f"local circuit breaker active; retry after about {remain}s",
+                "local://circuit-breaker",
+                int(self._blocked_until_ms),
+                {},
+            )
 
         wait = self.min_interval_sec - (time.monotonic() - self._last_call)
         if wait > 0:
@@ -77,7 +152,10 @@ class BingXMarketClient:
         return int(m.group(1)) if m else None
 
     def _get(self, path: str, params: dict) -> dict:
-        self._throttle()
+        with self.request_slot():
+            return self._get_locked(path, params)
+
+    def _get_locked(self, path: str, params: dict) -> dict:
         safe_params = {k: v for k, v in params.items() if k not in {"signature"}}
         started = time.monotonic()
         log.info("BINGX_REQ path=%s params=%s", path, safe_params)
@@ -91,25 +169,19 @@ class BingXMarketClient:
         self._last_call = time.monotonic()
         elapsed_ms = round((time.monotonic() - started) * 1000, 1)
         log.info("BINGX_HTTP path=%s status=%s elapsed_ms=%s", path, r.status_code, elapsed_ms)
-        r.raise_for_status()
-
-        payload = r.json()
-        code = payload.get("code")
-        if code != 0:
+        try:
+            payload = r.json()
+        except ValueError:
+            payload = {}
+        code = payload.get("code") if isinstance(payload, dict) else None
+        if code not in (None, 0, "0"):
             msg = str(payload.get("msg", ""))
-            retry_at_ms = self._retry_at_from_message(msg)
-            if str(code) == "109429":
-                # Stop hammering the endpoint until BingX says it is safe again.
-                self._blocked_until_ms = retry_at_ms or (int(time.time() * 1000) + 15 * 60 * 1000)
-            elif str(code) in {"109415", "109425"}:
-                # One invalid/paused/unsupported market-data response is enough.
-                # Repeating it can trigger BingX 109429 for the whole quote API.
-                self._blocked_until_ms = int(time.time() * 1000) + 15 * 60 * 1000
-            log.error(
-                "BINGX_API_ERROR code=%s path=%s params=%s retry_at_ms=%s msg=%s",
-                code, path, safe_params, retry_at_ms, msg,
-            )
-            raise BingXApiError(code, msg, path, retry_at_ms, safe_params)
+            raise self.api_error("market", code, msg, path, safe_params)
+        if r.status_code == 429:
+            raise self.api_error("market", "HTTP_429", "BingX HTTP rate limit", path, safe_params)
+        r.raise_for_status()
+        if code not in (0, "0"):
+            raise self.api_error("market", "INVALID_RESPONSE", "missing success code", path, safe_params)
 
         log.info("BINGX_OK path=%s code=0 elapsed_ms=%s", path, elapsed_ms)
         return payload

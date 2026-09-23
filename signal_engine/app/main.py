@@ -36,9 +36,21 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 log = logging.getLogger("autotrade")
 
-market = BingXMarketClient(base_url=settings.bingx_base_url, api_key=settings.bingx_api_key, api_secret=settings.bingx_api_secret)
 state = SignalState(settings.state_db, settings.database_url)
-executor = Final14Executor(settings)
+
+BINGX_COOLDOWN_STATE_KEY = "bingx_market_blocked_until_ms"
+CLUSTER_SCAN_LOCK_ID = 5141400014
+
+market = BingXMarketClient(
+    base_url=settings.bingx_base_url,
+    api_key=settings.bingx_api_key,
+    api_secret=settings.bingx_api_secret,
+    cooldown_reader=lambda: state.get_runtime_value(BINGX_COOLDOWN_STATE_KEY, "0"),
+    cooldown_writer=lambda deadline: state.set_runtime_value(
+        BINGX_COOLDOWN_STATE_KEY, str(deadline)
+    ),
+)
+executor = Final14Executor(settings, request_guard=market)
 scan_lock = threading.Lock()
 scheduler: BackgroundScheduler | None = None
 last_scan_summary: dict = {"status": "not_run"}
@@ -267,6 +279,20 @@ def run_scan(execute: bool = True) -> dict:
     global last_scan_summary
     if not scan_lock.acquire(blocking=False):
         return {"status": "busy", "message": "scan already running"}
+
+    try:
+        cluster_lock_handle = state.try_acquire_cluster_lock(CLUSTER_SCAN_LOCK_ID)
+    except Exception:
+        scan_lock.release()
+        raise
+    if cluster_lock_handle is None:
+        scan_lock.release()
+        log.warning("SCHEDULE_SKIP_CLUSTER_LOCK reason=another_instance_scanning")
+        return {
+            "status": "busy_cluster",
+            "message": "another Render instance is already scanning",
+        }
+
     started = time.time()
     summary = {
         "status": "ok",
@@ -276,6 +302,32 @@ def run_scan(execute: bool = True) -> dict:
         "started_at": started,
     }
     try:
+        try:
+            cooldown_until = int(
+                state.get_runtime_value(BINGX_COOLDOWN_STATE_KEY, "0") or 0
+            )
+        except Exception:
+            cooldown_until = 0
+
+        now_ms = int(time.time() * 1000)
+        if cooldown_until > now_ms:
+            remaining_sec = int((cooldown_until - now_ms + 999) / 1000)
+            summary.update({
+                "status": "bingx_cooldown",
+                "retry_at_ms": cooldown_until,
+                "cooldown_remaining_sec": remaining_sec,
+                "elapsed_sec": round(time.time() - started, 3),
+            })
+            last_scan_summary = summary
+            log.warning(
+                "SCHEDULE_SKIP_BINGX_COOLDOWN retry_at_ms=%s remaining_sec=%s",
+                cooldown_until, remaining_sec,
+            )
+            return summary
+        if cooldown_until:
+            state.set_runtime_value(BINGX_COOLDOWN_STATE_KEY, "0")
+            market.clear_blocked_until_ms()
+
         for symbol in settings.symbols:
             symbol_started = time.monotonic()
             try:
@@ -479,7 +531,10 @@ def run_scan(execute: bool = True) -> dict:
         last_scan_summary = summary
         return summary
     finally:
-        scan_lock.release()
+        try:
+            state.release_cluster_lock(cluster_lock_handle, CLUSTER_SCAN_LOCK_ID)
+        finally:
+            scan_lock.release()
 
 
 def scheduled_scan():

@@ -26,8 +26,12 @@ class Final14Executor(Executor):
     - No trailing and no partial exit.
     """
 
-    def __init__(self, settings):
-        super().__init__(settings)
+    def __init__(self, settings, api_error_recorder=None, request_guard=None):
+        super().__init__(
+            settings,
+            api_error_recorder=api_error_recorder,
+            request_guard=request_guard,
+        )
         self._hedge_mode_verified = False
         self._separate_isolated_verified: set[str] = set()
 
