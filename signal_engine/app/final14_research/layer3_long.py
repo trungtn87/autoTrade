@@ -107,8 +107,6 @@ def entry_variants(pc, selected_names=None):
     # C2: base ADX20 and nearby; no historical entry candidate => narrow local test
     for adxth in [18,20,22,25,28]:
         name=f"ADX_{adxth}"
-        if not _want_variant(selected_names,"C10",name): continue
-        name=f"ADX_{adxth}"
         if not _want_variant(selected_names,"C2",name): continue
         L=(d.close>ats)&above&(e10>e25)&(macd>sig)&(ADX>adxth)&bbup
         S=(d.close<ats)&below&(e10<e25)&(macd<sig)&(ADX>adxth)&bbdn
