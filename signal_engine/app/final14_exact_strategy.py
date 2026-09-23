@@ -47,9 +47,11 @@ def _symbol_configs(symbol:str)->dict[str,dict]:
 
 
 def _selected_variants(pc, symbol:str):
-    allv=entry_variants(pc)
+    configs=_symbol_configs(symbol)
+    wanted={cname:{cfg["entry_variant"]} for cname,cfg in configs.items()}
+    allv=entry_variants(pc,wanted)
     selected={}
-    for cname,cfg in _symbol_configs(symbol).items():
+    for cname,cfg in configs.items():
         wanted=cfg["entry_variant"]
         matches=[x for x in allv[cname] if x[0]==wanted]
         if len(matches)!=1:
