@@ -171,14 +171,15 @@ def entry_variants(pc, selected_names=None):
         out.setdefault("C7",[]).append((name,edge_event(L),edge_event(S)))
 
     # C8 prior candidate ADX30 vs base25
-    C8=cci(d.close,d.high,d.low,10); longc8=(C8>100)&(C8>C8.shift(1))&(d.volume>volSMA*0.8)&(d.volume>d.volume.shift(1)); shortc8=(C8<-100)&(C8<C8.shift(1))&(d.volume>volSMA*0.8)&(d.volume>d.volume.shift(1))
-    macd8=ema(d.close,12)-ema(d.close,26); sig8=ema(macd8,9); hist8=macd8-sig8; bull=(d.close>d.open)&(d.close>d.open.shift(1))&(d.open<d.close.shift(1)); bear=(d.close<d.open)&(d.close<d.open.shift(1))&(d.open>d.close.shift(1))
-    for adxth in [23,25,28,30,32,35]:
-        name=f"ADX_{adxth}"
-        if not _want_variant(selected_names,"C8",name): continue
-        L=longc8&(M>70)&(ADX>adxth)&(ADX>ADX.shift(1))&bull&p15["trend50"]&(hist8>0)&valid
-        S=shortc8&(M<30)&(ADX>adxth)&(ADX>ADX.shift(1))&bear&p15["trend50s"]&(hist8<0)&valid
-        out.setdefault("C8",[]).append((name,edge_event(L),edge_event(S)))
+    if _want_combo(selected_names,"C8"):
+        C8=cci(d.close,d.high,d.low,10); longc8=(C8>100)&(C8>C8.shift(1))&(d.volume>volSMA*0.8)&(d.volume>d.volume.shift(1)); shortc8=(C8<-100)&(C8<C8.shift(1))&(d.volume>volSMA*0.8)&(d.volume>d.volume.shift(1))
+        macd8=ema(d.close,12)-ema(d.close,26); sig8=ema(macd8,9); hist8=macd8-sig8; bull=(d.close>d.open)&(d.close>d.open.shift(1))&(d.open<d.close.shift(1)); bear=(d.close<d.open)&(d.close<d.open.shift(1))&(d.open>d.close.shift(1))
+        for adxth in [23,25,28,30,32,35]:
+            name=f"ADX_{adxth}"
+            if not _want_variant(selected_names,"C8",name): continue
+            L=longc8&(M>70)&(ADX>adxth)&(ADX>ADX.shift(1))&bull&p15["trend50"]&(hist8>0)&valid
+            S=shortc8&(M<30)&(ADX>adxth)&(ADX>ADX.shift(1))&bear&p15["trend50s"]&(hist8<0)&valid
+            out.setdefault("C8",[]).append((name,edge_event(L),edge_event(S)))
 
     # C9 original plus corrected-short-ST branch and RSI neighborhoods
     mid=_nadaraya(d.close,24,3.0); nr=d.close.rolling(24,min_periods=24).std(ddof=0)*2.3; upper=mid+nr; lower=mid-nr
