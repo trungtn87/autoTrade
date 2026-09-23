@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import os
 import tempfile
@@ -8,9 +9,11 @@ import time
 import pandas as pd
 
 from .config import Settings
-from .executor import Executor, execution_prices
+from .executor import execution_prices
+from .final14_executor import Final14Executor
 from .final14_config import FINAL14_CASES, case_name, enabled_combos
 from .final14_exact_strategy import combo_readiness, hard_tp_sl, scan_latest
+from .final14_positions import register_execution, snapshot as final14_position_snapshot
 from .state import SignalState
 from .strategy import Signal
 
@@ -147,7 +150,7 @@ def run_self_test(settings: Settings) -> dict:
     )
 
     def payload_check():
-        ex = Executor(settings)
+        ex = Final14Executor(settings)
         payload = ex.build_payload(buy, 100.0)
         e, p, s = execution_prices(buy, settings)
         assert e == buy.entry and p == buy.tp and s == buy.sl
@@ -170,6 +173,93 @@ def run_self_test(settings: Settings) -> dict:
 
     checks.append(_check("final14_execution_payload", payload_check))
 
+    def execution_contract_check():
+        class FakeFinal14Executor(Final14Executor):
+            def __init__(self, cfg):
+                super().__init__(cfg)
+                self.order_params = None
+
+            def _assert_hedge_mode(self):
+                return None
+
+            def _assert_separate_isolated(self, symbol):
+                return None
+
+            def _set_leverage(self, symbol, side, leverage):
+                assert leverage == 50
+                return {"code": 0}
+
+            def _contract_rules(self, symbol):
+                return {
+                    "quantity_precision": 4,
+                    "price_precision": 2,
+                    "min_qty": 0.0001,
+                    "min_usdt": 1.0,
+                    "max_long_leverage": 125,
+                    "max_short_leverage": 125,
+                    "status": 1,
+                    "api_state_open": "true",
+                    "api_state_close": "true",
+                }
+
+            def _positions(self, symbol):
+                return []
+
+            def _signed_trade_request(self, method, request_path, params):
+                if request_path.endswith("/order") and method == "POST":
+                    self.order_params = dict(params)
+                    return {"code": 0, "data": {"orderID": "o1", "status": "FILLED"}}
+                raise AssertionError((method, request_path, params))
+
+            def _order_detail(self, symbol, order_id):
+                return {
+                    "code": 0,
+                    "data": {
+                        "orderID": "o1",
+                        "status": "FILLED",
+                        "executedQty": "0.0033",
+                        "avgPrice": "30000.0",
+                        "positionId": "p1",
+                    },
+                }
+
+        ex = FakeFinal14Executor(settings)
+        result = ex._execute_direct_bingx(buy)
+        assert result["ok"] is True
+        assert result["processed"] is True
+        assert result["entry_accepted"] is True
+        assert result["entry_filled"] is True
+        assert result["position_id"] == "p1"
+        assert result["target_notional"] == 100.0
+        assert result["execution_leverage"] == 50
+        assert result["protection_mode"] == "attached_hard_tp_sl"
+
+        params = ex.order_params
+        assert params is not None
+        assert params["type"] == "MARKET"
+        assert "activationPrice" not in params
+        assert "priceRate" not in params
+
+        sl_order = json.loads(params["stopLoss"])
+        tp_order = json.loads(params["takeProfit"])
+        assert sl_order["type"] == "STOP_MARKET"
+        assert tp_order["type"] == "TAKE_PROFIT_MARKET"
+        assert sl_order["workingType"] == "CONTRACT_PRICE"
+        assert tp_order["workingType"] == "CONTRACT_PRICE"
+        assert float(sl_order["stopPrice"]) == round(buy.sl, 2)
+        assert float(tp_order["stopPrice"]) == round(buy.tp, 2)
+
+        return {
+            "notional_usdt": result["target_notional"],
+            "leverage": result["execution_leverage"],
+            "position_id": result["position_id"],
+            "protection_mode": result["protection_mode"],
+            "partial_exit": False,
+            "trailing": False,
+        }
+
+    checks.append(_check("final14_execution_contract", execution_contract_check))
+
     def state_check():
         fd, db_path = tempfile.mkstemp(prefix="signal-selftest-", suffix=".db")
         os.close(fd)
@@ -188,7 +278,35 @@ def run_self_test(settings: Settings) -> dict:
             assert len(loaded) == 12
             st.trim_candles("BTC-USDT", "15m", 5)
             assert st.candle_count("BTC-USDT", "15m") == 5
-            return {"dedupe": True, "candle_upsert": True, "trim": True}
+
+            st.set_runtime_value("selftest_key", "ok")
+            assert st.get_runtime_value("selftest_key") == "ok"
+
+            register_execution(
+                st,
+                buy,
+                {
+                    "order_id": "o1",
+                    "position_id": "p1",
+                    "avg_price": buy.entry,
+                    "executed_qty": 0.0033,
+                    "tp": buy.tp,
+                    "sl": buy.sl,
+                    "rr": cfg["rr"],
+                },
+            )
+            active = final14_position_snapshot(st)
+            assert len(active) == 1
+            assert active[0]["case_id"] == "BTC-USDT|C1"
+            assert active[0]["position_id"] == "p1"
+
+            return {
+                "dedupe": True,
+                "candle_upsert": True,
+                "trim": True,
+                "runtime_state": True,
+                "one_position_per_combo_state": True,
+            }
         finally:
             try:
                 os.unlink(db_path)
