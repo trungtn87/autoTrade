@@ -24,13 +24,14 @@ jobs:
             echo "probe attempt=$i"
             if curl -fsS --connect-timeout 10 --max-time 30 "$BASE/health" -o health.json; then
               cat health.json
-              if grep -q '"engine":"BingX FINAL14 RR Hard-TP Autotrade Engine"' health.json; then
+              if grep -q '"engine":"BingX FINAL14 RR Hard-TP Autotrade Engine"' health.json && grep -q '"final14_active_case_count"' health.json; then
                 break
               fi
             fi
             sleep 20
           done
           grep -q '"engine":"BingX FINAL14 RR Hard-TP Autotrade Engine"' health.json
+          grep -q '"final14_active_case_count"' health.json
           curl -fsS --connect-timeout 10 --max-time 30 "$BASE/openapi.json" -o openapi.json
           grep -q '"/state-export"' openapi.json
           echo "----- STATUS -----"
