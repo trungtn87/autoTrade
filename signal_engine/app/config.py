@@ -199,6 +199,11 @@ def safe_config_snapshot(settings: Settings) -> dict:
             "margin_usdt": settings.order_margin_usdt,
             "leverage": settings.leverage,
             "target_notional_usdt": settings.order_margin_usdt * settings.leverage,
+            "margin_mode": "SEPARATE_ISOLATED",
+            "one_position_per_symbol_combo": True,
+            "protection_mode": "attached_hard_tp_sl",
+            "partial_exit": False,
+            "trailing": False,
         },
         "discord": {
             "enabled": settings.discord_enabled,
