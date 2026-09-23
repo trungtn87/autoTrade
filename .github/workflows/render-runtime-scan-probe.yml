@@ -1,0 +1,67 @@
+name: Render Runtime Scan Probe
+
+on:
+  push:
+    branches: [final14-flow-cleanup-20260923]
+    paths:
+      - '.github/workflows/render-runtime-scan-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Wait for first production scheduler scan after health rollout
+        env:
+          EXPECTED_PROD_COMMIT: "201852fd02cee2d825fab325ce6e329884ac6a05"
+        run: |
+          python - <<'PY'
+          import json, os, time, urllib.request
+
+          base = "https://autotrade-1-ndqp.onrender.com"
+          expected = os.environ["EXPECTED_PROD_COMMIT"]
+
+          with urllib.request.urlopen(base + "/health", timeout=5) as response:
+              health = json.load(response)
+          print("HEALTH " + json.dumps(health), flush=True)
+
+          with urllib.request.urlopen(base + "/engine-status", timeout=30) as response:
+              engine = json.load(response)
+          print("ENGINE " + json.dumps({
+              "build_commit": engine.get("build_commit"),
+              "engine_version": engine.get("engine_version"),
+              "strategy_version": engine.get("strategy_version"),
+              "dry_run": engine.get("dry_run"),
+              "scheduler": engine.get("scheduler"),
+              "state_backend": engine.get("state_backend"),
+              "execution_ready": engine.get("execution_ready"),
+          }), flush=True)
+          if engine.get("build_commit") != expected:
+              raise SystemExit(f"unexpected production commit: {engine.get('build_commit')}")
+
+          for attempt in range(1, 41):
+              try:
+                  with urllib.request.urlopen(base + "/status", timeout=30) as response:
+                      status = json.load(response)
+                  compact = {
+                      "attempt": attempt,
+                      "status": status.get("status"),
+                      "started_at": status.get("started_at"),
+                      "elapsed_sec": status.get("elapsed_sec"),
+                      "symbols": list((status.get("symbols") or {}).keys()),
+                  }
+                  print("POLL " + json.dumps(compact), flush=True)
+                  if status.get("status") != "not_run":
+                      print("SCAN_STATUS " + json.dumps(status), flush=True)
+                      print("RUNTIME_SCAN_PROBE_PASS", flush=True)
+                      break
+              except Exception as exc:
+                  print(f"attempt={attempt} error={type(exc).__name__}: {exc}", flush=True)
+              time.sleep(10)
+          else:
+              raise SystemExit("no scheduler scan observed")
+          PY
