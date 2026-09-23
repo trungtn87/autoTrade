@@ -27,7 +27,7 @@ from .discord_diag import (
 from .state import SignalState
 from .final14_exact_strategy import Signal, combo_readiness, scan_latest, strategy_static_snapshot
 from .self_test import run_self_test, run_startup_self_test
-from .final14_positions import is_case_active, refresh_symbol, register_execution, snapshot as final14_position_snapshot
+from .final14_positions import claim_case, is_case_active, refresh_symbol, register_execution, snapshot as final14_position_snapshot
 from .timeframes import aggregate_15m
 from .warmup_seed import load_warmup_seed
 
@@ -634,6 +634,20 @@ def run_scan(execute: bool = True) -> dict:
                             })
                             continue
 
+                        # Fail closed before the first live submission attempt.
+                        # From this point onward the symbol+combo is considered active
+                        # until execution is confirmed or a later recovery step proves
+                        # that no BingX entry exists.
+                        claim = claim_case(state, sig)
+                        item["case_claim"] = {
+                            "case_id": claim.get("case_id"),
+                            "lifecycle": claim.get("lifecycle", "CLAIMED"),
+                        }
+                        log.warning(
+                            "FINAL14_ENTRY_CLAIMED symbol=%s combo=%s event_id=%s",
+                            sig.symbol, sig.combo, sig.event_id,
+                        )
+
                         result = executor.send_target(sig, target_name, url, amount)
                         results.append(result)
 
@@ -716,7 +730,11 @@ def run_scan(execute: bool = True) -> dict:
                     elif any(r.get("processed") for r in results):
                         item["action"] = "processed_with_error"
                     else:
-                        item["action"] = "failed_before_entry"
+                        item["action"] = "failed_claim_retained"
+                        item["reason"] = (
+                            "entry outcome is not proven safe; combo remains claimed "
+                            "until explicit recovery"
+                        )
                     symbol_result["signals"].append(item)
                 summary["symbols"][symbol] = symbol_result
                 log.info(
