@@ -206,23 +206,24 @@ def entry_variants(pc, selected_names=None):
         out.setdefault("C10",[]).append((name,edge_event(L),edge_event(S)))
 
     # TIER: historical candidate around ADX26, T2=8,T3=6; local grid.
-    d=d1; dip=p1["dip"]; dim=p1["dim"]; ADX=p1["ADX"]; R=p1["R"]; M=p1["M"]; A20=atr(d,20)
-    e50=align_confirmed(ema(d4.close,50),d.index,"4h"); e150=align_confirmed(ema(d4.close,150),d.index,"4h"); e200=align_confirmed(ema(d4.close,200),d.index,"4h"); V=session_vwap(d); macd=ema(d.close,12)-ema(d.close,26); sig=ema(macd,9); hist=macd-sig; C9=cci(d.close,d.high,d.low,9); K14=stochastic(d.close,d.high,d.low,14); D14=sma(K14,3); e9=ema(d.close,9); e21=ema(d.close,21); sup=sma(d.close,8)+2*A20; strong=(d.close-d.open).abs()>A20*0.8
-    sd=d.close.rolling(20,min_periods=20).std(ddof=0); z=(d.close-sma(d.close,20))/sd; ao=ema(d.close,5)-ema(d.close,34); sq=ema(d.close,20)-ema(d.close,50); rav=sma(R,14); stdt=pine_custom_supertrend_dir(d,8,4.0); pcL=d.close>d.close.rolling(20,min_periods=20).max().shift(1); pcS=d.close<d.close.rolling(20,min_periods=20).min().shift(1)
-    for adxth,t2,t3,vm in itertools.product([23,25,26,28,30],[7,8,9],[5,6,7],[1.3,1.5,1.8]):
-        name=f"ADX{adxth}_T2{t2}_T3{t3}_V{vm:.1f}"
-        if not _want_variant(selected_names,"TIER",name): continue
-        vs=d.volume>sma(d.volume,20)*vm; tdL=(dip>dim)&(dip>22); tdS=(dip<dim)&(dim>22); trL=(e50>e200)&tdL&(d.close>V)&(e50>e50.shift(1)); trS=(e50<e200)&tdS&(d.close<V)&(e50<e50.shift(1)); t1L=trL&vs&(ADX>adxth); t1S=trS&vs&(ADX>adxth)
-        s2L=(hist>0)*2+(e150>e200)*2+(C9>100)*1+(R>50)*1+(d.close>sup)*1+crossover(K14,D14)*0.5+(d.close>e21)*1+(strong&(d.close>d.open))*1
-        s2S=(hist<0)*2+(e150<e200)*2+(C9<-100)*1+(R<50)*1+(d.close<sup)*1+crossunder(K14,D14)*0.5+(d.close<e21)*1+(strong&(d.close<d.open))*1
-        s2L=s2L+(M>55)*1+(A20>A20.shift(1))*1+(e9>e21)*1+((C9>C9.shift(1))&(C9>100))*1+((K14>K14.shift(1))&(K14>50))*1
-        s2S=s2S+(M<45)*1+(A20>A20.shift(1))*1+(e9<e21)*1+((C9<C9.shift(1))&(C9<-100))*1+((K14<K14.shift(1))&(K14<50))*1
-        s3L=(z<-1.5)*1+(ao>0)*1+(sq>0)*1+(R>rav)*1+(e9>e21)*1+(hist>0)*1+(stdt==1)*1
-        s3S=(z>1.5)*1+(ao<0)*1+(sq<0)*1+(R<rav)*1+(e9<e21)*1+(hist<0)*1+(stdt==-1)*1
-        vma=sma(d.volume,20); vsp=d.volume>vma*vm; mrL=(M>60)&(M>M.shift(1))&vsp; mrS=(M<40)&(M<M.shift(1))&vsp
-        s3L=s3L+pcL*1+mrL*1+(R>50)*1+vsp*1; s3S=s3S+pcS*1+mrS*1+(R<50)*1+vsp*1
-        L=t1L&(s2L>=t2)&(s3L>=t3); S=t1S&(s2S>=t2)&(s3S>=t3)
-        out.setdefault("TIER",[]).append((name,edge_event(L),edge_event(S)))
+    if _want_combo(selected_names,"TIER"):
+        d=d1; dip=p1["dip"]; dim=p1["dim"]; ADX=p1["ADX"]; R=p1["R"]; M=p1["M"]; A20=atr(d,20)
+        e50=align_confirmed(ema(d4.close,50),d.index,"4h"); e150=align_confirmed(ema(d4.close,150),d.index,"4h"); e200=align_confirmed(ema(d4.close,200),d.index,"4h"); V=session_vwap(d); macd=ema(d.close,12)-ema(d.close,26); sig=ema(macd,9); hist=macd-sig; C9=cci(d.close,d.high,d.low,9); K14=stochastic(d.close,d.high,d.low,14); D14=sma(K14,3); e9=ema(d.close,9); e21=ema(d.close,21); sup=sma(d.close,8)+2*A20; strong=(d.close-d.open).abs()>A20*0.8
+        sd=d.close.rolling(20,min_periods=20).std(ddof=0); z=(d.close-sma(d.close,20))/sd; ao=ema(d.close,5)-ema(d.close,34); sq=ema(d.close,20)-ema(d.close,50); rav=sma(R,14); stdt=pine_custom_supertrend_dir(d,8,4.0); pcL=d.close>d.close.rolling(20,min_periods=20).max().shift(1); pcS=d.close<d.close.rolling(20,min_periods=20).min().shift(1)
+        for adxth,t2,t3,vm in itertools.product([23,25,26,28,30],[7,8,9],[5,6,7],[1.3,1.5,1.8]):
+            name=f"ADX{adxth}_T2{t2}_T3{t3}_V{vm:.1f}"
+            if not _want_variant(selected_names,"TIER",name): continue
+            vs=d.volume>sma(d.volume,20)*vm; tdL=(dip>dim)&(dip>22); tdS=(dip<dim)&(dim>22); trL=(e50>e200)&tdL&(d.close>V)&(e50>e50.shift(1)); trS=(e50<e200)&tdS&(d.close<V)&(e50<e50.shift(1)); t1L=trL&vs&(ADX>adxth); t1S=trS&vs&(ADX>adxth)
+            s2L=(hist>0)*2+(e150>e200)*2+(C9>100)*1+(R>50)*1+(d.close>sup)*1+crossover(K14,D14)*0.5+(d.close>e21)*1+(strong&(d.close>d.open))*1
+            s2S=(hist<0)*2+(e150<e200)*2+(C9<-100)*1+(R<50)*1+(d.close<sup)*1+crossunder(K14,D14)*0.5+(d.close<e21)*1+(strong&(d.close<d.open))*1
+            s2L=s2L+(M>55)*1+(A20>A20.shift(1))*1+(e9>e21)*1+((C9>C9.shift(1))&(C9>100))*1+((K14>K14.shift(1))&(K14>50))*1
+            s2S=s2S+(M<45)*1+(A20>A20.shift(1))*1+(e9<e21)*1+((C9<C9.shift(1))&(C9<-100))*1+((K14<K14.shift(1))&(K14<50))*1
+            s3L=(z<-1.5)*1+(ao>0)*1+(sq>0)*1+(R>rav)*1+(e9>e21)*1+(hist>0)*1+(stdt==1)*1
+            s3S=(z>1.5)*1+(ao<0)*1+(sq<0)*1+(R<rav)*1+(e9<e21)*1+(hist<0)*1+(stdt==-1)*1
+            vma=sma(d.volume,20); vsp=d.volume>vma*vm; mrL=(M>60)&(M>M.shift(1))&vsp; mrS=(M<40)&(M<M.shift(1))&vsp
+            s3L=s3L+pcL*1+mrL*1+(R>50)*1+vsp*1; s3S=s3S+pcS*1+mrS*1+(R<50)*1+vsp*1
+            L=t1L&(s2L>=t2)&(s3L>=t3); S=t1S&(s2S>=t2)&(s3S>=t3)
+            out.setdefault("TIER",[]).append((name,edge_event(L),edge_event(S)))
     return out
 
 def load_lock(path):
