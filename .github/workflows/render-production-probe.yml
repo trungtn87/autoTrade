@@ -22,16 +22,20 @@ jobs:
           BASE="https://autotrade-1-ndqp.onrender.com"
           for i in $(seq 1 40); do
             echo "probe attempt=$i"
-            if curl -fsS --connect-timeout 10 --max-time 30 "$BASE/health" -o health.json; then
+            if curl -fsS --connect-timeout 10 --max-time 5 "$BASE/health" -o health.json; then
               cat health.json
-              if grep -q '"engine":"BingX FINAL14 RR Hard-TP Autotrade Engine"' health.json && grep -q '"final14_active_case_count"' health.json; then
-                break
+              if grep -q '"ok":true' health.json && curl -fsS --connect-timeout 10 --max-time 30 "$BASE/engine-status" -o engine-status.json; then
+                cat engine-status.json
+                if grep -q '"engine":"BingX FINAL14 RR Hard-TP Autotrade Engine"' engine-status.json && grep -q '"final14_active_case_count"' engine-status.json; then
+                  break
+                fi
               fi
             fi
             sleep 20
           done
-          grep -q '"engine":"BingX FINAL14 RR Hard-TP Autotrade Engine"' health.json
-          grep -q '"final14_active_case_count"' health.json
+          grep -q '"ok":true' health.json
+          grep -q '"engine":"BingX FINAL14 RR Hard-TP Autotrade Engine"' engine-status.json
+          grep -q '"final14_active_case_count"' engine-status.json
           curl -fsS --connect-timeout 10 --max-time 30 "$BASE/openapi.json" -o openapi.json
           grep -q '"/state-export"' openapi.json
           echo "----- STATUS -----"
