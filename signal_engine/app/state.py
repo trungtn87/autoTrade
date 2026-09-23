@@ -62,6 +62,40 @@ class SignalState:
     def _sql(self, sql: str) -> str:
         return sql.replace("?", "%s") if self.is_postgres else sql
 
+    def try_acquire_cluster_lock(self, lock_id: int):
+        """Acquire a Postgres session advisory lock and return its connection.
+
+        The returned connection must stay open for the whole protected section.
+        Closing it releases the lock automatically, including on process death.
+        SQLite/dev mode returns True as a sentinel because there is only one
+        local process in tests.
+        """
+        if not self.is_postgres:
+            return True
+        con = self._connect()
+        try:
+            cur = con.cursor()
+            cur.execute("SELECT pg_try_advisory_lock(%s)", (int(lock_id),))
+            acquired = bool(cur.fetchone()[0])
+            if not acquired:
+                con.close()
+                return None
+            return con
+        except Exception:
+            con.close()
+            raise
+
+    def release_cluster_lock(self, handle, lock_id: int) -> None:
+        if not self.is_postgres:
+            return
+        if handle is None:
+            return
+        try:
+            cur = handle.cursor()
+            cur.execute("SELECT pg_advisory_unlock(%s)", (int(lock_id),))
+        finally:
+            handle.close()
+
     def _init(self):
         with self._connect() as con:
             cur = con.cursor()
