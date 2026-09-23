@@ -1,0 +1,47 @@
+name: FINAL14 Refactor Parity
+
+on:
+  push:
+    branches: [final14-flow-cleanup-20260923]
+  pull_request:
+    branches: [signal-engine-v1]
+    paths: ['signal_engine/**', '.github/workflows/final14-refactor-ci.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PYTHONPATH: signal_engine
+      PYTHONWARNINGS: ignore::FutureWarning
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout immutable production baseline
+        uses: actions/checkout@v4
+        with:
+          ref: f6cfd74c969a65d5ae87c123ef49dc577f6fbd8b
+          path: baseline
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.14'
+      - run: pip install -r signal_engine/requirements.txt
+      - name: Compile and run existing offline safeguards
+        run: |
+          python -m compileall -q signal_engine/app signal_engine/tests
+          python signal_engine/tests/final14_test.py
+          python signal_engine/tests/ops_guard_test.py
+          python signal_engine/tests/db_migration_test.py
+          python signal_engine/tests/bingx_circuit_test.py
+      - name: Synthetic scan regression
+        run: python signal_engine/tests/final14_refactor_parity.py --baseline-root baseline
+      - name: BTC and ETH bundled market history regression
+        run: |
+          python signal_engine/tests/final14_refactor_parity.py \
+            --baseline-root baseline \
+            --btc signal_engine/data/warmup/BTCUSDT_15m_20260401_20260920__715e866f.pkl \
+            --eth signal_engine/data/warmup/ETHUSDT_15m_20260401_20260920__f30ee5ba.pkl
