@@ -5,7 +5,6 @@ import pandas as pd
 from .final14_config import FINAL14_CASES, enabled_combos, get_case, snapshot as final14_snapshot
 from .strategy import Signal
 from .final14_research.layer3_long import precompute, entry_variants, NATIVE
-from .final14_research.signals import ensure_dt, resample_ohlcv
 from .final14_research.smc_structure import smc_direction
 from .final14_research.smc_ob import ob_context, OBConfig
 from .final14_research.two_trail_layer12 import approved
@@ -46,12 +45,16 @@ def _symbol_configs(symbol:str)->dict[str,dict]:
     return out
 
 
-def _selected_variants(pc, symbol:str):
-    allv=entry_variants(pc)
+def _selected_variants(pc, symbol:str, include_1h:bool=True):
+    configs = _symbol_configs(symbol)
+    requested = {
+        cname: cfg["entry_variant"] for cname, cfg in configs.items()
+        if include_1h or NATIVE[cname] != "1h"
+    }
+    allv=entry_variants(pc, selected=requested)
     selected={}
-    for cname,cfg in _symbol_configs(symbol).items():
-        wanted=cfg["entry_variant"]
-        matches=[x for x in allv[cname] if x[0]==wanted]
+    for cname,wanted in requested.items():
+        matches=[x for x in allv.get(cname, []) if x[0]==wanted]
         if len(matches)!=1:
             raise RuntimeError(f"FINAL14 variant mismatch {symbol} {cname} {wanted}: {len(matches)}")
         selected[cname]=matches[0]
@@ -114,16 +117,16 @@ def scan_latest(
 
     d=_research_frame(m15)
     pc=precompute(d)
-    chosen=_selected_variants(pc,symbol)
-
-    d1=resample_ohlcv(d,"1h")
-    smc15=smc_direction(d,50,False)
-    smc1=smc_direction(d1,50,False)
-    obcfg=OBConfig(pivot_len=5,search_bars=12,max_age=80,danger_atr=0.5)
-    ob15=ob_context(d,obcfg)
-    ob1=ob_context(d1,obcfg)
-
     latest=d.index[-1]
+    actionable_1h=include_1h and latest.minute%60==45
+    chosen=_selected_variants(pc,symbol,include_1h=actionable_1h)
+
+    # Compute context once per native timeframe, only after a raw event exists.
+    # SMC is retained even for OFF/OB because smc_dir is part of Signal output.
+    smc_cache={}
+    ob_cache={}
+    frames={"15m":d,"1h":pc["d1"]}
+    obcfg=OBConfig(pivot_len=5,search_bars=12,max_age=80,danger_atr=0.5)
     latest_close_ms=(
         int(m15.iloc[-1]["close_time"])
         if "close_time" in m15.columns
@@ -135,6 +138,8 @@ def scan_latest(
     for combo in enabled_combos(symbol):
         cname=_combo_name(combo)
         cfg=get_case(symbol,combo)
+        if cname not in chosen:
+            continue
         name,L,S=chosen[cname]
         native=NATIVE[cname]
         if native=="1h":
@@ -144,26 +149,30 @@ def scan_latest(
             # 1H signals are actionable only on the final 15m candle of the hour.
             if latest.minute%60!=45 or ot not in L.index:
                 continue
-            sd=int(smc1.loc[ot]) if ot in smc1.index else 0
-            obrow=ob1.loc[ot] if ot in ob1.index else None
         else:
             ot=latest
             if ot not in L.index:
                 continue
-            sd=int(smc15.loc[ot]) if ot in smc15.index else 0
-            obrow=ob15.loc[ot] if ot in ob15.index else None
 
         direction=0
         side_code=""
         blocked=False
         if bool(L.loc[ot]):
             direction=1; side_code="L"
-            blocked=bool(obrow["buy_blocked"]) if obrow is not None else False
         elif bool(S.loc[ot]):
             direction=-1; side_code="S"
-            blocked=bool(obrow["sell_blocked"]) if obrow is not None else False
         if not direction:
             continue
+        if native not in smc_cache:
+            smc_cache[native]=smc_direction(frames[native],50,False)
+        smc=smc_cache[native]
+        sd=int(smc.loc[ot]) if ot in smc.index else 0
+        if "OB" in cfg["layer2"]:
+            if native not in ob_cache:
+                ob_cache[native]=ob_context(frames[native],obcfg)
+            ob=ob_cache[native]
+            column="buy_blocked" if direction==1 else "sell_blocked"
+            blocked=bool(ob.loc[ot,column]) if ot in ob.index else False
         if not approved(side_code,sd,blocked,cfg["layer2"]):
             continue
 
@@ -181,3 +190,4 @@ def scan_latest(
             smc_dir=sd,
         ))
     return out
+

@@ -427,9 +427,7 @@ def run_scan(execute: bool = True) -> dict:
                 position_state = refresh_symbol(state, executor, symbol)
 
                 readiness = combo_readiness(
-                    m15, h1, h4, h6,
-                    smc_swing_len=settings.smc_swing_len,
-                    symbol=symbol,
+                    m15, symbol=symbol,
                 )
                 ready_combos = sorted(
                     combo for combo, item in readiness.items() if item.get("ready")
@@ -447,14 +445,6 @@ def run_scan(execute: bool = True) -> dict:
                 signals = scan_latest(
                     symbol=symbol,
                     m15=m15,
-                    h1=h1,
-                    h4=h4,
-                    h6=h6,
-                    smc_mode=settings.smc_mode,
-                    smc_swing_len=settings.smc_swing_len,
-                    smc_confluence=settings.smc_confluence,
-                    sl_pct=settings.sl_pct,
-                    tp_pct=settings.tp_pct,
                     include_1h=True,
                 )
                 calc_ms = round((time.monotonic() - calc_started) * 1000, 1)
@@ -1461,3 +1451,4 @@ def scan(x_scan_token: str | None = Header(default=None)):
     if result.get("status") == "busy":
         raise HTTPException(status_code=409, detail=result)
     return result
+
