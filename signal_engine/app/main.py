@@ -346,17 +346,6 @@ def run_scan(execute: bool = True) -> dict:
                         symbol_result["signals"].append(item)
                         continue
 
-                    # Rebuild stage: calculate FINAL14 signals only. No BingX
-                    # trade endpoint is called until execution is added back as
-                    # a separate, tested layer.
-                    item["action"] = "calculation_only"
-                    item["reason"] = "FINAL14 calculation stage; order execution disabled"
-                    symbol_result["signals"].append(item)
-                    log.info(
-                        "FINAL14_CALC_ONLY symbol=%s combo=%s side=%s tf=%s event_id=%s",
-                        sig.symbol, sig.combo, sig.side, sig.timeframe, sig.event_id,
-                    )
-                    continue
 
                     discord_result = None
                     discord_state_key = f"discord:{sig.symbol}"
