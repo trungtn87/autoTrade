@@ -2,7 +2,7 @@ name: FINAL14 Production CI
 
 on:
   push:
-    branches: [final14-hardtp-production, signal-engine-v1, final14-seed-discord-fix-20260923, final14-production-fastpath, fix-bingx-shared-guard-20260923, final14-live-cleanup-20260923]
+    branches: [final14-hardtp-production, signal-engine-v1, final14-seed-discord-fix-20260923, final14-production-fastpath, fix-bingx-shared-guard-20260923]
     paths:
       - 'signal_engine/**'
       - '.github/workflows/final14-production-ci.yml'
