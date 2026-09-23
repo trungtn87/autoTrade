@@ -148,8 +148,10 @@ def entry_variants(pc, selected_names=None):
 
     # ----- 15m components -----
     d=d15; A=p15["A"]; R=p15["R"]; M=p15["M"]; ADX=p15["ADX"]; volSMA=p15["volSMA"]; body_ratio=p15["body_ratio"]; valid=body_ratio>0.75
-    sar15=parabolic_sar(d,0.05,0.1,0.2); ef=ema(d.close,21); es=ema(d.close,55)
+    ef=ema(d.close,21); es=ema(d.close,55)
     ema150=p15["ema150"]; ema200=p15["ema200"]; stdir15=p15["stdir"]
+    if _want_combo(selected_names,"C5"):
+        sar15=parabolic_sar(d,0.05,0.1,0.2)
     # C5 tune volume multiplier around prior 2.0 candidate
     for vm in [1.3,1.5,1.8,2.0,2.2]:
         name=f"VOL_{vm:.1f}"
