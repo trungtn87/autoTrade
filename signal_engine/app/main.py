@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 
@@ -1177,6 +1178,7 @@ def health():
         "ok": True,
         "engine": "BingX FINAL14 RR Hard-TP Autotrade Engine",
         "engine_version": "14.0.0",
+        "build_commit": os.getenv("RENDER_GIT_COMMIT", ""),
         "strategy_version": profile.get("version"),
         "strategy_source_run_id": profile.get("source_run_id"),
         "final14_enabled": profile.get("enabled"),

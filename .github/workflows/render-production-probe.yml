@@ -15,26 +15,44 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - name: Wait for Render production and verify FINAL14
-        shell: bash
+      - name: Verify deployed commit and live FINAL14 configuration
+        env:
+          EXPECTED_COMMIT: ${{ github.sha }}
         run: |
-          set -euo pipefail
-          BASE="https://autotrade-1-ndqp.onrender.com"
-          for i in $(seq 1 40); do
-            echo "probe attempt=$i"
-            if curl -fsS --connect-timeout 10 --max-time 30 "$BASE/health" -o health.json; then
-              cat health.json
-              if grep -q '"engine":"BingX FINAL14 RR Hard-TP Autotrade Engine"' health.json && grep -q '"final14_active_case_count"' health.json; then
-                break
-              fi
-            fi
-            sleep 20
-          done
-          grep -q '"engine":"BingX FINAL14 RR Hard-TP Autotrade Engine"' health.json
-          grep -q '"final14_active_case_count"' health.json
-          curl -fsS --connect-timeout 10 --max-time 30 "$BASE/openapi.json" -o openapi.json
-          grep -q '"/state-export"' openapi.json
-          echo "----- STATUS -----"
-          curl -fsS --connect-timeout 10 --max-time 30 "$BASE/status"
-          echo
-          echo "RENDER_PROBE_PASS"
+          python - <<'PY'
+          import json, os, time, urllib.request
+          base = "https://autotrade-1-ndqp.onrender.com"
+          expected = os.environ["EXPECTED_COMMIT"]
+          for attempt in range(1, 31):
+              try:
+                  with urllib.request.urlopen(base + "/health", timeout=30) as response:
+                      h = json.load(response)
+                  checks = {
+                      "commit": h.get("build_commit") == expected,
+                      "engine": h.get("engine_version") == "14.0.0",
+                      "strategy": h.get("strategy_version") == "FINAL14_RR_TP2_2026-09-21",
+                      "live": h.get("dry_run") is False,
+                      "scheduler": h.get("scheduler") is True,
+                      "postgres": h.get("state_backend") == "postgres",
+                      "execution_ready": h.get("execution_ready") is True,
+                      "no_manual_test": h.get("manual_order_test_mode") is False,
+                      "14_cases": sum(map(len, h.get("final14_enabled", {}).values())) == 14,
+                  }
+                  summary = {key: h.get(key) for key in (
+                      "build_commit", "engine_version", "strategy_version", "dry_run",
+                      "scheduler", "state_backend", "execution_ready", "final14_enabled",
+                      "exit_mode", "bingx_cooldown_remaining_ms"
+                  )}
+                  print(json.dumps({"attempt": attempt, "checks": checks, "health": summary}), flush=True)
+                  if all(checks.values()):
+                      with urllib.request.urlopen(base + "/status", timeout=30) as response:
+                          status = json.load(response)
+                      print("STATUS " + json.dumps(status), flush=True)
+                      print("RENDER_PROBE_PASS", flush=True)
+                      break
+              except Exception as exc:
+                  print(f"attempt={attempt} error={type(exc).__name__}: {exc}", flush=True)
+              time.sleep(20)
+          else:
+              raise SystemExit("Render did not confirm the expected live deployment")
+          PY
