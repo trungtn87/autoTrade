@@ -240,8 +240,10 @@ def fetch_bundle(symbol: str):
     # Historical warmup is intentionally incremental: at most one older page
     # per scheduled scan. Once the cache is already warm, avoid an extra
     # COUNT(*) round-trip after every tiny live upsert.
+    count_after_latest_known = False
     if cached_count < target:
         cached_count = state.candle_count(symbol, "15m")
+        count_after_latest_known = True
     if cached_count < target:
         earliest = state.earliest_open_time(symbol, "15m")
         if earliest is not None:
@@ -268,13 +270,15 @@ def fetch_bundle(symbol: str):
             )
             if len(older):
                 state.upsert_candles(symbol, "15m", older)
+                cached_count = state.candle_count(symbol, "15m")
+                count_after_latest_known = True
                 log.info(
                     "WARMUP_BACKFILL_SAVED symbol=%s recovered=%s first_open=%s last_open=%s cached_after=%s",
                     symbol,
                     len(older),
                     int(older.iloc[0]["open_time"]),
                     int(older.iloc[-1]["open_time"]),
-                    state.candle_count(symbol, "15m"),
+                    cached_count,
                 )
             else:
                 log.warning(
@@ -285,7 +289,7 @@ def fetch_bundle(symbol: str):
     # Trimming is unnecessary while even the maximum possible post-upsert
     # row count is still below the keep limit. This removes one PostgreSQL
     # connection and an expensive DELETE subquery from normal 15m scans.
-    potential_count = cached_count + latest_count
+    potential_count = cached_count if count_after_latest_known else cached_count + latest_count
     if potential_count > settings.candle_keep_15m:
         state.trim_candles(symbol, "15m", settings.candle_keep_15m)
 
