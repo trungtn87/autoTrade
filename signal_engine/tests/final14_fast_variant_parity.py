@@ -14,8 +14,8 @@ def cname(combo: int) -> str:
 
 
 def run_symbol(symbol: str, path: str) -> dict:
-    # Production parity window: same locked 12k warmup used by the live engine.
-    d = load(path).tail(12000).copy()
+    # Production parity window: same locked 3400-bar warmup used by the live engine.
+    d = load(path).tail(3400).copy()
     pc = precompute(d)
     wanted = {
         cname(combo): {cfg["entry_variant"]}
