@@ -11,13 +11,6 @@ def _bool(name: str, default: bool) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _int(name: str, default: int) -> int:
-    try:
-        return int(os.getenv(name, str(default)))
-    except ValueError:
-        return default
-
-
 @dataclass(frozen=True)
 class Settings:
     symbols: tuple[str, ...] = tuple(
@@ -46,10 +39,6 @@ class Settings:
 
     execution_enabled: bool = _bool("EXECUTION_ENABLED", False)
     dry_run: bool = _bool("DRY_RUN", True)
-
-    # Locked FINAL14 execution contract. Environment cannot change these values.
-    order_margin_usdt: float = 2.0
-    leverage: int = 50
 
     # Layer 4 only. Missing/broken Discord must never block trading.
     discord_enabled: bool = _bool("DISCORD_ENABLED", True)
