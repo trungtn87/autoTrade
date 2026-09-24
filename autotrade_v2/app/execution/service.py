@@ -160,8 +160,14 @@ class ExecutionService:
             key = "L3.EXEC.ORDER_FAIL"
             if stage == "entry_fill_check":
                 key = "L3.EXEC.FILL_NOT_CONFIRMED"
-            elif stage == "fill_outside_final14_range_closed":
+            elif stage in ("fill_outside_final14_range_closed", "protection_sl_failed_closed"):
                 key = "L3.EXEC.EMERGENCY_CLOSE"
+            elif stage == "protection_tp_failed_sl_active":
+                key = "L3.EXEC.TP_FAILED_SL_ACTIVE"
+                severity = "ERROR"
+            elif stage == "unsafe_open_position":
+                key = "L3.EXEC.UNSAFE_OPEN_POSITION"
+                severity = "CRITICAL"
             self._emit(
                 key,
                 severity,
