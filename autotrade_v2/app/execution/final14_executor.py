@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 import time
 
+from ..contracts import TradeIntent
 from ..strategy.final14_config import case_name,get_case
-from ..strategy.strategy import Signal
 from .executor import LegacyStyleBingXClient
 
 log=logging.getLogger(__name__)
@@ -14,17 +14,13 @@ FINAL14_EXECUTION_LEVERAGE=50
 
 
 class Final14Executor:
-    """FINAL14 levels + original autoTrade execution style.
+    """Execute one locked FINAL14 TradeIntent on BingX.
 
-    - MARKET entry
-    - poll order detail for executedQty/avgPrice
-    - reject/close if actual fill is outside FINAL14 TP/SL envelope
-    - 100% hard TP and 100% hard SL
-    - no trailing, no partial exit
+    MARKET entry -> confirm fill -> reject/close invalid fill -> place full hard
+    TP and full hard SL. No trailing and no partial exit.
     """
 
     def __init__(self,settings,request_guard=None):
-        self.settings=settings
         self.client=LegacyStyleBingXClient(settings,request_guard=request_guard)
 
     @staticmethod
@@ -33,29 +29,28 @@ class Final14Executor:
             return sl<avg_price<tp
         return tp<avg_price<sl
 
-    def execute(self,signal:Signal)->dict:
-        cfg=get_case(signal.symbol,signal.combo)
+    def execute(self,intent:TradeIntent)->dict:
+        cfg=get_case(intent.symbol,intent.combo)
         if not cfg:
             raise RuntimeError(
-                f"FINAL14 disabled case: {signal.symbol} {case_name(signal.combo)}"
+                f"FINAL14 disabled case: {intent.symbol} {case_name(intent.combo)}"
             )
 
-        side=signal.side.upper()
-        entry=float(signal.entry)
-        tp=float(signal.tp)
-        sl=float(signal.sl)
+        side=intent.side.upper()
+        entry=float(intent.entry)
+        tp=float(intent.tp)
+        sl=float(intent.sl)
         if side=="BUY" and not (sl<entry<tp):
             raise ValueError("FINAL14 BUY TP/SL ordering invalid")
         if side=="SELL" and not (tp<entry<sl):
             raise ValueError("FINAL14 SELL TP/SL ordering invalid")
 
-        # Same sizing concept as the old project: notional / signal entry.
         qty=round(FINAL14_NOTIONAL_USDT/entry,4)
         if qty<=0:
             raise ValueError("FINAL14 quantity rounded to zero")
 
         entry_result=self.client.place_market_entry(
-            signal.symbol,side,qty,FINAL14_EXECUTION_LEVERAGE
+            intent.symbol,side,qty,FINAL14_EXECUTION_LEVERAGE
         )
         order=self.client.extract_order(entry_result)
         order_id=order.get("orderId") or order.get("orderID")
@@ -65,17 +60,16 @@ class Final14Executor:
         executed_qty=0.0
         avg_price=0.0
         status=""
-        detail={}
         try:
             for attempt in range(1,11):
-                raw=self.client.get_order_detail(signal.symbol,str(order_id))
+                raw=self.client.get_order_detail(intent.symbol,str(order_id))
                 detail=self.client.extract_order(raw)
                 executed_qty=float(detail.get("executedQty") or 0)
                 avg_price=float(detail.get("avgPrice") or 0)
                 status=str(detail.get("status") or "")
                 log.info(
                     "ENTRY_FILL_CHECK symbol=%s order_id=%s attempt=%s status=%s qty=%s avg=%s",
-                    signal.symbol,order_id,attempt,status,executed_qty,avg_price,
+                    intent.symbol,order_id,attempt,status,executed_qty,avg_price,
                 )
                 if executed_qty>0 and avg_price>0:
                     break
@@ -95,7 +89,7 @@ class Final14Executor:
 
             if not self._valid_fill(side,avg_price,tp,sl):
                 close_result=self.client.close_market(
-                    signal.symbol,side,executed_qty,FINAL14_EXECUTION_LEVERAGE
+                    intent.symbol,side,executed_qty,FINAL14_EXECUTION_LEVERAGE
                 )
                 return {
                     "processed":True,
@@ -113,7 +107,7 @@ class Final14Executor:
                 }
 
             protection=self.client.place_protection(
-                signal.symbol,side,executed_qty,tp,sl
+                intent.symbol,side,executed_qty,tp,sl
             )
             return {
                 "processed":True,
@@ -137,32 +131,19 @@ class Final14Executor:
                 "error":None,
             }
         except Exception as exc:
-            # Entry was already accepted. Caller must dedupe this event even if
-            # a later fill/protection check fails.
             exc.accepted_order_id=str(order_id)
             raise
 
-    def send_target(self,signal:Signal,target_name:str,url:str,usdt_amount:float)->dict:
-        if self.settings.dry_run:
-            return {
-                "target":target_name,
-                "ok":False,
-                "processed":False,
-                "stage":"dry_run",
-                "error":"dry_run",
-            }
+    def execute_safe(self,intent:TradeIntent)->dict:
         try:
-            result=self.execute(signal)
-            result["target"]=target_name
-            return result
+            return self.execute(intent)
         except Exception as exc:
             accepted_order_id=str(getattr(exc,"accepted_order_id","") or "")
             log.exception(
-                "FINAL14_EXEC_FAILED signal_id=%s accepted_order_id=%s",
-                signal.event_id,accepted_order_id or None,
+                "FINAL14_EXEC_FAILED event_id=%s accepted_order_id=%s",
+                intent.event_id,accepted_order_id or None,
             )
             return {
-                "target":target_name,
                 "ok":False,
                 "processed":bool(accepted_order_id),
                 "entry_accepted":bool(accepted_order_id),
