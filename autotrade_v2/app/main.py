@@ -120,6 +120,14 @@ def startup()->None:
         settings.dry_run,
         candle_store.backend,
     )
+    log.info(
+        "LAYER4_CONFIG discord_enabled=%s btc=%s eth=%s error=%s audit_db=%s",
+        settings.discord_enabled,
+        bool(settings.discord_webhook_btc),
+        bool(settings.discord_webhook_eth),
+        bool(settings.discord_webhook_error),
+        bool(settings.database_url),
+    )
     preflight=execution_service.preflight()
     with _state_lock:
         runtime["execution_preflight"]=preflight
