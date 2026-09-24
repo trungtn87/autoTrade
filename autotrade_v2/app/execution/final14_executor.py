@@ -418,19 +418,16 @@ class Final14Executor:
             }
 
         resume_state=resume_state or {}
-        old_stage=str(resume_state.get("stage") or "")
         old_protection=resume_state.get("protection") or {}
         sl_verified=None
+        tp_verified=None
 
-        # If a previous attempt already confirmed SL but failed TP, do not place
-        # another SL during reconciliation.
-        if old_stage in {
-            "protection_tp_failed_sl_active",
-            "protection_tp_unconfirmed_sl_active",
-        }:
-            old_sl=old_protection.get("sl") or {}
-            old_sl_id=str(old_sl.get("order_id") or "")
-            if old_sl_id:
+        # Reuse already-known protection order IDs after restart. This prevents
+        # recovery from placing duplicate SL/TP orders.
+        old_sl=old_protection.get("sl") or {}
+        old_sl_id=str(old_sl.get("order_id") or "")
+        if old_sl_id:
+            try:
                 raw=self.client.get_order_detail(intent.symbol,order_id=old_sl_id)
                 detail=self.client.extract_order(raw)
                 sl_status=str(detail.get("status") or "").upper()
@@ -440,6 +437,24 @@ class Final14Executor:
                         "status":sl_status,
                         "payload":old_sl.get("payload"),
                     }
+            except Exception:
+                pass
+
+        old_tp=old_protection.get("tp") or {}
+        old_tp_id=str(old_tp.get("order_id") or "")
+        if old_tp_id:
+            try:
+                raw=self.client.get_order_detail(intent.symbol,order_id=old_tp_id)
+                detail=self.client.extract_order(raw)
+                tp_status=str(detail.get("status") or "").upper()
+                if tp_status in {"NEW","PARTIALLY_FILLED","FILLED"}:
+                    tp_verified={
+                        "order_id":old_tp_id,
+                        "status":tp_status,
+                        "payload":old_tp.get("payload"),
+                    }
+            except Exception:
+                pass
 
         if sl_verified is None:
             try:
@@ -450,80 +465,198 @@ class Final14Executor:
                     intent.symbol,sl_payload,"stop-loss"
                 )
             except Exception as sl_exc:
-                log.exception(
-                    "PROTECTION_SL_FAILED symbol=%s order_id=%s; emergency closing",
-                    intent.symbol,order_id,
-                )
-                close=self._confirm_market_close(
-                    intent,executed_qty,"stop_loss_unconfirmed"
-                )
-                if close.get("confirmed"):
+                # The POST may have reached BingX while its response was lost.
+                # Search current open protection orders before emergency close.
+                try:
+                    matched=self.client.find_matching_protection(
+                        intent.symbol,side,executed_qty,sl,"STOP_MARKET"
+                    )
+                    if matched is not None:
+                        sl_verified=self._verify_protection(
+                            intent.symbol,matched,"stop-loss"
+                        )
+                except Exception:
+                    sl_verified=None
+
+                if sl_verified is None:
+                    log.exception(
+                        "PROTECTION_SL_FAILED symbol=%s order_id=%s; emergency closing",
+                        intent.symbol,order_id,
+                    )
+                    close=self._confirm_market_close(
+                        intent,executed_qty,"stop_loss_unconfirmed"
+                    )
+                    if close.get("confirmed"):
+                        return {
+                            "processed":True,
+                            "entry_accepted":True,
+                            "entry_filled":True,
+                            "ok":False,
+                            "stage":"protection_sl_failed_closed",
+                            "client_order_id":client_order_id,
+                            "order_id":order_id,
+                            "avg_price":avg_price,
+                            "executed_qty":executed_qty,
+                            "tp":tp,
+                            "sl":sl,
+                            "emergency_closed":True,
+                            "close_result":close,
+                            "error":f"stop-loss placement/verification failed; position closed: {sl_exc}",
+                        }
                     return {
-                        "processed":True,
+                        "processed":False,
                         "entry_accepted":True,
                         "entry_filled":True,
                         "ok":False,
-                        "stage":"protection_sl_failed_closed",
+                        "stage":"unsafe_open_position",
                         "client_order_id":client_order_id,
                         "order_id":order_id,
                         "avg_price":avg_price,
                         "executed_qty":executed_qty,
                         "tp":tp,
                         "sl":sl,
-                        "emergency_closed":True,
+                        "unsafe_open_position":True,
                         "close_result":close,
-                        "error":f"stop-loss placement/verification failed; position closed: {sl_exc}",
+                        "error":(
+                            f"stop-loss placement/verification failed ({sl_exc}); "
+                            "emergency close not confirmed"
+                        ),
                     }
+
+        sl_status=str(sl_verified.get("status") or "").upper()
+        if sl_status=="FILLED":
+            return {
+                "processed":True,
+                "entry_accepted":True,
+                "entry_filled":True,
+                "ok":False,
+                "stage":"closed_by_sl_during_protection",
+                "client_order_id":client_order_id,
+                "order_id":order_id,
+                "avg_price":avg_price,
+                "executed_qty":executed_qty,
+                "tp":tp,
+                "sl":sl,
+                "protection":{"sl":sl_verified,"tp":tp_verified},
+                "error":"stop-loss filled before protection setup completed",
+            }
+        if sl_status=="PARTIALLY_FILLED":
+            return {
+                "processed":False,
+                "entry_accepted":True,
+                "entry_filled":True,
+                "ok":False,
+                "stage":"sl_execution_in_progress",
+                "client_order_id":client_order_id,
+                "order_id":order_id,
+                "avg_price":avg_price,
+                "executed_qty":executed_qty,
+                "tp":tp,
+                "sl":sl,
+                "protection":{"sl":sl_verified,"tp":tp_verified},
+                "error":"stop-loss is partially filled; protection reconciliation required",
+            }
+
+        # If TP was previously confirmed, reuse it. Otherwise place it. On a
+        # lost TP response, first search open orders for the exact protection.
+        if tp_verified is None:
+            try:
+                tp_payload=self.client.place_take_profit(
+                    intent.symbol,side,executed_qty,tp
+                )
+                tp_verified=self._verify_protection(
+                    intent.symbol,tp_payload,"take-profit"
+                )
+            except Exception as tp_exc:
+                try:
+                    matched=self.client.find_matching_protection(
+                        intent.symbol,side,executed_qty,tp,"TAKE_PROFIT_MARKET"
+                    )
+                    if matched is not None:
+                        tp_verified=self._verify_protection(
+                            intent.symbol,matched,"take-profit"
+                        )
+                except Exception:
+                    tp_verified=None
+
+                if tp_verified is None:
+                    log.exception(
+                        "PROTECTION_TP_FAILED_SL_ACTIVE symbol=%s order_id=%s",
+                        intent.symbol,order_id,
+                    )
+                    return {
+                        "processed":False,
+                        "entry_accepted":True,
+                        "entry_filled":True,
+                        "ok":False,
+                        "stage":"protection_tp_failed_sl_active",
+                        "client_order_id":client_order_id,
+                        "order_id":order_id,
+                        "avg_price":avg_price,
+                        "executed_qty":executed_qty,
+                        "target_notional":FINAL14_NOTIONAL_USDT,
+                        "execution_leverage":FINAL14_EXECUTION_LEVERAGE,
+                        "tp":tp,
+                        "sl":sl,
+                        "sl_protected":True,
+                        "protection":{"sl":sl_verified,"tp":None},
+                        "error":f"take-profit placement/verification failed; hard SL remains active: {tp_exc}",
+                    }
+
+        tp_status=str(tp_verified.get("status") or "").upper()
+        if tp_status=="PARTIALLY_FILLED":
+            return {
+                "processed":False,
+                "entry_accepted":True,
+                "entry_filled":True,
+                "ok":False,
+                "stage":"tp_execution_in_progress",
+                "client_order_id":client_order_id,
+                "order_id":order_id,
+                "avg_price":avg_price,
+                "executed_qty":executed_qty,
+                "tp":tp,
+                "sl":sl,
+                "protection":{"sl":sl_verified,"tp":tp_verified},
+                "error":"take-profit is partially filled; protection reconciliation required",
+            }
+
+        if tp_status=="FILLED":
+            try:
+                self.client.cancel_order(
+                    intent.symbol,order_id=str(sl_verified["order_id"])
+                )
                 return {
-                    "processed":False,
+                    "processed":True,
                     "entry_accepted":True,
                     "entry_filled":True,
                     "ok":False,
-                    "stage":"unsafe_open_position",
+                    "stage":"closed_by_tp_during_protection",
                     "client_order_id":client_order_id,
                     "order_id":order_id,
                     "avg_price":avg_price,
                     "executed_qty":executed_qty,
                     "tp":tp,
                     "sl":sl,
-                    "unsafe_open_position":True,
-                    "close_result":close,
-                    "error":(
-                        f"stop-loss placement/verification failed ({sl_exc}); "
-                        "emergency close not confirmed"
-                    ),
+                    "protection":{"sl":sl_verified,"tp":tp_verified},
+                    "error":"take-profit filled during setup; remaining SL cancelled",
                 }
-
-        try:
-            tp_payload=self.client.place_take_profit(
-                intent.symbol,side,executed_qty,tp
-            )
-            tp_verified=self._verify_protection(
-                intent.symbol,tp_payload,"take-profit"
-            )
-        except Exception as tp_exc:
-            log.exception(
-                "PROTECTION_TP_FAILED_SL_ACTIVE symbol=%s order_id=%s",
-                intent.symbol,order_id,
-            )
-            return {
-                "processed":False,
-                "entry_accepted":True,
-                "entry_filled":True,
-                "ok":False,
-                "stage":"protection_tp_failed_sl_active",
-                "client_order_id":client_order_id,
-                "order_id":order_id,
-                "avg_price":avg_price,
-                "executed_qty":executed_qty,
-                "target_notional":FINAL14_NOTIONAL_USDT,
-                "execution_leverage":FINAL14_EXECUTION_LEVERAGE,
-                "tp":tp,
-                "sl":sl,
-                "sl_protected":True,
-                "protection":{"sl":sl_verified,"tp":None},
-                "error":f"take-profit placement/verification failed; hard SL remains active: {tp_exc}",
-            }
+            except Exception as cancel_exc:
+                return {
+                    "processed":False,
+                    "entry_accepted":True,
+                    "entry_filled":True,
+                    "ok":False,
+                    "stage":"orphan_sl_cleanup_required",
+                    "client_order_id":client_order_id,
+                    "order_id":order_id,
+                    "avg_price":avg_price,
+                    "executed_qty":executed_qty,
+                    "tp":tp,
+                    "sl":sl,
+                    "protection":{"sl":sl_verified,"tp":tp_verified},
+                    "error":f"TP filled but remaining SL cancellation failed: {cancel_exc}",
+                }
 
         protection={"tp":tp_verified,"sl":sl_verified}
         return {
