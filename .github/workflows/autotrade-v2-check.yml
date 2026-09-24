@@ -34,6 +34,11 @@ jobs:
       - name: Verify FINAL14 old-vs-V2 parity
         run: python autotrade_v2/tests/parity_strategy.py
 
+      - name: Verify Layer 2 insufficient-candle alert
+        env:
+          PYTHONPATH: autotrade_v2
+        run: python autotrade_v2/tests/strategy_insufficient_candles_test.py
+
       - name: Verify Layer 1 contract
         env:
           PYTHONPATH: autotrade_v2
