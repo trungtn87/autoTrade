@@ -16,15 +16,25 @@ Dependency direction is one way:
 
 Control observes all layers. Strategy never imports Data or Execution.
 
+## Runtime data path
+
+    BingX historical REST -> DB
+    BingX 15m WebSocket -> DB
+    DB -> FINAL14
+    TradeIntent -> BingX authenticated trade API
+
+Historical REST is bootstrap/backfill only. The live path never polls Kline REST and never performs automatic gap recovery. WebSocket data is written only after a 15m candle is confirmed closed; FINAL14 always reads the persisted DB snapshot.
+
 ## Safety state
 
 V2 starts with:
 
-    AUTO_SCHEDULER=false
+    BOOTSTRAP_ENABLED=false
+    WEBSOCKET_ENABLED=false
     EXECUTION_ENABLED=false
     DRY_RUN=true
 
-So creating/deploying the service does not place orders and does not schedule BingX market calls.
+So a fresh deploy is inert until the persistent database is attached and the data path is explicitly enabled.
 
 ## Locked strategy
 
