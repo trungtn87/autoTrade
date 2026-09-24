@@ -67,6 +67,8 @@ def validate_settings(settings: Settings) -> None:
         raise ValueError("historical_min_interval_ms must respect BingX 1/s IP limit")
     if settings.candle_keep_15m < settings.required_15m:
         raise ValueError("candle_keep_15m must be >= required_15m")
+    if (settings.bootstrap_enabled or settings.websocket_enabled) and not settings.database_url:
+        raise ValueError("persistent DATABASE_URL is required before bootstrap/WebSocket can be enabled")
     if settings.execution_enabled and not settings.dry_run:
         if not settings.bingx_api_key or not settings.bingx_api_secret:
             raise ValueError("live execution requires BINGX_API_KEY and BINGX_API_SECRET")
