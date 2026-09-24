@@ -20,7 +20,7 @@ from .orchestrator import Orchestrator
 from .strategy.engine import StrategyEngine
 
 STEP_15M_MS=15*60_000
-CANDLE_GRACE_MS=8_000
+# BingX live kline handoff can arrive ~10-20s after the 15m boundary.\n# Give WS priority; REST recovery is only a true fallback.\nCANDLE_GRACE_MS=30_000
 WATCHDOG_POLL_SEC=2.0
 RECOVERY_RETRY_MS=60_000
 RECOVERY_MAX_ATTEMPTS=2
