@@ -85,7 +85,7 @@ class ExecutionService:
         if self.store.seen(intent.event_id):
             self._emit(
                 "L3.EXEC.DUPLICATE_SKIPPED",
-                "WARNING",
+                "INFO",
                 "event_id already processed; order not resent",
                 intent,
             )
