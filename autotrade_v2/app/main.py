@@ -23,7 +23,7 @@ STEP_15M_MS=15*60_000
 # BingX live kline handoff can arrive ~10-20s after the 15m boundary.
 # Give WS priority; REST recovery is only a true fallback.
 CANDLE_GRACE_MS=30_000
-WATCHDOG_POLL_SEC=2.0
+WATCHDOG_POLL_SEC=5.0
 RECOVERY_RETRY_MS=60_000
 RECOVERY_MAX_ATTEMPTS=2
 
@@ -128,24 +128,32 @@ def _candle_watchdog()->None:
         expected_open=boundary-STEP_15M_MS
 
         for symbol in settings.symbols:
-            try:
-                snapshot=data_service.snapshot_from_store(symbol,now_ms)
+            stats=candle_store.stats(symbol,"15m")
+            ready=(
+                stats["count"]>=settings.required_15m
+                and stats["latest_open_time"]==expected_open
+            )
+            if ready:
                 _set_data_health(
                     symbol,True,
-                    latest_open_time=snapshot.latest_open_time,
+                    **stats,
                     expected_open_time=expected_open,
-                    source="store",
+                    source="store_head",
                     checked_at_ms=now_ms,
                 )
                 continue
-            except Exception as exc:
-                _set_data_health(
-                    symbol,False,
-                    expected_open_time=expected_open,
-                    error=str(exc),
-                    source="watchdog",
-                    checked_at_ms=now_ms,
-                )
+
+            _set_data_health(
+                symbol,False,
+                **stats,
+                expected_open_time=expected_open,
+                error=(
+                    f"candle store not ready: count={stats['count']} "
+                    f"latest_open={stats['latest_open_time']} expected_open={expected_open}"
+                ),
+                source="watchdog",
+                checked_at_ms=now_ms,
+            )
 
             key=(symbol,expected_open)
             state=_recovery_attempts.get(key,{"count":0,"last_ms":0})
@@ -166,6 +174,7 @@ def _candle_watchdog()->None:
                 details={
                     "expected_open_time":expected_open,
                     "attempt":state["count"],
+                    **stats,
                 },
             )
             try:
@@ -186,6 +195,8 @@ def _candle_watchdog()->None:
                 _set_data_health(
                     symbol,True,
                     latest_open_time=snapshot.latest_open_time,
+                    latest_close_time=snapshot.latest_close_time,
+                    count=len(snapshot.candles),
                     expected_open_time=expected_open,
                     recovered_count=len(missing),
                     source="rest_recovery",
@@ -219,7 +230,6 @@ def _candle_watchdog()->None:
             for key in list(_recovery_attempts):
                 if key[1]<cutoff:
                     _recovery_attempts.pop(key,None)
-
 
 def _start_data_runtime()->None:
     global stream
@@ -346,17 +356,19 @@ def shutdown()->None:
 @app.get("/health")
 def health():
     validation_now=_effective_validation_now()
+    expected_open=(validation_now//STEP_15M_MS)*STEP_15M_MS-STEP_15M_MS
     symbol_health={}
     for symbol in settings.symbols:
-        try:
-            snap=data_service.snapshot_from_store(symbol,validation_now)
-            symbol_health[symbol]={
-                "ok":True,
-                "latest_open_time":snap.latest_open_time,
-                "latest_close_time":snap.latest_close_time,
-            }
-        except Exception as exc:
-            symbol_health[symbol]={"ok":False,"error":str(exc)}
+        stats=candle_store.stats(symbol,"15m")
+        ok=(
+            stats["count"]>=settings.required_15m
+            and stats["latest_open_time"]==expected_open
+        )
+        symbol_health[symbol]={
+            "ok":ok,
+            **stats,
+            "expected_open_time":expected_open,
+        }
 
     data_ok=all(x.get("ok") for x in symbol_health.values()) if symbol_health else True
     body={
