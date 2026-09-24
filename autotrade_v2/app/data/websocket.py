@@ -189,16 +189,40 @@ class BingXKlineStream:
             if code not in (None,0,"0"):
                 raise RuntimeError(f"BingX WebSocket subscription error code={code} msg={msg}")
 
+    @classmethod
+    def _find_kline_payload(cls,obj):
+        required={"t","T","o","h","l","c","v"}
+        if isinstance(obj,dict):
+            k=obj.get("K")
+            if isinstance(k,dict) and required.issubset(k.keys()):
+                return k
+            if required.issubset(obj.keys()):
+                return obj
+            for value in obj.values():
+                found=cls._find_kline_payload(value)
+                if found is not None:
+                    return found
+        elif isinstance(obj,list):
+            for value in obj:
+                found=cls._find_kline_payload(value)
+                if found is not None:
+                    return found
+        return None
+
     def _handle_text(self,text:str)->bool:
         try:
             payload=json.loads(text)
         except Exception:
             return False
-        data=payload.get("data") or {}
-        k=data.get("K") if isinstance(data,dict) else None
+        if not isinstance(payload,dict):
+            return False
+        data_type=str(payload.get("dataType") or "")
+        if "@kline_15m" not in data_type:
+            return False
+        k=self._find_kline_payload(payload)
         if not isinstance(k,dict):
             return False
-        symbol=str(k.get("s") or data.get("s") or "").upper()
+        symbol=str(k.get("s") or data_type.split("@",1)[0] or "").upper()
         if symbol not in self.symbols:
             return False
         try:

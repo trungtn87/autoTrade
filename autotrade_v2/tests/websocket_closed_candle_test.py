@@ -53,7 +53,20 @@ def main() -> None:
     assert not stream._market_data_stale(190_000)
     assert stream._market_data_stale(190_001)
 
-    print({"ok":True,"finalized":1,"duplicates":0,"stale_watchdog":True})
+    wrapped=json.dumps({
+        "code":0,
+        "dataType":"BTC-USDT@kline_15m",
+        "data":{"wrapped":{"K":{
+            "t":t0+1_800_000,
+            "T":t0+2_700_000-1,
+            "o":"102","h":"104","l":"101","c":"103","v":"12",
+        }}},
+    })
+    stream2=BingXKlineStream(("BTC-USDT",), lambda symbol, frame: None)
+    assert stream2._handle_text(wrapped)
+    assert stream2._pending["BTC-USDT"]["open_time"]==t0+1_800_000
+
+    print({"ok":True,"finalized":1,"duplicates":0,"stale_watchdog":True,"wrapped_payload":True})
 
 
 if __name__=="__main__":
