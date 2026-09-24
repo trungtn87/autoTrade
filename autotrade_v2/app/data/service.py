@@ -34,14 +34,8 @@ class DataService:
         self.keep = int(keep)
         self.required = int(required)
 
-    def seed(self, symbol: str, candles: pd.DataFrame) -> int:
-        return self.store.upsert(symbol.upper(), "15m", candles)
-
     def bootstrap(self, symbol: str, now_ms: int | None = None) -> MarketSnapshot:
-        """Explicit bootstrap/backfill path.
-
-        It may call REST multiple times, but only here.
-        """
+        """Use a valid stored window or rebuild the required window from REST."""
         symbol = symbol.upper()
         now_ms = int(now_ms or time.time() * 1000)
         try:
@@ -60,11 +54,7 @@ class DataService:
         candle: pd.DataFrame,
         now_ms: int | None = None,
     ) -> MarketSnapshot:
-        """Live path: one already-closed WS candle -> DB -> validated snapshot.
-
-        A gap fails closed here; the independent watchdog can repair only the
-        exact missing closed intervals through the rate-limited REST client.
-        """
+        """Persist one closed WS candle and return a validated strategy snapshot."""
         symbol = symbol.upper()
         if candle is None or len(candle) != 1:
             raise DataLayerError("WebSocket ingest requires exactly one closed candle")
@@ -78,11 +68,7 @@ class DataService:
         symbol: str,
         now_ms: int | None = None,
     ) -> tuple[MarketSnapshot,list[int]]:
-        """Repair only missing candles in the latest required 15m window.
-
-        This is a fail-safe path for live outages, not the normal data source.
-        It never fetches candles that are already present.
-        """
+        """Repair only missing candles in the latest required 15m window."""
         symbol=symbol.upper()
         now_ms=int(now_ms or time.time()*1000)
         expected_latest=(now_ms//STEP_15M_MS)*STEP_15M_MS-STEP_15M_MS
@@ -131,10 +117,9 @@ class DataService:
                 recovered_frames.append(frame)
                 chunk_start=chunk_end+STEP_15M_MS
 
-        if recovered_frames:
-            recovered=pd.concat(recovered_frames,ignore_index=True)
-            self.store.upsert(symbol,"15m",recovered)
-            self.store.trim(symbol,"15m",self.keep)
+        recovered=pd.concat(recovered_frames,ignore_index=True)
+        self.store.upsert(symbol,"15m",recovered)
+        self.store.trim(symbol,"15m",self.keep)
 
         snapshot=self.snapshot_from_store(symbol,now_ms)
         return snapshot,missing
