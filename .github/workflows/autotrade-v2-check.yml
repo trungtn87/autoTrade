@@ -66,6 +66,11 @@ jobs:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/legacy_execution_test.py
 
+      - name: Verify restart reconciliation and no duplicate entry
+        env:
+          PYTHONPATH: autotrade_v2
+        run: python autotrade_v2/tests/execution_reconcile_test.py
+
       - name: Verify Layer 3 stays closed by default
         env:
           PYTHONPATH: autotrade_v2
