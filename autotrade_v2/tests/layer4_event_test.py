@@ -13,7 +13,7 @@ from app.execution.store import ExecutionStore
 
 
 class FakeExecutor:
-    def send_target(self, signal, target_name, url, usdt_amount):
+    def execute_safe(self, intent):
         return {
             "ok": True,
             "processed": True,
