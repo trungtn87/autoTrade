@@ -24,6 +24,7 @@ CANDLE_GRACE_MS=30_000
 WATCHDOG_POLL_SEC=5.0
 RECOVERY_RETRY_MS=60_000
 RECOVERY_MAX_ATTEMPTS=2
+EXECUTION_RECONCILE_POLL_SEC=15.0
 
 settings=Settings()
 configure_logging(settings.log_level)
@@ -60,6 +61,7 @@ app=FastAPI(title="AutoTrade V2")
 _state_lock=threading.Lock()
 _pipeline_lock=threading.Lock()
 _watchdog_stop=threading.Event()
+_execution_reconcile_stop=threading.Event()
 _processed_open:dict[str,int]={}
 _watchdog_checked_open:dict[str,int]={}
 _recovery_attempts:dict[tuple[str,int],dict]={}
@@ -238,6 +240,39 @@ def _candle_watchdog()->None:
                     _recovery_attempts.pop(key,None)
 
 
+def _execution_reconcile_loop()->None:
+    while not _execution_reconcile_stop.wait(EXECUTION_RECONCILE_POLL_SEC):
+        try:
+            pending=sum(
+                1 for _,state in execution_store.list_states()
+                if not bool(state.get("terminal"))
+            )
+            if pending<=0:
+                continue
+            results=execution_service.recover_pending()
+            with _state_lock:
+                runtime["execution_recovery_last"]={
+                    "checked_at_ms":int(time.time()*1000),
+                    "pending_before":pending,
+                    "results":results,
+                }
+            log.warning(
+                "EXECUTION_RECONCILE_LOOP pending=%s reconciled=%s",
+                pending,len(results),
+            )
+        except Exception as exc:
+            log.exception("EXECUTION_RECONCILE_LOOP_FAIL error=%s",exc)
+            with _state_lock:
+                runtime["execution_recovery_last"]={
+                    "checked_at_ms":int(time.time()*1000),
+                    "error":str(exc),
+                }
+            event_reporter.emit(
+                "L3.EXEC.RECOVERY_LOOP_FAIL","ERROR",str(exc),
+                details={"stage":"runtime_reconciliation"},
+            )
+
+
 def _start_data_runtime()->None:
     global stream
     with _state_lock:
@@ -328,16 +363,33 @@ def startup()->None:
             "L3.EXEC.PREFLIGHT_OK","INFO","BingX private read-only preflight passed",
             details={"credentials_verified":True},
         )
-        recovery=execution_service.recover_pending()
-        with _state_lock:
-            runtime["execution_recovery"]=recovery
-        if recovery:
-            log.warning("EXECUTION_RECOVERY reconciled=%s",len(recovery))
+        try:
+            recovery=execution_service.recover_pending()
+            with _state_lock:
+                runtime["execution_recovery"]=recovery
+            if recovery:
+                log.warning("EXECUTION_RECOVERY reconciled=%s",len(recovery))
+                event_reporter.emit(
+                    "L3.EXEC.RECOVERY_PASS","WARNING",
+                    "persisted non-terminal execution states reconciled at startup",
+                    details={"count":len(recovery),"results":recovery},
+                )
+        except Exception as exc:
+            log.exception("EXECUTION_RECOVERY_STARTUP_FAIL error=%s",exc)
+            with _state_lock:
+                runtime["execution_recovery"]={"error":str(exc)}
             event_reporter.emit(
-                "L3.EXEC.RECOVERY_PASS","WARNING",
-                "persisted non-terminal execution states reconciled at startup",
-                details={"count":len(recovery),"results":recovery},
+                "L3.EXEC.RECOVERY_LOOP_FAIL","ERROR",str(exc),
+                details={"stage":"startup_reconciliation"},
             )
+
+        if settings.execution_enabled and not settings.dry_run:
+            _execution_reconcile_stop.clear()
+            threading.Thread(
+                target=_execution_reconcile_loop,
+                name="v2-execution-reconcile",
+                daemon=True,
+            ).start()
     else:
         log.warning("EXECUTION_PREFLIGHT ok=false error=%s",preflight.get("error"))
         event_reporter.emit(
@@ -364,6 +416,7 @@ def startup()->None:
 @app.on_event("shutdown")
 def shutdown()->None:
     _watchdog_stop.set()
+    _execution_reconcile_stop.set()
     if stream is not None:
         stream.stop()
     event_reporter.emit("L4.SYSTEM.SHUTDOWN","INFO","AutoTrade V2 process stopping")
