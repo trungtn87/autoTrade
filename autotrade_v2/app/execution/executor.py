@@ -59,6 +59,8 @@ class LegacyStyleBingXClient:
                     response=self.http.post(url,headers=headers)
                 elif method.upper()=="GET":
                     response=self.http.get(url,headers=headers)
+                elif method.upper()=="DELETE":
+                    response=self.http.delete(url,headers=headers)
                 else:
                     raise ValueError(f"unsupported method: {method}")
                 payload=response.json()
