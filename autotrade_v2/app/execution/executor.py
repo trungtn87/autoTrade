@@ -21,6 +21,7 @@ class LegacyStyleBingXClient:
     """
 
     ORDER_PATH="/openApi/swap/v2/trade/order"
+    BALANCE_PATH="/openApi/swap/v3/user/balance"
 
     def __init__(self,settings:Settings,request_guard=None):
         self.settings=settings
@@ -91,6 +92,10 @@ class LegacyStyleBingXClient:
         if isinstance(data,dict) and isinstance(data.get("order"),dict):
             return data["order"]
         return data if isinstance(data,dict) else {}
+
+    def query_balance(self)->dict:
+        """Authenticated read-only preflight. Never creates/cancels/modifies orders."""
+        return self._signed_request("GET",self.BALANCE_PATH,{})
 
     def place_market_entry(
         self,
