@@ -106,9 +106,88 @@ class Final14Executor:
                     "error":"actual fill outside FINAL14 TP/SL envelope",
                 }
 
-            protection=self.client.place_protection(
-                intent.symbol,side,executed_qty,tp,sl
-            )
+            # Safety invariant: once entry is filled, never report completion
+            # unless a hard SL has been accepted. Place SL first so a TP failure
+            # cannot leave the position naked.
+            try:
+                sl_result=self.client.place_stop_loss(
+                    intent.symbol,side,executed_qty,sl
+                )
+            except Exception as sl_exc:
+                log.exception(
+                    "PROTECTION_SL_FAILED symbol=%s order_id=%s; emergency closing",
+                    intent.symbol,order_id,
+                )
+                try:
+                    close_result=self.client.close_market(
+                        intent.symbol,side,executed_qty,FINAL14_EXECUTION_LEVERAGE
+                    )
+                    return {
+                        "processed":True,
+                        "entry_accepted":True,
+                        "entry_filled":True,
+                        "ok":False,
+                        "stage":"protection_sl_failed_closed",
+                        "order_id":str(order_id),
+                        "avg_price":avg_price,
+                        "executed_qty":executed_qty,
+                        "tp":tp,
+                        "sl":sl,
+                        "emergency_closed":True,
+                        "close_result":close_result,
+                        "error":f"stop-loss placement failed; position emergency-closed: {sl_exc}",
+                    }
+                except Exception as close_exc:
+                    log.exception(
+                        "PROTECTION_SL_FAILED_CLOSE_FAILED symbol=%s order_id=%s",
+                        intent.symbol,order_id,
+                    )
+                    return {
+                        "processed":True,
+                        "entry_accepted":True,
+                        "entry_filled":True,
+                        "ok":False,
+                        "stage":"unsafe_open_position",
+                        "order_id":str(order_id),
+                        "avg_price":avg_price,
+                        "executed_qty":executed_qty,
+                        "tp":tp,
+                        "sl":sl,
+                        "unsafe_open_position":True,
+                        "error":(
+                            f"stop-loss placement failed ({sl_exc}); "
+                            f"emergency close also failed ({close_exc})"
+                        ),
+                    }
+
+            try:
+                tp_result=self.client.place_take_profit(
+                    intent.symbol,side,executed_qty,tp
+                )
+            except Exception as tp_exc:
+                log.exception(
+                    "PROTECTION_TP_FAILED_SL_ACTIVE symbol=%s order_id=%s",
+                    intent.symbol,order_id,
+                )
+                return {
+                    "processed":True,
+                    "entry_accepted":True,
+                    "entry_filled":True,
+                    "ok":False,
+                    "stage":"protection_tp_failed_sl_active",
+                    "order_id":str(order_id),
+                    "avg_price":avg_price,
+                    "executed_qty":executed_qty,
+                    "target_notional":FINAL14_NOTIONAL_USDT,
+                    "execution_leverage":FINAL14_EXECUTION_LEVERAGE,
+                    "tp":tp,
+                    "sl":sl,
+                    "sl_protected":True,
+                    "protection":{"sl":sl_result,"tp":None},
+                    "error":f"take-profit placement failed; hard stop-loss remains active: {tp_exc}",
+                }
+
+            protection={"tp":tp_result,"sl":sl_result}
             return {
                 "processed":True,
                 "entry_accepted":True,
