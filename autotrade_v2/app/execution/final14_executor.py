@@ -151,7 +151,12 @@ class Final14Executor:
             "payload":payload,
         }
 
-    def execute(self,intent:TradeIntent,resume_state:dict|None=None)->dict:
+    def execute(
+        self,
+        intent:TradeIntent,
+        resume_state:dict|None=None,
+        allow_new_entry:bool=True,
+    )->dict:
         cfg=get_case(intent.symbol,intent.combo)
         if not cfg:
             raise RuntimeError(
@@ -183,6 +188,16 @@ class Final14Executor:
                 "ENTRY_RECONCILED_EXISTING event_id=%s client_order_id=%s",
                 intent.event_id,client_order_id,
             )
+        elif not allow_new_entry:
+            return {
+                "processed":True,
+                "entry_accepted":False,
+                "entry_filled":False,
+                "ok":False,
+                "stage":"entry_absent_reconciled",
+                "client_order_id":client_order_id,
+                "error":"no BingX order exists for persisted event; entry not resent",
+            }
         else:
             try:
                 entry_result=self.client.place_market_entry(
@@ -480,10 +495,17 @@ class Final14Executor:
         }
 
     def execute_safe(
-        self,intent:TradeIntent,resume_state:dict|None=None
+        self,
+        intent:TradeIntent,
+        resume_state:dict|None=None,
+        allow_new_entry:bool=True,
     )->dict:
         try:
-            return self.execute(intent,resume_state=resume_state)
+            return self.execute(
+                intent,
+                resume_state=resume_state,
+                allow_new_entry=allow_new_entry,
+            )
         except Exception as exc:
             log.exception(
                 "FINAL14_EXEC_FAILED event_id=%s",
