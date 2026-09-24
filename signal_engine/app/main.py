@@ -6,7 +6,6 @@ import sys
 import threading
 import time
 
-import pandas as pd
 from contextlib import asynccontextmanager
 from dataclasses import asdict
 
@@ -59,129 +58,30 @@ last_scan_summary: dict = {"status": "not_run"}
 INTERVAL_15M_MS = 15 * 60_000
 
 
-def _fetch_15m_range(
-    symbol: str,
-    start_open: int,
-    end_open: int,
-    now_ms: int,
-) -> pd.DataFrame:
-    """Fetch a closed, UTC-aligned 15m range with backward pagination."""
-    if end_open < start_open:
-        return pd.DataFrame(columns=["open_time", "open", "high", "low", "close", "volume", "close_time"])
-
-    pages: list[pd.DataFrame] = []
-    cursor_end = int(end_open) + INTERVAL_15M_MS - 1
-    wanted = ((int(end_open) - int(start_open)) // INTERVAL_15M_MS) + 1
-    remaining = wanted
-
-    while remaining > 0 and cursor_end >= start_open:
-        page_limit = min(1000, remaining)
-        page = closed_only(
-            market.klines(
-                symbol,
-                "15m",
-                page_limit,
-                start_time=int(start_open),
-                end_time=int(cursor_end),
-            ),
-            now_ms,
-        )
-        if page.empty:
-            break
-
-        page = page[
-            (page["open_time"] >= int(start_open))
-            & (page["open_time"] <= int(end_open))
-        ].copy()
-        if page.empty:
-            break
-
-        pages.append(page)
-        earliest = int(page.iloc[0]["open_time"])
-        if earliest <= start_open:
-            break
-
-        cursor_end = earliest - 1
-        remaining = max(
-            0,
-            ((earliest - int(start_open)) // INTERVAL_15M_MS),
-        )
-
-    if not pages:
-        return pd.DataFrame(columns=["open_time", "open", "high", "low", "close", "volume", "close_time"])
-
-    return (
-        pd.concat(pages, ignore_index=True)
-        .sort_values("open_time")
-        .drop_duplicates("open_time", keep="last")
-        .reset_index(drop=True)
-    )
-
-
-def _recover_15m_validation_gap(symbol: str, m15: pd.DataFrame, now_ms: int, exc: DataValidationError) -> pd.DataFrame:
-    details = getattr(exc, "details", {}) or {}
-    if str(exc) != "15m cache contains a candle gap":
-        raise exc
-
-    start_open = details.get("expected_next_open")
-    next_open = details.get("next_open")
-    missing = int(details.get("missing_intervals", 0) or 0)
-    if start_open is None or next_open is None or missing <= 0:
-        raise exc
-
-    end_open = int(next_open) - INTERVAL_15M_MS
-    log.warning(
-        "CANDLE_GAP_INTERNAL symbol=%s previous_open=%s expected_next=%s next_open=%s missing_intervals=%s",
-        symbol,
-        details.get("previous_open"),
-        start_open,
-        next_open,
-        missing,
-    )
-    recovery = _fetch_15m_range(
-        symbol,
-        int(start_open),
-        int(end_open),
-        now_ms,
-    )
-    if recovery.empty:
-        log.error(
-            "RECOVERY_EMPTY symbol=%s start_open=%s end_open=%s missing_intervals=%s",
-            symbol, start_open, end_open, missing,
-        )
-        raise exc
-
-    state.upsert_candles(symbol, "15m", recovery)
-    log.info(
-        "RECOVERY_BACKFILL symbol=%s requested_missing=%s recovered=%s first_open=%s last_open=%s",
-        symbol,
-        missing,
-        len(recovery),
-        int(recovery.iloc[0]["open_time"]),
-        int(recovery.iloc[-1]["open_time"]),
-    )
-    state.trim_candles(symbol, "15m", settings.candle_keep_15m)
-    return state.load_candles(symbol, "15m")
-
-
 def fetch_bundle(symbol: str):
-    """Production data path: keep the latest candle current, then warm history gradually."""
+    """Production data path: one broad latest-window request, then local validation.
+
+    Live scans never issue a second BingX request to repair gaps. The 1000-candle
+    overlap is intentionally redundant: existing rows are upserted locally so a
+    Render sleep/redeploy can catch up without startTime/endTime recovery calls.
+    """
     started = time.monotonic()
     now_ms = int(time.time() * 1000)
-    cached_count = state.candle_count(symbol, "15m")
-    bootstrap = cached_count == 0
+    cached_before = state.candle_count(symbol, "15m")
+    bootstrap = cached_before == 0
     target = max(3400, int(settings.bootstrap_limit_15m))
 
-    # Always refresh the latest closed candle first. This keeps live data current
-    # even while the historical warmup is still being filled.
     log.info(
-        "FETCH_START symbol=%s mode=%s cached_15m=%s live_limit=%s target=%s",
+        "FETCH_START symbol=%s mode=single_window cached_15m=%s live_limit=%s target=%s",
         symbol,
-        "bootstrap" if bootstrap else ("warmup_backfill" if cached_count < target else "incremental"),
-        cached_count,
+        cached_before,
         settings.live_limit_15m,
         target,
     )
+
+    # Exactly one market-data request per symbol per scan. Do not pass
+    # startTime/endTime: a wide latest-window overlap is safer than a second
+    # range-recovery request when Render has slept or restarted.
     latest = closed_only(
         market.klines(symbol, "15m", settings.live_limit_15m),
         now_ms,
@@ -199,65 +99,35 @@ def fetch_bundle(symbol: str):
     else:
         log.warning("FETCH_DATA symbol=%s received_closed=0", symbol)
 
-    # Historical warmup is intentionally incremental: at most one older page
-    # per scheduled scan. This avoids hammering BingX and, critically, every
-    # successful page is persisted immediately so progress is never lost.
-    cached_count = state.candle_count(symbol, "15m")
-    if cached_count < target:
-        earliest = state.earliest_open_time(symbol, "15m")
-        if earliest is not None:
-            missing = target - cached_count
-            page_limit = min(1000, missing)
-            history_end = int(earliest) - 1
-            history_start = max(
-                0,
-                int(earliest) - page_limit * INTERVAL_15M_MS,
-            )
-            log.info(
-                "WARMUP_BACKFILL_START symbol=%s cached_15m=%s target=%s page_limit=%s start=%s end=%s",
-                symbol, cached_count, target, page_limit, history_start, history_end,
-            )
-            older = closed_only(
-                market.klines(
-                    symbol,
-                    "15m",
-                    page_limit,
-                    start_time=history_start,
-                    end_time=history_end,
-                ),
-                now_ms,
-            )
-            if len(older):
-                state.upsert_candles(symbol, "15m", older)
-                log.info(
-                    "WARMUP_BACKFILL_SAVED symbol=%s recovered=%s first_open=%s last_open=%s cached_after=%s",
-                    symbol,
-                    len(older),
-                    int(older.iloc[0]["open_time"]),
-                    int(older.iloc[-1]["open_time"]),
-                    state.candle_count(symbol, "15m"),
-                )
-            else:
-                log.warning(
-                    "WARMUP_BACKFILL_EMPTY symbol=%s start=%s end=%s",
-                    symbol, history_start, history_end,
-                )
-
     state.trim_candles(symbol, "15m", settings.candle_keep_15m)
     m15 = state.load_candles(symbol, "15m")
+
+    # FINAL14 requires the locked warmup window. If persistent state is ever
+    # lost/reset, fail closed instead of silently rebuilding history through
+    # extra BingX range requests.
+    if len(m15) < target:
+        details = {
+            "count": len(m15),
+            "required": target,
+            "received_this_scan": len(latest),
+        }
+        log.error(
+            "DATA_VALIDATION_FAILED symbol=%s error=15m cache warmup incomplete details=%s",
+            symbol,
+            json.dumps(details, ensure_ascii=False),
+        )
+        raise DataValidationError("15m cache warmup incomplete", details)
 
     try:
         validation = validate_15m_candles(m15, now_ms)
     except DataValidationError as exc:
-        if str(exc) == "15m cache contains a candle gap":
-            m15 = _recover_15m_validation_gap(symbol, m15, now_ms, exc)
-            validation = validate_15m_candles(m15, now_ms)
-        else:
-            log.error(
-                "DATA_VALIDATION_FAILED symbol=%s error=%s details=%s",
-                symbol, exc, json.dumps(getattr(exc, "details", {}) or {}, ensure_ascii=False),
-            )
-            raise
+        log.error(
+            "DATA_VALIDATION_FAILED symbol=%s error=%s details=%s no_network_recovery=true",
+            symbol,
+            exc,
+            json.dumps(getattr(exc, "details", {}) or {}, ensure_ascii=False),
+        )
+        raise
 
     log.info(
         "DATA_VALIDATION symbol=%s ok=true count=%s latest_open=%s latest_close=%s",
@@ -269,11 +139,12 @@ def fetch_bundle(symbol: str):
 
     log.info(
         "FETCH_READY symbol=%s 15m=%s elapsed_ms=%s",
-        symbol, len(m15), round((time.monotonic() - started) * 1000, 1),
+        symbol,
+        len(m15),
+        round((time.monotonic() - started) * 1000, 1),
     )
 
     return now_ms, m15, bootstrap, validation
-
 
 def run_scan(execute: bool = True) -> dict:
     global last_scan_summary
