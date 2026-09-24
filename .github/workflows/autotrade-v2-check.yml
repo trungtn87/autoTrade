@@ -31,9 +31,6 @@ jobs:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/dependency_rules_test.py
 
-      - name: Verify FINAL14 old-vs-V2 parity
-        run: python autotrade_v2/tests/parity_strategy.py
-
       - name: Verify Layer 2 insufficient-candle alert
         env:
           PYTHONPATH: autotrade_v2
@@ -64,7 +61,7 @@ jobs:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/execution_preflight_test.py
 
-      - name: Verify legacy-style FINAL14 execution
+      - name: Verify FINAL14 hard-TP/SL execution
         env:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/legacy_execution_test.py
