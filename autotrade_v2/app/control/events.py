@@ -4,6 +4,7 @@ import json
 import logging
 import queue
 import threading
+import time
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from typing import Any
@@ -107,6 +108,7 @@ class EventReporter:
         self._dropped = 0
         self._processed = 0
         self._last_error = ""
+        self._last_discord: dict[str, float] = {}
         self._thread = threading.Thread(
             target=self._worker,
             name="layer4-events",
@@ -174,16 +176,16 @@ class EventReporter:
         }
 
     def stop(self) -> None:
-        self._stop.set()
         try:
             self._queue.put_nowait(None)
         except queue.Full:
-            pass
+            self._stop.set()
         self._thread.join(timeout=2.0)
+        self._stop.set()
 
     def _worker(self) -> None:
         with httpx.Client(timeout=8.0) as client:
-            while not self._stop.is_set():
+            while True:
                 event = self._queue.get()
                 if event is None:
                     break
@@ -244,6 +246,12 @@ class EventReporter:
         if not url:
             return
 
+        dedupe_key = f"{event.event_key}|{event.symbol}|{event.event_id}|{event.message}"
+        now = time.monotonic()
+        last = self._last_discord.get(dedupe_key, 0.0)
+        if now - last < 120.0:
+            return
+
         icon = {
             "INFO": "✅",
             "WARNING": "⚠️",
@@ -273,6 +281,7 @@ class EventReporter:
             response = client.post(url, json={"content": content, "allowed_mentions": {"parse": []}})
             if response.status_code not in (200, 204):
                 raise RuntimeError(f"Discord HTTP {response.status_code}: {response.text[:200]}")
+            self._last_discord[dedupe_key] = now
         except Exception as exc:
             self._last_error = f"discord send failed: {type(exc).__name__}: {exc}"
             log.exception("EVENT key=L4.DISCORD.SEND_FAIL source_key=%s error=%s", event.event_key, exc)
