@@ -34,7 +34,7 @@ class Settings:
 
     candle_keep_15m: int = 3400
     required_15m: int = 3400
-    historical_request_limit: int = 1440
+    historical_request_limit: int = 1000
     historical_min_interval_ms: int = 1100
 
     bootstrap_enabled: bool = _bool("BOOTSTRAP_ENABLED", False)
@@ -61,8 +61,8 @@ class Settings:
 
 
 def validate_settings(settings: Settings) -> None:
-    if settings.historical_request_limit != 1440:
-        raise ValueError("historical_request_limit is locked to 1440")
+    if settings.historical_request_limit != 1000:
+        raise ValueError("historical_request_limit is locked to 1000")
     if settings.historical_min_interval_ms < 1000:
         raise ValueError("historical_min_interval_ms must respect BingX 1/s IP limit")
     if settings.candle_keep_15m < settings.required_15m:
