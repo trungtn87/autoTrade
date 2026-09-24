@@ -68,8 +68,10 @@ class Settings:
     scan_token: str = os.getenv("SCAN_TOKEN", "")
 
     bootstrap_limit_15m: int = _int("BOOTSTRAP_LIMIT_15M", 3400)
-    live_limit_15m: int = _int("LIVE_LIMIT_15M", 2)
-    recovery_limit_15m: int = _int("RECOVERY_LIMIT_15M", 8)
+    # Live market-data policy: one broad overlap request per symbol/scan.
+    # Keep this fixed so Render environment leftovers cannot silently restore limit=2.
+    live_limit_15m: int = 1000
+    recovery_limit_15m: int = 1000  # compatibility only; live recovery requests are disabled
     candle_keep_15m: int = _int("CANDLE_KEEP_15M", 3400)
 
 
@@ -115,12 +117,12 @@ def validate_settings(settings: Settings) -> tuple[list[str], list[str]]:
 
     if not (0 <= settings.scheduler_second <= 59):
         errors.append("SCHEDULER_SECOND must be between 0 and 59")
-    if not (2 <= settings.live_limit_15m <= 20):
-        errors.append("LIVE_LIMIT_15M must be between 2 and 20")
+    if settings.live_limit_15m != 1000:
+        errors.append("LIVE_LIMIT_15M is locked to 1000 for the single-window live data path")
     if settings.bootstrap_limit_15m < 24:
         errors.append("BOOTSTRAP_LIMIT_15M must be >= 24")
-    if not (settings.live_limit_15m <= settings.recovery_limit_15m <= 100):
-        errors.append("RECOVERY_LIMIT_15M must be >= LIVE_LIMIT_15M and <= 100")
+    # recovery_limit_15m remains only for backward compatibility with old
+    # config snapshots; no live code is allowed to issue recovery requests.
     if settings.candle_keep_15m < settings.bootstrap_limit_15m:
         errors.append("CANDLE_KEEP_15M must be >= BOOTSTRAP_LIMIT_15M")
 
@@ -179,7 +181,7 @@ def safe_config_snapshot(settings: Settings) -> dict:
         "bootstrap_limit_15m_effective": max(3400, settings.bootstrap_limit_15m),
         "bootstrap_page_limit_15m": 1000,
         "live_limit_15m": settings.live_limit_15m,
-        "recovery_limit_15m": settings.recovery_limit_15m,
+        "recovery_requests_enabled": False,
         "candle_keep_15m": settings.candle_keep_15m,
         "auto_scheduler": settings.auto_scheduler,
         "scheduler_minutes_utc": [0, 15, 30, 45],
