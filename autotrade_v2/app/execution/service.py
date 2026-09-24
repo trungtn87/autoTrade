@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import threading
 
 from ..config import Settings
 from ..contracts import ExecutionResult, TradeIntent
@@ -18,6 +19,7 @@ class ExecutionService:
         self.event_cb = event_cb
         self.credentials_verified = False
         self.preflight_error: str | None = None
+        self._execution_lock = threading.RLock()
 
     def _emit(self, key: str, severity: str, message: str, intent: TradeIntent | None = None, **extra) -> None:
         if not self.event_cb:
@@ -129,6 +131,10 @@ class ExecutionService:
         return recovered
 
     def execute(self, intent: TradeIntent, recovery_only:bool=False) -> ExecutionResult:
+        with self._execution_lock:
+            return self._execute_unlocked(intent,recovery_only=recovery_only)
+
+    def _execute_unlocked(self, intent: TradeIntent, recovery_only:bool=False) -> ExecutionResult:
         if not self.settings.execution_enabled:
             self._emit(
                 "L3.EXEC.DISABLED",
