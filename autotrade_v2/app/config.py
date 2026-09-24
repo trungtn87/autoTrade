@@ -32,12 +32,17 @@ class Settings:
     database_url: str = os.getenv("DATABASE_URL", "")
     state_db: str = os.getenv("STATE_DB", "autotrade_v2.db")
 
-    market_limit_15m: int = 1000
     candle_keep_15m: int = 3400
     required_15m: int = 3400
+    historical_request_limit: int = 1440
+    historical_min_interval_ms: int = 1100
 
-    auto_scheduler: bool = _bool("AUTO_SCHEDULER", False)
-    scheduler_second: int = _int("SCHEDULER_SECOND", 8)
+    bootstrap_enabled: bool = _bool("BOOTSTRAP_ENABLED", False)
+    websocket_enabled: bool = _bool("WEBSOCKET_ENABLED", False)
+    bingx_ws_url: str = os.getenv(
+        "BINGX_WS_URL",
+        "wss://open-api-swap.bingx.com/swap-market",
+    )
 
     execution_enabled: bool = _bool("EXECUTION_ENABLED", False)
     dry_run: bool = _bool("DRY_RUN", True)
@@ -56,8 +61,10 @@ class Settings:
 
 
 def validate_settings(settings: Settings) -> None:
-    if settings.market_limit_15m != 1000:
-        raise ValueError("market_limit_15m is locked to 1000")
+    if settings.historical_request_limit != 1440:
+        raise ValueError("historical_request_limit is locked to 1440")
+    if settings.historical_min_interval_ms < 1000:
+        raise ValueError("historical_min_interval_ms must respect BingX 1/s IP limit")
     if settings.candle_keep_15m < settings.required_15m:
         raise ValueError("candle_keep_15m must be >= required_15m")
     if settings.execution_enabled and not settings.dry_run:
