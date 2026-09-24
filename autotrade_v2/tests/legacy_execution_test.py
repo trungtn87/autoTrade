@@ -21,6 +21,7 @@ class FakeClient:
         self.fail_sl=False
         self.fail_tp=False
         self.fail_close=False
+        self.matching={}
 
     @staticmethod
     def extract_order(payload):
@@ -67,6 +68,10 @@ class FakeClient:
             order=self.extract_order(payload)
             order["status"]="CANCELED"
         return {"code":0}
+
+    def find_matching_protection(self,symbol,entry_side,qty,stop_price,order_type):
+        self.calls.append(("find_protection",order_type,qty,stop_price))
+        return self.matching.get(order_type)
 
     def place_stop_loss(self,symbol,entry_side,qty,sl):
         self.calls.append(("sl",symbol,entry_side,qty,sl))
@@ -197,6 +202,41 @@ def main():
     assert "cancel" in kinds6 and "close" in kinds6,kinds6
     assert "sl" not in kinds6 and "tp" not in kinds6,kinds6
 
+
+    class LostSlResponse(FakeClient):
+        def place_stop_loss(self,symbol,entry_side,qty,sl):
+            self.calls.append(("sl",symbol,entry_side,qty,sl))
+            order={"orderId":"sl-lost","status":"NEW","executedQty":"0","avgPrice":"0"}
+            payload={"code":0,"data":{"order":order}}
+            self.by_order["sl-lost"]=payload
+            self.matching["STOP_MARKET"]=payload
+            raise RuntimeError("simulated lost SL response")
+
+    lost_sl=LostSlResponse(avg_price=100.0)
+    ex.client=lost_sl
+    result7=ex.execute(intent())
+    kinds7=[x[0] for x in lost_sl.calls]
+    assert result7["stage"]=="complete",result7
+    assert "find_protection" in kinds7,kinds7
+    assert "close" not in kinds7,kinds7
+
+    class LostTpResponse(FakeClient):
+        def place_take_profit(self,symbol,entry_side,qty,tp):
+            self.calls.append(("tp",symbol,entry_side,qty,tp))
+            order={"orderId":"tp-lost","status":"NEW","executedQty":"0","avgPrice":"0"}
+            payload={"code":0,"data":{"order":order}}
+            self.by_order["tp-lost"]=payload
+            self.matching["TAKE_PROFIT_MARKET"]=payload
+            raise RuntimeError("simulated lost TP response")
+
+    lost_tp=LostTpResponse(avg_price=100.0)
+    ex.client=lost_tp
+    result8=ex.execute(intent())
+    kinds8=[x[0] for x in lost_tp.calls]
+    assert result8["stage"]=="complete",result8
+    assert "find_protection" in kinds8,kinds8
+    assert kinds8.count("tp")==1,kinds8
+
     print({
         "ok":True,
         "client_order_id":True,
@@ -207,6 +247,8 @@ def main():
         "tp_failure_keeps_sl":True,
         "unsafe_open_position_detected":True,
         "partial_fill_cancelled_and_closed":True,
+        "lost_sl_response_reconciled":True,
+        "lost_tp_response_reconciled":True,
         "trailing":False,
     })
 
