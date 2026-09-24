@@ -51,11 +51,11 @@ class Settings:
     order_margin_usdt: float = 2.0
     leverage: int = 50
 
-    # Notifications are intentionally outside Layer 3 and disabled in V2 core.
-    discord_enabled: bool = False
-    discord_on_dry_run: bool = False
-    discord_webhook_btc: str = ""
-    discord_webhook_eth: str = ""
+    # Layer 4 only. Missing/broken Discord must never block trading.
+    discord_enabled: bool = _bool("DISCORD_ENABLED", True)
+    discord_webhook_btc: str = os.getenv("DISCORD_WEBHOOK_BTC", "")
+    discord_webhook_eth: str = os.getenv("DISCORD_WEBHOOK_ETH", "")
+    discord_webhook_error: str = os.getenv("DISCORD_WEBHOOK_ERROR", "")
 
     log_level: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
