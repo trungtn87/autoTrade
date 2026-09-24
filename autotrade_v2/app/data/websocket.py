@@ -38,6 +38,7 @@ class BingXKlineStream:
         self.last_error=""
         self._connection_started_ms=0
         self._connection_kline_seen=False
+        self._shape_logged:set[str]=set()
 
     def start(self)->None:
         if self._thread and self._thread.is_alive():
@@ -207,7 +208,42 @@ class BingXKlineStream:
                 found=cls._find_kline_payload(value)
                 if found is not None:
                     return found
+        elif isinstance(obj,str):
+            raw=obj.strip()
+            if raw.startswith("{") or raw.startswith("["):
+                try:
+                    return cls._find_kline_payload(json.loads(raw))
+                except Exception:
+                    return None
         return None
+
+    @classmethod
+    def _payload_shape(cls,obj,depth:int=0):
+        if depth>=5:
+            return type(obj).__name__
+        if isinstance(obj,dict):
+            return {
+                str(k):cls._payload_shape(v,depth+1)
+                for k,v in list(obj.items())[:30]
+            }
+        if isinstance(obj,list):
+            return {
+                "_type":"list",
+                "_len":len(obj),
+                "_item":cls._payload_shape(obj[0],depth+1) if obj else None,
+            }
+        if isinstance(obj,str):
+            raw=obj.strip()
+            if raw.startswith("{") or raw.startswith("["):
+                try:
+                    return {
+                        "_type":"json_string",
+                        "_parsed":cls._payload_shape(json.loads(raw),depth+1),
+                    }
+                except Exception:
+                    pass
+            return "str"
+        return type(obj).__name__
 
     def _handle_text(self,text:str)->bool:
         try:
@@ -221,6 +257,13 @@ class BingXKlineStream:
             return False
         k=self._find_kline_payload(payload)
         if not isinstance(k,dict):
+            if data_type not in self._shape_logged:
+                self._shape_logged.add(data_type)
+                log.warning(
+                    "WS_KLINE_SHAPE_UNRECOGNIZED dataType=%s shape=%s",
+                    data_type,
+                    json.dumps(self._payload_shape(payload),separators=(",",":")),
+                )
             return False
         symbol=str(k.get("s") or data_type.split("@",1)[0] or "").upper()
         if symbol not in self.symbols:
