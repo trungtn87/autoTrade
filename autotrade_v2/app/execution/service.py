@@ -2,18 +2,12 @@ from __future__ import annotations
 
 from ..config import Settings
 from ..contracts import ExecutionResult, TradeIntent
-from ..strategy.strategy import Signal
 from .final14_executor import Final14Executor
 from .store import ExecutionStore
 
 
 class ExecutionService:
-    """Layer 3 only: TradeIntent -> BingX execution result.
-
-    Live execution is fail-closed until a read-only authenticated BingX
-    credential preflight has succeeded in the current process.
-    Layer 4 observation is injected as a callback and never affects execution.
-    """
+    """Layer 3 only: TradeIntent -> BingX execution result."""
 
     def __init__(self, settings: Settings, store: ExecutionStore, event_cb=None):
         self.settings = settings
@@ -66,20 +60,6 @@ class ExecutionService:
                 "credentials_verified": False,
                 "error": self.preflight_error,
             }
-
-    @staticmethod
-    def _signal(intent: TradeIntent) -> Signal:
-        return Signal(
-            symbol=intent.symbol,
-            combo=intent.combo,
-            side=intent.side,
-            timeframe=intent.timeframe,
-            close_time=intent.close_time,
-            entry=intent.entry,
-            tp=intent.tp,
-            sl=intent.sl,
-            smc_dir=intent.smc_dir,
-        )
 
     def execute(self, intent: TradeIntent) -> ExecutionResult:
         if self.store.seen(intent.event_id):
@@ -153,13 +133,7 @@ class ExecutionService:
             sl=intent.sl,
         )
 
-        signal = self._signal(intent)
-        result = self.executor.send_target(
-            signal,
-            "bingx_account",
-            "direct://bingx",
-            100.0,
-        )
+        result = self.executor.execute_safe(intent)
         accepted = bool(result.get("entry_accepted") or result.get("ok"))
         processed = bool(result.get("processed") or accepted)
         order_id = str(result.get("order_id") or "") or None
