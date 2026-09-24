@@ -49,6 +49,11 @@ jobs:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/websocket_closed_candle_test.py
 
+      - name: Verify Layer 4 keyed event trace
+        env:
+          PYTHONPATH: autotrade_v2
+        run: python autotrade_v2/tests/layer4_event_test.py
+
       - name: Verify Layer 3 credential preflight gate
         env:
           PYTHONPATH: autotrade_v2
