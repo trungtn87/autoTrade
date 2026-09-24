@@ -42,6 +42,16 @@ class Settings:
     execution_enabled: bool = _bool("EXECUTION_ENABLED", False)
     dry_run: bool = _bool("DRY_RUN", True)
 
+    # Locked FINAL14 execution contract. Environment cannot change these values.
+    order_margin_usdt: float = 2.0
+    leverage: int = 50
+
+    # Notifications are intentionally outside Layer 3 and disabled in V2 core.
+    discord_enabled: bool = False
+    discord_on_dry_run: bool = False
+    discord_webhook_btc: str = ""
+    discord_webhook_eth: str = ""
+
     log_level: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
 
