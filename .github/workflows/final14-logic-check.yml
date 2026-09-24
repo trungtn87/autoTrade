@@ -2,7 +2,7 @@ name: FINAL14 Logic Check
 
 on:
   push:
-    branches: [signal-engine-v1]
+    branches: [signal-engine-v1, fix-single-window-kline-20260924]
     paths:
       - 'signal_engine/app/**'
       - 'signal_engine/requirements.txt'
@@ -44,3 +44,9 @@ jobs:
           assert result["network_calls"] == 0
           assert result["order_calls"] == 0
           PY
+
+      - name: Verify single-window data path parity
+        env:
+          PYTHONPATH: signal_engine
+          AUTO_SCHEDULER: 'false'
+        run: python signal_engine/tests/single_window_data_path_test.py
