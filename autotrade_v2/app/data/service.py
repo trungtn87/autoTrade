@@ -11,6 +11,9 @@ from .store import CandleStore
 from .validator import DataValidationError, validate_15m_candles
 
 
+STEP_15M_MS=15*60_000
+
+
 class DataService:
     """Layer 1: historical REST/bootstrap + WebSocket closed candles -> DB.
 
@@ -37,8 +40,7 @@ class DataService:
     def bootstrap(self, symbol: str, now_ms: int | None = None) -> MarketSnapshot:
         """Explicit bootstrap/backfill path.
 
-        It may call REST multiple times, but only here. Live WebSocket ingestion
-        never invokes REST automatically.
+        It may call REST multiple times, but only here.
         """
         symbol = symbol.upper()
         now_ms = int(now_ms or time.time() * 1000)
@@ -60,7 +62,8 @@ class DataService:
     ) -> MarketSnapshot:
         """Live path: one already-closed WS candle -> DB -> validated snapshot.
 
-        No REST recovery is permitted here. A gap fails closed.
+        A gap fails closed here; the independent watchdog can repair only the
+        exact missing closed intervals through the rate-limited REST client.
         """
         symbol = symbol.upper()
         if candle is None or len(candle) != 1:
@@ -69,6 +72,72 @@ class DataService:
         self.store.trim(symbol, "15m", self.keep)
         now_ms = int(now_ms or max(time.time() * 1000, int(candle.iloc[-1]["close_time"]) + 1))
         return self.snapshot_from_store(symbol, now_ms)
+
+    def recover_missing_closed(
+        self,
+        symbol: str,
+        now_ms: int | None = None,
+    ) -> tuple[MarketSnapshot,list[int]]:
+        """Repair only missing candles in the latest required 15m window.
+
+        This is a fail-safe path for live outages, not the normal data source.
+        It never fetches candles that are already present.
+        """
+        symbol=symbol.upper()
+        now_ms=int(now_ms or time.time()*1000)
+        expected_latest=(now_ms//STEP_15M_MS)*STEP_15M_MS-STEP_15M_MS
+        first_required=expected_latest-(self.required-1)*STEP_15M_MS
+
+        current=self.store.load(symbol,"15m",None)
+        existing={
+            int(x)
+            for x in current["open_time"].tolist()
+            if first_required<=int(x)<=expected_latest
+        } if not current.empty else set()
+        required_times=list(range(first_required,expected_latest+STEP_15M_MS,STEP_15M_MS))
+        missing=[x for x in required_times if x not in existing]
+
+        if not missing:
+            return self.snapshot_from_store(symbol,now_ms),[]
+
+        recovered_frames=[]
+        cursor_idx=0
+        while cursor_idx<len(missing):
+            start=missing[cursor_idx]
+            end=start
+            cursor_idx+=1
+            while cursor_idx<len(missing) and missing[cursor_idx]==end+STEP_15M_MS:
+                end=missing[cursor_idx]
+                cursor_idx+=1
+
+            chunk_start=start
+            while chunk_start<=end:
+                remaining=((end-chunk_start)//STEP_15M_MS)+1
+                take=min(self.historical.request_limit,int(remaining))
+                chunk_end=chunk_start+(take-1)*STEP_15M_MS
+                frame=self.historical.fetch_window(
+                    symbol,
+                    chunk_start,
+                    chunk_end+STEP_15M_MS-1,
+                    take,
+                )
+                expected=list(range(chunk_start,chunk_end+STEP_15M_MS,STEP_15M_MS))
+                got=[int(x) for x in frame["open_time"].tolist()] if not frame.empty else []
+                if got!=expected:
+                    raise DataLayerError(
+                        f"{symbol} recovery mismatch expected={expected[0]}..{expected[-1]} "
+                        f"count={len(expected)} got_count={len(got)}"
+                    )
+                recovered_frames.append(frame)
+                chunk_start=chunk_end+STEP_15M_MS
+
+        if recovered_frames:
+            recovered=pd.concat(recovered_frames,ignore_index=True)
+            self.store.upsert(symbol,"15m",recovered)
+            self.store.trim(symbol,"15m",self.keep)
+
+        snapshot=self.snapshot_from_store(symbol,now_ms)
+        return snapshot,missing
 
     def snapshot_from_store(self, symbol: str, now_ms: int | None = None) -> MarketSnapshot:
         symbol = symbol.upper()

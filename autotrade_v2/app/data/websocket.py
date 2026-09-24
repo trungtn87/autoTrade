@@ -22,6 +22,8 @@ class BingXKlineStream:
     on_closed: object
     url: str = "wss://open-api-swap.bingx.com/swap-market"
     on_event: object | None = None
+    market_stale_ms: int = 90_000
+    first_kline_deadline_ms: int = 60_000
 
     def __post_init__(self)->None:
         self._stop=threading.Event()
@@ -31,7 +33,11 @@ class BingXKlineStream:
         self.connected=False
         self.reconnects=0
         self.last_message_ms=0
+        self.last_control_ms=0
+        self.last_kline_ms=0
         self.last_error=""
+        self._connection_started_ms=0
+        self._connection_kline_seen=False
 
     def start(self)->None:
         if self._thread and self._thread.is_alive():
@@ -44,10 +50,15 @@ class BingXKlineStream:
         self._stop.set()
 
     def status(self)->dict:
+        now_ms=int(time.time()*1000)
         return {
             "connected":self.connected,
+            "data_healthy":self.connected and not self._market_data_stale(now_ms),
             "reconnects":self.reconnects,
             "last_message_ms":self.last_message_ms,
+            "last_control_ms":self.last_control_ms,
+            "last_kline_ms":self.last_kline_ms,
+            "last_finalized":dict(self._last_finalized),
             "last_error":self.last_error,
             "pending":{k:v.get("open_time") for k,v in self._pending.items()},
         }
@@ -63,6 +74,17 @@ class BingXKlineStream:
     def _run(self)->None:
         asyncio.run(self._loop())
 
+    def _market_data_stale(self,now_ms:int|None=None)->bool:
+        if not self.connected:
+            return True
+        now_ms=int(now_ms or time.time()*1000)
+        if not self._connection_kline_seen:
+            return (
+                self._connection_started_ms > 0
+                and now_ms-self._connection_started_ms > self.first_kline_deadline_ms
+            )
+        return self.last_kline_ms <= 0 or now_ms-self.last_kline_ms > self.market_stale_ms
+
     async def _loop(self)->None:
         backoff=2
         while not self._stop.is_set():
@@ -75,25 +97,39 @@ class BingXKlineStream:
                 ) as ws:
                     self.connected=True
                     self.last_error=""
+                    self._connection_started_ms=int(time.time()*1000)
+                    self._connection_kline_seen=False
                     backoff=2
                     self._emit(
                         "L1.DATA.WS_CONNECTED","INFO","BingX 15m WebSocket connected",
                         details={"url":self.url,"symbols":list(self.symbols),"reconnects":self.reconnects},
                     )
                     for symbol in self.symbols:
+                        request_id=str(uuid.uuid4())
                         await ws.send(json.dumps({
-                            "id":str(uuid.uuid4()),
+                            "id":request_id,
                             "reqType":"sub",
                             "dataType":f"{symbol}@kline_15m",
                         }))
-                        log.info("WS_SUBSCRIBE symbol=%s channel=kline_15m",symbol)
+                        log.info(
+                            "WS_SUBSCRIBE symbol=%s channel=kline_15m request_id=%s",
+                            symbol,request_id,
+                        )
                     while not self._stop.is_set():
                         raw=await asyncio.wait_for(ws.recv(),timeout=45)
+                        now_ms=int(time.time()*1000)
                         text=self._decode(raw)
-                        if text=="Ping" or "ping" in text.lower() and len(text)<64:
+                        if text.strip().lower()=="ping":
+                            self.last_control_ms=now_ms
                             await ws.send("Pong")
+                            if self._market_data_stale(now_ms):
+                                raise RuntimeError("kline market data stale while WebSocket heartbeat is alive")
                             continue
-                        self._handle_text(text)
+                        parsed_kline=self._handle_text(text)
+                        if not parsed_kline:
+                            self._handle_control_text(text,now_ms)
+                        if self._market_data_stale(now_ms):
+                            raise RuntimeError("kline market data stale; reconnect required")
             except asyncio.TimeoutError:
                 self.last_error="websocket receive timeout"
                 log.warning("WS_RECONNECT reason=timeout")
@@ -115,6 +151,8 @@ class BingXKlineStream:
                         details={"last_error":self.last_error,"reconnects":self.reconnects},
                     )
                 self.connected=False
+                self._connection_started_ms=0
+                self._connection_kline_seen=False
             if self._stop.is_set():
                 break
             self.reconnects+=1
@@ -130,18 +168,39 @@ class BingXKlineStream:
         except Exception:
             return bytes(raw).decode("utf-8")
 
-    def _handle_text(self,text:str)->None:
+    def _handle_control_text(self,text:str,now_ms:int)->None:
+        self.last_control_ms=int(now_ms)
         try:
             payload=json.loads(text)
         except Exception:
+            log.debug("WS_CONTROL non_json=%r",text[:160])
             return
+        if not isinstance(payload,dict):
+            return
+        request_id=payload.get("id")
+        code=payload.get("code")
+        msg=payload.get("msg")
+        data_type=payload.get("dataType")
+        if request_id is not None or code is not None or msg is not None:
+            log.info(
+                "WS_CONTROL id=%s code=%s msg=%s dataType=%s",
+                request_id,code,msg,data_type,
+            )
+            if code not in (None,0,"0"):
+                raise RuntimeError(f"BingX WebSocket subscription error code={code} msg={msg}")
+
+    def _handle_text(self,text:str)->bool:
+        try:
+            payload=json.loads(text)
+        except Exception:
+            return False
         data=payload.get("data") or {}
         k=data.get("K") if isinstance(data,dict) else None
         if not isinstance(k,dict):
-            return
+            return False
         symbol=str(k.get("s") or data.get("s") or "").upper()
         if symbol not in self.symbols:
-            return
+            return False
         try:
             candle={
                 "open_time":int(k["t"]),
@@ -153,17 +212,19 @@ class BingXKlineStream:
                 "close_time":int(k["T"]),
             }
         except Exception:
-            return
-        self.last_message_ms=int(time.time()*1000)
+            return False
+        now_ms=int(time.time()*1000)
+        self.last_message_ms=now_ms
+        self.last_kline_ms=now_ms
+        self._connection_kline_seen=True
         prev=self._pending.get(symbol)
         if prev and candle["open_time"]>prev["open_time"]:
             self._finalize(symbol,prev)
         if prev is None or candle["open_time"]>=prev["open_time"]:
             self._pending[symbol]=candle
-        # If BingX emits the final update after close, accept it without waiting
-        # for the next candle. Dedupe prevents a second finalize.
-        if int(time.time()*1000)>=candle["close_time"]+1500:
+        if now_ms>=candle["close_time"]+1500:
             self._finalize(symbol,candle)
+        return True
 
     def _finalize(self,symbol:str,candle:dict)->None:
         ot=int(candle["open_time"])
