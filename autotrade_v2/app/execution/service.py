@@ -281,8 +281,23 @@ class ExecutionService:
             elif stage=="unsafe_partial_entry":
                 key = "L3.EXEC.UNSAFE_OPEN_POSITION"
                 severity = "CRITICAL"
-            elif stage in ("fill_outside_final14_range_closed", "protection_sl_failed_closed"):
+            elif stage in (
+                "fill_outside_final14_range_closed",
+                "protection_sl_failed_closed",
+            ):
                 key = "L3.EXEC.EMERGENCY_CLOSE"
+            elif stage in (
+                "closed_by_sl_during_protection",
+                "closed_by_tp_during_protection",
+            ):
+                key = "L3.EXEC.PROTECTION_EXIT_CONFIRMED"
+                severity = "WARNING"
+            elif stage in ("sl_execution_in_progress","tp_execution_in_progress"):
+                key = "L3.EXEC.PROTECTION_RECONCILE_REQUIRED"
+                severity = "CRITICAL"
+            elif stage == "orphan_sl_cleanup_required":
+                key = "L3.EXEC.ORPHAN_PROTECTION_CLEANUP"
+                severity = "CRITICAL"
             elif stage == "protection_tp_failed_sl_active":
                 key = "L3.EXEC.TP_FAILED_SL_ACTIVE"
                 severity = "ERROR"
