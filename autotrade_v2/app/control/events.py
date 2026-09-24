@@ -234,7 +234,7 @@ class EventReporter:
             return
 
         url = ""
-        if event.severity in {"WARNING", "ERROR", "CRITICAL"}:
+        if event.severity in {"ERROR", "CRITICAL"}:
             url = self.webhook_error
         elif event.event_key in _ORDER_NOTIFY_KEYS:
             if event.symbol == "BTC-USDT":
