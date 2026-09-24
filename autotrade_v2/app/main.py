@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from .config import Settings, validate_settings
 from .control.logging import configure_logging
+from .control.events import EventReporter
 from .data.historical import HistoricalKlineClient
 from .data.service import DataService
 from .data.store import CandleStore
@@ -23,6 +24,13 @@ validate_settings(settings)
 
 candle_store=CandleStore(settings.state_db,settings.database_url)
 execution_store=ExecutionStore(settings.state_db,settings.database_url)
+event_reporter=EventReporter(
+    settings.database_url,
+    discord_enabled=settings.discord_enabled,
+    webhook_btc=settings.discord_webhook_btc,
+    webhook_eth=settings.discord_webhook_eth,
+    webhook_error=settings.discord_webhook_error,
+)
 historical=HistoricalKlineClient(
     base_url=settings.bingx_base_url,
     min_interval_sec=settings.historical_min_interval_ms/1000.0,
@@ -35,8 +43,10 @@ data_service=DataService(
     required=settings.required_15m,
 )
 strategy_engine=StrategyEngine()
-execution_service=ExecutionService(settings,execution_store)
-orchestrator=Orchestrator(settings,data_service,strategy_engine,execution_service)
+execution_service=ExecutionService(settings,execution_store,event_cb=event_reporter.emit)
+orchestrator=Orchestrator(
+    settings,data_service,strategy_engine,execution_service,event_cb=event_reporter.emit
+)
 
 app=FastAPI(title="AutoTrade V2")
 _state_lock=threading.Lock()
@@ -87,7 +97,9 @@ def _start_data_runtime()->None:
             return
 
     if settings.websocket_enabled:
-        stream=BingXKlineStream(settings.symbols,_on_closed,url=settings.bingx_ws_url)
+        stream=BingXKlineStream(
+            settings.symbols,_on_closed,url=settings.bingx_ws_url,on_event=event_reporter.emit
+        )
         stream.start()
         with _state_lock:
             runtime["status"]="websocket_running"
@@ -113,8 +125,28 @@ def startup()->None:
         runtime["execution_preflight"]=preflight
     if preflight.get("ok"):
         log.info("EXECUTION_PREFLIGHT ok=true credentials_verified=true")
+        event_reporter.emit(
+            "L3.EXEC.PREFLIGHT_OK","INFO","BingX private read-only preflight passed",
+            details={"credentials_verified":True},
+        )
     else:
         log.warning("EXECUTION_PREFLIGHT ok=false error=%s",preflight.get("error"))
+        event_reporter.emit(
+            "L3.EXEC.PREFLIGHT_FAIL","CRITICAL",str(preflight.get("error") or "preflight failed"),
+            details={"credentials_verified":False},
+        )
+
+    event_reporter.emit(
+        "L4.SYSTEM.STARTUP","INFO","AutoTrade V2 process started",
+        details={
+            "symbols":list(settings.symbols),
+            "bootstrap_enabled":settings.bootstrap_enabled,
+            "websocket_enabled":settings.websocket_enabled,
+            "execution_enabled":settings.execution_enabled,
+            "dry_run":settings.dry_run,
+            "db_backend":candle_store.backend,
+        },
+    )
 
     if settings.bootstrap_enabled or settings.websocket_enabled:
         threading.Thread(target=_start_data_runtime,name="v2-data-runtime",daemon=True).start()
@@ -124,6 +156,8 @@ def startup()->None:
 def shutdown()->None:
     if stream is not None:
         stream.stop()
+    event_reporter.emit("L4.SYSTEM.SHUTDOWN","INFO","AutoTrade V2 process stopping")
+    event_reporter.stop()
 
 
 @app.get("/health")
@@ -141,6 +175,7 @@ def health()->dict:
         "db_backend":candle_store.backend,
         "runtime_status":runtime.get("status"),
         "ws":stream.status() if stream is not None else None,
+        "layer4":event_reporter.status(),
     }
 
 
