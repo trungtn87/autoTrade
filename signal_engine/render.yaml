@@ -7,34 +7,17 @@ services:
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /health
     envVars:
-      - key: DRY_RUN
-        value: "false"
       - key: AUTO_SCHEDULER
         value: "true"
       - key: SYMBOLS
         value: BTC-USDT,ETH-USDT
-      - key: BINGX_ORDER_MARGIN_USDT
-        value: "2"
-      - key: BINGX_LEVERAGE
-        value: "50"
       - key: SMC_MODE
         value: Veto Only
-
-      - key: LIVE_LIMIT_15M
-        value: "2"
       - key: BOOTSTRAP_LIMIT_15M
         value: "3400"
-      - key: RECOVERY_LIMIT_15M
-        value: "8"
       - key: CANDLE_KEEP_15M
         value: "3400"
       - key: SCAN_TOKEN
         generateValue: true
-      - key: DISCORD_LOG_ENABLED
-        value: "true"
-      - key: DISCORD_LOG_LEVEL
-        value: "ERROR"
-      - key: DISCORD_PERIODIC_LOG_ENABLED
-        value: "false"
       - key: DISCORD_STARTUP_TEST
         value: "false"
