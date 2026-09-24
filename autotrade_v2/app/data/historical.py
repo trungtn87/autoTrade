@@ -48,7 +48,7 @@ class HistoricalKlineClient:
     base_url: str = "https://open-api.bingx.com"
     timeout: float = 20.0
     min_interval_sec: float = 1.10
-    request_limit: int = 1440
+    request_limit: int = 1000
 
     def __post_init__(self) -> None:
         self._client=httpx.Client(timeout=self.timeout,headers={
