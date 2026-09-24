@@ -10,14 +10,45 @@ from .store import ExecutionStore
 class ExecutionService:
     """Layer 3 only: TradeIntent -> BingX execution result.
 
-    The service is disabled by default. No strategy calculations or market-data
-    fetching are allowed here.
+    Live execution is fail-closed until a read-only authenticated BingX
+    credential preflight has succeeded in the current process.
     """
 
     def __init__(self, settings: Settings, store: ExecutionStore):
         self.settings = settings
         self.store = store
         self.executor = Final14Executor(settings)
+        self.credentials_verified = False
+        self.preflight_error: str | None = None
+
+    def preflight(self) -> dict:
+        if not self.settings.bingx_api_key or not self.settings.bingx_api_secret:
+            self.credentials_verified = False
+            self.preflight_error = "missing BINGX_API_KEY/BINGX_API_SECRET"
+            return {
+                "ok": False,
+                "credentials_verified": False,
+                "error": self.preflight_error,
+            }
+        try:
+            payload = self.executor.client.query_balance()
+            self.credentials_verified = True
+            self.preflight_error = None
+            data = payload.get("data") if isinstance(payload, dict) else None
+            asset_count = len(data) if isinstance(data, list) else None
+            return {
+                "ok": True,
+                "credentials_verified": True,
+                "asset_count": asset_count,
+            }
+        except Exception as exc:
+            self.credentials_verified = False
+            self.preflight_error = str(exc)
+            return {
+                "ok": False,
+                "credentials_verified": False,
+                "error": self.preflight_error,
+            }
 
     @staticmethod
     def _signal(intent: TradeIntent) -> Signal:
@@ -56,6 +87,17 @@ class ExecutionService:
                 accepted=False,
                 status="dry_run",
                 details={"network_called": False},
+            )
+
+        if not self.credentials_verified:
+            return ExecutionResult(
+                event_id=intent.event_id,
+                accepted=False,
+                status="credential_preflight_required",
+                details={
+                    "network_called": False,
+                    "error": self.preflight_error or "BingX credentials not verified",
+                },
             )
 
         signal = self._signal(intent)
