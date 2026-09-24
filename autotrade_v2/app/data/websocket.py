@@ -109,9 +109,9 @@ class BingXKlineStream:
                     details={"reconnects":self.reconnects},
                 )
             finally:
-                if self.connected:
+                if self.connected and not self._stop.is_set():
                     self._emit(
-                        "L1.DATA.WS_DISCONNECTED","WARNING","BingX 15m WebSocket disconnected",
+                        "L1.DATA.WS_DISCONNECTED","INFO","BingX 15m WebSocket disconnected before reconnect",
                         details={"last_error":self.last_error,"reconnects":self.reconnects},
                     )
                 self.connected=False
