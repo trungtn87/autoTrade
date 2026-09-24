@@ -9,7 +9,7 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from typing import Any
 
-import httpx
+import requests
 
 log = logging.getLogger(__name__)
 
@@ -184,18 +184,17 @@ class EventReporter:
         self._stop.set()
 
     def _worker(self) -> None:
-        with httpx.Client(timeout=8.0) as client:
-            while True:
-                event = self._queue.get()
-                if event is None:
-                    break
-                try:
-                    self._persist(event)
-                    self._notify(client, event)
-                    self._processed += 1
-                except Exception as exc:
-                    self._last_error = f"{type(exc).__name__}: {exc}"
-                    log.exception("EVENT key=L4.REPORTER.WORKER_FAIL source_key=%s error=%s", event.event_key, exc)
+        while True:
+            event = self._queue.get()
+            if event is None:
+                break
+            try:
+                self._persist(event)
+                self._notify(event)
+                self._processed += 1
+            except Exception as exc:
+                self._last_error = f"{type(exc).__name__}: {exc}"
+                log.exception("EVENT key=L4.REPORTER.WORKER_FAIL source_key=%s error=%s", event.event_key, exc)
 
     def _persist(self, event: SystemEvent) -> None:
         if not self.database_url:
@@ -230,7 +229,7 @@ class EventReporter:
             self._last_error = f"audit write failed: {type(exc).__name__}: {exc}"
             log.exception("EVENT key=L4.AUDIT.WRITE_FAIL source_key=%s error=%s", event.event_key, exc)
 
-    def _notify(self, client: httpx.Client, event: SystemEvent) -> None:
+    def _notify(self, event: SystemEvent) -> None:
         if not self.discord_enabled:
             return
 
@@ -278,8 +277,8 @@ class EventReporter:
         content = "\n".join(lines)[:1900]
 
         try:
-            response = client.post(url, json={"content": content, "allowed_mentions": {"parse": []}})
-            if response.status_code not in (200, 204):
+            response = requests.post(url, json={"content": content}, timeout=8)
+            if response.status_code != 204:
                 raise RuntimeError(f"Discord HTTP {response.status_code}: {response.text[:200]}")
             self._last_discord[dedupe_key] = now
         except Exception as exc:
