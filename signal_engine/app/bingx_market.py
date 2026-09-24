@@ -151,6 +151,38 @@ class BingXMarketClient:
         m = re.search(r"retry after time:\s*(\d+)", message or "", flags=re.I)
         return int(m.group(1)) if m else None
 
+    def _get_public(self, path: str, params: dict) -> dict:
+        """GET public market data without account credentials or signatures."""
+        with self.request_slot():
+            return self._get_public_locked(path, params)
+
+    def _get_public_locked(self, path: str, params: dict) -> dict:
+        safe_params = dict(params)
+        started = time.monotonic()
+        log.info("BINGX_REQ path=%s auth=public params=%s", path, safe_params)
+        headers = {"X-SOURCE-KEY": "BX-AI-SKILL"}
+
+        r = self._client.get(self.base_url + path, params=safe_params, headers=headers)
+        self._last_call = time.monotonic()
+        elapsed_ms = round((time.monotonic() - started) * 1000, 1)
+        log.info("BINGX_HTTP path=%s auth=public status=%s elapsed_ms=%s", path, r.status_code, elapsed_ms)
+        try:
+            payload = r.json()
+        except ValueError:
+            payload = {}
+        code = payload.get("code") if isinstance(payload, dict) else None
+        if code not in (None, 0, "0"):
+            msg = str(payload.get("msg", ""))
+            raise self.api_error("market", code, msg, path, safe_params)
+        if r.status_code == 429:
+            raise self.api_error("market", "HTTP_429", "BingX HTTP rate limit", path, safe_params)
+        r.raise_for_status()
+        if code not in (0, "0"):
+            raise self.api_error("market", "INVALID_RESPONSE", "missing success code", path, safe_params)
+
+        log.info("BINGX_OK path=%s auth=public code=0 elapsed_ms=%s", path, elapsed_ms)
+        return payload
+
     def _get(self, path: str, params: dict) -> dict:
         with self.request_slot():
             return self._get_locked(path, params)
@@ -220,7 +252,7 @@ class BingXMarketClient:
         if end_time is not None:
             params["endTime"] = int(end_time)
 
-        payload = self._get(
+        payload = self._get_public(
             "/openApi/swap/v3/quote/klines",
             params,
         )
