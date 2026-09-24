@@ -39,6 +39,7 @@ class BingXKlineStream:
         self._connection_started_ms=0
         self._connection_kline_seen=False
         self._shape_logged:set[str]=set()
+        self._time_mode:dict[str,str]={}
 
     def start(self)->None:
         if self._thread and self._thread.is_alive():
@@ -192,12 +193,13 @@ class BingXKlineStream:
 
     @classmethod
     def _find_kline_payload(cls,obj):
-        required={"t","T","o","h","l","c","v"}
+        legacy_required={"t","T","o","h","l","c","v"}
+        live_required={"T","o","h","l","c","v"}
         if isinstance(obj,dict):
             k=obj.get("K")
-            if isinstance(k,dict) and required.issubset(k.keys()):
+            if isinstance(k,dict) and live_required.issubset(k.keys()):
                 return k
-            if required.issubset(obj.keys()):
+            if legacy_required.issubset(obj.keys()) or live_required.issubset(obj.keys()):
                 return obj
             for value in obj.values():
                 found=cls._find_kline_payload(value)
@@ -245,6 +247,48 @@ class BingXKlineStream:
             return "str"
         return type(obj).__name__
 
+    def _resolve_times(self,symbol:str,k:dict,now_ms:int)->tuple[int,int]:
+        if "t" in k:
+            open_time=int(k["t"])
+            close_time=int(k["T"])
+            if close_time!=open_time+STEP_15M_MS-1:
+                raise ValueError(
+                    f"legacy kline timestamps misaligned open={open_time} close={close_time}"
+                )
+            return open_time,close_time
+
+        raw_t=int(k["T"])
+        remainder=raw_t%STEP_15M_MS
+
+        if remainder==STEP_15M_MS-1:
+            self._time_mode[symbol]="close_inclusive"
+            return raw_t-(STEP_15M_MS-1),raw_t
+
+        if remainder!=0:
+            raise ValueError(f"live kline T is not 15m aligned: T={raw_t}")
+
+        mode=self._time_mode.get(symbol)
+        if mode is None:
+            current_open=(int(now_ms)//STEP_15M_MS)*STEP_15M_MS
+            if raw_t<=int(now_ms)<raw_t+STEP_15M_MS:
+                mode="open"
+            elif int(now_ms)<raw_t<=current_open+STEP_15M_MS:
+                mode="close_exclusive"
+            else:
+                raise ValueError(
+                    f"cannot infer live kline T semantics: T={raw_t} now={now_ms}"
+                )
+            self._time_mode[symbol]=mode
+            log.info("WS_KLINE_TIME_MODE symbol=%s mode=%s",symbol,mode)
+
+        if mode=="open":
+            return raw_t,raw_t+STEP_15M_MS-1
+        if mode=="close_exclusive":
+            return raw_t-STEP_15M_MS,raw_t-1
+        if mode=="close_inclusive":
+            return raw_t-(STEP_15M_MS-1),raw_t
+        raise ValueError(f"unknown live kline time mode: {mode}")
+
     def _handle_text(self,text:str)->bool:
         try:
             payload=json.loads(text)
@@ -265,22 +309,33 @@ class BingXKlineStream:
                     json.dumps(self._payload_shape(payload),separators=(",",":")),
                 )
             return False
-        symbol=str(k.get("s") or data_type.split("@",1)[0] or "").upper()
+        symbol=str(
+            k.get("s")
+            or payload.get("s")
+            or data_type.split("@",1)[0]
+            or ""
+        ).upper()
         if symbol not in self.symbols:
             return False
+        now_ms=int(time.time()*1000)
         try:
+            open_time,close_time=self._resolve_times(symbol,k,now_ms)
             candle={
-                "open_time":int(k["t"]),
+                "open_time":open_time,
                 "open":float(k["o"]),
                 "high":float(k["h"]),
                 "low":float(k["l"]),
                 "close":float(k["c"]),
                 "volume":float(k["v"]),
-                "close_time":int(k["T"]),
+                "close_time":close_time,
             }
-        except Exception:
+        except Exception as exc:
+            log.error(
+                "WS_KLINE_REJECT symbol=%s dataType=%s reason=%s",
+                symbol,data_type,exc,
+            )
             return False
-        now_ms=int(time.time()*1000)
+
         self.last_message_ms=now_ms
         self.last_kline_ms=now_ms
         self._connection_kline_seen=True
