@@ -49,7 +49,7 @@ def main()->None:
         assert historical.calls[0][3]==1
         assert snapshot.latest_open_time==expected_open
         assert len(snapshot.candles)==3400
-        assert store.count("BTC-USDT","15m")==3400
+        assert store.stats("BTC-USDT","15m")["count"]==3400
 
         snapshot2,missing2=service.recover_missing_closed("BTC-USDT",now_ms=now_ms)
         assert missing2==[]
