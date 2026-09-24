@@ -10,7 +10,6 @@ import pandas as pd
 class CandleStore:
     """Supabase/Postgres is the production source of truth.
 
-    Production uses the existing public.candles/runtime_state schema.
     SQLite exists only for deterministic local/CI tests.
     """
 
@@ -50,13 +49,6 @@ class CandleStore:
                     volume REAL NOT NULL,
                     close_time INTEGER NOT NULL,
                     PRIMARY KEY(symbol,timeframe,open_time)
-                )
-            """)
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS runtime_state(
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
             con.commit()
@@ -106,14 +98,20 @@ class CandleStore:
             "open_time","open","high","low","close","volume","close_time"
         ])
 
-    def count(self,symbol:str,timeframe:str="15m")->int:
+    def stats(self,symbol:str,timeframe:str="15m")->dict:
         with self._lock,self._connect() as con:
             cur=con.cursor()
-            cur.execute(self._sql(
-                "SELECT COUNT(*) FROM candles WHERE symbol=? AND timeframe=?"
-            ),(symbol,timeframe))
-            row=cur.fetchone()
-        return int(row[0]) if row else 0
+            cur.execute(self._sql("""
+                SELECT COUNT(*),MAX(open_time),MAX(close_time)
+                FROM candles
+                WHERE symbol=? AND timeframe=?
+            """),(symbol,timeframe))
+            row=cur.fetchone() or (0,None,None)
+        return {
+            "count":int(row[0] or 0),
+            "latest_open_time":int(row[1]) if row[1] is not None else None,
+            "latest_close_time":int(row[2]) if row[2] is not None else None,
+        }
 
     def trim(self,symbol:str,timeframe:str,keep:int)->None:
         with self._lock,self._connect() as con:
@@ -129,22 +127,3 @@ class CandleStore:
                   )
             """),(symbol,timeframe,symbol,timeframe,int(keep)))
             con.commit()
-
-    def set_state(self,key:str,value:str)->None:
-        with self._lock,self._connect() as con:
-            cur=con.cursor()
-            cur.execute(self._sql("""
-                INSERT INTO runtime_state(key,value,updated_at)
-                VALUES(?,?,CURRENT_TIMESTAMP)
-                ON CONFLICT(key) DO UPDATE SET
-                    value=excluded.value,
-                    updated_at=CURRENT_TIMESTAMP
-            """),(key,value))
-            con.commit()
-
-    def get_state(self,key:str)->str|None:
-        with self._lock,self._connect() as con:
-            cur=con.cursor()
-            cur.execute(self._sql("SELECT value FROM runtime_state WHERE key=?"),(key,))
-            row=cur.fetchone()
-        return str(row[0]) if row else None
