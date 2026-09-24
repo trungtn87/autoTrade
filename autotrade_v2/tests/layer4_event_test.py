@@ -13,18 +13,27 @@ from app.execution.store import ExecutionStore
 
 
 class FakeExecutor:
-    def execute_safe(self, intent):
+    @staticmethod
+    def client_order_id(event_id,purpose="entry"):
+        return f"fake-{purpose}-{event_id}"[:40]
+
+    def execute_safe(self, intent, resume_state=None, allow_new_entry=True):
         return {
             "ok": True,
             "processed": True,
             "entry_accepted": True,
             "entry_filled": True,
             "stage": "complete",
+            "client_order_id":self.client_order_id(intent.event_id),
             "order_id": "order-123",
             "avg_price": 100.1,
             "executed_qty": 1.0,
             "tp": 102.0,
             "sl": 99.0,
+            "protection":{
+                "sl":{"order_id":"sl-1","status":"NEW"},
+                "tp":{"order_id":"tp-1","status":"NEW"},
+            },
         }
 
 
@@ -79,13 +88,15 @@ def main():
             "L3.EXEC.ORDER_REQUEST",
             "L3.EXEC.ORDER_SENT",
             "L3.EXEC.ORDER_FILLED",
-            "L3.EXEC.TP_PLACED",
             "L3.EXEC.SL_PLACED",
+            "L3.EXEC.TP_PLACED",
             "L3.EXEC.ORDER_COMPLETE",
         ]
         assert keys==expected,(keys,expected)
         assert all(x[3].get("event_id")==intent().event_id for x in events)
         assert all(x[3].get("symbol")=="BTC-USDT" for x in events)
+        state=service.store.get_state(intent().event_id)
+        assert state and state["terminal"] is True
     finally:
         os.unlink(path)
 
