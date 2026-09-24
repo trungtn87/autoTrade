@@ -1,0 +1,58 @@
+name: FINAL14 Full-History Parity
+
+on:
+  push:
+    branches: [autotrade-v2-clean]
+    paths:
+      - 'autotrade_v2/app/strategy/**'
+      - 'autotrade_v2/tests/backtest_realdata_parity.py'
+      - '.github/workflows/final14-realdata-parity.yml'
+  workflow_dispatch:
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    env:
+      TZ: UTC
+      PYTHONHASHSEED: '0'
+      OPENBLAS_NUM_THREADS: '1'
+      BACKTEST_SHA: 11c215db8cc1be1c0872360291f308bba7582cf7
+      RUN17_ARTIFACT_ID: '10636714622'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.14'
+
+      - name: Install deterministic strategy dependencies
+        run: |
+          pip install pandas==2.2.3 numpy==2.3.5
+
+      - name: Extract canonical backtest strategy source
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin "$BACKTEST_SHA"
+          mkdir -p /tmp/backtest
+          for f in layer3_long.py signals.py indicators.py smc_structure.py smc_ob.py two_trail_layer12.py; do
+            git show "$BACKTEST_SHA:backtest/$f" > "/tmp/backtest/$f"
+          done
+
+      - name: Download exact RUN17 hybrid dataset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/run17
+          gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${RUN17_ARTIFACT_ID}/zip" > /tmp/run17/run17.zip
+          unzip -q /tmp/run17/run17.zip -d /tmp/run17
+          test -f /tmp/run17/data/multisource/BTCUSDT_hybrid_15m.pkl
+          test -f /tmp/run17/data/multisource/ETHUSDT_hybrid_15m.pkl
+
+      - name: Compare all locked FINAL14 events on full history
+        env:
+          PYTHONPATH: autotrade_v2
+        run: |
+          python autotrade_v2/tests/backtest_realdata_parity.py             --btc /tmp/run17/data/multisource/BTCUSDT_hybrid_15m.pkl             --eth /tmp/run17/data/multisource/ETHUSDT_hybrid_15m.pkl             --backtest-dir /tmp/backtest
