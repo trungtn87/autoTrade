@@ -328,6 +328,16 @@ def startup()->None:
             "L3.EXEC.PREFLIGHT_OK","INFO","BingX private read-only preflight passed",
             details={"credentials_verified":True},
         )
+        recovery=execution_service.recover_pending()
+        with _state_lock:
+            runtime["execution_recovery"]=recovery
+        if recovery:
+            log.warning("EXECUTION_RECOVERY reconciled=%s",len(recovery))
+            event_reporter.emit(
+                "L3.EXEC.RECOVERY_PASS","WARNING",
+                "persisted non-terminal execution states reconciled at startup",
+                details={"count":len(recovery),"results":recovery},
+            )
     else:
         log.warning("EXECUTION_PREFLIGHT ok=false error=%s",preflight.get("error"))
         event_reporter.emit(
