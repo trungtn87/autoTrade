@@ -5,3 +5,4 @@ websockets==17.1
 pandas==2.3.2
 numpy==2.3.3
 psycopg[binary]==3.2.10
+requests==2.32.5
