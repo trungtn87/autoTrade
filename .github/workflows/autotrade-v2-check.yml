@@ -1,0 +1,48 @@
+name: AutoTrade V2 Architecture Check
+
+on:
+  push:
+    branches: [autotrade-v2-clean]
+    paths:
+      - 'autotrade_v2/**'
+      - '.github/workflows/autotrade-v2-check.yml'
+  pull_request:
+    paths:
+      - 'autotrade_v2/**'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install V2 dependencies
+        run: pip install -r autotrade_v2/requirements.txt
+
+      - name: Compile V2
+        run: python -m compileall -q autotrade_v2/app
+
+      - name: Enforce dependency boundaries
+        env:
+          PYTHONPATH: autotrade_v2
+        run: python autotrade_v2/tests/dependency_rules_test.py
+
+      - name: Verify FINAL14 old-vs-V2 parity
+        run: python autotrade_v2/tests/parity_strategy.py
+
+      - name: Verify Layer 1 contract
+        env:
+          PYTHONPATH: autotrade_v2
+        run: python autotrade_v2/tests/data_layer_test.py
+
+      - name: Verify Layer 3 stays closed by default
+        env:
+          PYTHONPATH: autotrade_v2
+          AUTO_SCHEDULER: 'false'
+          EXECUTION_ENABLED: 'false'
+          DRY_RUN: 'true'
+        run: python autotrade_v2/tests/execution_gate_test.py
