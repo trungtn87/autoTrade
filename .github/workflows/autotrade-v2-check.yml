@@ -39,6 +39,11 @@ jobs:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/data_layer_test.py
 
+      - name: Verify 1000-bar historical chunking
+        env:
+          PYTHONPATH: autotrade_v2
+        run: python autotrade_v2/tests/historical_chunk_test.py
+
       - name: Verify WebSocket closed-candle gate
         env:
           PYTHONPATH: autotrade_v2
