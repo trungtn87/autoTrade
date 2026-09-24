@@ -1,51 +1,62 @@
-# AutoTrade V2 Clean
+# AutoTrade V2
 
-A clean, layered rebuild of the FINAL14 live engine.
+Layered live engine for the locked FINAL14 strategy.
 
-## Architecture
+## Runtime architecture
 
-1. **Data** — public market input, candle validation, persistence, MarketSnapshot.
-2. **Strategy** — deterministic FINAL14 only. No network, DB writes, Discord, or order calls.
-3. **Execution** — TradeIntent -> BingX order execution. Disabled by default.
-4. **Control** — typed errors, logging, throttling/circuit-breakers, health and test gates.
-5. **Orchestrator** — thin sequencing only; contains no trading logic.
+1. **Layer 1 — Data**
+   - Bootstrap/backfill from public BingX REST.
+   - Live 15m candles from BingX WebSocket.
+   - Persist only closed candles to Supabase.
+   - Validate the full 3400-candle strategy window before handing it to Layer 2.
+   - A lightweight watchdog checks only store count/latest timestamp during normal operation and uses REST only to repair a real gap.
 
-Dependency direction is one way:
+2. **Layer 2 — Strategy**
+   - Deterministic FINAL14 only.
+   - Input: validated MarketSnapshot.
+   - Output: TradeIntent.
+   - No network, DB writes, Discord, or order calls.
+   - Fails closed with L2.FINAL14.INSUFFICIENT_CANDLES when fewer than 3400 candles are available.
 
-    Data -> Strategy -> Execution
+3. **Layer 3 — Execution**
+   - TradeIntent goes directly to the BingX executor.
+   - MARKET entry, fill confirmation, full hard TP and full hard SL.
+   - No trailing and no partial exit.
+   - Persistent event-id dedupe prevents resending processed orders.
 
-Control observes all layers. Strategy never imports Data or Execution.
-
-## Runtime data path
-
-    BingX historical REST -> DB
-    BingX 15m WebSocket -> DB
-    DB -> FINAL14
-    TradeIntent -> BingX authenticated trade API
-
-Historical REST is bootstrap/backfill only. The live path never polls Kline REST and never performs automatic gap recovery. WebSocket data is written only after a 15m candle is confirmed closed; FINAL14 always reads the persisted DB snapshot.
-
-## Safety state
-
-V2 starts with:
-
-    BOOTSTRAP_ENABLED=false
-    WEBSOCKET_ENABLED=false
-    EXECUTION_ENABLED=false
-    DRY_RUN=true
-
-So a fresh deploy is inert until the persistent database is attached and the data path is explicitly enabled.
+4. **Layer 4 — Control**
+   - Structured events, audit persistence, Discord notifications, error classification, health reporting, and BingX request guard.
 
 ## Locked strategy
 
-The FINAL14 research implementation and config are vendored from production commit
-`d73d53309e8df7777f23f1c5514e2d677734a7b8`.
+Version: FINAL14_RR_TP2_2026-09-21
 
-CI compares old production and V2 strategy outputs on the same deterministic 3400-candle input.
+Source backtest:
+- GitHub run 35623101331
+- Commit 11c215db8cc1be1c0872360291f308bba7582cf7
+- 100% hard TP + hard SL
+- TP <= 2%
+- Selection requires non-negative PnL on 6M, 1Y, 3Y and FULL; then maximizes 3Y PnL.
+
+The vendored FINAL14 strategy files remain locked. Runtime cleanup is performed outside the strategy core and CI verifies parity.
+
+## Production data path
+
+    BingX REST bootstrap/recovery -> Supabase candles
+    BingX 15m WebSocket -> closed candle -> Supabase candles
+    validated 3400-candle snapshot -> FINAL14
+    TradeIntent -> BingX authenticated trade API
+
+/health uses lightweight candle-store metadata instead of loading and recalculating the full 3400-candle window. Full validation still occurs on bootstrap, live candle ingestion, and recovery before strategy execution.
 
 ## Tests
 
-- compile all V2 modules
-- old-vs-V2 FINAL14 signal parity
-- Layer-1 one-request + DB contract
-- Layer-3 execution gate remains closed by default
+CI checks:
+- Python compilation
+- layer dependency boundaries
+- FINAL14 parity
+- insufficient-candle fail-closed behavior
+- Layer 1 storage/recovery contracts
+- WebSocket closed-candle gate
+- Layer 3 execution/preflight/dedupe behavior
+- Layer 4 event trace
