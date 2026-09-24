@@ -13,6 +13,20 @@ class StrategyLayerError(AutoTradeError):
     category = "STRATEGY_ERROR"
 
 
+class StrategyInsufficientCandlesError(StrategyLayerError):
+    category = "STRATEGY_INSUFFICIENT_CANDLES"
+
+    def __init__(self, symbol: str, available: int, required: int):
+        self.symbol = str(symbol).upper()
+        self.available = int(available)
+        self.required = int(required)
+        self.missing = max(0, self.required - self.available)
+        super().__init__(
+            f"{self.symbol} FINAL14 insufficient 15m candles: "
+            f"available={self.available} required={self.required} missing={self.missing}"
+        )
+
+
 class ExecutionLayerError(AutoTradeError):
     category = "EXECUTION_ERROR"
 
