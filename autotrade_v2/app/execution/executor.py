@@ -22,6 +22,7 @@ class LegacyStyleBingXClient:
     """
 
     ORDER_PATH="/openApi/swap/v2/trade/order"
+    OPEN_ORDERS_PATH="/openApi/swap/v2/trade/openOrders"
     BALANCE_PATH="/openApi/swap/v3/user/balance"
 
     def __init__(self,settings:Settings,request_guard=None):
@@ -159,6 +160,51 @@ class LegacyStyleBingXClient:
         else:
             raise ValueError("order_id or client_order_id is required")
         return self._signed_request("DELETE",self.ORDER_PATH,params)
+
+    def get_open_orders(self,symbol:str)->list[dict]:
+        payload=self._signed_request(
+            "GET",self.OPEN_ORDERS_PATH,{"symbol":symbol}
+        )
+        data=payload.get("data") or []
+        if isinstance(data,list):
+            return [x for x in data if isinstance(x,dict)]
+        if isinstance(data,dict):
+            rows=data.get("orders") or []
+            return [x for x in rows if isinstance(x,dict)]
+        return []
+
+    def find_matching_protection(
+        self,
+        symbol:str,
+        entry_side:str,
+        qty:float,
+        stop_price:float,
+        order_type:str,
+    )->dict|None:
+        opposite,position_side=self._protection_side(entry_side)
+        expected_qty=float(self._fmt_qty(qty))
+        expected_stop=float(self._fmt_price(stop_price))
+        matches=[]
+        for order in self.get_open_orders(symbol):
+            try:
+                if str(order.get("type") or "").upper()!=order_type.upper():
+                    continue
+                if str(order.get("side") or "").upper()!=opposite:
+                    continue
+                if str(order.get("positionSide") or "").upper()!=position_side:
+                    continue
+                if str(order.get("status") or "NEW").upper() not in {"NEW","PARTIALLY_FILLED"}:
+                    continue
+                oq=float(order.get("origQty") or order.get("quantity") or 0)
+                sp=float(order.get("stopPrice") or 0)
+                if abs(oq-expected_qty)>1e-12 or abs(sp-expected_stop)>1e-9:
+                    continue
+                matches.append(order)
+            except Exception:
+                continue
+        if not matches:
+            return None
+        return {"code":0,"data":{"order":matches[0]}}
 
     @staticmethod
     def _protection_side(entry_side:str)->tuple[str,str]:
