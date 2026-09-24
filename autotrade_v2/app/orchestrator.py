@@ -7,7 +7,7 @@ from dataclasses import asdict
 import pandas as pd
 
 from .config import Settings
-from .control.errors import classify_error
+from .control.errors import StrategyInsufficientCandlesError, classify_error
 from .data.service import DataService
 from .execution.service import ExecutionService
 from .strategy.engine import StrategyEngine
@@ -40,6 +40,17 @@ class Orchestrator:
         except Exception:
             return
 
+    @staticmethod
+    def _insufficient_candle_details(exc: StrategyInsufficientCandlesError) -> dict:
+        return {
+            "stage":"strategy_readiness",
+            "category":exc.category,
+            "available":exc.available,
+            "required":exc.required,
+            "missing":exc.missing,
+            "timeframe":"15m",
+        }
+
     def bootstrap_symbol(self, symbol: str) -> dict:
         started=time.monotonic()
         try:
@@ -67,17 +78,25 @@ class Orchestrator:
         except Exception as exc:
             category=classify_error(exc)
             log.exception("BOOTSTRAP_ERROR symbol=%s category=%s error=%s",symbol,category,exc)
+            if isinstance(exc,StrategyInsufficientCandlesError):
+                key="L2.FINAL14.INSUFFICIENT_CANDLES"
+                failure_stage="strategy_readiness"
+                details=self._insufficient_candle_details(exc)
+            else:
+                key="L1.DATA.BOOTSTRAP_FAIL"
+                failure_stage="bootstrap"
+                details={"category":category,"stage":failure_stage}
             self._emit(
-                "L1.DATA.BOOTSTRAP_FAIL",
+                key,
                 "ERROR",
                 str(exc),
                 symbol=symbol,
-                details={"category":category,"stage":"bootstrap"},
+                details=details,
             )
             return {
                 "ok":False,
                 "symbol":symbol,
-                "stage":"bootstrap",
+                "stage":failure_stage,
                 "category":category,
                 "error":str(exc),
                 "elapsed_ms":round((time.monotonic()-started)*1000,1),
@@ -139,23 +158,33 @@ class Orchestrator:
         except Exception as exc:
             category=classify_error(exc)
             log.exception("PIPELINE_ERROR symbol=%s stage=%s category=%s error=%s",symbol,stage,category,exc)
-            if stage=="data":
+            if isinstance(exc,StrategyInsufficientCandlesError):
+                key="L2.FINAL14.INSUFFICIENT_CANDLES"
+                failure_stage="strategy_readiness"
+                details=self._insufficient_candle_details(exc)
+            elif stage=="data":
                 key="L1.DATA.PIPELINE_FAIL"
+                failure_stage=stage
+                details={"stage":failure_stage,"category":category}
             elif stage=="strategy":
                 key="L2.FINAL14.CALC_FAIL"
+                failure_stage=stage
+                details={"stage":failure_stage,"category":category}
             else:
                 key="L3.EXEC.PIPELINE_FAIL"
+                failure_stage=stage
+                details={"stage":failure_stage,"category":category}
             self._emit(
                 key,
                 "ERROR",
                 str(exc),
                 symbol=symbol,
-                details={"stage":stage,"category":category},
+                details=details,
             )
             return {
                 "ok":False,
                 "symbol":symbol,
-                "stage":stage,
+                "stage":failure_stage,
                 "category":category,
                 "error":str(exc),
                 "elapsed_ms":round((time.monotonic()-started)*1000,1),
