@@ -121,6 +121,50 @@ class LegacyStyleBingXClient:
             {"symbol":symbol,"orderId":str(order_id)},
         )
 
+    @staticmethod
+    def _protection_side(entry_side:str)->tuple[str,str]:
+        side=entry_side.upper()
+        return (
+            "SELL" if side=="BUY" else "BUY",
+            "LONG" if side=="BUY" else "SHORT",
+        )
+
+    def place_stop_loss(
+        self,
+        symbol:str,
+        entry_side:str,
+        qty:float,
+        sl:float,
+    )->dict:
+        opposite,position_side=self._protection_side(entry_side)
+        params={
+            "symbol":symbol,
+            "side":opposite,
+            "positionSide":position_side,
+            "type":"STOP_MARKET",
+            "stopPrice":self._fmt_price(sl),
+            "quantity":self._fmt_qty(qty),
+        }
+        return self._signed_request("POST",self.ORDER_PATH,params)
+
+    def place_take_profit(
+        self,
+        symbol:str,
+        entry_side:str,
+        qty:float,
+        tp:float,
+    )->dict:
+        opposite,position_side=self._protection_side(entry_side)
+        params={
+            "symbol":symbol,
+            "side":opposite,
+            "positionSide":position_side,
+            "type":"TAKE_PROFIT_MARKET",
+            "stopPrice":self._fmt_price(tp),
+            "quantity":self._fmt_qty(qty),
+        }
+        return self._signed_request("POST",self.ORDER_PATH,params)
+
     def place_protection(
         self,
         symbol:str,
@@ -129,26 +173,9 @@ class LegacyStyleBingXClient:
         tp:float,
         sl:float,
     )->dict:
-        opposite="SELL" if entry_side.upper()=="BUY" else "BUY"
-        position_side="LONG" if entry_side.upper()=="BUY" else "SHORT"
-        tp_params={
-            "symbol":symbol,
-            "side":opposite,
-            "positionSide":position_side,
-            "type":"TAKE_PROFIT_MARKET",
-            "stopPrice":self._fmt_price(tp),
-            "quantity":self._fmt_qty(qty),
-        }
-        sl_params={
-            "symbol":symbol,
-            "side":opposite,
-            "positionSide":position_side,
-            "type":"STOP_MARKET",
-            "stopPrice":self._fmt_price(sl),
-            "quantity":self._fmt_qty(qty),
-        }
-        tp_result=self._signed_request("POST",self.ORDER_PATH,tp_params)
-        sl_result=self._signed_request("POST",self.ORDER_PATH,sl_params)
+        """Compatibility helper. Safety order is intentionally SL before TP."""
+        sl_result=self.place_stop_loss(symbol,entry_side,qty,sl)
+        tp_result=self.place_take_profit(symbol,entry_side,qty,tp)
         return {"tp":tp_result,"sl":sl_result}
 
     def close_market(
