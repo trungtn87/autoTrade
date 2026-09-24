@@ -2,7 +2,7 @@ name: FINAL14 Logic Check
 
 on:
   push:
-    branches: [signal-engine-v1, fix-single-window-kline-20260924]
+    branches: [signal-engine-v1, fix-single-window-kline-20260924, cleanup-final14-production-20260924]
     paths:
       - 'signal_engine/app/**'
       - 'signal_engine/requirements.txt'
