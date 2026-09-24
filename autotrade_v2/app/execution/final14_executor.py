@@ -273,6 +273,61 @@ class Final14Executor:
                         "unsafe_open_position":True,
                         "error":f"partial entry could not be cancelled: {cancel_exc}",
                     }
+
+                # Cancellation and matching can race. Re-query until the entry
+                # reaches a terminal status, then use the FINAL executedQty.
+                final_status=status
+                final_qty=executed_qty
+                final_avg=avg_price
+                final_order_id=order_id
+                for attempt in range(1,AMBIGUOUS_RECHECK_ATTEMPTS+1):
+                    raw=self.client.find_order_by_client_id(
+                        intent.symbol,client_order_id
+                    )
+                    if raw is not None:
+                        detail=self.client.extract_order(raw)
+                        final_order_id=self._order_id(detail) or final_order_id
+                        final_status,final_qty,final_avg=self._order_metrics(detail)
+                        if final_status in {"FILLED","CANCELED","EXPIRED"}:
+                            break
+                    if attempt<AMBIGUOUS_RECHECK_ATTEMPTS:
+                        time.sleep(AMBIGUOUS_RECHECK_SLEEP_SEC)
+
+                if final_status not in {"FILLED","CANCELED","EXPIRED"}:
+                    return {
+                        "processed":False,
+                        "entry_accepted":True,
+                        "entry_filled":False,
+                        "ok":False,
+                        "stage":"unsafe_partial_entry",
+                        "client_order_id":client_order_id,
+                        "order_id":final_order_id or None,
+                        "status":final_status,
+                        "executed_qty":final_qty,
+                        "avg_price":final_avg,
+                        "unsafe_open_position":True,
+                        "error":"partial entry cancellation not confirmed terminal",
+                    }
+
+                if final_qty<=0:
+                    return {
+                        "processed":True,
+                        "entry_accepted":True,
+                        "entry_filled":False,
+                        "ok":False,
+                        "stage":"entry_not_filled_terminal",
+                        "client_order_id":client_order_id,
+                        "order_id":final_order_id or None,
+                        "status":final_status,
+                        "executed_qty":0.0,
+                        "avg_price":0.0,
+                        "error":"partial entry cancelled before any fill remained",
+                    }
+
+                executed_qty=final_qty
+                avg_price=final_avg or avg_price
+                status=final_status
+                order_id=final_order_id
                 close=self._confirm_market_close(
                     intent,executed_qty,"partial_entry_timeout"
                 )
