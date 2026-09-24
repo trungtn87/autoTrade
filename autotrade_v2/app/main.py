@@ -20,8 +20,6 @@ from .orchestrator import Orchestrator
 from .strategy.engine import StrategyEngine
 
 STEP_15M_MS=15*60_000
-# BingX live kline handoff can arrive ~10-20s after the 15m boundary.
-# Give WS priority; REST recovery is only a true fallback.
 CANDLE_GRACE_MS=30_000
 WATCHDOG_POLL_SEC=5.0
 RECOVERY_RETRY_MS=60_000
@@ -63,6 +61,7 @@ _state_lock=threading.Lock()
 _pipeline_lock=threading.Lock()
 _watchdog_stop=threading.Event()
 _processed_open:dict[str,int]={}
+_watchdog_checked_open:dict[str,int]={}
 _recovery_attempts:dict[tuple[str,int],dict]={}
 last_run:dict={"status":"not_started"}
 runtime:dict={
@@ -102,6 +101,7 @@ def _on_closed(symbol,frame)->None:
         result=orchestrator.on_closed_candle(symbol,frame)
         if result.get("ok"):
             _processed_open[symbol]=open_time
+            _watchdog_checked_open[symbol]=open_time
             _set_data_health(
                 symbol,True,
                 latest_open_time=open_time,
@@ -128,12 +128,23 @@ def _candle_watchdog()->None:
         expected_open=boundary-STEP_15M_MS
 
         for symbol in settings.symbols:
+            if int(_watchdog_checked_open.get(symbol,0))>=expected_open:
+                continue
+
+            key=(symbol,expected_open)
+            state=_recovery_attempts.get(key,{"count":0,"last_ms":0})
+            if state["count"]>=RECOVERY_MAX_ATTEMPTS:
+                continue
+            if state["count"]>0 and now_ms-int(state["last_ms"])<RECOVERY_RETRY_MS:
+                continue
+
             stats=candle_store.stats(symbol,"15m")
             ready=(
                 stats["count"]>=settings.required_15m
                 and stats["latest_open_time"]==expected_open
             )
             if ready:
+                _watchdog_checked_open[symbol]=expected_open
                 _set_data_health(
                     symbol,True,
                     **stats,
@@ -155,12 +166,6 @@ def _candle_watchdog()->None:
                 checked_at_ms=now_ms,
             )
 
-            key=(symbol,expected_open)
-            state=_recovery_attempts.get(key,{"count":0,"last_ms":0})
-            if state["count"]>=RECOVERY_MAX_ATTEMPTS:
-                continue
-            if state["count"]>0 and now_ms-int(state["last_ms"])<RECOVERY_RETRY_MS:
-                continue
             state={"count":int(state["count"])+1,"last_ms":now_ms}
             _recovery_attempts[key]=state
 
@@ -179,6 +184,7 @@ def _candle_watchdog()->None:
             )
             try:
                 snapshot,missing=data_service.recover_missing_closed(symbol,now_ms)
+                _watchdog_checked_open[symbol]=expected_open
                 log.warning(
                     "CANDLE_RECOVERY_OK symbol=%s recovered=%s latest_open=%s",
                     symbol,len(missing),snapshot.latest_open_time,
@@ -230,6 +236,7 @@ def _candle_watchdog()->None:
             for key in list(_recovery_attempts):
                 if key[1]<cutoff:
                     _recovery_attempts.pop(key,None)
+
 
 def _start_data_runtime()->None:
     global stream
