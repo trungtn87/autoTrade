@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import replace
 
 from app.config import Settings
+from app.contracts import TradeIntent
 from app.execution.final14_executor import Final14Executor
-from app.strategy.strategy import Signal
 
 
 class FakeClient:
@@ -38,8 +38,9 @@ class FakeClient:
         return {"code":0}
 
 
-def signal():
-    return Signal(
+def intent():
+    return TradeIntent(
+        event_id="BTC-USDT|15m|C1|BUY|1",
         symbol="BTC-USDT",
         combo=1,
         side="BUY",
@@ -64,7 +65,7 @@ def main():
     ex=Final14Executor(settings)
     good=FakeClient(avg_price=100.0)
     ex.client=good
-    result=ex.execute(signal())
+    result=ex.execute(intent())
     assert result["ok"] is True
     assert result["protection_mode"]=="separate_hard_tp_sl"
     kinds=[x[0] for x in good.calls]
@@ -76,7 +77,7 @@ def main():
 
     bad=FakeClient(avg_price=103.0)
     ex.client=bad
-    result2=ex.execute(signal())
+    result2=ex.execute(intent())
     kinds2=[x[0] for x in bad.calls]
     assert result2["stage"]=="fill_outside_final14_range_closed"
     assert kinds2==["entry","detail","close"],kinds2
