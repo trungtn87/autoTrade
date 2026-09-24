@@ -9,6 +9,7 @@ import httpx
 
 from ..config import Settings
 from ..control.bingx_guard import BingXRequestGuard
+from ..control.errors import BingXApiError
 
 log=logging.getLogger(__name__)
 
@@ -103,6 +104,7 @@ class LegacyStyleBingXClient:
         side:str,
         qty:float,
         leverage:int,
+        client_order_id:str|None=None,
     )->dict:
         params={
             "symbol":symbol,
@@ -112,14 +114,49 @@ class LegacyStyleBingXClient:
             "type":"MARKET",
             "positionSide":"LONG" if side.upper()=="BUY" else "SHORT",
         }
+        if client_order_id:
+            params["clientOrderId"]=str(client_order_id)
         return self._signed_request("POST",self.ORDER_PATH,params)
 
-    def get_order_detail(self,symbol:str,order_id:str)->dict:
-        return self._signed_request(
-            "GET",
-            self.ORDER_PATH,
-            {"symbol":symbol,"orderId":str(order_id)},
-        )
+    def get_order_detail(
+        self,
+        symbol:str,
+        order_id:str|None=None,
+        client_order_id:str|None=None,
+    )->dict:
+        params={"symbol":symbol}
+        if order_id:
+            params["orderId"]=str(order_id)
+        elif client_order_id:
+            params["clientOrderId"]=str(client_order_id)
+        else:
+            raise ValueError("order_id or client_order_id is required")
+        return self._signed_request("GET",self.ORDER_PATH,params)
+
+    def find_order_by_client_id(self,symbol:str,client_order_id:str)->dict|None:
+        try:
+            return self.get_order_detail(
+                symbol,client_order_id=client_order_id
+            )
+        except BingXApiError as exc:
+            if exc.code=="109421":
+                return None
+            raise
+
+    def cancel_order(
+        self,
+        symbol:str,
+        order_id:str|None=None,
+        client_order_id:str|None=None,
+    )->dict:
+        params={"symbol":symbol}
+        if order_id:
+            params["orderId"]=str(order_id)
+        elif client_order_id:
+            params["clientOrderId"]=str(client_order_id)
+        else:
+            raise ValueError("order_id or client_order_id is required")
+        return self._signed_request("DELETE",self.ORDER_PATH,params)
 
     @staticmethod
     def _protection_side(entry_side:str)->tuple[str,str]:
@@ -184,6 +221,7 @@ class LegacyStyleBingXClient:
         entry_side:str,
         qty:float,
         leverage:int,
+        client_order_id:str|None=None,
     )->dict:
         close_side="SELL" if entry_side.upper()=="BUY" else "BUY"
         params={
@@ -194,4 +232,6 @@ class LegacyStyleBingXClient:
             "type":"MARKET",
             "positionSide":"LONG" if entry_side.upper()=="BUY" else "SHORT",
         }
+        if client_order_id:
+            params["clientOrderId"]=str(client_order_id)
         return self._signed_request("POST",self.ORDER_PATH,params)
