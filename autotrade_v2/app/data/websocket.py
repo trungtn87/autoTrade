@@ -137,20 +137,29 @@ class BingXKlineStream:
                 log.warning("WS_RECONNECT reason=timeout")
                 self._emit(
                     "L1.DATA.WS_RECONNECT","WARNING","WebSocket receive timeout; reconnecting",
-                    details={"reason":"timeout","reconnects":self.reconnects},
+                    details={"reason":"timeout","reconnect_attempt":self.reconnects+1},
                 )
             except Exception as exc:
                 self.last_error=f"{type(exc).__name__}: {exc}"
-                log.exception("WS_ERROR error=%s",exc)
+                reconnect_attempt=self.reconnects+1
+                log.warning(
+                    "WS_RECONNECT reason=%s reconnect_attempt=%s error=%s",
+                    type(exc).__name__,reconnect_attempt,exc,
+                )
                 self._emit(
-                    "L1.DATA.WS_ERROR","ERROR",self.last_error,
-                    details={"reconnects":self.reconnects},
+                    "L1.DATA.WS_RECONNECT","WARNING",
+                    "WebSocket connection dropped; reconnecting",
+                    details={
+                        "reason":type(exc).__name__,
+                        "error":str(exc),
+                        "reconnect_attempt":reconnect_attempt,
+                    },
                 )
             finally:
                 if self.connected and not self._stop.is_set():
                     self._emit(
                         "L1.DATA.WS_DISCONNECTED","INFO","BingX 15m WebSocket disconnected before reconnect",
-                        details={"last_error":self.last_error,"reconnects":self.reconnects},
+                        details={"last_error":self.last_error,"reconnect_attempt":self.reconnects+1},
                     )
                 self.connected=False
                 self._connection_started_ms=0
