@@ -68,7 +68,11 @@ def validate_settings(settings: Settings) -> None:
     if settings.candle_keep_15m < settings.required_15m:
         raise ValueError("candle_keep_15m must be >= required_15m")
     if (settings.bootstrap_enabled or settings.websocket_enabled) and not settings.database_url:
-        raise ValueError("persistent DATABASE_URL is required before bootstrap/WebSocket can be enabled")
+        raise ValueError("Supabase DATABASE_URL is required before bootstrap/WebSocket can be enabled")
+    if settings.database_url:
+        db_host=settings.database_url.lower()
+        if "supabase.co" not in db_host and "pooler.supabase.com" not in db_host:
+            raise ValueError("V2 production DATABASE_URL must point to Supabase")
     if settings.execution_enabled and not settings.dry_run:
         if not settings.bingx_api_key or not settings.bingx_api_secret:
             raise ValueError("live execution requires BINGX_API_KEY and BINGX_API_SECRET")
