@@ -58,3 +58,53 @@ class ExecutionStore:
                 ON CONFLICT(event_id,target) DO NOTHING
             """),(event_id,target,body))
             con.commit()
+
+
+    def get(self,event_id:str,target:str)->dict|None:
+        with self._lock,self._connect() as con:
+            cur=con.cursor()
+            cur.execute(self._sql(
+                "SELECT payload FROM processed_targets WHERE event_id=? AND target=?"
+            ),(event_id,target))
+            row=cur.fetchone()
+        if not row or not row[0]:
+            return None
+        try:
+            return json.loads(row[0]) if isinstance(row[0],str) else dict(row[0])
+        except Exception:
+            return None
+
+    def upsert(self,event_id:str,payload:dict,target:str)->None:
+        body=json.dumps(payload,ensure_ascii=False,sort_keys=True,default=str)
+        with self._lock,self._connect() as con:
+            cur=con.cursor()
+            cur.execute(self._sql("""
+                INSERT INTO processed_targets(event_id,target,payload)
+                VALUES(?,?,?)
+                ON CONFLICT(event_id,target) DO UPDATE SET
+                    payload=excluded.payload,
+                    processed_at=CURRENT_TIMESTAMP
+            """),(event_id,target,body))
+            con.commit()
+
+    def get_state(self,event_id:str)->dict|None:
+        return self.get(event_id,"bingx_state")
+
+    def save_state(self,event_id:str,payload:dict)->None:
+        self.upsert(event_id,payload,"bingx_state")
+
+    def list_states(self)->list[tuple[str,dict]]:
+        with self._lock,self._connect() as con:
+            cur=con.cursor()
+            cur.execute(self._sql(
+                "SELECT event_id,payload FROM processed_targets WHERE target=?"
+            ),("bingx_state",))
+            rows=cur.fetchall()
+        out=[]
+        for event_id,payload in rows:
+            try:
+                body=json.loads(payload) if isinstance(payload,str) else dict(payload or {})
+            except Exception:
+                body={}
+            out.append((str(event_id),body))
+        return out
