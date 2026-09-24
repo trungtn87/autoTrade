@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: autotrade-v2
+    runtime: python
+    rootDir: autotrade_v2
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: AUTO_SCHEDULER
+        value: "false"
+      - key: EXECUTION_ENABLED
+        value: "false"
+      - key: DRY_RUN
+        value: "true"
+      - key: SYMBOLS
+        value: BTC-USDT,ETH-USDT
+      - key: LOG_LEVEL
+        value: INFO
