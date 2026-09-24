@@ -1,46 +1,57 @@
-# BingX Signal Engine v1
+# FINAL14 BingX Autotrade Engine
 
-Signal engine for BTC-USDT and ETH-USDT perpetual data from BingX.
+Production engine for BTC-USDT and ETH-USDT.
 
-## Safe validation mode
+## Production topology
 
-Keep these settings while validating:
+Only one Render service is part of the current project:
 
-- DRY_RUN=true
-- AUTO_SCHEDULER=false
-- ORDER_WEBHOOK_1 and ORDER_WEBHOOK_2 blank
+- `bingx-combo-smc-engine`
+- Root directory: `signal_engine`
+- Branch: `signal-engine-v1`
 
-The engine will read public BingX market data and calculate the 10 Combo + SMC signals, but it will not place an order.
+Legacy root-level BingX webhook/order service has been removed from the repository and must not be deployed.
 
-## Render deployment
+## Data path
 
-Use repository branch: signal-engine-v1
+Each scheduled scan fetches one latest 15m window per symbol:
 
-Set Root Directory:
+- `limit=1000`
+- no `startTime` / `endTime`
+- upsert into persistent candle state
+- no automatic network gap-recovery request
+- validation fails closed if data is incomplete
 
-    signal_engine
+FINAL14 calculations use the persisted 3400-candle window.
 
-Build Command:
+## Render
+
+Build command:
 
     pip install -r requirements.txt
 
-Start Command:
+Start command:
 
     uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
 
-Health Check Path:
+Health check:
 
     /health
 
-Then copy the values from .env.example into Render Environment.
+Required secrets/state:
+
+- `BINGX_API_KEY`
+- `BINGX_API_SECRET`
+- `DATABASE_URL`
+- Discord webhooks as needed
 
 ## Endpoints
 
-- GET /health
-- GET /status
-- POST /preview
-- POST /scan
+- `GET /health`
+- `GET /status`
+- `POST /preview`
+- `POST /scan`
+- `GET /market-check`
+- `GET /kline-check`
 
-First call /health, then POST /preview from /docs.
-
-Do not set DRY_RUN=false until the generated signals have been compared with TradingView/BingX and the persistent idempotency state has been addressed.
+All manual market/scan endpoints are guarded by `SCAN_TOKEN`.
