@@ -5,7 +5,7 @@ import time
 import pandas as pd
 
 from ..contracts import MarketSnapshot
-from ..control.errors import DataLayerError
+from ..control.errors import DataLayerError, StrategyInsufficientCandlesError
 from .historical import HistoricalKlineClient
 from .store import CandleStore
 from .validator import DataValidationError, validate_15m_candles
@@ -46,7 +46,7 @@ class DataService:
         now_ms = int(now_ms or time.time() * 1000)
         try:
             return self.snapshot_from_store(symbol, now_ms)
-        except DataLayerError:
+        except (DataLayerError, StrategyInsufficientCandlesError):
             pass
 
         candles = self.historical.fetch_history(symbol, self.required, now_ms)
@@ -144,8 +144,10 @@ class DataService:
         now_ms = int(now_ms or time.time() * 1000)
         candles = self.store.load(symbol, "15m", self.keep)
         if len(candles) < self.required:
-            raise DataLayerError(
-                f"{symbol} warmup incomplete: have={len(candles)} required={self.required}"
+            raise StrategyInsufficientCandlesError(
+                symbol,
+                available=len(candles),
+                required=self.required,
             )
         try:
             validation = validate_15m_candles(candles, now_ms)
