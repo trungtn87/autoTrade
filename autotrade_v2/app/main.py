@@ -46,6 +46,7 @@ runtime:dict={
     "bootstrap_enabled":settings.bootstrap_enabled,
     "websocket_enabled":settings.websocket_enabled,
     "execution_enabled":settings.execution_enabled,
+    "execution_preflight":{"ok":False,"credentials_verified":False,"error":"not_run"},
 }
 stream:BingXKlineStream|None=None
 
@@ -107,6 +108,14 @@ def startup()->None:
         settings.dry_run,
         candle_store.backend,
     )
+    preflight=execution_service.preflight()
+    with _state_lock:
+        runtime["execution_preflight"]=preflight
+    if preflight.get("ok"):
+        log.info("EXECUTION_PREFLIGHT ok=true credentials_verified=true")
+    else:
+        log.warning("EXECUTION_PREFLIGHT ok=false error=%s",preflight.get("error"))
+
     if settings.bootstrap_enabled or settings.websocket_enabled:
         threading.Thread(target=_start_data_runtime,name="v2-data-runtime",daemon=True).start()
 
@@ -127,6 +136,7 @@ def health()->dict:
         "bootstrap_enabled":settings.bootstrap_enabled,
         "websocket_enabled":settings.websocket_enabled,
         "execution_enabled":settings.execution_enabled,
+        "execution_credentials_verified":execution_service.credentials_verified,
         "dry_run":settings.dry_run,
         "db_backend":candle_store.backend,
         "runtime_status":runtime.get("status"),
