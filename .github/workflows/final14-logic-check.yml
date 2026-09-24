@@ -2,7 +2,7 @@ name: FINAL14 Logic Check
 
 on:
   push:
-    branches: [signal-engine-v1, fix-single-window-kline-20260924, cleanup-final14-production-20260924]
+    branches: [signal-engine-v1, fix-single-window-kline-20260924, cleanup-final14-production-20260924, fix-public-kline-20260924]
     paths:
       - 'signal_engine/app/**'
       - 'signal_engine/requirements.txt'
@@ -50,3 +50,9 @@ jobs:
           PYTHONPATH: signal_engine
           AUTO_SCHEDULER: 'false'
         run: python signal_engine/tests/single_window_data_path_test.py
+
+      - name: Verify public Kline transport
+        env:
+          PYTHONPATH: signal_engine
+          AUTO_SCHEDULER: 'false'
+        run: python signal_engine/tests/public_kline_transport_test.py
