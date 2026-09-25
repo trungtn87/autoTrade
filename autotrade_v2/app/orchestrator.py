@@ -122,14 +122,17 @@ class Orchestrator:
             stage="strategy"
             intents=self.strategy.calculate(snapshot)
             for intent in intents:
+                is_new6=101<=int(intent.combo)<=106
+                strategy_name="NEW6" if is_new6 else "FINAL14"
                 self._emit(
-                    "L2.FINAL14.SIGNAL",
+                    "L2.NEW6.SIGNAL" if is_new6 else "L2.FINAL14.SIGNAL",
                     "INFO",
-                    "FINAL14 produced TradeIntent",
+                    f"{strategy_name} produced TradeIntent",
                     event_id=intent.event_id,
                     symbol=intent.symbol,
                     combo=intent.combo,
                     details={
+                        "strategy":strategy_name,
                         "side":intent.side,
                         "timeframe":intent.timeframe,
                         "close_time":intent.close_time,
