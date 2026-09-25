@@ -169,6 +169,10 @@ class ExecutionService:
                 "CRITICAL",
                 "BingX credentials were not verified; order blocked",
                 intent,
+                side=intent.side,
+                entry=intent.entry,
+                tp=intent.tp,
+                sl=intent.sl,
                 error=self.preflight_error or "BingX credentials not verified",
             )
             return ExecutionResult(
@@ -255,11 +259,15 @@ class ExecutionService:
         if result.get("ok"):
             common = {
                 "order_id": order_id,
+                # Human-facing Discord prices must come from the Layer-2
+                # TradeIntent, not from exchange fill/reconciliation fields.
+                "side": intent.side,
+                "entry": intent.entry,
+                "tp": intent.tp,
+                "sl": intent.sl,
                 "client_order_id":result.get("client_order_id"),
                 "avg_price": result.get("avg_price"),
                 "executed_qty": result.get("executed_qty"),
-                "tp": result.get("tp"),
-                "sl": result.get("sl"),
                 "protection":result.get("protection"),
             }
             self._emit("L3.EXEC.ORDER_SENT", "INFO", "market entry confirmed on BingX", intent, **common)
@@ -311,12 +319,18 @@ class ExecutionService:
                 key = "L3.EXEC.UNSAFE_OPEN_POSITION"
                 severity = "CRITICAL"
 
+            failure_reason = str(result.get("error") or stage)
             self._emit(
                 key,
                 severity,
-                str(result.get("error") or stage),
+                failure_reason,
                 intent,
                 order_id=order_id,
+                side=intent.side,
+                entry=intent.entry,
+                tp=intent.tp,
+                sl=intent.sl,
+                error=failure_reason,
                 client_order_id=result.get("client_order_id"),
                 stage=stage,
                 terminal=terminal,
