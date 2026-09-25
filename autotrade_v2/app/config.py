@@ -46,6 +46,17 @@ class Settings:
     discord_webhook_eth: str = os.getenv("DISCORD_WEBHOOK_ETH", "")
     discord_webhook_error: str = os.getenv("DISCORD_WEBHOOK_ERROR", "")
 
+    # Severe Layer-4 alerts. Email is independent from Discord and must never
+    # participate in trading decisions or block the execution path.
+    email_alerts_enabled: bool = _bool("EMAIL_ALERTS_ENABLED", False)
+    smtp_host: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user: str = os.getenv("SMTP_USER", "")
+    smtp_password: str = os.getenv("SMTP_PASSWORD", "")
+    smtp_starttls: bool = _bool("SMTP_STARTTLS", True)
+    email_from: str = os.getenv("EMAIL_FROM", os.getenv("SMTP_USER", ""))
+    email_to: str = os.getenv("EMAIL_TO", "")
+
     log_level: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
 
