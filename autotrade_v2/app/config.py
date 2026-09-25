@@ -56,6 +56,7 @@ class Settings:
     smtp_starttls: bool = _bool("SMTP_STARTTLS", True)
     email_from: str = os.getenv("EMAIL_FROM", "trungtn87@gmail.com")
     email_to: str = os.getenv("EMAIL_TO", "trungtn87@gmail.com")
+    email_test_on_startup: bool = _bool("EMAIL_TEST_ON_STARTUP", False)
 
     log_level: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
