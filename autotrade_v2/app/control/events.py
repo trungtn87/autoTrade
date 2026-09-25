@@ -40,8 +40,8 @@ _EMAIL_ALERT_KEYS = {
     "L3.EXEC.ORPHAN_PROTECTION_CLEANUP",
     "L3.EXEC.TP_FAILED_SL_ACTIVE",
     "L3.EXEC.RECOVERY_LOOP_FAIL",
-    # Observability failures: Discord/audit/reporter must have an independent path.
-    "L4.DISCORD.SEND_FAIL",
+    # Observability failures. Discord delivery failures are deliberately
+    # audit-only because they do not affect trading.
     "L4.AUDIT.WRITE_FAIL",
     "L4.REPORTER.WORKER_FAIL",
 }
@@ -493,7 +493,7 @@ class EventReporter:
             fail = SystemEvent(
                 event_key="L4.DISCORD.SEND_FAIL",
                 layer="L4",
-                severity="ERROR",
+                severity="WARNING",
                 message=str(exc),
                 event_id=event.event_id,
                 symbol=event.symbol,
@@ -505,4 +505,3 @@ class EventReporter:
                 },
             ).normalized()
             self._persist(fail)
-            self._send_email_alert(fail)
