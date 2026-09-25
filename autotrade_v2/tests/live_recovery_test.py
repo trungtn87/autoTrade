@@ -5,9 +5,21 @@ import tempfile
 
 import pandas as pd
 
+from app.control.errors import DataLayerError
 from app.data.service import DataService
 from app.data.store import CandleStore
 from utils import synthetic_15m
+
+
+class RateLimitedHistorical:
+    request_limit=1000
+
+    def __init__(self):
+        self.calls=0
+
+    def fetch_window(self,symbol,start_time,end_time,limit):
+        self.calls+=1
+        raise DataLayerError("historical BingX error code=109429")
 
 
 class FakeHistorical:
@@ -56,7 +68,50 @@ def main()->None:
         assert len(historical.calls)==1
         assert snapshot2.latest_open_time==expected_open
 
-        print({"ok":True,"recovered":1,"rest_calls":1,"candles":3400})
+        # The recovery limiter is global to the DataService instance and caps
+        # all BTC/ETH gap REST traffic at six requests per rolling 15 minutes.
+        for _ in range(5):
+            service._recovery_fetch_window(
+                "BTC-USDT",expected_open,int(final_candle.iloc[0]["close_time"]),1
+            )
+        assert service.recovery_rest_status()["used_requests"]==6
+        try:
+            service._recovery_fetch_window(
+                "ETH-USDT",expected_open,int(final_candle.iloc[0]["close_time"]),1
+            )
+            raise AssertionError("seventh recovery REST request must be blocked")
+        except DataLayerError as exc:
+            assert "budget exhausted" in str(exc)
+
+        # A 109425/109429 response immediately starts a 15-minute cooldown and
+        # the next attempt is blocked before another transport call.
+        limited=RateLimitedHistorical()
+        limited_service=DataService(limited,store,keep=3400,required=3400)
+        try:
+            limited_service._recovery_fetch_window(
+                "BTC-USDT",expected_open,int(final_candle.iloc[0]["close_time"]),1
+            )
+            raise AssertionError("rate-limit response must propagate")
+        except DataLayerError as exc:
+            assert "109429" in str(exc)
+        assert limited_service.recovery_rest_status()["cooldown_remaining_sec"]>0
+        try:
+            limited_service._recovery_fetch_window(
+                "BTC-USDT",expected_open,int(final_candle.iloc[0]["close_time"]),1
+            )
+            raise AssertionError("cooldown must block transport")
+        except DataLayerError as exc:
+            assert "cooldown active" in str(exc)
+        assert limited.calls==1
+
+        print({
+            "ok":True,
+            "recovered":1,
+            "rest_calls":len(historical.calls),
+            "budget":service.recovery_rest_status(),
+            "rate_limit_cooldown":limited_service.recovery_rest_status(),
+            "candles":3400,
+        })
     finally:
         os.unlink(path)
 
