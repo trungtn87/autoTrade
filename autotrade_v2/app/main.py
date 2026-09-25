@@ -184,23 +184,58 @@ def _candle_watchdog()->None:
                     **stats,
                 },
             )
-            # V2 live invariant: never call BingX REST klines for recovery.
-            # A missing candle is a hard data-health failure. The WebSocket may
-            # repair the head naturally; until then Layer 2 must not calculate.
-            log.warning(
-                "CANDLE_RECOVERY_BLOCKED_NO_REST symbol=%s expected_open=%s attempt=%s",
-                symbol,expected_open,state["count"],
-            )
-            event_reporter.emit(
-                "L1.DATA.RECOVERY_BLOCKED","ERROR",
-                "missing closed candle; REST kline recovery disabled",
-                symbol=symbol,
-                details={
-                    "expected_open_time":expected_open,
-                    "attempt":state["count"],
-                    "policy":"db_plus_websocket_only",
-                },
-            )
+            try:
+                snapshot,missing=data_service.recover_missing_closed(symbol,now_ms)
+                _watchdog_checked_open[symbol]=expected_open
+                log.warning(
+                    "CANDLE_RECOVERY_OK symbol=%s recovered=%s latest_open=%s rest=%s",
+                    symbol,len(missing),snapshot.latest_open_time,
+                    data_service.recovery_rest_status(),
+                )
+                event_reporter.emit(
+                    "L1.DATA.RECOVERY_OK","INFO",
+                    "missing closed candles recovered by rate-limited REST",
+                    symbol=symbol,
+                    details={
+                        "recovered_count":len(missing),
+                        "recovered_open_times":missing,
+                        "latest_open_time":snapshot.latest_open_time,
+                        "rest_policy":data_service.recovery_rest_status(),
+                    },
+                )
+                _set_data_health(
+                    symbol,True,
+                    latest_open_time=snapshot.latest_open_time,
+                    latest_close_time=snapshot.latest_close_time,
+                    count=len(snapshot.candles),
+                    expected_open_time=expected_open,
+                    recovered_count=len(missing),
+                    source="rest_gap_recovery",
+                    checked_at_ms=int(time.time()*1000),
+                )
+                if missing and snapshot.latest_open_time==expected_open:
+                    _on_closed(symbol,snapshot.candles.tail(1).copy(deep=True))
+            except Exception as exc:
+                log.exception(
+                    "CANDLE_RECOVERY_FAIL symbol=%s expected_open=%s error=%s rest=%s",
+                    symbol,expected_open,exc,data_service.recovery_rest_status(),
+                )
+                event_reporter.emit(
+                    "L1.DATA.RECOVERY_FAIL","ERROR",str(exc),
+                    symbol=symbol,
+                    details={
+                        "expected_open_time":expected_open,
+                        "attempt":state["count"],
+                        "rest_policy":data_service.recovery_rest_status(),
+                    },
+                )
+                _set_data_health(
+                    symbol,False,
+                    expected_open_time=expected_open,
+                    error=str(exc),
+                    source="rest_gap_recovery",
+                    checked_at_ms=int(time.time()*1000),
+                )
 
         if len(_recovery_attempts)>64:
             cutoff=expected_open-8*STEP_15M_MS
@@ -398,7 +433,7 @@ def health():
     body={
         "ok":data_ok,
         "engine":"autotrade-v2",
-        "pipeline":"Supabase DB + BingX WS 15m -> DB -> 20FINAL -> BingX trade API",
+        "pipeline":"Supabase DB + BingX WS 15m + rate-limited REST gap repair -> DB -> 20FINAL -> BingX trade API",
         "strategy":"20FINAL_2026-09-25",
         "bootstrap_enabled":settings.bootstrap_enabled,
         "websocket_enabled":settings.websocket_enabled,
@@ -409,6 +444,7 @@ def health():
         "runtime_status":runtime.get("status"),
         "data":symbol_health,
         "ws":stream.status() if stream is not None else None,
+        "rest_gap_recovery":data_service.recovery_rest_status(),
         "layer4":event_reporter.status(),
     }
     return JSONResponse(status_code=200 if data_ok else 503,content=body)
