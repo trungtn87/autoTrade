@@ -184,54 +184,23 @@ def _candle_watchdog()->None:
                     **stats,
                 },
             )
-            try:
-                snapshot,missing=data_service.recover_missing_closed(symbol,now_ms)
-                _watchdog_checked_open[symbol]=expected_open
-                log.warning(
-                    "CANDLE_RECOVERY_OK symbol=%s recovered=%s latest_open=%s",
-                    symbol,len(missing),snapshot.latest_open_time,
-                )
-                event_reporter.emit(
-                    "L1.DATA.RECOVERY_OK","INFO","missing closed candles recovered from public REST",
-                    symbol=symbol,
-                    details={
-                        "recovered_count":len(missing),
-                        "recovered_open_times":missing,
-                        "latest_open_time":snapshot.latest_open_time,
-                    },
-                )
-                _set_data_health(
-                    symbol,True,
-                    latest_open_time=snapshot.latest_open_time,
-                    latest_close_time=snapshot.latest_close_time,
-                    count=len(snapshot.candles),
-                    expected_open_time=expected_open,
-                    recovered_count=len(missing),
-                    source="rest_recovery",
-                    checked_at_ms=int(time.time()*1000),
-                )
-                if missing and snapshot.latest_open_time==expected_open:
-                    _on_closed(symbol,snapshot.candles.tail(1).copy(deep=True))
-            except Exception as exc:
-                log.exception(
-                    "CANDLE_RECOVERY_FAIL symbol=%s expected_open=%s error=%s",
-                    symbol,expected_open,exc,
-                )
-                event_reporter.emit(
-                    "L1.DATA.RECOVERY_FAIL","ERROR",str(exc),
-                    symbol=symbol,
-                    details={
-                        "expected_open_time":expected_open,
-                        "attempt":state["count"],
-                    },
-                )
-                _set_data_health(
-                    symbol,False,
-                    expected_open_time=expected_open,
-                    error=str(exc),
-                    source="rest_recovery",
-                    checked_at_ms=int(time.time()*1000),
-                )
+            # V2 live invariant: never call BingX REST klines for recovery.
+            # A missing candle is a hard data-health failure. The WebSocket may
+            # repair the head naturally; until then Layer 2 must not calculate.
+            log.warning(
+                "CANDLE_RECOVERY_BLOCKED_NO_REST symbol=%s expected_open=%s attempt=%s",
+                symbol,expected_open,state["count"],
+            )
+            event_reporter.emit(
+                "L1.DATA.RECOVERY_BLOCKED","ERROR",
+                "missing closed candle; REST kline recovery disabled",
+                symbol=symbol,
+                details={
+                    "expected_open_time":expected_open,
+                    "attempt":state["count"],
+                    "policy":"db_plus_websocket_only",
+                },
+            )
 
         if len(_recovery_attempts)>64:
             cutoff=expected_open-8*STEP_15M_MS
@@ -276,49 +245,34 @@ def _execution_reconcile_loop()->None:
 def _start_data_runtime()->None:
     global stream
     with _state_lock:
-        runtime["status"]="bootstrapping" if settings.bootstrap_enabled else "checking_store"
+        runtime["status"]="checking_store"
 
-    if settings.bootstrap_enabled:
-        results=[orchestrator.bootstrap_symbol(s) for s in settings.symbols]
+    # Production V2 starts from Supabase only. Public REST kline bootstrap is
+    # deliberately disabled to avoid BingX 109425/109429 rate-limit paths.
+    checks=[]
+    validation_now=_effective_validation_now()
+    for symbol in settings.symbols:
+        try:
+            snap=data_service.snapshot_from_store(symbol,validation_now)
+            checks.append({"ok":True,"symbol":symbol,"candles":len(snap.candles)})
+            _set_data_health(
+                symbol,True,
+                latest_open_time=snap.latest_open_time,
+                source="store_check",
+                checked_at_ms=int(time.time()*1000),
+            )
+        except Exception as exc:
+            checks.append({"ok":False,"symbol":symbol,"error":str(exc)})
+            _set_data_health(
+                symbol,False,error=str(exc),source="store_check",
+                checked_at_ms=int(time.time()*1000),
+            )
+    with _state_lock:
+        runtime["store_check"]=checks
+    if settings.websocket_enabled and not all(x.get("ok") for x in checks):
         with _state_lock:
-            runtime["bootstrap"]=results
-        if not all(x.get("ok") for x in results):
-            with _state_lock:
-                runtime["status"]="bootstrap_failed"
-            return
-        for item in results:
-            if item.get("ok"):
-                _set_data_health(
-                    item["symbol"],True,
-                    latest_close_time=item.get("snapshot_close"),
-                    source="bootstrap",
-                    checked_at_ms=int(time.time()*1000),
-                )
-    else:
-        checks=[]
-        validation_now=_effective_validation_now()
-        for symbol in settings.symbols:
-            try:
-                snap=data_service.snapshot_from_store(symbol,validation_now)
-                checks.append({"ok":True,"symbol":symbol,"candles":len(snap.candles)})
-                _set_data_health(
-                    symbol,True,
-                    latest_open_time=snap.latest_open_time,
-                    source="store_check",
-                    checked_at_ms=int(time.time()*1000),
-                )
-            except Exception as exc:
-                checks.append({"ok":False,"symbol":symbol,"error":str(exc)})
-                _set_data_health(
-                    symbol,False,error=str(exc),source="store_check",
-                    checked_at_ms=int(time.time()*1000),
-                )
-        with _state_lock:
-            runtime["store_check"]=checks
-        if settings.websocket_enabled and not all(x.get("ok") for x in checks):
-            with _state_lock:
-                runtime["status"]="store_not_ready"
-            return
+            runtime["status"]="store_not_ready"
+        return
 
     if settings.websocket_enabled:
         stream=BingXKlineStream(
@@ -337,7 +291,7 @@ def _start_data_runtime()->None:
 @app.on_event("startup")
 def startup()->None:
     log.info(
-        "V2_START symbols=%s data=historical_rest+websocket strategy=FINAL14 "
+        "V2_START symbols=%s data=supabase+websocket strategy=20FINAL "
         "bootstrap=%s websocket=%s execution_enabled=%s dry_run=%s db=%s",
         settings.symbols,
         settings.bootstrap_enabled,
@@ -444,8 +398,8 @@ def health():
     body={
         "ok":data_ok,
         "engine":"autotrade-v2",
-        "pipeline":"historical BingX -> DB + BingX WS 15m -> DB -> FINAL14 -> BingX trade API",
-        "strategy":"FINAL14_RR_TP2_2026-09-21",
+        "pipeline":"Supabase DB + BingX WS 15m -> DB -> 20FINAL -> BingX trade API",
+        "strategy":"20FINAL_2026-09-25",
         "bootstrap_enabled":settings.bootstrap_enabled,
         "websocket_enabled":settings.websocket_enabled,
         "execution_enabled":settings.execution_enabled,
