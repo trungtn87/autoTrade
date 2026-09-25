@@ -107,7 +107,9 @@ def session_vwap(df: pd.DataFrame) -> pd.Series:
     return pv.groupby(day).cumsum() / df['volume'].groupby(day).cumsum().replace(0, np.nan)
 
 def edge_event(cond: pd.Series) -> pd.Series:
-    return cond.fillna(False) & ~cond.shift(1).fillna(False)
+    current = cond.astype("boolean").fillna(False)
+    previous = current.shift(1, fill_value=False)
+    return (current & ~previous).astype(bool)
 
 def pine_custom_supertrend_dir(df: pd.DataFrame, atr_n: int, factor: float) -> pd.Series:
     a = atr(df, atr_n); hl2 = (df['high'] + df['low']) / 2
