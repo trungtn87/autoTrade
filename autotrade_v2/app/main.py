@@ -39,6 +39,14 @@ event_reporter=EventReporter(
     webhook_btc=settings.discord_webhook_btc,
     webhook_eth=settings.discord_webhook_eth,
     webhook_error=settings.discord_webhook_error,
+    email_enabled=settings.email_alerts_enabled,
+    smtp_host=settings.smtp_host,
+    smtp_port=settings.smtp_port,
+    smtp_user=settings.smtp_user,
+    smtp_password=settings.smtp_password,
+    email_from=settings.email_from,
+    email_to=settings.email_to,
+    smtp_starttls=settings.smtp_starttls,
 )
 historical=HistoricalKlineClient(
     base_url=settings.bingx_base_url,
@@ -336,11 +344,20 @@ def startup()->None:
         candle_store.backend,
     )
     log.info(
-        "LAYER4_CONFIG discord_enabled=%s btc=%s eth=%s error=%s audit_db=%s",
+        "LAYER4_CONFIG discord_enabled=%s btc=%s eth=%s error=%s "
+        "email_enabled=%s email_configured=%s audit_db=%s",
         settings.discord_enabled,
         bool(settings.discord_webhook_btc),
         bool(settings.discord_webhook_eth),
         bool(settings.discord_webhook_error),
+        settings.email_alerts_enabled,
+        bool(
+            settings.smtp_host
+            and settings.smtp_user
+            and settings.smtp_password
+            and settings.email_from
+            and settings.email_to
+        ),
         bool(settings.database_url),
     )
     preflight=execution_service.preflight()
