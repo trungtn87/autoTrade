@@ -21,10 +21,9 @@ _SEVERITY_LEVEL = {
 }
 
 _ORDER_NOTIFY_KEYS = {
-    "L3.EXEC.ORDER_SENT",
-    "L3.EXEC.ORDER_FILLED",
-    "L3.EXEC.TP_PLACED",
-    "L3.EXEC.SL_PLACED",
+    # Discord gets one success notification per completed trade. Intermediate
+    # execution stages remain in the audit log but are intentionally silent to
+    # avoid bursting multiple webhook requests for the same order.
     "L3.EXEC.ORDER_COMPLETE",
     "L3.EXEC.EMERGENCY_CLOSE",
 }
