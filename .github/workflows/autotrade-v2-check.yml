@@ -51,6 +51,11 @@ jobs:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/websocket_closed_candle_test.py
 
+      - name: Verify rate-limited REST gap recovery
+        env:
+          PYTHONPATH: autotrade_v2
+        run: python autotrade_v2/tests/live_recovery_test.py
+
       - name: Verify Layer 4 keyed event trace
         env:
           PYTHONPATH: autotrade_v2
