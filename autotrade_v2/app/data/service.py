@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import time
+import threading
+from collections import deque
 
 import pandas as pd
 
@@ -12,6 +14,9 @@ from .validator import DataValidationError, validate_15m_candles
 
 
 STEP_15M_MS=15*60_000
+RECOVERY_REST_WINDOW_SEC=15*60
+RECOVERY_REST_MAX_REQUESTS=6
+RECOVERY_REST_COOLDOWN_SEC=15*60
 
 
 class DataService:
@@ -33,6 +38,10 @@ class DataService:
         self.store = store
         self.keep = int(keep)
         self.required = int(required)
+        # Shared per-service limiter across BTC/ETH recovery calls.
+        self._recovery_rest_lock=threading.Lock()
+        self._recovery_rest_calls=deque()
+        self._recovery_rest_cooldown_until=0.0
 
     def bootstrap(self, symbol: str, now_ms: int | None = None) -> MarketSnapshot:
         """Use a valid stored window or rebuild the required window from REST."""
@@ -47,6 +56,66 @@ class DataService:
         self.store.upsert(symbol, "15m", candles)
         self.store.trim(symbol, "15m", self.keep)
         return self.snapshot_from_store(symbol, now_ms)
+
+    def _recovery_fetch_window(
+        self,
+        symbol:str,
+        start_time:int,
+        end_time:int,
+        limit:int,
+    )->pd.DataFrame:
+        """Rate-limited REST used only for repairing missing closed candles."""
+        now=time.monotonic()
+        with self._recovery_rest_lock:
+            if now<self._recovery_rest_cooldown_until:
+                remaining=int(self._recovery_rest_cooldown_until-now)
+                raise DataLayerError(
+                    f"REST recovery cooldown active after BingX rate-limit; "
+                    f"retry_after_sec={remaining}"
+                )
+            cutoff=now-RECOVERY_REST_WINDOW_SEC
+            while self._recovery_rest_calls and self._recovery_rest_calls[0]<cutoff:
+                self._recovery_rest_calls.popleft()
+            if len(self._recovery_rest_calls)>=RECOVERY_REST_MAX_REQUESTS:
+                oldest=self._recovery_rest_calls[0]
+                retry=max(1,int(RECOVERY_REST_WINDOW_SEC-(now-oldest)))
+                raise DataLayerError(
+                    f"REST recovery budget exhausted: "
+                    f"{RECOVERY_REST_MAX_REQUESTS}/{RECOVERY_REST_WINDOW_SEC}s; "
+                    f"retry_after_sec={retry}"
+                )
+            # Reserve the slot before transport so concurrent BTC/ETH recovery
+            # cannot overshoot the global budget.
+            self._recovery_rest_calls.append(now)
+
+        try:
+            return self.historical.fetch_window(
+                symbol,start_time,end_time,limit
+            )
+        except DataLayerError as exc:
+            msg=str(exc)
+            if "109425" in msg or "109429" in msg:
+                with self._recovery_rest_lock:
+                    self._recovery_rest_cooldown_until=max(
+                        self._recovery_rest_cooldown_until,
+                        time.monotonic()+RECOVERY_REST_COOLDOWN_SEC,
+                    )
+            raise
+
+    def recovery_rest_status(self)->dict:
+        now=time.monotonic()
+        with self._recovery_rest_lock:
+            cutoff=now-RECOVERY_REST_WINDOW_SEC
+            while self._recovery_rest_calls and self._recovery_rest_calls[0]<cutoff:
+                self._recovery_rest_calls.popleft()
+            return {
+                "window_sec":RECOVERY_REST_WINDOW_SEC,
+                "max_requests":RECOVERY_REST_MAX_REQUESTS,
+                "used_requests":len(self._recovery_rest_calls),
+                "cooldown_remaining_sec":max(
+                    0,int(self._recovery_rest_cooldown_until-now)
+                ),
+            }
 
     def ingest_closed_candle(
         self,
@@ -101,7 +170,7 @@ class DataService:
                 remaining=((end-chunk_start)//STEP_15M_MS)+1
                 take=min(self.historical.request_limit,int(remaining))
                 chunk_end=chunk_start+(take-1)*STEP_15M_MS
-                frame=self.historical.fetch_window(
+                frame=self._recovery_fetch_window(
                     symbol,
                     chunk_start,
                     chunk_end+STEP_15M_MS-1,
