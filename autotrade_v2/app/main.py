@@ -415,6 +415,14 @@ def startup()->None:
         },
     )
 
+    if settings.email_test_on_startup:
+        event_reporter.emit(
+            "L4.EMAIL.TEST",
+            "CRITICAL",
+            "Test email from AutoTrade V2 Layer 4",
+            details={"purpose":"manual email delivery test"},
+        )
+
     if settings.bootstrap_enabled or settings.websocket_enabled:
         threading.Thread(target=_start_data_runtime,name="v2-data-runtime",daemon=True).start()
 
