@@ -20,12 +20,21 @@ _SEVERITY_LEVEL = {
     "CRITICAL": logging.CRITICAL,
 }
 
-_ORDER_NOTIFY_KEYS = {
-    # Discord gets one success notification per completed trade. Intermediate
-    # execution stages remain in the audit log but are intentionally silent to
-    # avoid bursting multiple webhook requests for the same order.
+_ORDER_RESULT_KEYS = {
+    # Exactly one Discord summary per execution result. Intermediate execution
+    # stages remain audit-only so one trade never bursts several webhook posts.
     "L3.EXEC.ORDER_COMPLETE",
+    "L3.EXEC.ORDER_FAIL",
+    "L3.EXEC.RECONCILE_REQUIRED",
+    "L3.EXEC.RECONCILE_CLEARED",
+    "L3.EXEC.ENTRY_NOT_FILLED",
     "L3.EXEC.EMERGENCY_CLOSE",
+    "L3.EXEC.UNSAFE_OPEN_POSITION",
+    "L3.EXEC.PROTECTION_EXIT_CONFIRMED",
+    "L3.EXEC.PROTECTION_RECONCILE_REQUIRED",
+    "L3.EXEC.ORPHAN_PROTECTION_CLEANUP",
+    "L3.EXEC.TP_FAILED_SL_ACTIVE",
+    "L3.EXEC.PREFLIGHT_BLOCK",
 }
 
 _SECRET_KEYS = {
@@ -51,6 +60,41 @@ def _scrub(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_scrub(x) for x in value]
     return value
+
+
+def _fmt_trade_number(value: Any) -> str:
+    if value is None or value == "":
+        return "-"
+    try:
+        return f"{float(value):.8f}".rstrip("0").rstrip(".")
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _order_discord_content(event: "SystemEvent") -> str:
+    """Compact human-facing order summary using Layer-2 intent prices."""
+    details = event.details or {}
+    side = str(details.get("side") or "").upper()
+    symbol_side = " ".join(x for x in (event.symbol or "", side) if x)
+    combo = str(event.combo) if event.combo is not None else "-"
+    lines = [
+        f"{'✅' if event.event_key == 'L3.EXEC.ORDER_COMPLETE' else '❌'} **Đặt lệnh**",
+        symbol_side or "-",
+        "",
+        f"📊 Combo {combo}",
+        f"Entry: {_fmt_trade_number(details.get('entry'))}",
+        "",
+        f"TP : {_fmt_trade_number(details.get('tp'))}",
+        f"SL : {_fmt_trade_number(details.get('sl'))}",
+        "",
+    ]
+    if event.event_key == "L3.EXEC.ORDER_COMPLETE":
+        lines.append("✅ **Đặt lệnh thành công**")
+    else:
+        reason = str(details.get("error") or event.message or "Không rõ lý do")
+        lines.append("❌ **Đặt lệnh thất bại**")
+        lines.append(f"Lý do: {reason}")
+    return "\n".join(lines)[:1900]
 
 
 @dataclass(frozen=True)
@@ -233,13 +277,13 @@ class EventReporter:
             return
 
         url = ""
-        if event.severity in {"ERROR", "CRITICAL"}:
-            url = self.webhook_error
-        elif event.event_key in _ORDER_NOTIFY_KEYS:
+        if event.event_key in _ORDER_RESULT_KEYS:
             if event.symbol == "BTC-USDT":
                 url = self.webhook_btc
             elif event.symbol == "ETH-USDT":
                 url = self.webhook_eth
+        elif event.severity in {"ERROR", "CRITICAL"}:
+            url = self.webhook_error
 
         if not url:
             return
@@ -250,30 +294,33 @@ class EventReporter:
         if now - last < 120.0:
             return
 
-        icon = {
-            "INFO": "✅",
-            "WARNING": "⚠️",
-            "ERROR": "❌",
-            "CRITICAL": "🚨",
-        }[event.severity]
-        lines = [
-            f"{icon} **{event.event_key}**",
-            f"Severity: {event.severity}",
-        ]
-        if event.symbol:
-            lines.append(f"Symbol: {event.symbol}")
-        if event.combo is not None:
-            lines.append(f"Combo: C{event.combo}")
-        if event.event_id:
-            lines.append(f"Event: {event.event_id}")
-        if event.order_id:
-            lines.append(f"Order: {event.order_id}")
-        if event.message:
-            lines.append(f"Message: {event.message}")
-        if event.details:
-            compact = json.dumps(event.details, ensure_ascii=False, default=str, separators=(",", ":"))
-            lines.append(f"Details: {compact[:900]}")
-        content = "\n".join(lines)[:1900]
+        if event.event_key in _ORDER_RESULT_KEYS:
+            content = _order_discord_content(event)
+        else:
+            icon = {
+                "INFO": "✅",
+                "WARNING": "⚠️",
+                "ERROR": "❌",
+                "CRITICAL": "🚨",
+            }[event.severity]
+            lines = [
+                f"{icon} **{event.event_key}**",
+                f"Severity: {event.severity}",
+            ]
+            if event.symbol:
+                lines.append(f"Symbol: {event.symbol}")
+            if event.combo is not None:
+                lines.append(f"Combo: C{event.combo}")
+            if event.event_id:
+                lines.append(f"Event: {event.event_id}")
+            if event.order_id:
+                lines.append(f"Order: {event.order_id}")
+            if event.message:
+                lines.append(f"Message: {event.message}")
+            if event.details:
+                compact = json.dumps(event.details, ensure_ascii=False, default=str, separators=(",", ":"))
+                lines.append(f"Details: {compact[:900]}")
+            content = "\n".join(lines)[:1900]
 
         try:
             response = requests.post(url, json={"content": content}, timeout=8)
