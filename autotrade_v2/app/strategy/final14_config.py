@@ -25,6 +25,22 @@ FINAL14_CASES: dict[str, dict[int, dict]] = {
     },
 }
 
+# NEW6 research additions. IDs 101..106 are deliberately outside the FINAL14
+# combo namespace so FINAL14 stays locked and independently auditable.
+# All NEW6 signals are native 1H and execute at the confirmed 1H close.
+NEW6_CASES: dict[str, dict[int, dict]] = {
+    "BTC-USDT": {
+        101:{"name":"N1","indicator":"DeMarker","entry_variant":"trend_n60_0.25_0.75","layer2":"SMC_STRICT_OB","tp_pct":0.018,"sl_pct":0.009,"rr":2.0},
+        104:{"name":"N4","indicator":"Ichimoku","entry_variant":"tkcross_12_30_60","layer2":"OB","tp_pct":0.020,"sl_pct":0.006666666666666667,"rr":3.0},
+        106:{"name":"N6","indicator":"Vortex","entry_variant":"cross_n14_r1.2","layer2":"OB","tp_pct":0.011,"sl_pct":0.009,"rr":0.011/0.009},
+    },
+    "ETH-USDT": {
+        102:{"name":"N2","indicator":"Aroon","entry_variant":"cross_n40_t70","layer2":"SMC_VETO_OB","tp_pct":0.018,"sl_pct":0.009,"rr":2.0},
+        103:{"name":"N3","indicator":"CMO","entry_variant":"momcross_n40_t40","layer2":"OFF","tp_pct":0.020,"sl_pct":0.008,"rr":2.5},
+        105:{"name":"N5","indicator":"KAMA_ER","entry_variant":"state_e40_s40_t0.4","layer2":"OB","tp_pct":0.020,"sl_pct":0.008,"rr":2.5},
+    },
+}
+
 DISABLED_CASES = {
     "BTC-USDT": {3,5,8},
     "ETH-USDT": {2,5,8,9,11},
@@ -35,14 +51,47 @@ NATIVE_TIMEFRAME = {
     7:"15m",8:"15m",9:"15m",10:"15m",11:"1h",
 }
 
+
 def case_name(combo:int)->str:
-    return "TIER" if int(combo)==11 else f"C{int(combo)}"
+    combo=int(combo)
+    if 101 <= combo <= 106:
+        return f"N{combo-100}"
+    return "TIER" if combo==11 else f"C{combo}"
+
 
 def get_case(symbol:str, combo:int)->dict|None:
-    return FINAL14_CASES.get(symbol.upper(),{}).get(int(combo))
+    symbol=symbol.upper()
+    combo=int(combo)
+    return (
+        FINAL14_CASES.get(symbol,{}).get(combo)
+        or NEW6_CASES.get(symbol,{}).get(combo)
+    )
+
 
 def enabled_combos(symbol:str)->tuple[int,...]:
+    """Locked FINAL14 combo IDs only."""
     return tuple(sorted(FINAL14_CASES.get(symbol.upper(),{})))
+
+
+def enabled_new6_combos(symbol:str)->tuple[int,...]:
+    return tuple(sorted(NEW6_CASES.get(symbol.upper(),{})))
+
+
+def new6_snapshot()->dict:
+    return {
+        "version":"NEW6_2026-09-25",
+        "native_timeframe":"1h",
+        "exit":"100% hard TP + 100% hard SL; no trailing; no partial exit",
+        "enabled":{
+            s:[case_name(c) for c in enabled_new6_combos(s)]
+            for s in sorted(NEW6_CASES)
+        },
+        "cases":{
+            s:{case_name(c):dict(cfg) for c,cfg in sorted(cases.items())}
+            for s,cases in sorted(NEW6_CASES.items())
+        },
+    }
+
 
 def snapshot()->dict:
     return {
