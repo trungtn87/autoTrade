@@ -6,7 +6,7 @@ from .final14_exact_strategy import MIN_LIVE_15M_BARS, scan_latest
 
 
 class StrategyEngine:
-    """Pure FINAL14 adapter. No network, database, logging side effects, or execution."""
+    """Pure FINAL14 + NEW6 adapter. No network, database, logging side effects, or execution."""
 
     def calculate(self, snapshot: MarketSnapshot) -> list[TradeIntent]:
         available = int(len(snapshot.candles))
