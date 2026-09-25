@@ -78,7 +78,7 @@ def _order_discord_content(event: "SystemEvent") -> str:
     symbol_side = " ".join(x for x in (event.symbol or "", side) if x)
     combo = str(event.combo) if event.combo is not None else "-"
     lines = [
-        f"{'✅' if event.event_key == 'L3.EXEC.ORDER_COMPLETE' else '❌'} **Đặt lệnh**",
+        f"{'✅' if event.event_key == 'L3.EXEC.ORDER_COMPLETE' else '❌'} Đặt lệnh",
         symbol_side or "-",
         "",
         f"📊 Combo {combo}",
@@ -89,10 +89,10 @@ def _order_discord_content(event: "SystemEvent") -> str:
         "",
     ]
     if event.event_key == "L3.EXEC.ORDER_COMPLETE":
-        lines.append("✅ **Đặt lệnh thành công**")
+        lines.append("✅ Đặt lệnh thành công")
     else:
         reason = str(details.get("error") or event.message or "Không rõ lý do")
-        lines.append("❌ **Đặt lệnh thất bại**")
+        lines.append("❌ Đặt lệnh thất bại")
         lines.append(f"Lý do: {reason}")
     return "\n".join(lines)[:1900]
 
