@@ -85,10 +85,35 @@ runtime:dict={
 stream:BingXKlineStream|None=None
 
 
-def _effective_validation_now(now_ms:int|None=None)->int:
+def _expected_closed_opens(now_ms:int|None=None)->tuple[int,...]:
+    """Newest acceptable closed-candle opens for health/startup.
+
+    During the short boundary grace period we accept either the candle that
+    just closed or the previous candle. This avoids declaring a healthy store
+    stale merely because persistence and the boundary happen within a few
+    seconds of each other.
+    """
     now_ms=int(now_ms or time.time()*1000)
     boundary=(now_ms//STEP_15M_MS)*STEP_15M_MS
+    newest=boundary-STEP_15M_MS
     if now_ms-boundary<CANDLE_GRACE_MS:
+        return (newest,newest-STEP_15M_MS)
+    return (newest,)
+
+
+def _validation_now_for_latest(latest_open_time:int|None,now_ms:int|None=None)->int:
+    """Choose validator time without rejecting a just-persisted candle.
+
+    The strict validator expects exactly one latest closed candle. In the
+    boundary grace period, validate against the store head we actually have:
+    newest candle -> real now; previous candle -> just before the boundary.
+    Outside grace, real now is always authoritative.
+    """
+    now_ms=int(now_ms or time.time()*1000)
+    boundary=(now_ms//STEP_15M_MS)*STEP_15M_MS
+    accepted=_expected_closed_opens(now_ms)
+    latest=int(latest_open_time or 0)
+    if len(accepted)>1 and latest==accepted[1]:
         return boundary-1
     return now_ms
 
@@ -293,9 +318,10 @@ def _start_data_runtime()->None:
     # Production V2 starts from Supabase only. Public REST kline bootstrap is
     # deliberately disabled to avoid BingX 109425/109429 rate-limit paths.
     checks=[]
-    validation_now=_effective_validation_now()
     for symbol in settings.symbols:
         try:
+            stats=candle_store.stats(symbol,"15m")
+            validation_now=_validation_now_for_latest(stats.get("latest_open_time"))
             snap=data_service.snapshot_from_store(symbol,validation_now)
             checks.append({"ok":True,"symbol":symbol,"candles":len(snap.candles)})
             _set_data_health(
@@ -312,12 +338,19 @@ def _start_data_runtime()->None:
             )
     with _state_lock:
         runtime["store_check"]=checks
-    if settings.websocket_enabled and not all(x.get("ok") for x in checks):
-        with _state_lock:
-            runtime["status"]="store_not_ready"
-        return
 
     if settings.websocket_enabled:
+        # Never deadlock recovery on a stale/missing store. WebSocket and the
+        # candle watchdog must start even when the initial store validation
+        # fails; Strategy/Order remain fail-closed because _on_closed only
+        # proceeds after DataService returns a fully validated snapshot.
+        if not all(x.get("ok") for x in checks):
+            log.warning("DATA_STARTUP_RECOVERY required checks=%s",checks)
+            event_reporter.emit(
+                "L1.DATA.STARTUP_RECOVERY","WARNING",
+                "candle store not ready at startup; live recovery started",
+                details={"checks":checks},
+            )
         stream=BingXKlineStream(
             settings.symbols,_on_closed,url=settings.bingx_ws_url,on_event=event_reporter.emit
         )
@@ -439,19 +472,21 @@ def shutdown()->None:
 
 @app.get("/health")
 def health():
-    validation_now=_effective_validation_now()
-    expected_open=(validation_now//STEP_15M_MS)*STEP_15M_MS-STEP_15M_MS
+    now_ms=int(time.time()*1000)
+    accepted_open_times=_expected_closed_opens(now_ms)
+    expected_open=accepted_open_times[0]
     symbol_health={}
     for symbol in settings.symbols:
         stats=candle_store.stats(symbol,"15m")
         ok=(
             stats["count"]>=settings.required_15m
-            and stats["latest_open_time"]==expected_open
+            and stats["latest_open_time"] in accepted_open_times
         )
         symbol_health[symbol]={
             "ok":ok,
             **stats,
             "expected_open_time":expected_open,
+            "accepted_open_times":list(accepted_open_times),
         }
 
     data_ok=all(x.get("ok") for x in symbol_health.values()) if symbol_health else True
