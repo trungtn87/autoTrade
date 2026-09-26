@@ -395,7 +395,8 @@ class EventReporter:
 
         dedupe_key = f"{event.event_key}|{event.symbol}|{event.event_id}|{event.message}"
         now = time.monotonic()
-        if now - self._last_email.get(dedupe_key, 0.0) < 900.0:
+        last = self._last_email.get(dedupe_key)
+        if last is not None and now - last < 900.0:
             return
 
         subject_parts = [f"[AutoTrade {event.severity}]", event.event_key]
@@ -481,8 +482,8 @@ class EventReporter:
             f"{event.message}|{cycle_key}"
         )
         now = time.monotonic()
-        last = self._last_discord.get(dedupe_key, 0.0)
-        if now - last < 120.0:
+        last = self._last_discord.get(dedupe_key)
+        if last is not None and now - last < 120.0:
             return
 
         if event.event_key in _ORDER_RESULT_KEYS:
