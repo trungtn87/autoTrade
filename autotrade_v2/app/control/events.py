@@ -97,12 +97,27 @@ def _fmt_trade_number(value: Any) -> str:
         return str(value)
 
 
+def _combo_label(combo: Any) -> str:
+    """Human-facing combo name while preserving internal IDs for audit/state."""
+    if combo is None or combo == "":
+        return "-"
+    try:
+        combo_id = int(combo)
+    except (TypeError, ValueError):
+        return str(combo)
+    if 101 <= combo_id <= 106:
+        return f"C{combo_id - 90}"
+    if combo_id == 11:
+        return "TIER"
+    return f"C{combo_id}"
+
+
 def _order_discord_content(event: "SystemEvent") -> str:
     """Compact human-facing order summary using Layer-2 intent prices."""
     details = event.details or {}
     side = str(details.get("side") or "").upper()
     symbol_side = " ".join(x for x in (event.symbol or "", side) if x)
-    combo = str(event.combo) if event.combo is not None else "-"
+    combo = _combo_label(event.combo)
     lines = [
         f"{'✅' if event.event_key == 'L3.EXEC.ORDER_COMPLETE' else '❌'} Đặt lệnh",
         symbol_side or "-",
@@ -395,7 +410,7 @@ class EventReporter:
         if event.symbol:
             lines.append(f"Symbol: {event.symbol}")
         if event.combo is not None:
-            lines.append(f"Combo: C{event.combo}")
+            lines.append(f"Combo: {_combo_label(event.combo)}")
         if event.order_id:
             lines.append(f"Order: {event.order_id}")
         if event.message:

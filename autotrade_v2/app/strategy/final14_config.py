@@ -25,19 +25,19 @@ FINAL14_CASES: dict[str, dict[int, dict]] = {
     },
 }
 
-# NEW6 research additions. IDs 101..106 are deliberately outside the FINAL14
-# combo namespace so FINAL14 stays locked and independently auditable.
+# NEW6 research additions. Internal IDs 101..106 are deliberately outside the FINAL14
+# combo namespace; human-facing names are C11..C16 for one continuous combo sequence.
 # All NEW6 signals are native 1H and execute at the confirmed 1H close.
 NEW6_CASES: dict[str, dict[int, dict]] = {
     "BTC-USDT": {
-        101:{"name":"N1","indicator":"DeMarker","entry_variant":"trend_n60_0.25_0.75","layer2":"SMC_STRICT_OB","tp_pct":0.018,"sl_pct":0.009,"rr":2.0},
-        104:{"name":"N4","indicator":"Ichimoku","entry_variant":"tkcross_12_30_60","layer2":"OB","tp_pct":0.020,"sl_pct":0.006666666666666667,"rr":3.0},
-        106:{"name":"N6","indicator":"Vortex","entry_variant":"cross_n14_r1.2","layer2":"OB","tp_pct":0.011,"sl_pct":0.009,"rr":0.011/0.009},
+        101:{"name":"C11","indicator":"DeMarker","entry_variant":"trend_n60_0.25_0.75","layer2":"SMC_STRICT_OB","tp_pct":0.018,"sl_pct":0.009,"rr":2.0},
+        104:{"name":"C14","indicator":"Ichimoku","entry_variant":"tkcross_12_30_60","layer2":"OB","tp_pct":0.020,"sl_pct":0.006666666666666667,"rr":3.0},
+        106:{"name":"C16","indicator":"Vortex","entry_variant":"cross_n14_r1.2","layer2":"OB","tp_pct":0.011,"sl_pct":0.009,"rr":0.011/0.009},
     },
     "ETH-USDT": {
-        102:{"name":"N2","indicator":"Aroon","entry_variant":"cross_n40_t70","layer2":"SMC_VETO_OB","tp_pct":0.018,"sl_pct":0.009,"rr":2.0},
-        103:{"name":"N3","indicator":"CMO","entry_variant":"momcross_n40_t40","layer2":"OFF","tp_pct":0.020,"sl_pct":0.008,"rr":2.5},
-        105:{"name":"N5","indicator":"KAMA_ER","entry_variant":"state_e40_s40_t0.4","layer2":"OB","tp_pct":0.020,"sl_pct":0.008,"rr":2.5},
+        102:{"name":"C12","indicator":"Aroon","entry_variant":"cross_n40_t70","layer2":"SMC_VETO_OB","tp_pct":0.018,"sl_pct":0.009,"rr":2.0},
+        103:{"name":"C13","indicator":"CMO","entry_variant":"momcross_n40_t40","layer2":"OFF","tp_pct":0.020,"sl_pct":0.008,"rr":2.5},
+        105:{"name":"C15","indicator":"KAMA_ER","entry_variant":"state_e40_s40_t0.4","layer2":"OB","tp_pct":0.020,"sl_pct":0.008,"rr":2.5},
     },
 }
 
@@ -55,7 +55,7 @@ NATIVE_TIMEFRAME = {
 def case_name(combo:int)->str:
     combo=int(combo)
     if 101 <= combo <= 106:
-        return f"N{combo-100}"
+        return f"C{combo-90}"
     return "TIER" if combo==11 else f"C{combo}"
 
 
