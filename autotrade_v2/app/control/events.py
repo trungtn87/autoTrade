@@ -46,6 +46,13 @@ _EMAIL_ALERT_KEYS = {
     "L4.REPORTER.WORKER_FAIL",
 }
 
+_DISCORD_SYSTEM_WARNING_KEYS = {
+    # Data freshness is trading-critical even when the process is otherwise alive.
+    # Route exactly these WARNING events to the error webhook.
+    "L1.DATA.CANDLE_STALE",
+    "L1.DATA.STARTUP_RECOVERY",
+}
+
 _ORDER_RESULT_KEYS = {
     # Exactly one Discord summary per execution result. Intermediate execution
     # stages remain audit-only so one trade never bursts several webhook posts.
@@ -457,13 +464,22 @@ class EventReporter:
                 url = self.webhook_btc
             elif event.symbol == "ETH-USDT":
                 url = self.webhook_eth
-        elif event.severity in {"ERROR", "CRITICAL"}:
+        elif (
+            event.event_key in _DISCORD_SYSTEM_WARNING_KEYS
+            or event.severity in {"ERROR", "CRITICAL"}
+        ):
             url = self.webhook_error
 
         if not url:
             return
 
-        dedupe_key = f"{event.event_key}|{event.symbol}|{event.event_id}|{event.message}"
+        cycle_key = ""
+        if event.event_key == "L1.DATA.CANDLE_STALE":
+            cycle_key = str((event.details or {}).get("expected_open_time") or "")
+        dedupe_key = (
+            f"{event.event_key}|{event.symbol}|{event.event_id}|"
+            f"{event.message}|{cycle_key}"
+        )
         now = time.monotonic()
         last = self._last_discord.get(dedupe_key, 0.0)
         if now - last < 120.0:
