@@ -7,7 +7,8 @@ from dataclasses import replace
 
 from app.config import Settings
 from app.contracts import TradeIntent
-from app.control.events import EventReporter
+import app.control.events as events_module
+from app.control.events import EventReporter, SystemEvent
 from app.execution.service import ExecutionService
 from app.execution.store import ExecutionStore
 
@@ -64,6 +65,48 @@ def main():
     assert reporter.status()["processed"]>=1
     reporter.stop()
 
+    # Trading-critical data WARNINGs must reach the error webhook once per
+    # 15m candle cycle. A second recovery attempt in the same cycle is muted,
+    # while the next expected candle alerts again even if it occurs soon.
+    posts=[]
+    original_post=events_module.requests.post
+
+    class FakeResponse:
+        status_code=204
+        text=""
+
+    def fake_post(url,json,timeout):
+        posts.append((url,json,timeout))
+        return FakeResponse()
+
+    events_module.requests.post=fake_post
+    warning_reporter=EventReporter(
+        "",
+        discord_enabled=True,
+        webhook_error="https://discord.invalid/error",
+    )
+    try:
+        base=dict(
+            event_key="L1.DATA.CANDLE_STALE",
+            layer="L1",
+            severity="WARNING",
+            message="latest closed 15m candle missing or invalid",
+            symbol="BTC-USDT",
+        )
+        warning_reporter._notify(SystemEvent(
+            **base,details={"expected_open_time":100},
+        ).normalized())
+        warning_reporter._notify(SystemEvent(
+            **base,details={"expected_open_time":100},
+        ).normalized())
+        warning_reporter._notify(SystemEvent(
+            **base,details={"expected_open_time":200},
+        ).normalized())
+        assert len(posts)==2,posts
+    finally:
+        warning_reporter.stop()
+        events_module.requests.post=original_post
+
     events=[]
     def capture(key,severity,message,**kwargs):
         events.append((key,severity,message,kwargs))
@@ -100,7 +143,12 @@ def main():
     finally:
         os.unlink(path)
 
-    print({"ok":True,"layer4_queue":True,"execution_event_keys":expected})
+    print({
+        "ok":True,
+        "layer4_queue":True,
+        "stale_warning_per_cycle":True,
+        "execution_event_keys":expected,
+    })
 
 
 if __name__=="__main__":
