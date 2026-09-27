@@ -515,9 +515,25 @@ class EventReporter:
             content = "\n".join(lines)[:1900]
 
         try:
-            response = requests.post(url, json={"content": content}, timeout=8)
-            if response.status_code != 204:
-                raise RuntimeError(f"Discord HTTP {response.status_code}: {response.text[:200]}")
+            response = None
+            for attempt in range(3):
+                response = requests.post(url, json={"content": content}, timeout=8)
+                if response.status_code == 204:
+                    break
+                if response.status_code != 429 or attempt >= 2:
+                    raise RuntimeError(
+                        f"Discord HTTP {response.status_code}: {response.text[:200]}"
+                    )
+
+                retry_after = response.headers.get("Retry-After")
+                try:
+                    delay = float(retry_after) if retry_after else 1.0
+                except (TypeError, ValueError):
+                    delay = 1.0
+                time.sleep(max(0.25, min(delay, 5.0)))
+            else:
+                raise RuntimeError("Discord retry loop exhausted")
+
             self._last_discord[dedupe_key] = now
         except Exception as exc:
             self._last_error = f"discord send failed: {type(exc).__name__}: {exc}"
