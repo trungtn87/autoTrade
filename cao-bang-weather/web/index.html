@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CB Weather" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="stylesheet" href="app.css" />
+  <title>Cao Bằng Weather</title>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">DỰ BÁO ĐA MÔ HÌNH</div>
+        <h1>Cao Bằng Weather</h1>
+        <p id="placeLabel">Thành phố Cao Bằng</p>
+      </div>
+      <button id="refreshBtn" class="icon-btn" aria-label="Cập nhật">↻</button>
+    </header>
+
+    <section class="search-panel card">
+      <div class="search-row">
+        <input id="searchInput" autocomplete="off" placeholder="Nhập xã, phường hoặc địa điểm ở Cao Bằng" />
+        <button id="searchBtn">Tìm</button>
+      </div>
+      <div class="quick-row">
+        <button id="gpsBtn" class="secondary">📍 Vị trí của tôi</button>
+        <span id="updatedAt" class="muted">Chưa cập nhật</span>
+      </div>
+      <div id="searchResults" class="search-results hidden"></div>
+    </section>
+
+    <section id="statusBox" class="status hidden"></section>
+
+    <section>
+      <div class="section-title">
+        <h2>Hiện tại</h2>
+        <span class="muted">3 mô hình độc lập</span>
+      </div>
+      <div id="modelCards" class="model-grid"></div>
+    </section>
+
+    <section class="consensus card" id="consensusCard">
+      <div>
+        <div class="eyebrow">KẾT LUẬN NHANH</div>
+        <h2 id="consensusTitle">Đang tải dữ liệu…</h2>
+        <p id="consensusText" class="muted">So sánh ECMWF, GFS và CMA GRAPES.</p>
+      </div>
+      <div id="consensusBadge" class="score">--/3</div>
+    </section>
+
+    <nav class="tabs card">
+      <button class="tab active" data-tab="hourly">24 giờ</button>
+      <button class="tab" data-tab="daily">10 ngày</button>
+      <button class="tab" data-tab="official">KTTV VN</button>
+    </nav>
+
+    <section id="hourlyPanel" class="panel active">
+      <div class="section-title">
+        <h2>So sánh theo giờ</h2>
+        <span class="muted">Mỗi 2 giờ</span>
+      </div>
+      <div class="table-wrap card">
+        <table>
+          <thead><tr><th>Giờ</th><th>ECMWF</th><th>GFS</th><th>CMA</th><th>Kết luận</th></tr></thead>
+          <tbody id="hourlyBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="dailyPanel" class="panel">
+      <div class="section-title">
+        <h2>Xu hướng 10 ngày</h2>
+        <span class="muted">Nhiệt độ & lượng mưa</span>
+      </div>
+      <div id="dailyList" class="daily-list"></div>
+    </section>
+
+    <section id="officialPanel" class="panel">
+      <div class="card official-card">
+        <div>
+          <div class="eyebrow">NGUỒN CHÍNH THỨC</div>
+          <h2>KTTV Quốc gia – Cao Bằng</h2>
+          <p>Ứng dụng không giả lập dữ liệu KTTV. Nút dưới mở trực tiếp trang dự báo chính thức để bạn đối chiếu với ba mô hình.</p>
+        </div>
+        <a class="official-link" href="https://nchmf.gov.vn/kttv/vi-VN/1/thuc-phan-cao-bang-w49.html" target="_blank" rel="noopener">Mở dự báo KTTV ↗</a>
+      </div>
+      <div class="card note-card">
+        <strong>Lưu ý:</strong> “2/3 mô hình cùng báo mưa” là mức độ đồng thuận, không phải “67% xác suất mưa”.
+      </div>
+    </section>
+
+    <footer>
+      Dữ liệu mô hình: Open‑Meteo · ECMWF IFS HRES · NOAA GFS · CMA GRAPES<br/>
+      Bản thử nghiệm phục vụ tham khảo, không thay thế cảnh báo thời tiết chính thức.
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
