@@ -1,0 +1,29 @@
+name: 20FINAL 3D Backtest
+
+on:
+  push:
+    branches:
+      - backtest-20final-3d-20260929
+    paths:
+      - 'autotrade_v2/tests/backtest_20final_3d.py'
+      - '.github/workflows/backtest-20final-3d.yml'
+  workflow_dispatch:
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    env:
+      TZ: UTC
+      PYTHONHASHSEED: '0'
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.14'
+      - name: Install dependencies
+        run: pip install pandas==2.2.3 numpy==2.3.5 httpx==0.28.1
+      - name: Run 20FINAL three-day backtest
+        env:
+          PYTHONPATH: autotrade_v2
+        run: python autotrade_v2/tests/backtest_20final_3d.py
