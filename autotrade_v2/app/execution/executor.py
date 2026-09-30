@@ -85,6 +85,21 @@ class LegacyStyleBingXClient:
                     f"BingX HTTP {response.status_code}: {msg or response.text[:200]}"
                 )
             if code not in (0,"0"):
+                expected_missing_client_order=(
+                    str(code)=="109421"
+                    and method.upper()=="GET"
+                    and path==self.ORDER_PATH
+                    and bool(body.get("clientOrderId"))
+                    and not body.get("orderId")
+                )
+                if expected_missing_client_order:
+                    log.info(
+                        "BINGX_ORDER_NOT_FOUND_EXPECTED path=%s symbol=%s client_order_id=%s",
+                        path,body.get("symbol"),body.get("clientOrderId"),
+                    )
+                    raise BingXApiError(
+                        code,msg or "order not exist",path,body
+                    )
                 raise self.guard.api_error(
                     "legacy_executor",code,msg or "BingX rejected request",path,body
                 )
