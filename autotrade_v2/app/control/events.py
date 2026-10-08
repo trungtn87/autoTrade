@@ -276,67 +276,6 @@ class EventReporter:
             daemon=True,
         )
         self._thread.start()
-        # One safe, read-only probe per process start. GET on a tokenized
-        # Discord webhook returns webhook metadata but does not post a message.
-        # This distinguishes webhook/payload issues from Render->Discord edge
-        # throttling without touching execution or creating channel noise.
-        self._probe_thread = threading.Thread(
-            target=self._probe_discord_webhooks,
-            name="layer4-discord-probe",
-            daemon=True,
-        )
-        self._probe_thread.start()
-
-    def _probe_discord_webhooks(self) -> None:
-        """Small read-only matrix to identify Discord/Cloudflare block scope."""
-        if not self.discord_enabled:
-            return
-
-        browser_headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/141.0.0.0 Safari/537.36"
-            ),
-            "Accept": "application/json,text/plain,*/*",
-        }
-        tests: list[tuple[str, str, dict[str, str] | None, str]] = [
-            ("gateway_requests_default", "https://discord.com/api/v10/gateway", None, "requests"),
-            ("gateway_requests_browser_ua", "https://discord.com/api/v10/gateway", browser_headers, "requests"),
-        ]
-
-        webhook = self.webhook_eth or self.webhook_btc or self.webhook_error
-        if webhook:
-            tests.extend([
-                ("webhook_requests_default", webhook, None, "requests"),
-                ("webhook_requests_browser_ua", webhook, browser_headers, "requests"),
-                ("webhook_httpx_default", webhook, None, "httpx"),
-            ])
-
-        for name, url, headers, client in tests:
-            try:
-                if client == "httpx":
-                    import httpx
-                    response = httpx.get(url, headers=headers, timeout=8.0, follow_redirects=True)
-                else:
-                    response = requests.get(url, headers=headers, timeout=8)
-                diag = _discord_response_diag(response)
-                level = logging.INFO if response.status_code == 200 else logging.WARNING
-                log.log(
-                    level,
-                    "EVENT key=L4.DISCORD.PROBE_MATRIX test=%s client=%s diag=%s",
-                    name,
-                    client,
-                    json.dumps(diag, ensure_ascii=True, separators=(",", ":")),
-                )
-            except Exception as exc:
-                log.warning(
-                    "EVENT key=L4.DISCORD.PROBE_MATRIX_FAIL test=%s client=%s error=%s",
-                    name,
-                    client,
-                    f"{type(exc).__name__}: {exc}",
-                )
-            time.sleep(0.75)
 
     def emit(
         self,
