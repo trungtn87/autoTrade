@@ -645,7 +645,7 @@ class EventReporter:
                     attempt + 1,
                     json.dumps(diag, ensure_ascii=True, separators=(",", ":")),
                 )
-                if response.status_code != 429 or attempt >= 2:
+                if response.status_code != 429:
                     raise RuntimeError(
                         f"Discord HTTP {response.status_code}: {response.text[:200]}"
                     )
@@ -655,7 +655,23 @@ class EventReporter:
                     delay = float(retry_after) if retry_after else 1.0
                 except (TypeError, ValueError):
                     delay = 1.0
-                time.sleep(max(0.25, min(delay, 5.0)))
+
+                # Cloudflare Error 1015 is an edge/WAF block, not the normal
+                # Discord webhook bucket limit. Retrying every few seconds
+                # cannot succeed while that block is active and Cloudflare
+                # explicitly warns that repeated attempts may prolong it.
+                raw_lower = (response.text or "").lower()
+                cloudflare_1015 = (
+                    "error 1015" in raw_lower
+                    or "you are being rate limited" in raw_lower
+                    or "you are being rate-limited by the website owner" in raw_lower
+                )
+                if cloudflare_1015 or delay > 30.0 or attempt >= 2:
+                    raise RuntimeError(
+                        f"Discord Cloudflare/rate-limit HTTP 429 retry_after={delay:.0f}s"
+                    )
+
+                time.sleep(max(0.25, delay))
             else:
                 raise RuntimeError("Discord retry loop exhausted")
 
