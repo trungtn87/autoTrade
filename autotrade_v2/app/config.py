@@ -45,6 +45,10 @@ class Settings:
     discord_webhook_btc: str = os.getenv("DISCORD_WEBHOOK_BTC", "")
     discord_webhook_eth: str = os.getenv("DISCORD_WEBHOOK_ETH", "")
     discord_webhook_error: str = os.getenv("DISCORD_WEBHOOK_ERROR", "")
+    # Optional Google Apps Script / external relay. When configured, Discord
+    # traffic leaves through the relay instead of Render's outbound network.
+    discord_relay_url: str = os.getenv("DISCORD_RELAY_URL", "")
+    discord_relay_token: str = os.getenv("DISCORD_RELAY_TOKEN", "")
 
     # Severe Layer-4 alerts. Email is independent from Discord and must never
     # participate in trading decisions or block the execution path.
