@@ -120,6 +120,11 @@ def _combo_label(combo: Any) -> str:
     return f"C{combo_id}"
 
 
+_DISCORD_REQUEST_HEADERS = {
+    "User-Agent": "DiscordBot (https://github.com/trungtn87/autoTrade, 2.0)",
+    "Accept": "application/json",
+}
+
 _DISCORD_DIAG_HEADERS = (
     "Retry-After",
     "X-RateLimit-Scope",
@@ -570,7 +575,12 @@ class EventReporter:
         try:
             response = None
             for attempt in range(3):
-                response = requests.post(url, json={"content": content}, timeout=8)
+                response = requests.post(
+                    url,
+                    json={"content": content},
+                    headers=_DISCORD_REQUEST_HEADERS,
+                    timeout=8,
+                )
                 if response.status_code == 204:
                     log.info(
                         "EVENT key=L4.DISCORD.SEND_OK source_key=%s symbol=%s status=204 attempt=%s",
