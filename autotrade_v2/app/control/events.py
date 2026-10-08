@@ -237,6 +237,8 @@ class EventReporter:
         webhook_btc: str = "",
         webhook_eth: str = "",
         webhook_error: str = "",
+        relay_url: str = "",
+        relay_token: str = "",
         email_enabled: bool = False,
         smtp_host: str = "",
         smtp_port: int = 587,
@@ -251,6 +253,8 @@ class EventReporter:
         self.webhook_btc = (webhook_btc or "").strip()
         self.webhook_eth = (webhook_eth or "").strip()
         self.webhook_error = (webhook_error or "").strip()
+        self.relay_url = (relay_url or "").strip()
+        self.relay_token = str(relay_token or "")
         self.email_enabled = bool(email_enabled)
         self.smtp_host = (smtp_host or "").strip()
         self.smtp_port = int(smtp_port or 587)
