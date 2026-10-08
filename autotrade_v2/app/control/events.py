@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import queue
+import re
 import smtplib
 import threading
 import time
@@ -135,7 +136,7 @@ _DISCORD_DIAG_HEADERS = (
 )
 
 
-def _discord_response_diag(response: requests.Response) -> dict[str, Any]:
+def _discord_response_diag(response: Any) -> dict[str, Any]:
     """Safe Discord/Cloudflare diagnostics without logging webhook secrets."""
     headers = {
         key: response.headers.get(key)
@@ -146,9 +147,24 @@ def _discord_response_diag(response: requests.Response) -> dict[str, Any]:
         "status": int(response.status_code),
         "headers": headers,
     }
+    raw = response.text or ""
     if response.status_code not in {200, 204}:
-        body = (response.text or "").replace("\r", " ").replace("\n", " ").strip()
+        body = raw.replace("\r", " ").replace("\n", " ").strip()
         diag["body_prefix"] = body[:240]
+        title = re.search(r"<title[^>]*>(.*?)</title>", raw, re.I | re.S)
+        h1 = re.search(r"<h1[^>]*>(.*?)</h1>", raw, re.I | re.S)
+        cf_error = re.search(r"(?:Error|error)\s*(?:code\s*)?(\d{3,4})", raw)
+        if title:
+            diag["html_title"] = re.sub(r"<[^>]+>", "", title.group(1)).strip()[:160]
+        if h1:
+            diag["html_h1"] = re.sub(r"<[^>]+>", "", h1.group(1)).strip()[:160]
+        if cf_error:
+            diag["cf_error_code"] = cf_error.group(1)
+        lowered = raw.lower()
+        if "you are being rate limited" in lowered:
+            diag["cf_marker"] = "you_are_being_rate_limited"
+        elif "access denied" in lowered:
+            diag["cf_marker"] = "access_denied"
     return diag
 
 
@@ -268,35 +284,55 @@ class EventReporter:
         self._probe_thread.start()
 
     def _probe_discord_webhooks(self) -> None:
+        """Small read-only matrix to identify Discord/Cloudflare block scope."""
         if not self.discord_enabled:
             return
-        routes = (
-            ("BTC", self.webhook_btc),
-            ("ETH", self.webhook_eth),
-            ("ERROR", self.webhook_error),
-        )
-        seen: set[str] = set()
-        for route, url in routes:
-            if not url or url in seen:
-                continue
-            seen.add(url)
+
+        browser_headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/141.0.0.0 Safari/537.36"
+            ),
+            "Accept": "application/json,text/plain,*/*",
+        }
+        tests: list[tuple[str, str, dict[str, str] | None, str]] = [
+            ("gateway_requests_default", "https://discord.com/api/v10/gateway", None, "requests"),
+            ("gateway_requests_browser_ua", "https://discord.com/api/v10/gateway", browser_headers, "requests"),
+        ]
+
+        webhook = self.webhook_eth or self.webhook_btc or self.webhook_error
+        if webhook:
+            tests.extend([
+                ("webhook_requests_default", webhook, None, "requests"),
+                ("webhook_requests_browser_ua", webhook, browser_headers, "requests"),
+                ("webhook_httpx_default", webhook, None, "httpx"),
+            ])
+
+        for name, url, headers, client in tests:
             try:
-                response = requests.get(url, timeout=8)
+                if client == "httpx":
+                    import httpx
+                    response = httpx.get(url, headers=headers, timeout=8.0, follow_redirects=True)
+                else:
+                    response = requests.get(url, headers=headers, timeout=8)
                 diag = _discord_response_diag(response)
                 level = logging.INFO if response.status_code == 200 else logging.WARNING
                 log.log(
                     level,
-                    "EVENT key=L4.DISCORD.PROBE route=%s diag=%s",
-                    route,
+                    "EVENT key=L4.DISCORD.PROBE_MATRIX test=%s client=%s diag=%s",
+                    name,
+                    client,
                     json.dumps(diag, ensure_ascii=True, separators=(",", ":")),
                 )
             except Exception as exc:
                 log.warning(
-                    "EVENT key=L4.DISCORD.PROBE_FAIL route=%s error=%s",
-                    route,
+                    "EVENT key=L4.DISCORD.PROBE_MATRIX_FAIL test=%s client=%s error=%s",
+                    name,
+                    client,
                     f"{type(exc).__name__}: {exc}",
                 )
-            time.sleep(0.5)
+            time.sleep(0.75)
 
     def emit(
         self,
