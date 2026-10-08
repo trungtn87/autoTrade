@@ -119,6 +119,39 @@ def _combo_label(combo: Any) -> str:
     return f"C{combo_id}"
 
 
+_DISCORD_DIAG_HEADERS = (
+    "Retry-After",
+    "X-RateLimit-Scope",
+    "X-RateLimit-Limit",
+    "X-RateLimit-Remaining",
+    "X-RateLimit-Reset",
+    "X-RateLimit-Reset-After",
+    "X-RateLimit-Bucket",
+    "X-RateLimit-Global",
+    "CF-Ray",
+    "Server",
+    "Via",
+    "Content-Type",
+)
+
+
+def _discord_response_diag(response: requests.Response) -> dict[str, Any]:
+    """Safe Discord/Cloudflare diagnostics without logging webhook secrets."""
+    headers = {
+        key: response.headers.get(key)
+        for key in _DISCORD_DIAG_HEADERS
+        if response.headers.get(key) is not None
+    }
+    diag: dict[str, Any] = {
+        "status": int(response.status_code),
+        "headers": headers,
+    }
+    if response.status_code not in {200, 204}:
+        body = (response.text or "").replace("\r", " ").replace("\n", " ").strip()
+        diag["body_prefix"] = body[:240]
+    return diag
+
+
 def _order_discord_content(event: "SystemEvent") -> str:
     """Compact human-facing order summary using Layer-2 intent prices."""
     details = event.details or {}
@@ -223,6 +256,47 @@ class EventReporter:
             daemon=True,
         )
         self._thread.start()
+        # One safe, read-only probe per process start. GET on a tokenized
+        # Discord webhook returns webhook metadata but does not post a message.
+        # This distinguishes webhook/payload issues from Render->Discord edge
+        # throttling without touching execution or creating channel noise.
+        self._probe_thread = threading.Thread(
+            target=self._probe_discord_webhooks,
+            name="layer4-discord-probe",
+            daemon=True,
+        )
+        self._probe_thread.start()
+
+    def _probe_discord_webhooks(self) -> None:
+        if not self.discord_enabled:
+            return
+        routes = (
+            ("BTC", self.webhook_btc),
+            ("ETH", self.webhook_eth),
+            ("ERROR", self.webhook_error),
+        )
+        seen: set[str] = set()
+        for route, url in routes:
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            try:
+                response = requests.get(url, timeout=8)
+                diag = _discord_response_diag(response)
+                level = logging.INFO if response.status_code == 200 else logging.WARNING
+                log.log(
+                    level,
+                    "EVENT key=L4.DISCORD.PROBE route=%s diag=%s",
+                    route,
+                    json.dumps(diag, ensure_ascii=True, separators=(",", ":")),
+                )
+            except Exception as exc:
+                log.warning(
+                    "EVENT key=L4.DISCORD.PROBE_FAIL route=%s error=%s",
+                    route,
+                    f"{type(exc).__name__}: {exc}",
+                )
+            time.sleep(0.5)
 
     def emit(
         self,
@@ -519,7 +593,22 @@ class EventReporter:
             for attempt in range(3):
                 response = requests.post(url, json={"content": content}, timeout=8)
                 if response.status_code == 204:
+                    log.info(
+                        "EVENT key=L4.DISCORD.SEND_OK source_key=%s symbol=%s status=204 attempt=%s",
+                        event.event_key,
+                        event.symbol,
+                        attempt + 1,
+                    )
                     break
+
+                diag = _discord_response_diag(response)
+                log.warning(
+                    "EVENT key=L4.DISCORD.HTTP_DIAG source_key=%s symbol=%s attempt=%s diag=%s",
+                    event.event_key,
+                    event.symbol,
+                    attempt + 1,
+                    json.dumps(diag, ensure_ascii=True, separators=(",", ":")),
+                )
                 if response.status_code != 429 or attempt >= 2:
                     raise RuntimeError(
                         f"Discord HTTP {response.status_code}: {response.text[:200]}"
