@@ -14,6 +14,8 @@ from typing import Any
 
 import requests
 
+from .discord_batch import DiscordTradeOutbox
+
 log = logging.getLogger(__name__)
 
 _SEVERITY_LEVEL = {
@@ -275,6 +277,10 @@ class EventReporter:
         self._last_error = ""
         self._last_discord: dict[str, float] = {}
         self._last_email: dict[str, float] = {}
+        self._trade_outbox = (
+            DiscordTradeOutbox(self.database_url)
+            if self.discord_enabled and self.database_url else None
+        )
         self._thread = threading.Thread(
             target=self._worker,
             name="layer4-events",
@@ -351,9 +357,25 @@ class EventReporter:
         self._thread.join(timeout=2.0)
         self._stop.set()
 
+    def _flush_trade_batches(self) -> None:
+        if self._trade_outbox is None:
+            return
+        try:
+            self._trade_outbox.flush_one(
+                {"BTC-USDT": self.webhook_btc, "ETH-USDT": self.webhook_eth},
+                _DISCORD_REQUEST_HEADERS,
+            )
+        except Exception as exc:
+            self._last_error = f"discord batch worker failed: {type(exc).__name__}: {exc}"
+            log.exception("EVENT key=L4.DISCORD.BATCH_WORKER_FAIL error=%s", exc)
+
     def _worker(self) -> None:
         while True:
-            event = self._queue.get()
+            try:
+                event = self._queue.get(timeout=1.0)
+            except queue.Empty:
+                self._flush_trade_batches()
+                continue
             if event is None:
                 break
             try:
@@ -375,6 +397,8 @@ class EventReporter:
                     details={"source_event_key": event.event_key},
                 ).normalized()
                 self._send_email_alert(fail)
+            finally:
+                self._flush_trade_batches()
 
     def _persist(self, event: SystemEvent) -> None:
         if not self.database_url:
@@ -515,6 +539,13 @@ class EventReporter:
         self._send_email_alert(event)
 
         if not self.discord_enabled:
+            return
+
+        # Execution emits several intermediate events. Only the final result
+        # is staged, with Entry/TP/SL already available, and nearby results
+        # sharing the candle boundary are sent in a single Discord message.
+        if event.event_key in _ORDER_RESULT_KEYS and self._trade_outbox is not None:
+            self._trade_outbox.stage(event)
             return
 
         url = ""
