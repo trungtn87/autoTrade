@@ -15,6 +15,7 @@ class Event:
     symbol: str = "BTC-USDT"
     combo: int = 1
     order_id: str = "ORDER123"
+    message: str = "entry and protections reconciled"
     created_at: str = "2026-10-11T16:00:27+00:00"
     details: dict | None = None
 
