@@ -281,6 +281,7 @@ class EventReporter:
             DiscordTradeOutbox(self.database_url)
             if self.discord_enabled and self.database_url else None
         )
+        self._next_batch_poll = 0.0
         self._thread = threading.Thread(
             target=self._worker,
             name="layer4-events",
@@ -360,6 +361,11 @@ class EventReporter:
     def _flush_trade_batches(self) -> None:
         if self._trade_outbox is None:
             return
+        now = time.monotonic()
+        if now < self._next_batch_poll:
+            return
+        # Avoid a new Supabase connection on each 1-second worker wake-up.
+        self._next_batch_poll = now + 5.0
         try:
             self._trade_outbox.flush_one(
                 {"BTC-USDT": self.webhook_btc, "ETH-USDT": self.webhook_eth},
