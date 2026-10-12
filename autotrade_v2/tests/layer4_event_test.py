@@ -75,7 +75,7 @@ def main():
         status_code=204
         text=""
 
-    def fake_post(url,json,timeout):
+    def fake_post(url,json,timeout,headers=None):
         posts.append((url,json,timeout))
         return FakeResponse()
 

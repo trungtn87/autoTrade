@@ -1,0 +1,24 @@
+name: Discord Trade Batch Tests
+on:
+  pull_request:
+    branches: [autotrade-v2-clean]
+    paths:
+      - 'autotrade_v2/app/control/discord_batch.py'
+      - 'autotrade_v2/app/control/events.py'
+      - 'autotrade_v2/tests/test_discord_batch.py'
+      - '.github/workflows/discord-batch-tests.yml'
+  push:
+    branches: [fix/discord-trade-batches-20261012]
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install "psycopg[binary]==3.2.10" "requests==2.32.5"
+      - name: Run batch notification tests
+        run: python -m unittest discover -s autotrade_v2/tests -p 'test_discord_batch.py' -v
