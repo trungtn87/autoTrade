@@ -69,8 +69,40 @@ class TradeBatchTests(unittest.TestCase):
         ]
         message, ids = _one_message("BTC-USDT",rows)
         self.assertEqual(ids,[1,2])
-        for expected in ("C1 BUY","C4 BUY","84135.1","85782.71","83427.89","A1","A2"):
+        for expected in ("✅ Đặt lệnh", "BTC-USDT BUY", "📊 Combo C1",
+                         "📊 Combo C4", "84135.1", "85782.71", "83427.89"):
             self.assertIn(expected,message)
+        self.assertEqual(message.count("✅ Đặt lệnh thành công"), 2)
+        self.assertNotIn("📦", message)
+        self.assertNotIn("Order:", message)
+
+    def test_single_order_uses_exact_classic_discord_format(self):
+        """Old screenshot: no batch heading, no order ID or technical event key."""
+        content, ids = _one_message("BTC-USDT", [
+            (1, {"event_key": "L3.EXEC.ORDER_COMPLETE", "combo": 11,
+                 "side": "BUY", "entry": 86612.6,
+                 "tp": 88171.6268, "sl": 85833.0866}),
+        ])
+        self.assertEqual(ids, [1])
+        self.assertEqual(content,
+            "✅ Đặt lệnh\n"
+            "BTC-USDT BUY\n\n"
+            "📊 Combo TIER\n"
+            "Entry: 86612.6\n\n"
+            "TP : 88171.6268\n"
+            "SL : 85833.0866\n\n"
+            "✅ Đặt lệnh thành công")
+
+    def test_failure_preserves_old_error_layout(self):
+        content, ids = _one_message("ETH-USDT", [
+            (1, {"event_key": "L3.EXEC.ORDER_FAIL", "combo": 104,
+                 "side": "SELL", "entry": 2400, "tp": 2300, "sl": 2450,
+                 "error": "BingX không khớp lệnh"})
+        ])
+        self.assertEqual(ids, [1])
+        self.assertIn("❌ Đặt lệnh\nETH-USDT SELL", content)
+        self.assertIn("📊 Combo C14", content)
+        self.assertIn("❌ Đặt lệnh thất bại\nLý do: BingX không khớp lệnh", content)
 
     def test_long_batch_does_not_drop_unformatted_rows(self):
         rows = [(i, {"event_key":"L3.EXEC.ORDER_FAIL","combo":i,
@@ -101,8 +133,9 @@ class TradeBatchTests(unittest.TestCase):
              patch("autotrade_v2.app.control.discord_batch.requests.post",return_value=Response()) as post:
             self.assertTrue(outbox.flush_one({"BTC-USDT":"https://example.invalid/secret"},{}))
         self.assertEqual(post.call_count,1)
-        self.assertIn("C1 BUY",post.call_args.kwargs["json"]["content"])
-        self.assertIn("C4 BUY",post.call_args.kwargs["json"]["content"])
+        self.assertIn("📊 Combo C1", post.call_args.kwargs["json"]["content"])
+        self.assertIn("📊 Combo C4", post.call_args.kwargs["json"]["content"])
+        self.assertEqual(post.call_args.kwargs["json"]["content"].count("BTC-USDT BUY"), 2)
         self.assertIn("SET sent_at=now()",cur.calls[-1][0])
 
     def test_1015_defers_every_pending_order_without_fast_retry(self):
