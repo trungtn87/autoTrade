@@ -52,41 +52,49 @@ def _batch_key(event) -> str:
     return f"{event.symbol}|fallback-{int(timestamp // 900)}"
 
 
-def _row_text(data: dict) -> str:
-    key = data.get("event_key", "")
-    successful = key == "L3.EXEC.ORDER_COMPLETE"
-    label = "✅ Đã khớp, TP/SL xác nhận" if successful else f"⚠️ {key.split('.')[-1]}"
-    prefix = f"{label} | {_combo(data.get('combo'))} {data.get('side') or '-'}"
-    if data.get("timeframe"):
-        prefix += f" ({data['timeframe']})"
+def _row_text(data: dict, symbol: str) -> str:
+    """Keep the classic Discord trade layout, including for grouped trades."""
+    successful = data.get("event_key") == "L3.EXEC.ORDER_COMPLETE"
+    side = str(data.get("side") or "").upper()
     lines = [
-        prefix,
-        f"Entry: {_number(data.get('entry'))} | TP: {_number(data.get('tp'))} | SL: {_number(data.get('sl'))}",
+        f"{'✅' if successful else '❌'} Đặt lệnh",
+        " ".join(part for part in (symbol, side) if part) or "-",
+        "",
+        f"📊 Combo {_combo(data.get('combo'))}",
+        f"Entry: {_number(data.get('entry'))}",
+        "",
+        f"TP : {_number(data.get('tp'))}",
+        f"SL : {_number(data.get('sl'))}",
+        "",
     ]
-    if data.get("order_id"):
-        lines.append(f"Order: {str(data['order_id'])[:90]}")
-    if not successful:
-        lines.append(f"Lý do: {str(data.get('error') or '-').replace(chr(10), ' ')[:160]}")
+    if successful:
+        lines.append("✅ Đặt lệnh thành công")
+    else:
+        # Preserve the old failed-order layout without leaking multiline details.
+        reason = str(data.get("error") or "Không rõ lý do")
+        reason = reason.replace("\r", " ").replace("\n", " ")[:160]
+        lines.extend(("❌ Đặt lệnh thất bại", f"Lý do: {reason}"))
     return "\n".join(lines)
 
 
 def _one_message(symbol: str, rows: list[tuple[int, dict]]) -> tuple[str, list[int]]:
-    header = f"📦 {symbol} — tổng hợp lệnh đã xử lý\n"
+    """One old-style block for each trade, joined into a single HTTP post."""
+    divider = "\n\n────────────\n\n"
     chosen: list[int] = []
     parts: list[str] = []
-    used = len(header)
+    used = 0
     for row_id, data in rows:
-        block = _row_text(data)
-        addition = len(block) + (2 if parts else 0)
+        block = _row_text(data, symbol)
+        addition = len(block) + (len(divider) if parts else 0)
         if used + addition > MAX_MESSAGE_LENGTH and parts:
             break
-        # A pathological single error string must not prevent the entire batch.
+        # A pathological single error must not stall the durable outbox.
         if used + addition > MAX_MESSAGE_LENGTH:
-            block = block[:MAX_MESSAGE_LENGTH - used - 1]
+            block = block[:MAX_MESSAGE_LENGTH]
         parts.append(block)
         chosen.append(row_id)
-        used += len(block) + (2 if len(parts) > 1 else 0)
-    return header + "\n\n".join(parts), chosen
+        used += len(block) + (len(divider) if len(parts) > 1 else 0)
+    return divider.join(parts), chosen
 
 
 def _retry_seconds(response, attempt: int) -> float:
