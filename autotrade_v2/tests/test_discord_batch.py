@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from unittest.mock import patch
 
 from autotrade_v2.app.control.discord_batch import (
-    DiscordTradeOutbox, _batch_key, _one_message, _retry_seconds,
+    DiscordTradeOutbox, _batch_key, _format_vn_time, _one_message, _retry_seconds,
 )
 
 @dataclass
@@ -76,12 +76,26 @@ class TradeBatchTests(unittest.TestCase):
         self.assertNotIn("📦", message)
         self.assertNotIn("Order:", message)
 
+    def test_order_time_is_original_event_time_in_vietnam(self):
+        # Discord may post at 22:35, but the order was confirmed at 22:00.
+        self.assertEqual(
+            _format_vn_time("2026-10-24T15:00:24+00:00"),
+            "22:00:24 24/10/2026",
+        )
+        self.assertEqual(
+            _format_vn_time("2026-10-24T15:00:24Z"),
+            "22:00:24 24/10/2026",
+        )
+        self.assertEqual(_format_vn_time("2026-10-24T15:00:24"), "")
+        self.assertEqual(_format_vn_time("invalid"), "")
+
     def test_single_order_uses_exact_classic_discord_format(self):
         """Old screenshot: no batch heading, no order ID or technical event key."""
         content, ids = _one_message("BTC-USDT", [
             (1, {"event_key": "L3.EXEC.ORDER_COMPLETE", "combo": 11,
                  "side": "BUY", "entry": 86612.6,
-                 "tp": 88171.6268, "sl": 85833.0866}),
+                 "tp": 88171.6268, "sl": 85833.0866,
+                 "order_time": "2026-10-24T15:00:24+00:00"}),
         ])
         self.assertEqual(ids, [1])
         self.assertEqual(content,
@@ -91,17 +105,20 @@ class TradeBatchTests(unittest.TestCase):
             "Entry: 86612.6\n\n"
             "TP : 88171.6268\n"
             "SL : 85833.0866\n\n"
+            "🕒 Giờ xác nhận lệnh (VN): 22:00:24 24/10/2026\n\n"
             "✅ Đặt lệnh thành công")
 
     def test_failure_preserves_old_error_layout(self):
         content, ids = _one_message("ETH-USDT", [
             (1, {"event_key": "L3.EXEC.ORDER_FAIL", "combo": 104,
                  "side": "SELL", "entry": 2400, "tp": 2300, "sl": 2450,
-                 "error": "BingX không khớp lệnh"})
+                 "error": "BingX không khớp lệnh",
+                 "order_time": "2026-10-24T15:00:24+00:00"})
         ])
         self.assertEqual(ids, [1])
         self.assertIn("❌ Đặt lệnh\nETH-USDT SELL", content)
         self.assertIn("📊 Combo C14", content)
+        self.assertIn("🕒 Giờ xử lý lệnh (VN): 22:00:24 24/10/2026", content)
         self.assertIn("❌ Đặt lệnh thất bại\nLý do: BingX không khớp lệnh", content)
 
     def test_long_batch_does_not_drop_unformatted_rows(self):
@@ -123,6 +140,7 @@ class TradeBatchTests(unittest.TestCase):
             outbox.stage(ev)
         self.assertIn("ON CONFLICT",cur.calls[0][0])
         self.assertIn('"entry": 84000',cur.calls[0][1][4])
+        self.assertIn('"order_time": "2026-10-11T16:00:27+00:00"',cur.calls[0][1][4])
 
     def test_two_orders_send_in_one_http_call(self):
         payload = {"event_key":"L3.EXEC.ORDER_COMPLETE","combo":1,"side":"BUY",
