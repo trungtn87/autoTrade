@@ -8,7 +8,7 @@ import hashlib
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import psycopg
 import requests
@@ -40,6 +40,21 @@ def _combo(value) -> str:
     return "TIER" if num == 11 else f"C{num}"
 
 
+def _format_vn_time(value) -> str:
+    """Format an original event timestamp, never the delayed Discord post time."""
+    if not value:
+        return ""
+    try:
+        timestamp = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if timestamp.tzinfo is None:
+            return ""  # An unspecified timezone must not be guessed.
+        return timestamp.astimezone(timezone(timedelta(hours=7))).strftime(
+            "%H:%M:%S %d/%m/%Y"
+        )
+    except (TypeError, ValueError, OverflowError):
+        return ""
+
+
 def _batch_key(event) -> str:
     """A 1h and 15m result closing on the same candle boundary share a batch."""
     parts = str(event.event_id or "").split("|")
@@ -67,6 +82,10 @@ def _row_text(data: dict, symbol: str) -> str:
         f"SL : {_number(data.get('sl'))}",
         "",
     ]
+    order_time = _format_vn_time(data.get("order_time"))
+    if order_time:
+        label = "Giờ xác nhận lệnh" if successful else "Giờ xử lý lệnh"
+        lines.extend((f"🕒 {label} (VN): {order_time}", ""))
     if successful:
         lines.append("✅ Đặt lệnh thành công")
     else:
@@ -131,6 +150,8 @@ class DiscordTradeOutbox:
             "order_id": event.order_id or details.get("order_id"),
             "error": details.get("error") or event.message,
             "timeframe": parts[1] if len(parts) >= 5 else "",
+            # Persist when the trade outcome was confirmed, not when Discord retries.
+            "order_time": details.get("order_time") or event.created_at,
         }
         event_id = event.event_id or hashlib.sha256(
             f"{event.event_key}|{event.symbol}|{event.order_id}|{event.created_at}".encode()
