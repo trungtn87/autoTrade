@@ -14,7 +14,7 @@ from typing import Any
 
 import requests
 
-from .discord_batch import DiscordTradeOutbox
+from .discord_batch import DiscordTradeOutbox, _format_vn_time
 
 log = logging.getLogger(__name__)
 
@@ -192,6 +192,14 @@ def _order_discord_content(event: "SystemEvent") -> str:
         f"SL : {_fmt_trade_number(details.get('sl'))}",
         "",
     ]
+    order_time = _format_vn_time(details.get("order_time") or event.created_at)
+    if order_time:
+        label = (
+            "Giờ xác nhận lệnh"
+            if event.event_key == "L3.EXEC.ORDER_COMPLETE"
+            else "Giờ xử lý lệnh"
+        )
+        lines.extend((f"🕒 {label} (VN): {order_time}", ""))
     if event.event_key == "L3.EXEC.ORDER_COMPLETE":
         lines.append("✅ Đặt lệnh thành công")
     else:
