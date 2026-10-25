@@ -20,7 +20,7 @@ def _amount(value, label:str)->Decimal:
 
 def confirmed_position_qty(
     positions:list[dict],symbol:str,entry_side:str,executed_qty,
-    allow_aggregate:bool=False,
+    allow_aggregate:bool=False,expected_position_id:str|None=None,
 )->tuple[str,str|None]:
     """Source this trade's real quantity from its own BingX executedQty.
 
@@ -40,25 +40,22 @@ def confirmed_position_qty(
     filled=_amount(executed_qty,"executedQty")
     if filled<=0 or not candidates:
         raise PositionQuantityMismatch("BingX entry filled but no matching live position")
-    total=sum((amount for _,amount in candidates),Decimal(0))
-    if allow_aggregate:
-        if total<filled:
-            raise PositionQuantityMismatch(
-                f"BingX shared positionAmt={total} smaller than actual executedQty={filled}"
-            )
-        # The account-side position can exceed this trade's exact fill due to
-        # other same-side combos. Preserve the per-order exchange fill.
-        own=filled
-    else:
-        if len(candidates)!=1 or total!=filled:
-            raise PositionQuantityMismatch(
-                f"BingX positionAmt={total} differs from executedQty={filled}"
-            )
-        own=total
-    position_id=(
-        str(candidates[0][0].get("positionId") or "") or None
-        if len(candidates)==1 else None
-    )
+    if expected_position_id:
+        candidates=[(row,amt) for row,amt in candidates
+                    if str(row.get("positionId") or "")==str(expected_position_id)]
+    if len(candidates)!=1:
+        raise PositionQuantityMismatch(
+            "cannot attribute exchange-side quantity to one confirmed BingX positionId"
+        )
+    row,total=candidates[0]
+    if (allow_aggregate and total<filled) or (not allow_aggregate and total!=filled):
+        raise PositionQuantityMismatch(
+            f"BingX selected positionAmt={total} differs from executedQty={filled}"
+        )
+    own=filled if allow_aggregate else total
+    position_id=str(row.get("positionId") or "") or None
+    if expected_position_id and position_id!=str(expected_position_id):
+        raise PositionQuantityMismatch("BingX tracked positionId changed")
     return format(own,"f"),position_id
 
 
