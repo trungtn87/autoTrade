@@ -415,6 +415,27 @@ def main():
         )=="closed"
         assert other.orders["foreign"]["status"]=="NEW"
 
+        # Trailing may now fill its half BEFORE the fixed TP, because it
+        # activates at entry +/- 0.5% rather than at the later hard TP.
+        # Remaining hard TP must stay live while own full SL resizes to 0.5.
+        trail_first=Exchange()
+        trail_first.position=Decimal("0.5")
+        trail_first.orders["trail-own"]["status"]="FILLED"
+        trail_first.orders["trail-own"]["executedQty"]="0.5"
+        own=[state("CTRAIL")]
+        trailing_lifecycle=ProtectionLifecycle(trail_first)
+        def save_trail(v):
+            own[0]=deepcopy(v)
+        assert trailing_lifecycle.reconcile(own[0],save_trail)=="sl_resized"
+        assert trail_first.orders["tp-own"]["status"]=="NEW"
+        resized_id=own[0]["protection"]["sl"]["order_id"]
+        assert trail_first.orders[resized_id]["origQty"]=="0.5"
+        trail_first.position=Decimal("0")
+        trail_first.orders["tp-own"]["status"]="FILLED"
+        trail_first.orders["tp-own"]["executedQty"]="0.5"
+        assert trailing_lifecycle.reconcile(own[0],save_trail)=="closed"
+        assert own[0]["lifecycle"]["status"]=="closed"
+
         print({"ok":True,"sl_resize":True,"full_close_cleanup":True,
                "owned_ids_only":True,"no_duplicate_on_restart":True,
                "lost_http_responses":True,"concurrent_combo_entry_allowed":True,
