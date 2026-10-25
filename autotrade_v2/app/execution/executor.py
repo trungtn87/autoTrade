@@ -391,6 +391,30 @@ class LegacyStyleBingXClient:
         tp_result=self.place_take_profit(symbol,entry_side,qty,tp)
         return {"tp":tp_result,"sl":sl_result}
 
+    def cancel_replace_stop_loss(
+        self,symbol:str,entry_side:str,old_order_id:str,
+        qty:str,sl:float,quantity_precision:int,
+        new_client_order_id:str,position_id:str|None=None,
+    )->dict:
+        """Atomic STOP_ON_FAILURE SL replacement; never cancel-then-place."""
+        opposite,position_side=self._protection_side(entry_side)
+        params={
+            "symbol":symbol,
+            "cancelOrderId":str(old_order_id),
+            "cancelReplaceMode":"STOP_ON_FAILURE",
+            "side":opposite,
+            "positionSide":position_side,
+            "type":"STOP_MARKET",
+            "quantity":self._fmt_exact_qty(qty,quantity_precision),
+            "stopPrice":self._fmt_price(sl),
+            "clientOrderId":str(new_client_order_id),
+        }
+        if position_id:
+            params["positionId"]=str(position_id)
+        return self._signed_request(
+            "POST","/openApi/swap/v1/trade/cancelReplace",params,
+        )
+
     def close_market(
         self,
         symbol:str,
