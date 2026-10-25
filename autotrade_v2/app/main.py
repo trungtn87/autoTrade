@@ -508,6 +508,8 @@ def health():
         "tp_trailing_callback_rate":settings.tp_trailing_callback_rate,
         "position_lifecycle_enabled":settings.position_lifecycle_enabled,
         "execution_credentials_verified":execution_service.credentials_verified,
+        # Read-only, redacted status; a real API ban prevents both SL and close.
+        "bingx_trade_guard":execution_service.executor.client.guard.status(),
         "dry_run":settings.dry_run,
         "db_backend":candle_store.backend,
         "runtime_status":runtime.get("status"),

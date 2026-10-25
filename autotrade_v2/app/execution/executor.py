@@ -73,8 +73,20 @@ class LegacyStyleBingXClient:
                 f"{self.settings.bingx_base_url}{self.CONTRACTS_PATH}",
                 params={"symbol":symbol},
             )
+            if response.status_code in (418,429):
+                raise self.guard.api_error(
+                    "contracts",f"HTTP_{response.status_code}",
+                    "BingX public contract endpoint is rate-restricted",
+                    self.CONTRACTS_PATH,{"symbol":symbol},
+                    retry_after=response.headers.get("Retry-After"),
+                )
             response.raise_for_status()
             payload=response.json()
+            if isinstance(payload,dict) and payload.get("code") not in (0,"0"):
+                raise self.guard.api_error(
+                    "contracts",payload.get("code"),str(payload.get("msg") or "contract query failed"),
+                    self.CONTRACTS_PATH,{"symbol":symbol},
+                )
         if not isinstance(payload,dict) or payload.get("code") not in (0,"0"):
             raise RuntimeError("BingX contract rules request failed")
         data=payload.get("data")
@@ -130,22 +142,31 @@ class LegacyStyleBingXClient:
                     response=self.http.delete(url,headers=headers)
                 else:
                     raise ValueError(f"unsupported method: {method}")
-                payload=response.json()
             except Exception as exc:
                 raise RuntimeError(
                     f"BingX trade transport failed: {type(exc).__name__}: {exc}"
                 ) from exc
 
+            # Cloudflare / BingX may return HTML instead of JSON for 429/418.
+            # Classify HTTP bans BEFORE attempting to parse the response body.
+            if response.status_code in (418,429):
+                raise self.guard.api_error(
+                    "legacy_executor",f"HTTP_{response.status_code}",
+                    "BingX HTTP ban" if response.status_code==418 else "BingX HTTP rate limit",
+                    path,body,retry_after=response.headers.get("Retry-After"),
+                )
+            try:
+                payload=response.json()
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"BingX response is not JSON: HTTP {response.status_code} path={path}"
+                ) from exc
             code=payload.get("code") if isinstance(payload,dict) else None
             msg=str(payload.get("msg","")) if isinstance(payload,dict) else ""
             log.info(
                 "BINGX_TRADE_RESP method=%s path=%s status=%s code=%s",
                 method.upper(),path,response.status_code,code,
             )
-            if response.status_code==429:
-                raise self.guard.api_error(
-                    "legacy_executor","HTTP_429","BingX HTTP rate limit",path,body
-                )
             if response.status_code<200 or response.status_code>=300:
                 raise RuntimeError(
                     f"BingX HTTP {response.status_code}: {msg or response.text[:200]}"
@@ -167,7 +188,8 @@ class LegacyStyleBingXClient:
                         code,msg or "order not exist",path,body
                     )
                 raise self.guard.api_error(
-                    "legacy_executor",code,msg or "BingX rejected request",path,body
+                    "legacy_executor",code,msg or "BingX rejected request",path,body,
+                    retry_after=response.headers.get("Retry-After"),
                 )
             return payload
 
