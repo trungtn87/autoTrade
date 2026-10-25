@@ -27,6 +27,29 @@ Layered live engine for the locked FINAL14 strategy.
 4. **Layer 4 — Control**
    - Structured events, audit persistence, Discord notifications, error classification, health reporting, and BingX request guard.
 
+## Optional 50/50 trailing exit (staged, disabled by default)
+
+Set `TP_TRAILING_SPLIT_ENABLED=true` to place full-size hard SL first,
+then a fixed TAKE_PROFIT_MARKET for approximately 50% of the actual fill,
+then an exchange-native TRAILING_STOP_MARKET for the remainder. Coin quantity
+rounds **down** to 4 decimals for trailing; the fixed-TP half takes the
+rounding remainder. If the filled quantity cannot be split into two nonzero
+4-decimal orders, the trade falls back to the original 100% fixed TP.
+
+The native trailing activation price is the trade's original TP price and
+`TP_TRAILING_CALLBACK_RATE` defaults to `0.005` (**0.5% price retracement**,
+not 0.5 percentage points of leveraged PnL). The existing fill vs TP/SL
+validation and the hard SL placement-first behavior remain unchanged.
+
+**Deployment warning:** This PR stages the functionality only. Production
+stays in 100% hard TP mode by default. Before enabling, verify exchange
+minimum order sizing, live BingX trailing parameter acceptance, and exit
+reconciliation: when one half closes, the full-size SL must be reduced to the
+remaining position, and stale TP/trailing/SL orders must be cancelled after a
+complete exit. The existing completion monitor does **not** yet implement
+that ongoing position-level cleanup, so leave the flag off in live trading
+until that protection lifecycle is implemented and tested.
+
 ## Locked strategy
 
 Version: FINAL14_RR_TP2_2026-09-21
