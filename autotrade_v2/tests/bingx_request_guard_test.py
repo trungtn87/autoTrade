@@ -101,6 +101,22 @@ def main():
             assert len(calls)==1,"no network retries or close bypass"
         client.http.close()
 
+    # Public contract-rules endpoint shares the protection guard. If it is
+    # throttled during 50/50 SL/TP setup, don't misclassify the HTML response.
+    public_guard=BingXRequestGuard(min_interval_sec=0)
+    public_client=LegacyStyleBingXClient(settings,request_guard=public_guard)
+    public_client.http.get=lambda *a,**kw: fake_response(
+        429,"<html>public throttled</html>",headers={"Retry-After":"180"}
+    )
+    with patch("app.control.bingx_guard.time.time",return_value=now/1000):
+        try:
+            public_client.get_contract_rules("BTC-USDT")
+            raise AssertionError("public contract call must honor 429")
+        except BingXApiError as exc:
+            assert exc.code=="HTTP_429"
+        assert public_guard.status()["remaining_ms"]==180_000
+    public_client.http.close()
+
     # The exchange can return a business code (HTTP 200). 109425 must NOT
     # impose a 16m guard ban on unrelated protection requests.
     guard=BingXRequestGuard(min_interval_sec=0)
@@ -124,7 +140,7 @@ def main():
         "invalid_symbol_no_global_ban":True,
         "ordinary_rate_limit_60s":True,
         "real_bans_conservatively_blocked":True,
-        "html_429_418_detected":True,
+        "html_429_418_detected":True,"contract_lookup_429_detected":True,
         "no_unsafe_bypass_or_duplicate_post":True,
         "retry_after_respected":True,
     })
