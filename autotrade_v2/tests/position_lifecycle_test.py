@@ -44,6 +44,11 @@ class Exchange:
         self.num=0
         self.seq=0
 
+    @staticmethod
+    def extract_order(payload):
+        data=payload.get("data") or {}
+        return data.get("order",data) if isinstance(data,dict) else {}
+
     def find_order_by_client_id(self,symbol,client_order_id):
         self.calls.append(("find_client",client_order_id))
         oid=self.clients.get(client_order_id)
