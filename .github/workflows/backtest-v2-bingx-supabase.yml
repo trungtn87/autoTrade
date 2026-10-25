@@ -1,7 +1,7 @@
 name: Backtest V2 on Supabase BingX 15m
 on:
   push:
-    branches: [backtest-v2-bingx-supabase-20261025]
+    branches: [backtest-trailing-entry-005-20261026]
     paths:
       - 'autotrade_v2/tests/backtest_bingx_supabase.py'
       - 'autotrade_v2/tests/data/bingx_supabase_*_15m_20261025.csv'
