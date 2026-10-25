@@ -75,6 +75,29 @@ def main():
         except ValueError:
             pass
     assert len(sent)==before
+    # BingX openOrders responses may omit positionId. Only an exact and unique
+    # order match is safe to recover from an ambiguous POST response.
+    rows=[{"orderId":"sl-103","symbol":"BTC-USDT","side":"SELL",
+           "positionSide":"LONG","type":"STOP_MARKET","status":"NEW",
+           "origQty":"0.5","stopPrice":"99"}]
+    client._signed_request=lambda method,path,params: {"code":0,"data":list(rows)}
+    recovered=client.find_matching_protection(
+        "BTC-USDT","BUY",0.5,99,"STOP_MARKET",position_id="103"
+    )
+    assert recovered["data"]["order"]["orderId"]=="sl-103"
+    rows.append({**rows[0],"orderId":"sl-another"})
+    try:
+        client.find_matching_protection(
+            "BTC-USDT","BUY",0.5,99,"STOP_MARKET",position_id="103"
+        )
+        raise AssertionError("duplicate matching SL should fail closed")
+    except RuntimeError:
+        pass
+    rows[0]["positionId"]="999"
+    rows.pop()
+    assert client.find_matching_protection(
+        "BTC-USDT","BUY",0.5,99,"STOP_MARKET",position_id="103"
+    ) is None
     client.http.close()
 
     # Simulate the live 50/50 path, including durable pre-entry snapshot.
