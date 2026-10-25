@@ -128,11 +128,12 @@ def main():
     unresolved=close(ex,resumed,persist)
     assert not unresolved["confirmed"] and fake.posts==0,unresolved
 
-    # Never touch a different Separate Isolated position of the same side.
+    # A peer Separate Isolated position of the same side is never closed.
+    # If the targeted positionId is absent, its quantity is already zero.
     ex,fake,state,persist,writes=setup([{"status":"FILLED"}])
     fake.position_id="457"
-    unsafe=close(ex,state,persist)
-    assert not unsafe["confirmed"] and fake.posts==0,unsafe
+    peer_untouched=close(ex,state,persist)
+    assert peer_untouched["confirmed"] and fake.posts==0,peer_untouched
 
     print({"ok":True,"filled_requires_flat":True,
            "partial_never_duplicated":True,"canceled_remaining_retried":True,
