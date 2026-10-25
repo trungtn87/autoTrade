@@ -37,16 +37,16 @@ class ProtectionLifecycle:
         return str(intent["symbol"]),side,opposite
 
     def _position(self,state:dict)->Decimal:
-        symbol,_,_=self._sid(state)
-        intent=state["intent"]
+        """Account-wide exchange volume; not attributable to a single combo."""
+        symbol,side,_=self._sid(state)
         rows=self.client.get_positions(symbol)
-        try:
-            return _amount(
-                remaining_position_qty(rows,symbol,intent["side"],state.get("position_id")),
-                "positionAmt",
-            )
-        except PositionQuantityMismatch as exc:
-            raise LifecycleRisk(str(exc)) from exc
+        if not isinstance(rows,list):
+            raise LifecycleRisk("BingX position list missing")
+        total=Decimal(0)
+        for row in rows:
+            if row.get("symbol")==symbol and str(row.get("positionSide") or "").upper()==side:
+                total+=_amount(row.get("positionAmt"),"BingX positionAmt")
+        return total
 
     def _order(self,state:dict,order_id:str|None=None,client_order_id:str|None=None)->dict:
         symbol,_,_=self._sid(state)
@@ -78,6 +78,36 @@ class ProtectionLifecycle:
                 raise LifecycleRisk("SL replacement order quantity mismatch")
             if _amount(order.get("stopPrice"),"SL stopPrice")!=_amount(state["intent"]["sl"],"strategy SL"):
                 raise LifecycleRisk("SL replacement changed stop price")
+
+    def _owned_remaining(self,state:dict)->tuple[Decimal,dict]:
+        """Exact residual from this trade's exchange-reported exit fills."""
+        initial=_amount(
+            state.get("executed_qty") or state.get("actual_position_qty"),
+            "entry executedQty",
+        )
+        if initial<=0:
+            raise LifecycleRisk("missing positive exchange entry executedQty")
+        orders={}
+        closed_qty=Decimal(0)
+        for kind in ("tp","trailing","sl"):
+            item=(state.get("protection") or {}).get(kind) or {}
+            oid=str(item.get("order_id") or "")
+            if not oid:
+                continue
+            order=self._order(state,order_id=oid)
+            self._validate_owned(state,order,kind)
+            status=str(order.get("status") or "").upper()
+            if status not in ACTIVE|TERMINAL:
+                raise LifecycleRisk(f"unknown BingX {kind} status {status!r}")
+            original=_amount(order.get("origQty"),f"{kind} origQty")
+            executed=_amount(order.get("executedQty"),f"{kind} executedQty")
+            if executed>original:
+                raise LifecycleRisk(f"{kind} executedQty exceeds origQty")
+            closed_qty+=executed
+            orders[kind]=order
+        if closed_qty>initial:
+            raise LifecycleRisk("sum of owned exit fills exceeds own entry fill")
+        return initial-closed_qty,orders
 
     def _persist(self,state:dict,write)->None:
         write(deepcopy(state))
