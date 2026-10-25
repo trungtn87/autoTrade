@@ -78,7 +78,7 @@ def main():
     client.http.close()
 
     # Simulate the live 50/50 path, including durable pre-entry snapshot.
-    live=replace(settings,tp_trailing_split_enabled=True)
+    live=replace(settings,tp_trailing_split_enabled=True,execution_enabled=True,dry_run=False)
     execution=Final14Executor(live)
     fake=FakeTrailingClient()
     fake.position_id="103"
