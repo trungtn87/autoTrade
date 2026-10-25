@@ -275,7 +275,7 @@ class LegacyStyleBingXClient:
                     continue
                 if str(order.get("positionSide") or "").upper()!=position_side:
                     continue
-                if position_id and str(order.get("positionId") or "")!=str(position_id):
+                if position_id and order.get("positionId") and str(order["positionId"])!=str(position_id):
                     continue
                 if str(order.get("status") or "NEW").upper() not in {"NEW","PARTIALLY_FILLED"}:
                     continue
@@ -288,6 +288,8 @@ class LegacyStyleBingXClient:
                 continue
         if not matches:
             return None
+        if len(matches)>1:
+            raise RuntimeError("ambiguous protection match; refusing to select another position order")
         return {"code":0,"data":{"order":matches[0]}}
 
     @staticmethod
@@ -383,7 +385,7 @@ class LegacyStyleBingXClient:
                     continue
                 if str(order.get("positionSide") or "").upper()!=position_side:
                     continue
-                if position_id and str(order.get("positionId") or "")!=str(position_id):
+                if position_id and order.get("positionId") and str(order["positionId"])!=str(position_id):
                     continue
                 if str(order.get("status") or "NEW").upper() not in {"NEW","PARTIALLY_FILLED"}:
                     continue
