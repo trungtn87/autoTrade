@@ -347,7 +347,9 @@ class ExecutionService:
         terminal = bool(result.get("processed"))
         order_id = str(result.get("order_id") or "") or None
 
-        persisted=self._state_payload(intent,result,terminal)
+        # Retain the pre-entry snapshot for recovery after an ambiguous
+        # positionId lookup, API outage, or Render restart.
+        persisted={**(state or {}),**self._state_payload(intent,result,terminal)}
         if result.get("ok") and result.get("protection",{}).get("sl"):
             persisted["lifecycle"]={
                 "status":"open",
