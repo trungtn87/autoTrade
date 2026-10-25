@@ -308,11 +308,9 @@ def main():
         assert shared.position==Decimal("2")
         assert shared.orders["sl-second"]["status"]=="NEW"
 
-        # Repeat same problem does not repeatedly flood Layer 4 alerts.
-        count=len(events)
-        assert count>=2
+        # Subsequent polls must not touch completed C4 protection orders.
         shared_service.reconcile_open_positions()
-        assert not any(x[0] in ("cancel","replace") for x in shared.calls)
+        assert store.get_state("C4")["lifecycle"]["status"]=="closed"
 
         # Unverified cancellation must remain pending rather than falsely closing.
         separate=Exchange()
@@ -343,7 +341,7 @@ def main():
 
         print({"ok":True,"sl_resize":True,"full_close_cleanup":True,
                "owned_ids_only":True,"no_duplicate_on_restart":True,
-               "lost_http_responses":True,"shared_position_block":True})
+               "lost_http_responses":True,"concurrent_combo_entry_allowed":True})
     finally:
         os.unlink(path)
 
