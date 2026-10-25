@@ -80,13 +80,13 @@ class Exchange:
         self.orders[oid]=item
         return self.get_order_detail(symbol,order_id=oid)
 
-    def place_stop_loss(self,symbol,entry_side,qty,sl):
+    def place_stop_loss(self,symbol,entry_side,qty,sl,position_id=None):
         return self._new_exit("sl",symbol,entry_side,qty,sl)
 
-    def place_take_profit(self,symbol,entry_side,qty,tp,quantity_precision=None):
+    def place_take_profit(self,symbol,entry_side,qty,tp,quantity_precision=None,position_id=None):
         return self._new_exit("tp",symbol,entry_side,qty,tp)
 
-    def place_trailing_stop(self,symbol,entry_side,qty,activation_price,callback_rate,quantity_precision=None):
+    def place_trailing_stop(self,symbol,entry_side,qty,activation_price,callback_rate,quantity_precision=None,position_id=None):
         return self._new_exit("trailing",symbol,entry_side,qty)
 
     def get_positions(self,symbol):

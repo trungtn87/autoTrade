@@ -7,6 +7,7 @@ from ..config import Settings
 from ..contracts import ExecutionResult, TradeIntent
 from .final14_executor import Final14Executor
 from .lifecycle import ProtectionLifecycle,LifecycleRisk
+from .identity import entry_baseline
 from .store import ExecutionStore
 
 
@@ -277,17 +278,39 @@ class ExecutionService:
 
         client_order_id=self.executor.client_order_id(intent.event_id,"entry")
         if not state:
-            self.store.save_state(
-                intent.event_id,
-                {
+            # The separate-isolated position identifier must be attributable to
+            # this specific entry. Persist an exchange snapshot BEFORE POST.
+            # If observation fails, do NOT create an entry we cannot safely
+            # route its later TP/SL/trailing and emergency close to.
+            before_positions=None
+            if self.settings.tp_trailing_split_enabled:
+                try:
+                    before_positions=entry_baseline(
+                        self.executor.client.get_positions(intent.symbol),
+                        intent.symbol,intent.side,
+                    )
+                except Exception as exc:
+                    self._emit(
+                        "L3.EXEC.POSITION_PREFLIGHT_BLOCK","CRITICAL",
+                        "cannot safely bind new entry to a separate isolated position",
+                        intent,error=str(exc),
+                    )
+                    return ExecutionResult(
+                        event_id=intent.event_id,accepted=False,
+                        status="position_preflight_blocked",
+                        details={"network_called":False,"error":str(exc)},
+                    )
+            new_state={
                     "terminal":False,
                     "stage":"entry_intent",
-                    # Per-event mode freezes protection semantics across restart.
+                    # Snapshot is durable across an ambiguous MARKET POST/restart.
+                    "pre_entry_positions":before_positions,
                     "exit_mode":"split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp",
                     "client_order_id":client_order_id,
                     "intent":asdict(intent),
-                },
-            )
+                }
+            self.store.save_state(intent.event_id,new_state)
+            state=new_state
         else:
             self._emit(
                 "L3.EXEC.RECONCILE_START",
@@ -324,7 +347,9 @@ class ExecutionService:
         terminal = bool(result.get("processed"))
         order_id = str(result.get("order_id") or "") or None
 
-        persisted=self._state_payload(intent,result,terminal)
+        # Retain the pre-entry snapshot for recovery after an ambiguous
+        # positionId lookup, API outage, or Render restart.
+        persisted={**(state or {}),**self._state_payload(intent,result,terminal)}
         if result.get("ok") and result.get("protection",{}).get("sl"):
             persisted["lifecycle"]={
                 "status":"open",

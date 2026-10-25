@@ -43,9 +43,20 @@ class ProtectionLifecycle:
         if not isinstance(rows,list):
             raise LifecycleRisk("BingX position list missing")
         total=Decimal(0)
+        matching=[]
         for row in rows:
             if row.get("symbol")==symbol and str(row.get("positionSide") or "").upper()==side:
-                total+=_amount(row.get("positionAmt"),"BingX positionAmt")
+                amount=_amount(row.get("positionAmt"),"BingX positionAmt")
+                total+=amount
+                if amount>0:
+                    matching.append(row)
+        # If another separate isolated position still exists, do NOT mistake it
+        # for the tracked one or use its size to resize this trade's SL.
+        expected=str(state.get("position_id") or "")
+        if expected and matching and not any(
+            str(row.get("positionId") or "")==expected for row in matching
+        ):
+            raise LifecycleRisk("tracked positionId absent while other same-side positions remain")
         return total
 
     def _order(self,state:dict,order_id:str|None=None,client_order_id:str|None=None)->dict:
@@ -70,6 +81,10 @@ class ProtectionLifecycle:
             or str(order.get("positionSide") or "").upper()!=side
         ):
             raise LifecycleRisk("tracked order metadata mismatch; do not cancel another strategy order")
+        expected_id=str(state.get("position_id") or "")
+        order_id=str(order.get("positionId") or "")
+        if expected_id and order_id and expected_id!=order_id:
+            raise LifecycleRisk("tracked order positionId mismatch; refusing to mutate another position")
         expected={"sl":"STOP_MARKET","tp":"TAKE_PROFIT_MARKET","trailing":"TRAILING_STOP_MARKET"}[kind]
         if str(order.get("type") or "").upper()!=expected:
             raise LifecycleRisk("tracked protection order type mismatch")

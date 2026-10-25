@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
+import re
 import time
 from decimal import Decimal, InvalidOperation
 
@@ -50,6 +51,20 @@ class LegacyStyleBingXClient:
         except (InvalidOperation,TypeError) as exc:
             raise ValueError("invalid BingX quantity") from exc
         return format(quantity,"f")
+
+    @staticmethod
+    def _add_position_id(params:dict,position_id:str|None)->None:
+        """Only send a validated, explicit BingX position identifier.
+
+        Never infer a positionId from positionSide or a matching quantity.
+        BingX uses int64 IDs; reject nonnumeric/zero IDs before signing.
+        """
+        if position_id is None or str(position_id)=="":
+            return
+        value=str(position_id)
+        if not re.fullmatch(r"[1-9][0-9]*",value):
+            raise ValueError("invalid BingX positionId")
+        params["positionId"]=value
 
     def get_contract_rules(self,symbol:str)->dict:
         """Read live contract precision and minimum order size from BingX."""
@@ -246,6 +261,7 @@ class LegacyStyleBingXClient:
         qty:float,
         stop_price:float,
         order_type:str,
+        position_id:str|None=None,
     )->dict|None:
         opposite,position_side=self._protection_side(entry_side)
         expected_qty=float(self._fmt_qty(qty))
@@ -259,6 +275,8 @@ class LegacyStyleBingXClient:
                     continue
                 if str(order.get("positionSide") or "").upper()!=position_side:
                     continue
+                if position_id and order.get("positionId") and str(order["positionId"])!=str(position_id):
+                    continue
                 if str(order.get("status") or "NEW").upper() not in {"NEW","PARTIALLY_FILLED"}:
                     continue
                 oq=float(order.get("origQty") or order.get("quantity") or 0)
@@ -270,6 +288,8 @@ class LegacyStyleBingXClient:
                 continue
         if not matches:
             return None
+        if len(matches)>1:
+            raise RuntimeError("ambiguous protection match; refusing to select another position order")
         return {"code":0,"data":{"order":matches[0]}}
 
     @staticmethod
@@ -286,6 +306,7 @@ class LegacyStyleBingXClient:
         entry_side:str,
         qty:float,
         sl:float,
+        position_id:str|None=None,
     )->dict:
         opposite,position_side=self._protection_side(entry_side)
         params={
@@ -296,6 +317,7 @@ class LegacyStyleBingXClient:
             "stopPrice":self._fmt_price(sl),
             "quantity":self._fmt_qty(qty),
         }
+        self._add_position_id(params,position_id)
         return self._signed_request("POST",self.ORDER_PATH,params)
 
     def place_take_profit(
@@ -305,6 +327,7 @@ class LegacyStyleBingXClient:
         qty:float,
         tp:float,
         quantity_precision:int|None=None,
+        position_id:str|None=None,
     )->dict:
         opposite,position_side=self._protection_side(entry_side)
         params={
@@ -315,6 +338,7 @@ class LegacyStyleBingXClient:
             "stopPrice":self._fmt_price(tp),
             "quantity":self._fmt_qty(qty) if quantity_precision is None else self._fmt_exact_qty(qty,quantity_precision),
         }
+        self._add_position_id(params,position_id)
         return self._signed_request("POST",self.ORDER_PATH,params)
 
     def place_trailing_stop(
@@ -325,6 +349,7 @@ class LegacyStyleBingXClient:
         activation_price:float,
         callback_rate:float,
         quantity_precision:int|None=None,
+        position_id:str|None=None,
     )->dict:
         """Exchange-native trailing close of the requested partial quantity."""
         opposite,position_side=self._protection_side(entry_side)
@@ -337,6 +362,7 @@ class LegacyStyleBingXClient:
             "activationPrice":self._fmt_price(activation_price),
             "priceRate":str(callback_rate),
         }
+        self._add_position_id(params,position_id)
         return self._signed_request("POST",self.ORDER_PATH,params)
 
     def find_matching_trailing(
@@ -346,6 +372,7 @@ class LegacyStyleBingXClient:
         qty:float,
         activation_price:float,
         callback_rate:float,
+        position_id:str|None=None,
     )->dict|None:
         """Recover a trailing order after an ambiguous POST, without duplicating it."""
         opposite,position_side=self._protection_side(entry_side)
@@ -357,6 +384,8 @@ class LegacyStyleBingXClient:
                 if str(order.get("side") or "").upper()!=opposite:
                     continue
                 if str(order.get("positionSide") or "").upper()!=position_side:
+                    continue
+                if position_id and order.get("positionId") and str(order["positionId"])!=str(position_id):
                     continue
                 if str(order.get("status") or "NEW").upper() not in {"NEW","PARTIALLY_FILLED"}:
                     continue
@@ -409,8 +438,7 @@ class LegacyStyleBingXClient:
             "stopPrice":self._fmt_price(sl),
             "clientOrderId":str(new_client_order_id),
         }
-        if position_id:
-            params["positionId"]=str(position_id)
+        self._add_position_id(params,position_id)
         return self._signed_request(
             "POST","/openApi/swap/v1/trade/cancelReplace",params,
         )
@@ -422,6 +450,7 @@ class LegacyStyleBingXClient:
         qty:float,
         leverage:int,
         client_order_id:str|None=None,
+        position_id:str|None=None,
     )->dict:
         close_side="SELL" if entry_side.upper()=="BUY" else "BUY"
         params={
@@ -434,4 +463,5 @@ class LegacyStyleBingXClient:
         }
         if client_order_id:
             params["clientOrderId"]=str(client_order_id)
+        self._add_position_id(params,position_id)
         return self._signed_request("POST",self.ORDER_PATH,params)

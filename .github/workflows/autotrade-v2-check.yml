@@ -81,6 +81,11 @@ jobs:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/position_lifecycle_test.py
 
+      - name: Verify positionId routing for Separate Isolated exits
+        env:
+          PYTHONPATH: autotrade_v2
+        run: python autotrade_v2/tests/position_id_routing_test.py
+
       - name: Verify deployed trailing activation and emergency switches
         env:
           PYTHONPATH: autotrade_v2
