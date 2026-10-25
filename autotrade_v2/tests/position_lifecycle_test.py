@@ -44,6 +44,11 @@ class Exchange:
         self.num=0
         self.seq=0
 
+    def get_open_orders(self,symbol):
+        # Offline fake: never query the network; known trades are confirmed by
+        # their saved exchange orderId after the journaling POST.
+        return []
+
     @staticmethod
     def extract_order(payload):
         data=payload.get("data") or {}
