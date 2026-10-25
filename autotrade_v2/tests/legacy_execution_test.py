@@ -69,11 +69,11 @@ class FakeClient:
             order["status"]="CANCELED"
         return {"code":0}
 
-    def find_matching_protection(self,symbol,entry_side,qty,stop_price,order_type):
+    def find_matching_protection(self,symbol,entry_side,qty,stop_price,order_type,position_id=None):
         self.calls.append(("find_protection",order_type,qty,stop_price))
         return self.matching.get(order_type)
 
-    def place_stop_loss(self,symbol,entry_side,qty,sl):
+    def place_stop_loss(self,symbol,entry_side,qty,sl,position_id=None):
         self.calls.append(("sl",symbol,entry_side,qty,sl))
         if self.fail_sl:
             raise RuntimeError("simulated SL failure")
@@ -87,7 +87,7 @@ class FakeClient:
         self.by_order["sl-1"]=payload
         return payload
 
-    def place_take_profit(self,symbol,entry_side,qty,tp):
+    def place_take_profit(self,symbol,entry_side,qty,tp,position_id=None):
         self.calls.append(("tp",symbol,entry_side,qty,tp))
         if self.fail_tp:
             raise RuntimeError("simulated TP failure")
@@ -101,7 +101,7 @@ class FakeClient:
         self.by_order["tp-1"]=payload
         return payload
 
-    def close_market(self,symbol,entry_side,qty,leverage,client_order_id=None):
+    def close_market(self,symbol,entry_side,qty,leverage,client_order_id=None,position_id=None):
         self.calls.append(("close",symbol,entry_side,qty,leverage,client_order_id))
         if self.fail_close:
             raise RuntimeError("simulated close failure")
