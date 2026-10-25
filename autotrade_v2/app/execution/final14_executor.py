@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
+from decimal import Decimal, ROUND_DOWN
 
 from ..contracts import TradeIntent
 from ..strategy.final14_config import case_name,get_case
@@ -26,12 +27,23 @@ class Final14Executor:
     - query before send and query after send;
     - only FILLED is treated as a complete entry fill;
     - a partial MARKET fill that does not settle is cancelled and closed;
-    - hard SL is placed and verified before hard TP;
-    - an entry is complete only after both protections are confirmed.
+    - hard SL is placed and verified before fixed TP and optional trailing;
+    - an entry is complete only after all selected protections are confirmed.
     """
 
     def __init__(self,settings,request_guard=None):
+        self.settings=settings
         self.client=LegacyStyleBingXClient(settings,request_guard=request_guard)
+
+    @staticmethod
+    def _split_exit_qty(executed_qty:float)->tuple[float,float]|None:
+        """Split 4-decimal coin qty; remainder absorbs the unavoidable 0.0001 tick."""
+        total=Decimal(str(executed_qty)).quantize(Decimal("0.0001"),rounding=ROUND_DOWN)
+        half=(total/2).quantize(Decimal("0.0001"),rounding=ROUND_DOWN)
+        other=total-half
+        if half<=0 or other<=0:
+            return None
+        return float(other),float(half)
 
     @staticmethod
     def client_order_id(event_id:str,purpose:str="entry")->str:
@@ -418,9 +430,21 @@ class Final14Executor:
             }
 
         resume_state=resume_state or {}
+        # Freeze the per-trade exit mode across restart/recovery and config changes.
+        exit_mode=str(resume_state.get("exit_mode") or (
+            "split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp"
+        ))
+        if exit_mode not in {"hard_tp","split_trailing"}:
+            raise ValueError(f"unsupported exit mode: {exit_mode}")
+        split_qty=self._split_exit_qty(executed_qty) if exit_mode=="split_trailing" else None
+        split_trailing=bool(split_qty)
+        tp_qty,trail_qty=(split_qty if split_trailing else (executed_qty,0.0))
+        if exit_mode=="split_trailing" and not split_trailing:
+            log.warning("TRAILING_SPLIT_TOO_SMALL symbol=%s qty=%s; using full hard TP",intent.symbol,executed_qty)
         old_protection=resume_state.get("protection") or {}
         sl_verified=None
         tp_verified=None
+        trailing_verified=None
 
         # Reuse already-known protection order IDs after restart. This prevents
         # recovery from placing duplicate SL/TP orders.
@@ -452,6 +476,22 @@ class Final14Executor:
                         "order_id":old_tp_id,
                         "status":tp_status,
                         "payload":old_tp.get("payload"),
+                    }
+            except Exception:
+                pass
+
+        old_trailing=old_protection.get("trailing") or {}
+        old_trailing_id=str(old_trailing.get("order_id") or "")
+        if old_trailing_id and split_trailing:
+            try:
+                raw=self.client.get_order_detail(intent.symbol,order_id=old_trailing_id)
+                detail=self.client.extract_order(raw)
+                status=str(detail.get("status") or "").upper()
+                if status in {"NEW","PARTIALLY_FILLED","FILLED"}:
+                    trailing_verified={
+                        "order_id":old_trailing_id,
+                        "status":status,
+                        "payload":old_trailing.get("payload"),
                     }
             except Exception:
                 pass
@@ -562,7 +602,7 @@ class Final14Executor:
         if tp_verified is None:
             try:
                 tp_payload=self.client.place_take_profit(
-                    intent.symbol,side,executed_qty,tp
+                    intent.symbol,side,tp_qty,tp
                 )
                 tp_verified=self._verify_protection(
                     intent.symbol,tp_payload,"take-profit"
@@ -570,7 +610,7 @@ class Final14Executor:
             except Exception as tp_exc:
                 try:
                     matched=self.client.find_matching_protection(
-                        intent.symbol,side,executed_qty,tp,"TAKE_PROFIT_MARKET"
+                        intent.symbol,side,tp_qty,tp,"TAKE_PROFIT_MARKET"
                     )
                     if matched is not None:
                         tp_verified=self._verify_protection(
@@ -621,7 +661,7 @@ class Final14Executor:
                 "error":"take-profit is partially filled; protection reconciliation required",
             }
 
-        if tp_status=="FILLED":
+        if tp_status=="FILLED" and not split_trailing:
             try:
                 self.client.cancel_order(
                     intent.symbol,order_id=str(sl_verified["order_id"])
@@ -658,7 +698,69 @@ class Final14Executor:
                     "error":f"TP filled but remaining SL cancellation failed: {cancel_exc}",
                 }
 
+        if split_trailing:
+            # Activation at the original fixed-TP price. The first half still
+            # closes at that TP; the trailing half follows further favorable moves.
+            callback_rate=self.settings.tp_trailing_callback_rate
+            if trailing_verified is None:
+                try:
+                    trailing_payload=self.client.place_trailing_stop(
+                        intent.symbol,side,trail_qty,tp,callback_rate
+                    )
+                    trailing_verified=self._verify_protection(
+                        intent.symbol,trailing_payload,"trailing-stop"
+                    )
+                except Exception as trailing_exc:
+                    try:
+                        matched=self.client.find_matching_trailing(
+                            intent.symbol,side,trail_qty,tp,callback_rate
+                        )
+                        if matched is not None:
+                            trailing_verified=self._verify_protection(
+                                intent.symbol,matched,"trailing-stop"
+                            )
+                    except Exception:
+                        trailing_verified=None
+                    if trailing_verified is None:
+                        return {
+                            "processed":False,
+                            "entry_accepted":True,
+                            "entry_filled":True,
+                            "ok":False,
+                            "stage":"protection_trailing_failed_sl_active",
+                            "client_order_id":client_order_id,
+                            "order_id":order_id,
+                            "avg_price":avg_price,
+                            "executed_qty":executed_qty,
+                            "tp":tp,
+                            "sl":sl,
+                            "sl_protected":True,
+                            "protection":{"sl":sl_verified,"tp":tp_verified,"trailing":None},
+                            "error":f"trailing placement/verification failed; full SL remains active: {trailing_exc}",
+                        }
+
+            trailing_status=str(trailing_verified.get("status") or "").upper()
+            if tp_status=="PARTIALLY_FILLED" or trailing_status in {"PARTIALLY_FILLED","FILLED"} or tp_status=="FILLED":
+                return {
+                    "processed":False,
+                    "entry_accepted":True,
+                    "entry_filled":True,
+                    "ok":False,
+                    "stage":"partial_exit_reconcile_required",
+                    "client_order_id":client_order_id,
+                    "order_id":order_id,
+                    "avg_price":avg_price,
+                    "executed_qty":executed_qty,
+                    "tp":tp,
+                    "sl":sl,
+                    "sl_protected":True,
+                    "protection":{"sl":sl_verified,"tp":tp_verified,"trailing":trailing_verified},
+                    "error":"partial exit filled during setup; reconcile remaining position and reduce SL quantity",
+                }
+
         protection={"tp":tp_verified,"sl":sl_verified}
+        if split_trailing:
+            protection["trailing"]=trailing_verified
         return {
             "processed":True,
             "entry_accepted":True,
@@ -676,7 +778,11 @@ class Final14Executor:
             "rr":float(cfg["rr"]),
             "tp_pct":float(cfg["tp_pct"]),
             "sl_pct":float(cfg["sl_pct"]),
-            "protection_mode":"separate_hard_tp_sl",
+            "protection_mode":"half_hard_tp_half_trailing_full_sl" if split_trailing else "separate_hard_tp_sl",
+            "tp_qty":tp_qty,
+            "trailing_qty":trail_qty,
+            "trailing_activation_price":tp if split_trailing else None,
+            "trailing_callback_rate":self.settings.tp_trailing_callback_rate if split_trailing else None,
             "entry_result":entry_result,
             "protection":protection,
             "error":None,
@@ -688,12 +794,17 @@ class Final14Executor:
         resume_state:dict|None=None,
         allow_new_entry:bool=True,
     )->dict:
+        selected_mode=str((resume_state or {}).get("exit_mode") or (
+            "split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp"
+        ))
         try:
-            return self.execute(
+            result=self.execute(
                 intent,
                 resume_state=resume_state,
                 allow_new_entry=allow_new_entry,
             )
+            result.setdefault("exit_mode",selected_mode)
+            return result
         except Exception as exc:
             log.exception(
                 "FINAL14_EXEC_FAILED event_id=%s",
@@ -705,6 +816,7 @@ class Final14Executor:
                 "entry_accepted":False,
                 "entry_filled":False,
                 "stage":"reconcile_error",
+                "exit_mode":selected_mode,
                 "client_order_id":self.client_order_id(intent.event_id,"entry"),
                 "error":str(exc),
             }
