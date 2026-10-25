@@ -488,6 +488,7 @@ class Final14Executor:
                 order_id=final_order_id
                 close=self._confirm_market_close(
                     intent,executed_qty,"partial_entry_timeout",
+                    position_id=str(detail.get("positionId") or "") or None,
                     resume_state=resume_state,protection_persist=protection_persist,
                 )
                 if close.get("confirmed"):
@@ -542,6 +543,7 @@ class Final14Executor:
         if not self._valid_fill(side,avg_price,tp,sl):
             close=self._confirm_market_close(
                 intent,executed_qty,"fill_outside_final14_range",
+                position_id=str(detail.get("positionId") or "") or None,
                 resume_state=resume_state,protection_persist=protection_persist,
             )
             if close.get("confirmed"):
@@ -759,7 +761,8 @@ class Final14Executor:
                     )
                     close=self._confirm_market_close(
                         intent,executed_qty,"stop_loss_unconfirmed",
-                        position_id=position_id,resume_state=resume_state,
+                        position_id=position_id or str(detail.get("positionId") or "") or None,
+                        resume_state=resume_state,
                         protection_persist=protection_persist,
                     )
                     if close.get("confirmed"):
