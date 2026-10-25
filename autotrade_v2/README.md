@@ -80,9 +80,17 @@ For each trade:
    replaying the market entry or cancelling an unrelated order. Raise a
    Layer-4 CRITICAL event if an exchange response is ambiguous or unsafe.
 
-The exchange-native trailing activation price is the original TP level.
-`TP_TRAILING_CALLBACK_RATE` defaults to `0.005` (0.5% price retracement,
-not leveraged PnL). Original fill validation and SL price remain unchanged.
+For new split trades, the exchange-native trailing activates after a favorable
+**0.5% price move from the BingX-confirmed entry fill**, independent of each
+combo's fixed TP. LONG activation is `avg_fill_price * 1.005`; SHORT is
+`avg_fill_price * 0.995`. Configure this via
+`TP_TRAILING_ACTIVATION_PCT=0.005` (default). Separately,
+`TP_TRAILING_CALLBACK_RATE=0.005` sets the **0.5% retracement distance**
+used by BingX's native trailing order (not leveraged PnL or a discrete
+0.5%-per-tick step). Hard TP, original fill validation, and SL are unchanged.
+Already-submitted trailing orders keep their original exchange activation;
+restart/recovery must not duplicate or silently replace them. After deployment,
+verify that no Render environment override changes either `0.005` setting.
 
 **Production warning:** Tests simulate BingX responses but do **not**
 establish live API compatibility, order routing semantics or cross-process
