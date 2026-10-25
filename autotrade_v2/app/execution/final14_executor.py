@@ -208,9 +208,60 @@ class Final14Executor:
                 if remaining is not None and remaining==0:
                     return {"confirmed":True,**base}
                 if status in {"CANCELED","EXPIRED"}:
+                    if protection_persist is not None and remaining is not None and journal:
+                        # Only a terminal order with a consistent remaining
+                        # quantity may start a new, bounded close revision.
+                        # Never retry merely because an exchange query timed out.
+                        from decimal import Decimal,ROUND_DOWN
+                        submitted=Decimal(str(journal.get("requested_qty") or "0"))
+                        filled=Decimal(str(executed_qty))
+                        revision=int(journal.get("revision",0))
+                        if (submitted>0 and filled>=0 and filled<=submitted
+                                and abs(remaining-(submitted-filled))<=Decimal("0.0001")
+                                and revision<2):
+                            next_revision=revision+1
+                            next_qty=remaining.quantize(Decimal("0.0001"),rounding=ROUND_DOWN)
+                            if next_qty>0 and next_qty<=submitted:
+                                next_cid=self.client_order_id(
+                                    intent.event_id,f"close-retry-{next_revision}"
+                                )
+                                # A stale worker may have sent this revision.
+                                # Persist its CID first and recover, never
+                                # blindly submit an already known client ID.
+                                existing_next=self.client.find_order_by_client_id(
+                                    intent.symbol,next_cid
+                                )
+                                next_journal={
+                                    "client_order_id":next_cid,"position_id":str(position_id),
+                                    "reason":reason,"phase":"prepared",
+                                    "requested_qty":str(next_qty),
+                                    "revision":next_revision,
+                                    "previous_client_order_id":cid,
+                                }
+                                prepared={**state,"emergency_close":next_journal}
+                                protection_persist(prepared)
+                                state.clear()
+                                state.update(prepared)
+                                if existing_next is None:
+                                    try:
+                                        self.client.close_market(
+                                            intent.symbol,intent.side,float(next_qty),
+                                            FINAL14_EXECUTION_LEVERAGE,
+                                            client_order_id=next_cid,position_id=position_id,
+                                        )
+                                    except Exception:
+                                        # CID is durable. Recovery queries
+                                        # before considering anything else.
+                                        pass
+                                return self._confirm_market_close(
+                                    intent,qty,reason,position_id=position_id,
+                                    resume_state=state,
+                                    protection_persist=protection_persist,
+                                )
                     return {
                         "confirmed":False,**base,
-                        "error":"emergency close canceled/expired; residual must be reconciled before any new close"
+                        "error":"emergency close canceled/expired; residual unverified "
+                        "or maximum bounded close attempts reached"
                         + (f"; {verification_error}" if verification_error else ""),
                     }
                 if status=="FILLED":
