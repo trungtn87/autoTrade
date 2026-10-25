@@ -70,7 +70,7 @@ def as_fill(a):
                 qty=f(a.get('qty', a.get('quantity', a.get('executedQty')))),
                 price=f(a.get('price')), realized_pnl=f(a.get('realizedPnl', a.get('realizedProfit'))),
                 fee=f(a.get('fee', a.get('commission'))),
-                timestamp_ms=int_ms(a, 'time', 'fillTime', 'createTime', 'closeTime'), raw=a)
+                timestamp_ms=int_ms(a, 'time', 'filledTime', 'filledTm', 'fillTime', 'createTime', 'closeTime'), raw=a)
 
 
 def as_income(a):
@@ -126,7 +126,7 @@ def sync(days=1, symbols=None, now_ms=None):
                 # The paginated API avoids silent fill truncation at 1000 rows.
                 fills = paged(client, '/openApi/swap/v2/trade/fillHistory',
                               {'symbol': symbol, 'startTs': start, 'endTs': stop},
-                              ('fill_orders', 'list', 'fills'), 500)
+                              ('fill_history_orders', 'fill_orders', 'list', 'fills'), 500)
                 incomes = fetch_window_split(
                     client, '/openApi/swap/v2/user/income',
                     {'symbol': symbol, 'startTime': start, 'endTime': stop, 'limit': 1000},

@@ -54,13 +54,30 @@ class BingXReadClient:
 
 
 def extract_list(data, candidates):
+    """Accept documented BingX response aliases; never log private fill contents.
+
+    SDK versions have used 'fill_history_orders', while current API docs
+    describe 'fill_orders'. Missing arrays must not silently become zero
+    trades unless the API explicitly confirms total=0.
+    """
     if isinstance(data, list):
         return data
     if isinstance(data, dict):
         for key in candidates:
-            if isinstance(data.get(key), list):
-                return data[key]
-    raise ValueError(f'Unexpected BingX response structure (expected {candidates})')
+            value = data.get(key)
+            if isinstance(value, list):
+                return value
+            if key in data and value is None and data.get('total') in (0, '0'):
+                return []
+        # Printing the field names is enough to diagnose a future API change
+        # without sending raw account records to public GitHub Actions logs.
+        keys = sorted(str(k)[:60] for k in data.keys())[:25]
+        raise ValueError(
+            f'Unexpected BingX response structure: dict keys={keys}; expected={candidates}'
+        )
+    raise ValueError(
+        f'Unexpected BingX response structure: type={type(data).__name__}; expected={candidates}'
+    )
 
 
 def fetch_window_split(client, path, params, keys, max_items, start_key, end_key, *, minimum_ms=1000):

@@ -1,5 +1,5 @@
 from autotrade_live.sync import as_order, as_fill, as_income, as_force
-from autotrade_live.bingx import fetch_window_split
+from autotrade_live.bingx import extract_list, fetch_window_split, paged
 
 
 def test_large_order_id_preserved_as_string():
@@ -64,3 +64,47 @@ def test_idempotent_sync_into_sqlite(tmp_path, monkeypatch):
         assert len(db.scalars(select(Order)).all()) == 1
         assert len(db.scalars(select(Fill)).all()) == 1
         assert len(db.scalars(select(Income)).all()) == 1
+
+
+def test_bingx_fillhistory_sdk_key_and_empty_pages():
+    # BingX SDK calls the field fill_history_orders, not fill_orders.
+    one = {'tradeId': '12345', 'orderId': '77', 'symbol': 'BTC-USDT',
+           'side': 'SELL', 'positionSide': 'LONG', 'qty': '0.003',
+           'price': '110000', 'commission': '-0.1',
+           'filledTime': '1792917899000'}
+    result = extract_list({'total': 1, 'fill_history_orders': [one]},
+                          ('fill_history_orders', 'fill_orders'))
+    assert result == [one]
+    assert extract_list({'total': 0, 'fill_history_orders': None},
+                        ('fill_history_orders',)) == []
+    row = as_fill(result[0])
+    assert row['timestamp_ms'] == 1792917899000
+    assert row['fee'] == -.1
+
+
+def test_paged_fill_history_sdk_response_not_truncated():
+    class Fake:
+        def get(self, path, params):
+            if params['pageIndex'] == 1:
+                return {'total': 3, 'fill_history_orders': [{'tradeId': '1'}, {'tradeId': '2'}]}
+            return {'total': 3, 'fill_history_orders': [{'tradeId': '3'}]}
+    rows = paged(Fake(), '/openApi/swap/v2/trade/fillHistory',
+                 {'symbol': 'BTC-USDT', 'startTs': 100, 'endTs': 200},
+                 ('fill_history_orders', 'fill_orders'), 2)
+    assert [r['tradeId'] for r in rows] == ['1', '2', '3']
+
+
+def test_unknown_bingx_response_keys_only_no_account_data_leaks():
+    import pytest
+    with pytest.raises(ValueError, match='keys=') as exc:
+        extract_list({'unexpected_schema': [{'apiSecret': 'must-not-print'}]},
+                     ('fill_history_orders',))
+    assert 'must-not-print' not in str(exc.value)
+    with pytest.raises(ValueError, match='type=NoneType'):
+        extract_list(None, ('fill_history_orders',))
+
+
+def test_empty_response_not_assumed_when_no_total():
+    import pytest
+    with pytest.raises(ValueError):
+        extract_list({'fill_history_orders': None}, ('fill_history_orders',))
