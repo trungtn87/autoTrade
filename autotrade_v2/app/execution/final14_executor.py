@@ -3,11 +3,11 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
-from decimal import Decimal, ROUND_DOWN
 
 from ..contracts import TradeIntent
 from ..strategy.final14_config import case_name,get_case
 from .executor import LegacyStyleBingXClient
+from .quantity import allocate_exit_qty,confirmed_position_qty,PositionQuantityMismatch
 
 log=logging.getLogger(__name__)
 
@@ -34,16 +34,6 @@ class Final14Executor:
     def __init__(self,settings,request_guard=None):
         self.settings=settings
         self.client=LegacyStyleBingXClient(settings,request_guard=request_guard)
-
-    @staticmethod
-    def _split_exit_qty(executed_qty:float)->tuple[float,float]|None:
-        """Split 4-decimal coin qty; remainder absorbs the unavoidable 0.0001 tick."""
-        total=Decimal(str(executed_qty)).quantize(Decimal("0.0001"),rounding=ROUND_DOWN)
-        half=(total/2).quantize(Decimal("0.0001"),rounding=ROUND_DOWN)
-        other=total-half
-        if half<=0 or other<=0:
-            return None
-        return float(other),float(half)
 
     @staticmethod
     def client_order_id(event_id:str,purpose:str="entry")->str:
@@ -240,6 +230,7 @@ class Final14Executor:
         # POST-CHECK: always query the exchange by clientOrderId.
         status=""
         executed_qty=0.0
+        filled_qty_raw="0"
         avg_price=0.0
         order_id=""
         for attempt in range(1,ENTRY_CONFIRM_ATTEMPTS+1):
@@ -251,6 +242,7 @@ class Final14Executor:
             detail=self.client.extract_order(raw)
             order_id=self._order_id(detail)
             status,executed_qty,avg_price=self._order_metrics(detail)
+            filled_qty_raw=str(detail.get("executedQty") or "0")
             log.info(
                 "ENTRY_FILL_CHECK symbol=%s client_order_id=%s order_id=%s "
                 "attempt=%s status=%s qty=%s avg=%s",
@@ -436,11 +428,13 @@ class Final14Executor:
         ))
         if exit_mode not in {"hard_tp","split_trailing"}:
             raise ValueError(f"unsupported exit mode: {exit_mode}")
-        split_qty=self._split_exit_qty(executed_qty) if exit_mode=="split_trailing" else None
-        split_trailing=bool(split_qty)
-        tp_qty,trail_qty=(split_qty if split_trailing else (executed_qty,0.0))
-        if exit_mode=="split_trailing" and not split_trailing:
-            log.warning("TRAILING_SPLIT_TOO_SMALL symbol=%s qty=%s; using full hard TP",intent.symbol,executed_qty)
+        split_trailing=exit_mode=="split_trailing"
+        tp_qty=executed_qty
+        trail_qty=0.0
+        qty_precision=None
+        actual_position_qty=None
+        position_id=None
+        split_fallback_reason=None
         old_protection=resume_state.get("protection") or {}
         sl_verified=None
         tp_verified=None
@@ -597,12 +591,70 @@ class Final14Executor:
                 "error":"stop-loss is partially filled; protection reconciliation required",
             }
 
+        if split_trailing:
+            # SL is already active. Before splitting, independently read the
+            # exchange position and current contract lot rules. Never trust
+            # formula-derived size, floats or a local expected remainder.
+            try:
+                positions=self.client.get_positions(intent.symbol)
+                actual_position_qty,position_id=confirmed_position_qty(
+                    positions,intent.symbol,side,filled_qty_raw
+                )
+                old_position_id=resume_state.get("position_id")
+                if old_position_id and str(old_position_id)!=str(position_id):
+                    raise PositionQuantityMismatch(
+                        "BingX positionId changed during recovery"
+                    )
+                rules=self.client.get_contract_rules(intent.symbol)
+                allocation=allocate_exit_qty(
+                    actual_position_qty,rules,min(avg_price,tp)
+                )
+                qty_precision=allocation["quantity_precision"]
+                tp_qty=allocation["tp_qty"]
+                trail_qty=allocation["trailing_qty"]
+                if allocation["mode"]=="hard_tp":
+                    exit_mode="hard_tp"
+                    split_trailing=False
+                    split_fallback_reason=allocation["reason"]
+                    log.warning(
+                        "SPLIT_BELOW_BINGX_MINIMUM symbol=%s position=%s min_qty=%s min_usdt=%s; using full hard TP",
+                        intent.symbol,actual_position_qty,allocation["min_order_qty"],allocation["min_order_usdt"],
+                    )
+                else:
+                    log.info(
+                        "BINGX_EXACT_SPLIT symbol=%s position_id=%s executed_qty=%s position_amt=%s tp_qty=%s trail_qty=%s precision=%s",
+                        intent.symbol,position_id,filled_qty_raw,actual_position_qty,tp_qty,trail_qty,qty_precision,
+                    )
+            except Exception as snapshot_exc:
+                stage=(
+                    "position_quantity_mismatch_sl_active"
+                    if isinstance(snapshot_exc,PositionQuantityMismatch)
+                    else "position_snapshot_unavailable_sl_active"
+                )
+                return {
+                    "processed":False,
+                    "entry_accepted":True,
+                    "entry_filled":True,
+                    "ok":False,
+                    "stage":stage,
+                    "client_order_id":client_order_id,
+                    "order_id":order_id,
+                    "avg_price":avg_price,
+                    "executed_qty":executed_qty,
+                    "tp":tp,
+                    "sl":sl,
+                    "sl_protected":True,
+                    "protection":{"sl":sl_verified,"tp":tp_verified,"trailing":trailing_verified},
+                    "error":f"BingX position/contract snapshot unverified: {snapshot_exc}",
+                }
+
         # If TP was previously confirmed, reuse it. Otherwise place it. On a
         # lost TP response, first search open orders for the exact protection.
         if tp_verified is None:
             try:
                 tp_payload=self.client.place_take_profit(
-                    intent.symbol,side,tp_qty,tp
+                    intent.symbol,side,tp_qty,tp,
+                    **({"quantity_precision":qty_precision} if qty_precision is not None else {})
                 )
                 tp_verified=self._verify_protection(
                     intent.symbol,tp_payload,"take-profit"
@@ -705,7 +757,8 @@ class Final14Executor:
             if trailing_verified is None:
                 try:
                     trailing_payload=self.client.place_trailing_stop(
-                        intent.symbol,side,trail_qty,tp,callback_rate
+                        intent.symbol,side,trail_qty,tp,callback_rate,
+                        **({"quantity_precision":qty_precision} if qty_precision is not None else {})
                     )
                     trailing_verified=self._verify_protection(
                         intent.symbol,trailing_payload,"trailing-stop"
@@ -778,6 +831,11 @@ class Final14Executor:
             "rr":float(cfg["rr"]),
             "tp_pct":float(cfg["tp_pct"]),
             "sl_pct":float(cfg["sl_pct"]),
+            "exit_mode":exit_mode,
+            "split_fallback_reason":split_fallback_reason,
+            "actual_position_qty":actual_position_qty,
+            "position_id":position_id,
+            "quantity_precision":qty_precision,
             "protection_mode":"half_hard_tp_half_trailing_full_sl" if split_trailing else "separate_hard_tp_sl",
             "tp_qty":tp_qty,
             "trailing_qty":trail_qty,
