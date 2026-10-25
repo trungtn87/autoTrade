@@ -300,9 +300,7 @@ class ExecutionService:
                         status="position_preflight_blocked",
                         details={"network_called":False,"error":str(exc)},
                     )
-            self.store.save_state(
-                intent.event_id,
-                {
+            new_state={
                     "terminal":False,
                     "stage":"entry_intent",
                     # Snapshot is durable across an ambiguous MARKET POST/restart.
@@ -310,8 +308,9 @@ class ExecutionService:
                     "exit_mode":"split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp",
                     "client_order_id":client_order_id,
                     "intent":asdict(intent),
-                },
-            )
+                }
+            self.store.save_state(intent.event_id,new_state)
+            state=new_state
         else:
             self._emit(
                 "L3.EXEC.RECONCILE_START",
