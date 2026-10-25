@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 
 def _bool(name: str, default: bool) -> bool:
@@ -68,6 +68,26 @@ class Settings:
     email_test_on_startup: bool = _bool("EMAIL_TEST_ON_STARTUP", False)
 
     log_level: str = os.getenv("LOG_LEVEL", "INFO").upper()
+
+
+def enable_runtime_trailing(settings: Settings) -> Settings:
+    """Activate deployed V2 50/50 exits, respecting explicit Render overrides.
+
+    This is only called by the live FastAPI entrypoint, not from tests that
+    construct Settings() directly. Both flags can be disabled without a new
+    GitHub deploy by setting TP_TRAILING_SPLIT_ENABLED=false. Disabling the
+    lifecycle also automatically disables the 50/50 split for safety.
+    """
+    lifecycle=_bool("POSITION_LIFECYCLE_ENABLED", True)
+    trailing=_bool("TP_TRAILING_SPLIT_ENABLED", True) and lifecycle
+    return replace(
+        settings,
+        tp_trailing_split_enabled=trailing,
+        position_lifecycle_enabled=lifecycle,
+        tp_trailing_callback_rate=float(
+            os.getenv("TP_TRAILING_CALLBACK_RATE",str(settings.tp_trailing_callback_rate))
+        ),
+    )
 
 
 def validate_settings(settings: Settings) -> None:
