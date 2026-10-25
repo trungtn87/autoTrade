@@ -308,7 +308,7 @@ def main():
         entered=shared_service.execute(next_trade)
         assert entered.status=="complete" and entered.accepted is True,entered
         c99=store.get_state("C99")
-        assert c99["executed_qty"]==1 and c99["actual_position_qty"]=="1",c99
+        assert Decimal(str(c99["executed_qty"]))==Decimal("1") and Decimal(c99["actual_position_qty"])==Decimal("1"),c99
         assert c99["tp_qty"] and c99["trailing_qty"],c99
         assert shared.position==Decimal("2")
         assert shared.orders["sl-second"]["status"]=="NEW"
