@@ -1,0 +1,72 @@
+name: Supabase 35D Hard TP vs Split Trailing Backtest
+
+on:
+  push:
+    branches: [backtest-supabase-20261026]
+    paths:
+      - 'autotrade_v2/tests/backtest_supabase_35days_compare.py'
+      - '.github/workflows/backtest-supabase-35days-compare.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONPATH: autotrade_v2
+    steps:
+      - name: Checkout simulation and frozen Supabase export
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install V2 dependencies
+        run: pip install -r autotrade_v2/requirements.txt
+      - name: Retrieve historical signal warmup from existing Github artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os, requests, zipfile
+          from pathlib import Path
+          url=f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/actions/artifacts/10635463447/zip"
+          headers={"Authorization":"Bearer "+os.environ["GH_TOKEN"],"Accept":"application/vnd.github+json"}
+          r=requests.get(url,headers=headers,allow_redirects=False,timeout=60)
+          r.raise_for_status()
+          if r.status_code not in (301,302,303,307,308):
+              raise RuntimeError("Expected artifact redirect: "+str(r.status_code))
+          downloaded=requests.get(r.headers["Location"],timeout=180)
+          downloaded.raise_for_status()
+          f=Path("historic.zip")
+          f.write_bytes(downloaded.content)
+          with zipfile.ZipFile(f) as z:
+              for member in ("data/multisource/BTCUSDT_hybrid_15m.pkl",
+                             "data/multisource/ETHUSDT_hybrid_15m.pkl"):
+                  z.extract(member)
+          print("Historical warmup restored",flush=True)
+          PY
+      - name: Verify trailing activation and split order implementation
+        run: |
+          python -m py_compile autotrade_v2/tests/backtest_supabase_35days_compare.py
+          python autotrade_v2/tests/trailing_activation_test.py
+          python autotrade_v2/tests/tp_trailing_split_test.py
+      - name: Run Supabase 35-day comparison
+        run: |
+          python -u autotrade_v2/tests/backtest_supabase_35days_compare.py \
+            --supabase-csv autotrade_v2/tests/data/supabase_15m_20261025.csv \
+            --btc-history data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth-history data/multisource/ETHUSDT_hybrid_15m.pkl \
+            --out results/backtest_supabase_35days_compare
+      - name: Upload comparison results and trade logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-35d-hard-vs-split-results
+          path: results/backtest_supabase_35days_compare/
+          if-no-files-found: warn
+          retention-days: 60
