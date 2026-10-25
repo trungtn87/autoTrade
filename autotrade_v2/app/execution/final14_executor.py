@@ -10,6 +10,7 @@ from .executor import LegacyStyleBingXClient
 from .quantity import allocate_exit_qty,confirmed_position_qty,PositionQuantityMismatch
 from .identity import identify_entry_position
 from .protection_journal import ProtectionJournal,ProtectionReconcilePending
+from .close_position_check import position_remaining,PositionConfirmationError
 
 log=logging.getLogger(__name__)
 
@@ -125,25 +126,49 @@ class Final14Executor:
                 continue
             order=self.client.extract_order(raw)
             status,executed_qty,avg_price=self._order_metrics(order)
-            if status=="FILLED" and executed_qty>0:
-                return {
-                    "confirmed":True,
+            if status in {"FILLED","CANCELED","EXPIRED","PARTIALLY_FILLED"}:
+                remaining=None
+                verification_error=None
+                try:
+                    if not position_id:
+                        raise PositionConfirmationError(
+                            "missing positionId: cannot prove Separate Isolated position flat"
+                        )
+                    remaining=position_remaining(
+                        self.client,intent.symbol,intent.side,str(position_id)
+                    )
+                except Exception as exc:
+                    verification_error=f"{type(exc).__name__}: {exc}"
+                base={
                     "client_order_id":cid,
                     "order_id":self._order_id(order),
                     "status":status,
                     "executed_qty":executed_qty,
                     "avg_price":avg_price,
                     "reason":reason,
+                    "position_id":position_id,
+                    "remaining_qty":str(remaining) if remaining is not None else None,
                 }
-            if status in {"CANCELED","EXPIRED"}:
+                # Order status alone cannot guarantee that the specific
+                # isolated position is closed, especially after partial fills.
+                if remaining is not None and remaining==0:
+                    return {"confirmed":True,**base}
+                if status in {"CANCELED","EXPIRED"}:
+                    return {
+                        "confirmed":False,**base,
+                        "error":"emergency close canceled/expired; residual must be reconciled before any new close"
+                        + (f"; {verification_error}" if verification_error else ""),
+                    }
+                if status=="FILLED":
+                    return {
+                        "confirmed":False,**base,
+                        "error":"emergency close FILLED, but position is not independently confirmed flat"
+                        + (f"; {verification_error}" if verification_error else ""),
+                    }
                 return {
-                    "confirmed":False,
-                    "client_order_id":cid,
-                    "order_id":self._order_id(order),
-                    "status":status,
-                    "executed_qty":executed_qty,
-                    "reason":reason,
-                    "error":"emergency close did not fill",
+                    "confirmed":False,**base,
+                    "error":"partial close in progress; no new close until exchange status reconciles"
+                    + (f"; {verification_error}" if verification_error else ""),
                 }
             if attempt<ENTRY_CONFIRM_ATTEMPTS:
                 time.sleep(ENTRY_CONFIRM_SLEEP_SEC)
