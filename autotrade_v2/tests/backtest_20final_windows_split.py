@@ -170,14 +170,15 @@ def simulate_case(d, events, cfg, start_i, end_i, *, mode="split"):
 
             # Both orders may be live. On ambiguous same-bar high/low,
             # defer the favorable TP if trailing threshold also touched.
+            trailing_filled_this_bar=False
             if not trailing_done:
                 threshold=best*(1-direction*CALLBACK_RATE)
                 hit=adverse<=threshold if direction>0 else adverse>=threshold
                 if hit:
                     legs.append((0.5,threshold,"TRAILING"))
                     trailing_done=True
-            if not fixed_done and not (trailing_done and
-                    legs and legs[-1][2]=="TRAILING"):
+                    trailing_filled_this_bar=True
+            if not fixed_done and not trailing_filled_this_bar:
                 if tp_hit:
                     legs.append((0.5,tp,"TP_HALF"))
                     fixed_done=True
