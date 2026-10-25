@@ -53,7 +53,11 @@ def identify_entry_position(
         pid=str(entry_position_id)
         if pid not in current or current[pid]<filled:
             raise PositionQuantityMismatch("entry positionId not confirmed in BingX position snapshot")
-        return pid
+        # An entry's positionId is useful but must NOT bypass the durable
+        # before/after delta proof: concurrent new same-side positions can
+        # otherwise be silently attributed to the tracked trade.
+        if baseline is None:
+            return pid
     if baseline is None:
         if len(current)==1 and next(iter(current.values()))==filled:
             return next(iter(current))
@@ -70,4 +74,6 @@ def identify_entry_position(
             changed.append((pid,delta))
     if len(changed)!=1 or changed[0][1]!=filled:
         raise PositionQuantityMismatch("unable to attribute exactly one positionId to this entry")
+    if entry_position_id and changed[0][0]!=str(entry_position_id):
+        raise PositionQuantityMismatch("entry positionId disagrees with pre-entry delta")
     return changed[0][0]

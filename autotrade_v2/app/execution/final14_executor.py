@@ -10,6 +10,7 @@ from .executor import LegacyStyleBingXClient
 from .quantity import allocate_exit_qty,confirmed_position_qty,PositionQuantityMismatch
 from .identity import identify_entry_position
 from .protection_journal import ProtectionJournal,ProtectionReconcilePending
+from .close_position_check import position_remaining,PositionConfirmationError
 
 log=logging.getLogger(__name__)
 
@@ -78,6 +79,7 @@ class Final14Executor:
     def _confirm_market_close(
         self,intent:TradeIntent,qty:float,reason:str,
         position_id:str|None=None,resume_state:dict|None=None,
+        protection_persist=None,
     )->dict:
         # Separate Isolated must NOT be closed by side alone when multiple
         # positions coexist. Resolve from durable pre-entry snapshot if supplied.
@@ -93,13 +95,70 @@ class Final14Executor:
                     "confirmed":False,"reason":reason,
                     "error":f"positionId not attributable; refusing ambiguous close: {exc}",
                 }
-        cid=self.client_order_id(intent.event_id,"close")
+        state=resume_state if resume_state is not None else {}
+        journal=dict(state.get("emergency_close") or {})
+        cid=str(journal.get("client_order_id") or self.client_order_id(intent.event_id,"close"))
+        if journal and str(journal.get("position_id") or "")!=str(position_id or ""):
+            return {"confirmed":False,"reason":reason,
+                    "error":"emergency close journal positionId mismatch; refusing another order"}
+        if protection_persist is not None:
+            try:
+                if not position_id:
+                    raise PositionConfirmationError("cannot close without uniquely identified positionId")
+                position_qty=position_remaining(
+                    self.client,intent.symbol,intent.side,str(position_id)
+                )
+            except Exception as exc:
+                return {"confirmed":False,"reason":reason,
+                        "error":f"pre-close position could not be verified: {exc}"}
+            if position_qty==0:
+                try:
+                    second=position_remaining(
+                        self.client,intent.symbol,intent.side,str(position_id)
+                    )
+                except Exception as exc:
+                    return {"confirmed":False,"reason":reason,
+                            "error":f"cannot confirm flat position twice: {exc}"}
+                if second!=0:
+                    return {"confirmed":False,"reason":reason,
+                            "error":"conflicting BingX position snapshots; refusing another close"}
+                return {"confirmed":True,"reason":reason,"status":"POSITION_FLAT",
+                        "position_id":position_id,"remaining_qty":"0"}
+            if float(position_qty)>qty+0.0001:
+                return {"confirmed":False,"reason":reason,
+                        "error":"position quantity exceeds entry fill; refusing cross-combo close",
+                        "position_id":position_id,"remaining_qty":str(position_qty)}
+
+        # Use the live remaining size for the FIRST close attempt. The SL
+        # may already have reduced this isolated position before recovery.
+        close_qty=float(position_qty) if protection_persist is not None else qty
         raw=self.client.find_order_by_client_id(intent.symbol,cid)
         if raw is None:
+            if journal:
+                # Prepared or previously sent. Missing lookup is not proof
+                # that the MARKET POST was rejected: never re-submit.
+                return {"confirmed":False,"client_order_id":cid,"reason":reason,
+                        "error":"prepared emergency close lookup unresolved; not resending"}
+            previous_close=state.get("close_result") or {}
+            if (isinstance(previous_close,dict)
+                    and str(previous_close.get("client_order_id") or "")==cid):
+                # Recovery from legacy state without a write-ahead journal.
+                # The saved close CID may already have been accepted by BingX.
+                return {"confirmed":False,"client_order_id":cid,"reason":reason,
+                        "error":"previous close send unresolved; no legacy duplicate"}
+
+            if protection_persist is not None:
+                journal={"client_order_id":cid,"position_id":str(position_id),
+                         "reason":reason,"phase":"prepared",
+                         "requested_qty":str(close_qty),"revision":0}
+                prepared={**state,"emergency_close":journal}
+                protection_persist(prepared)  # durable BEFORE signed MARKET POST
+                state.clear()
+                state.update(prepared)
             try:
                 kwargs={"position_id":position_id} if position_id else {}
                 self.client.close_market(
-                    intent.symbol,intent.side,qty,FINAL14_EXECUTION_LEVERAGE,
+                    intent.symbol,intent.side,close_qty,FINAL14_EXECUTION_LEVERAGE,
                     client_order_id=cid,**kwargs,
                 )
             except Exception as send_exc:
@@ -124,26 +183,128 @@ class Final14Executor:
                     time.sleep(ENTRY_CONFIRM_SLEEP_SEC)
                 continue
             order=self.client.extract_order(raw)
+            if order.get("clientOrderId") and str(order["clientOrderId"]).lower()!=cid.lower():
+                return {"confirmed":False,"reason":reason,
+                        "error":"emergency close lookup returned different clientOrderId"}
+            if position_id and order.get("positionId") and str(order["positionId"])!=str(position_id):
+                return {"confirmed":False,"reason":reason,
+                        "error":"emergency close lookup returned different positionId"}
+            if order.get("symbol") and str(order["symbol"])!=intent.symbol:
+                return {"confirmed":False,"reason":reason,
+                        "error":"emergency close lookup returned different symbol"}
+            if order.get("positionSide") and str(order["positionSide"]).upper()!=(
+                "LONG" if intent.side.upper()=="BUY" else "SHORT"
+            ):
+                return {"confirmed":False,"reason":reason,
+                        "error":"emergency close lookup returned different positionSide"}
+            if order.get("type") and str(order["type"]).upper()!="MARKET":
+                return {"confirmed":False,"reason":reason,
+                        "error":"emergency close lookup returned a non-MARKET order"}
             status,executed_qty,avg_price=self._order_metrics(order)
-            if status=="FILLED" and executed_qty>0:
-                return {
-                    "confirmed":True,
+            if status in {"FILLED","CANCELED","EXPIRED","PARTIALLY_FILLED"}:
+                remaining=None
+                verification_error=None
+                try:
+                    if not position_id:
+                        raise PositionConfirmationError(
+                            "missing positionId: cannot prove Separate Isolated position flat"
+                        )
+                    remaining=position_remaining(
+                        self.client,intent.symbol,intent.side,str(position_id)
+                    )
+                except Exception as exc:
+                    verification_error=f"{type(exc).__name__}: {exc}"
+                base={
                     "client_order_id":cid,
                     "order_id":self._order_id(order),
                     "status":status,
                     "executed_qty":executed_qty,
                     "avg_price":avg_price,
                     "reason":reason,
+                    "position_id":position_id,
+                    "remaining_qty":str(remaining) if remaining is not None else None,
                 }
-            if status in {"CANCELED","EXPIRED"}:
+                # Order status alone cannot guarantee that the specific
+                # isolated position is closed, especially after partial fills.
+                if remaining is not None and remaining==0:
+                    try:
+                        repeat=position_remaining(
+                            self.client,intent.symbol,intent.side,str(position_id)
+                        )
+                        if repeat==0:
+                            return {"confirmed":True,**base}
+                        return {"confirmed":False,**base,
+                                "error":"conflicting BingX position snapshots after close"}
+                    except Exception as exc:
+                        return {"confirmed":False,**base,
+                                "error":f"second flat-position confirmation failed: {exc}"}
+                if status in {"CANCELED","EXPIRED"}:
+                    if protection_persist is not None and remaining is not None and journal:
+                        # Only a terminal order with a consistent remaining
+                        # quantity may start a new, bounded close revision.
+                        # Never retry merely because an exchange query timed out.
+                        from decimal import Decimal,ROUND_DOWN
+                        submitted=Decimal(str(journal.get("requested_qty") or "0"))
+                        filled=Decimal(str(executed_qty))
+                        revision=int(journal.get("revision",0))
+                        if (submitted>0 and filled>=0 and filled<=submitted
+                                and abs(remaining-(submitted-filled))<=Decimal("0.0001")
+                                and revision<2):
+                            next_revision=revision+1
+                            next_qty=remaining.quantize(Decimal("0.0001"),rounding=ROUND_DOWN)
+                            if next_qty>0 and next_qty<=submitted:
+                                next_cid=self.client_order_id(
+                                    intent.event_id,f"close-retry-{next_revision}"
+                                )
+                                # A stale worker may have sent this revision.
+                                # Persist its CID first and recover, never
+                                # blindly submit an already known client ID.
+                                existing_next=self.client.find_order_by_client_id(
+                                    intent.symbol,next_cid
+                                )
+                                next_journal={
+                                    "client_order_id":next_cid,"position_id":str(position_id),
+                                    "reason":reason,"phase":"prepared",
+                                    "requested_qty":str(next_qty),
+                                    "revision":next_revision,
+                                    "previous_client_order_id":cid,
+                                }
+                                prepared={**state,"emergency_close":next_journal}
+                                protection_persist(prepared)
+                                state.clear()
+                                state.update(prepared)
+                                if existing_next is None:
+                                    try:
+                                        self.client.close_market(
+                                            intent.symbol,intent.side,float(next_qty),
+                                            FINAL14_EXECUTION_LEVERAGE,
+                                            client_order_id=next_cid,position_id=position_id,
+                                        )
+                                    except Exception:
+                                        # CID is durable. Recovery queries
+                                        # before considering anything else.
+                                        pass
+                                return self._confirm_market_close(
+                                    intent,qty,reason,position_id=position_id,
+                                    resume_state=state,
+                                    protection_persist=protection_persist,
+                                )
+                    return {
+                        "confirmed":False,**base,
+                        "error":"emergency close canceled/expired; residual unverified "
+                        "or maximum bounded close attempts reached"
+                        + (f"; {verification_error}" if verification_error else ""),
+                    }
+                if status=="FILLED":
+                    return {
+                        "confirmed":False,**base,
+                        "error":"emergency close FILLED, but position is not independently confirmed flat"
+                        + (f"; {verification_error}" if verification_error else ""),
+                    }
                 return {
-                    "confirmed":False,
-                    "client_order_id":cid,
-                    "order_id":self._order_id(order),
-                    "status":status,
-                    "executed_qty":executed_qty,
-                    "reason":reason,
-                    "error":"emergency close did not fill",
+                    "confirmed":False,**base,
+                    "error":"partial close in progress; no new close until exchange status reconciles"
+                    + (f"; {verification_error}" if verification_error else ""),
                 }
             if attempt<ENTRY_CONFIRM_ATTEMPTS:
                 time.sleep(ENTRY_CONFIRM_SLEEP_SEC)
@@ -358,7 +519,8 @@ class Final14Executor:
                 order_id=final_order_id
                 close=self._confirm_market_close(
                     intent,executed_qty,"partial_entry_timeout",
-                    resume_state=resume_state,
+                    position_id=str(detail.get("positionId") or "") or None,
+                    resume_state=resume_state,protection_persist=protection_persist,
                 )
                 if close.get("confirmed"):
                     return {
@@ -412,7 +574,8 @@ class Final14Executor:
         if not self._valid_fill(side,avg_price,tp,sl):
             close=self._confirm_market_close(
                 intent,executed_qty,"fill_outside_final14_range",
-                resume_state=resume_state,
+                position_id=str(detail.get("positionId") or "") or None,
+                resume_state=resume_state,protection_persist=protection_persist,
             )
             if close.get("confirmed"):
                 return {
@@ -629,7 +792,9 @@ class Final14Executor:
                     )
                     close=self._confirm_market_close(
                         intent,executed_qty,"stop_loss_unconfirmed",
-                        position_id=position_id,resume_state=resume_state,
+                        position_id=position_id or str(detail.get("positionId") or "") or None,
+                        resume_state=resume_state,
+                        protection_persist=protection_persist,
                     )
                     if close.get("confirmed"):
                         return {
