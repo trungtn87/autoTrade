@@ -6,8 +6,8 @@ import threading
 from ..config import Settings
 from ..contracts import ExecutionResult, TradeIntent
 from .final14_executor import Final14Executor
-from .lifecycle import ProtectionLifecycle
-from .identity import entry_baseline,LifecycleRisk
+from .lifecycle import ProtectionLifecycle,LifecycleRisk
+from .identity import entry_baseline
 from .store import ExecutionStore
 
 
