@@ -1,5 +1,6 @@
 """Opt-in 50/50 fixed-TP/trailing protection tests; never calls the exchange."""
 from dataclasses import replace
+from decimal import Decimal
 
 from app.config import Settings
 from app.execution.final14_executor import Final14Executor
@@ -67,7 +68,7 @@ def main():
     assert result["ok"] and result["stage"]=="complete",result
     assert result["protection_mode"]=="half_hard_tp_half_trailing_full_sl",result
     assert result["exit_mode"]=="split_trailing",result
-    assert result["tp_qty"]=="0.5" and result["trailing_qty"]=="0.5",result
+    assert Decimal(result["tp_qty"])==Decimal("0.5") and Decimal(result["trailing_qty"])==Decimal("0.5"),result
     assert result["actual_position_qty"]=="1" and result["position_id"]=="p-1",result
     assert ("positions","BTC-USDT") in fake.calls and ("contracts","BTC-USDT") in fake.calls
     assert result["trailing_activation_price"]==102.0,result
@@ -76,7 +77,7 @@ def main():
     placements=[x for x in fake.calls if x[0] in {"sl","tp","trailing"}]
     assert [x[0] for x in placements]==["sl","tp","trailing"],placements
     assert placements[0][3]==1.0,placements  # hard SL always spans entry
-    assert str(placements[1][3])=="0.5" and str(placements[2][3])=="0.5",placements
+    assert Decimal(str(placements[1][3]))==Decimal("0.5") and Decimal(str(placements[2][3]))==Decimal("0.5"),placements
 
     before=len(placements)
     resumed=executor.execute_safe(
@@ -155,7 +156,7 @@ def main():
     executor.client=tiny
     fallback=executor.execute_safe(intent())
     assert fallback["ok"] and fallback["exit_mode"]=="hard_tp",fallback
-    assert fallback["tp_qty"]=="1" and fallback["trailing_qty"]=="0",fallback
+    assert Decimal(fallback["tp_qty"])==Decimal("1") and Decimal(fallback["trailing_qty"])==Decimal("0"),fallback
     assert not any(x[0]=="trailing" for x in tiny.calls)
 
     settings_old=replace(settings,tp_trailing_split_enabled=False)
