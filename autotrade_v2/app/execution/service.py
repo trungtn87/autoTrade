@@ -6,6 +6,7 @@ import threading
 from ..config import Settings
 from ..contracts import ExecutionResult, TradeIntent
 from .final14_executor import Final14Executor
+from .lifecycle import ProtectionLifecycle,LifecycleRisk
 from .store import ExecutionStore
 
 
@@ -16,6 +17,7 @@ class ExecutionService:
         self.settings = settings
         self.store = store
         self.executor = Final14Executor(settings)
+        self._lifecycle = ProtectionLifecycle(self.executor.client)
         self.event_cb = event_cb
         self.credentials_verified = False
         self.preflight_error: str | None = None
@@ -130,6 +132,77 @@ class ExecutionService:
             })
         return recovered
 
+    def reconcile_open_positions(self)->list[dict]:
+        """Poll accepted trades even after entry is marked processed/terminal.
+
+        On restart read persisted protection IDs, not an in-memory position map.
+        Error alerts only fire when the reason changes, avoiding Discord floods.
+        """
+        if (
+            not self.settings.position_lifecycle_enabled
+            or not self.settings.execution_enabled
+            or self.settings.dry_run
+            or not self.credentials_verified
+        ):
+            return []
+        outcomes=[]
+        with self._execution_lock:
+            self._lifecycle.client=self.executor.client
+            snapshots=self.store.list_states()
+            active=[(eid,s) for eid,s in snapshots if
+                    s.get("ok") and s.get("terminal")
+                    and (s.get("lifecycle") or {}).get("status") in ("open","cleanup")]
+            for event_id,state in active:
+                intent=self._intent_from_state(state)
+                if intent is None:
+                    continue
+                # Concurrent combos are allowed. Ownership is determined from
+                # each trade's exchange order IDs, not by blocking new entries.
+                peer_states=[other for eid,other in snapshots if eid!=event_id
+                             and isinstance(other.get("intent"),dict)
+                             and other["intent"].get("symbol")==intent.symbol
+                             and other["intent"].get("side")==intent.side
+                             and ((other.get("lifecycle") or {}).get("status") in ("open","cleanup")
+                                  or not other.get("terminal"))]
+                current=self.store.get_state(event_id) or state
+                def persist(new_state):
+                    self.store.save_state(event_id,new_state)
+                try:
+                    result=self._lifecycle.reconcile(current,persist,peer_states=peer_states)
+                    newest=self.store.get_state(event_id) or current
+                    lifecycle=newest.get("lifecycle") or {}
+                    if lifecycle.get("last_error"):
+                        lifecycle.pop("last_error",None)
+                        newest["lifecycle"]=lifecycle
+                        persist(newest)
+                    if result in {"sl_resized","closed"}:
+                        self._emit(
+                            "L3.EXEC.SL_RESIZED" if result=="sl_resized" else "L3.EXEC.ORPHAN_ORDERS_CLEANED",
+                            "INFO",
+                            "SL quantity reconciled from owned exchange fills and checked against BingX positionAmt"
+                            if result=="sl_resized" else "all tracked protection orders reconciled/removed",
+                            intent,
+                            remaining_qty=lifecycle.get("remaining_qty"),
+                            protection=newest.get("protection"),
+                        )
+                    outcomes.append({"event_id":event_id,"status":result})
+                except Exception as exc:
+                    newest=self.store.get_state(event_id) or current
+                    life=dict(newest.get("lifecycle") or {})
+                    reason=f"{type(exc).__name__}: {exc}"
+                    if life.get("last_error")!=reason:
+                        life["last_error"]=reason
+                        newest["lifecycle"]=life
+                        persist(newest)
+                        self._emit(
+                            "L3.EXEC.LIFECYCLE_RISK","CRITICAL",
+                            "position protection/cleanup requires reconciliation",
+                            intent,error=reason,position_id=newest.get("position_id"),
+                            protection=newest.get("protection"),
+                        )
+                    outcomes.append({"event_id":event_id,"status":"risk","error":reason})
+        return outcomes
+
     def execute(self, intent: TradeIntent, recovery_only:bool=False) -> ExecutionResult:
         with self._execution_lock:
             return self._execute_unlocked(intent,recovery_only=recovery_only)
@@ -209,6 +282,8 @@ class ExecutionService:
                 {
                     "terminal":False,
                     "stage":"entry_intent",
+                    # Per-event mode freezes protection semantics across restart.
+                    "exit_mode":"split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp",
                     "client_order_id":client_order_id,
                     "intent":asdict(intent),
                 },
@@ -249,10 +324,17 @@ class ExecutionService:
         terminal = bool(result.get("processed"))
         order_id = str(result.get("order_id") or "") or None
 
-        self.store.save_state(
-            intent.event_id,
-            self._state_payload(intent,result,terminal),
-        )
+        persisted=self._state_payload(intent,result,terminal)
+        if result.get("ok") and result.get("protection",{}).get("sl"):
+            persisted["lifecycle"]={
+                "status":"open",
+                "remaining_qty":str(result.get("actual_position_qty") or result.get("executed_qty")),
+                "sl_qty":str(result.get("actual_position_qty") or result.get("executed_qty")),
+                "sl_revision":0,
+                "pending_sl_replace":None,
+                "cleaned_orders":[],
+            }
+        self.store.save_state(intent.event_id,persisted)
         if terminal:
             self.store.mark(intent.event_id, result)
 
@@ -274,6 +356,8 @@ class ExecutionService:
             self._emit("L3.EXEC.ORDER_FILLED", "INFO", "market entry FILLED confirmed", intent, **common)
             self._emit("L3.EXEC.SL_PLACED", "INFO", "hard stop-loss confirmed", intent, **common)
             self._emit("L3.EXEC.TP_PLACED", "INFO", "hard take-profit confirmed", intent, **common)
+            if result.get("protection",{}).get("trailing"):
+                self._emit("L3.EXEC.TRAILING_PLACED", "INFO", "50% trailing-stop confirmed", intent, **common)
             self._emit("L3.EXEC.ORDER_COMPLETE", "INFO", "entry and protections reconciled", intent, **common)
         else:
             stage = str(result.get("stage") or "failed")
@@ -311,6 +395,9 @@ class ExecutionService:
                 severity = "CRITICAL"
             elif stage == "orphan_sl_cleanup_required":
                 key = "L3.EXEC.ORPHAN_PROTECTION_CLEANUP"
+                severity = "CRITICAL"
+            elif stage in ("protection_trailing_failed_sl_active","partial_exit_reconcile_required"):
+                key = "L3.EXEC.PROTECTION_RECONCILE_REQUIRED"
                 severity = "CRITICAL"
             elif stage == "protection_tp_failed_sl_active":
                 key = "L3.EXEC.TP_FAILED_SL_ACTIVE"

@@ -40,6 +40,11 @@ class Settings:
     execution_enabled: bool = _bool("EXECUTION_ENABLED", False)
     dry_run: bool = _bool("DRY_RUN", True)
 
+    # Opt-in only: 50% fixed TP + 50% exchange-native trailing, full hard SL.
+    tp_trailing_split_enabled: bool = _bool("TP_TRAILING_SPLIT_ENABLED", False)
+    tp_trailing_callback_rate: float = float(os.getenv("TP_TRAILING_CALLBACK_RATE", "0.005"))
+    position_lifecycle_enabled: bool = _bool("POSITION_LIFECYCLE_ENABLED", False)
+
     # Layer 4 only. Missing/broken Discord must never block trading.
     discord_enabled: bool = _bool("DISCORD_ENABLED", True)
     discord_webhook_btc: str = os.getenv("DISCORD_WEBHOOK_BTC", "")
@@ -66,6 +71,10 @@ class Settings:
 
 
 def validate_settings(settings: Settings) -> None:
+    if settings.tp_trailing_split_enabled and not settings.position_lifecycle_enabled:
+        raise ValueError("50/50 TP requires POSITION_LIFECYCLE_ENABLED=true")
+    if not 0 < settings.tp_trailing_callback_rate <= 1:
+        raise ValueError("TP_TRAILING_CALLBACK_RATE must be in (0, 1]")
     if settings.historical_request_limit != 1000:
         raise ValueError("historical_request_limit is locked to 1000")
     if settings.historical_min_interval_ms < 1000:

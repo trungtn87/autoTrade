@@ -286,19 +286,20 @@ def _execution_reconcile_loop()->None:
                 1 for _,state in execution_store.list_states()
                 if not bool(state.get("terminal"))
             )
-            if pending<=0:
-                continue
-            results=execution_service.recover_pending()
+            results=execution_service.recover_pending() if pending>0 else []
+            lifecycle=execution_service.reconcile_open_positions()
             with _state_lock:
                 runtime["execution_recovery_last"]={
                     "checked_at_ms":int(time.time()*1000),
                     "pending_before":pending,
                     "results":results,
+                    "lifecycle":lifecycle,
                 }
-            log.warning(
-                "EXECUTION_RECONCILE_LOOP pending=%s reconciled=%s",
-                pending,len(results),
-            )
+            if pending or any(x.get("status") not in ("unchanged",) for x in lifecycle):
+                log.info(
+                    "EXECUTION_RECONCILE_LOOP pending=%s reconciled=%s lifecycle_updates=%s",
+                    pending,len(results),[x for x in lifecycle if x.get("status")!="unchanged"],
+                )
         except Exception as exc:
             log.exception("EXECUTION_RECONCILE_LOOP_FAIL error=%s",exc)
             with _state_lock:
@@ -406,6 +407,9 @@ def startup()->None:
         )
         try:
             recovery=execution_service.recover_pending()
+            lifecycle_startup=execution_service.reconcile_open_positions()
+            if lifecycle_startup:
+                log.info("LIFECYCLE_STARTUP_CHECK results=%s",lifecycle_startup)
             with _state_lock:
                 runtime["execution_recovery"]=recovery
             if recovery:
