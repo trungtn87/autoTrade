@@ -162,6 +162,23 @@ class Final14Executor:
                     time.sleep(ENTRY_CONFIRM_SLEEP_SEC)
                 continue
             order=self.client.extract_order(raw)
+            if order.get("clientOrderId") and str(order["clientOrderId"]).lower()!=cid.lower():
+                return {"confirmed":False,"reason":reason,
+                        "error":"emergency close lookup returned different clientOrderId"}
+            if position_id and order.get("positionId") and str(order["positionId"])!=str(position_id):
+                return {"confirmed":False,"reason":reason,
+                        "error":"emergency close lookup returned different positionId"}
+            if order.get("symbol") and str(order["symbol"])!=intent.symbol:
+                return {"confirmed":False,"reason":reason,
+                        "error":"emergency close lookup returned different symbol"}
+            if order.get("positionSide") and str(order["positionSide"]).upper()!=(
+                "LONG" if intent.side.upper()=="BUY" else "SHORT"
+            ):
+                return {"confirmed":False,"reason":reason,
+                        "error":"emergency close lookup returned different positionSide"}
+            if order.get("type") and str(order["type"]).upper()!="MARKET":
+                return {"confirmed":False,"reason":reason,
+                        "error":"emergency close lookup returned a non-MARKET order"}
             status,executed_qty,avg_price=self._order_metrics(order)
             if status in {"FILLED","CANCELED","EXPIRED","PARTIALLY_FILLED"}:
                 remaining=None
