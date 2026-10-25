@@ -5,7 +5,7 @@ on:
     branches: [fix-trailing-activation-005-20261026]
     paths:
       - 'autotrade_v2/**'
-      - '.github/workflows/autotrade-v2-check.yml'
+      - '.github/workflows/check-trailing-entry-005.yml'
   pull_request:
     paths:
       - 'autotrade_v2/**'
