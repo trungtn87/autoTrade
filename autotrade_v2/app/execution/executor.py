@@ -265,6 +265,66 @@ class LegacyStyleBingXClient:
         }
         return self._signed_request("POST",self.ORDER_PATH,params)
 
+    def place_trailing_stop(
+        self,
+        symbol:str,
+        entry_side:str,
+        qty:float,
+        activation_price:float,
+        callback_rate:float,
+    )->dict:
+        """Exchange-native trailing close of the requested partial quantity."""
+        opposite,position_side=self._protection_side(entry_side)
+        params={
+            "symbol":symbol,
+            "side":opposite,
+            "positionSide":position_side,
+            "type":"TRAILING_STOP_MARKET",
+            "quantity":self._fmt_qty(qty),
+            "activationPrice":self._fmt_price(activation_price),
+            "priceRate":str(callback_rate),
+        }
+        return self._signed_request("POST",self.ORDER_PATH,params)
+
+    def find_matching_trailing(
+        self,
+        symbol:str,
+        entry_side:str,
+        qty:float,
+        activation_price:float,
+        callback_rate:float,
+    )->dict|None:
+        """Recover a trailing order after an ambiguous POST, without duplicating it."""
+        opposite,position_side=self._protection_side(entry_side)
+        matches=[]
+        for order in self.get_open_orders(symbol):
+            try:
+                if str(order.get("type") or "").upper()!="TRAILING_STOP_MARKET":
+                    continue
+                if str(order.get("side") or "").upper()!=opposite:
+                    continue
+                if str(order.get("positionSide") or "").upper()!=position_side:
+                    continue
+                if str(order.get("status") or "NEW").upper() not in {"NEW","PARTIALLY_FILLED"}:
+                    continue
+                oq=float(order.get("origQty") or order.get("quantity") or 0)
+                ap=float(order.get("activationPrice") or 0)
+                rate=float(order.get("priceRate") or 0)
+                if abs(oq-float(self._fmt_qty(qty)))>1e-12:
+                    continue
+                if abs(ap-float(self._fmt_price(activation_price)))>1e-9:
+                    continue
+                if abs(rate-float(callback_rate))>1e-9:
+                    continue
+                matches.append(order)
+            except (ValueError,TypeError):
+                continue
+        if not matches:
+            return None
+        if len(matches)>1:
+            raise RuntimeError("ambiguous duplicate trailing orders found; manual reconciliation required")
+        return {"code":0,"data":{"order":matches[0]}}
+
     def place_protection(
         self,
         symbol:str,
