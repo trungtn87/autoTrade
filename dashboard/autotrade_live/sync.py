@@ -36,11 +36,19 @@ def digest(row):
 
 def int_ms(row, *keys):
     for key in keys:
+        value = row.get(key)
+        if value is None or value == '':
+            continue
         try:
-            if row.get(key) is not None:
-                return int(row[key])
-        except (TypeError, ValueError):
-            pass
+            return int(value)
+        except (ValueError, TypeError):
+            try:
+                dt = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+                if dt.tzinfo is None:
+                    raise ValueError('BingX timestamp missing timezone')
+                return int(dt.timestamp() * 1000)
+            except (ValueError, TypeError, OverflowError):
+                pass
     return 0
 
 
@@ -64,13 +72,16 @@ def as_fill(a):
     trade_id = ident(a, 'tradeId', 'fillId', 'id')
     if not trade_id:
         raise ValueError('BingX fill record without tradeId/fillId')
+    timestamp = int_ms(a, 'time', 'filledTime', 'filledTm', 'fillTime', 'createTime', 'closeTime')
+    if timestamp <= 0:
+        raise ValueError('BingX fill missing valid timestamp')
     return dict(trade_id=trade_id, order_id=ident(a, 'orderID', 'orderId'),
                 symbol=s(a.get('symbol')), side=s(a.get('side')).upper(),
                 position_side=s(a.get('positionSide')).upper(),
                 qty=f(a.get('qty', a.get('quantity', a.get('executedQty')))),
-                price=f(a.get('price')), realized_pnl=f(a.get('realizedPnl', a.get('realizedProfit'))),
+                price=f(a.get('price')), realized_pnl=f(a.get('realizedPnl', a.get('realisedPNL', a.get('realizedProfit')))),
                 fee=f(a.get('fee', a.get('commission'))),
-                timestamp_ms=int_ms(a, 'time', 'filledTime', 'filledTm', 'fillTime', 'createTime', 'closeTime'), raw=a)
+                timestamp_ms=timestamp, raw=a)
 
 
 def as_income(a):

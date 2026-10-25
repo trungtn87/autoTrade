@@ -211,3 +211,35 @@ def test_position_history_pagination_with_live_wrapper():
                  {'symbol': 'BTC-USDT', 'startTs': 100, 'endTs': 200},
                  ('positionHistory', 'list'), 1)
     assert rows == [row1, row2]
+
+
+def test_real_bingx_fill_iso_time_and_realised_pnl():
+    from datetime import datetime
+    from autotrade_live.sync import as_fill
+    row = as_fill({'tradeId': '123', 'orderId': '456', 'symbol': 'BTC-USDT',
+                   'side': 'SELL', 'positionSide': 'LONG', 'qty': '0.01',
+                   'price': '100000', 'realisedPNL': '-0.89586000',
+                   'commission': '-0.2', 'filledTime': '2026-10-25T10:06:12.000+08:00'})
+    assert row['timestamp_ms'] == int(datetime.fromisoformat('2026-10-25T10:06:12+08:00').timestamp() * 1000)
+    assert row['realized_pnl'] == -.89586
+    assert row['fee'] == -.2
+
+
+def test_bingx_fill_missing_timestamp_is_rejected():
+    import pytest
+    from autotrade_live.sync import as_fill
+    with pytest.raises(ValueError,match='missing valid timestamp'):
+        as_fill({'tradeId': '123', 'orderId': '456', 'qty': '1', 'price': '100', 'filledTime':'not valid'})
+
+
+def test_real_fill_entry_and_exit_combo_attribution():
+    from types import SimpleNamespace as Obj
+    from autotrade_live.sync import as_fill
+    from autotrade_live.analytics import build_trades
+    entry = as_fill({'tradeId':'1','orderId':'100','symbol':'ETH-USDT','side':'BUY','positionSide':'LONG','qty':'1','price':'100','realisedPNL':'0','commission':'-0.1','filledTime':'2026-10-23T10:06:12.000+08:00'})
+    exit_ = as_fill({'tradeId':'2','orderId':'200','symbol':'ETH-USDT','side':'SELL','positionSide':'LONG','qty':'1','price':'110','realisedPNL':'10','commission':'-0.1','filledTime':'2026-10-24T10:06:12.000+08:00'})
+    rows=[Obj(**row) for row in (entry,exit_)]
+    done,pending,issues=build_trades(rows,[Obj(order_id='100',type='MARKET',position_side='LONG'),Obj(order_id='200',type='TAKE_PROFIT_MARKET',position_side='LONG')],[Obj(entry_order_id='100',combo='C7')],[])
+    assert len(done)==1 and not pending and not issues
+    assert done[0]['combo']=='C7'
+    assert round(done[0]['pnl'],4)==9.8
