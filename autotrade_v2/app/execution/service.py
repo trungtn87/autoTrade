@@ -179,7 +179,7 @@ class ExecutionService:
                         self._emit(
                             "L3.EXEC.SL_RESIZED" if result=="sl_resized" else "L3.EXEC.ORPHAN_ORDERS_CLEANED",
                             "INFO",
-                            "SL quantity reconciled against live BingX positionAmt"
+                            "SL quantity reconciled from owned exchange fills and checked against BingX positionAmt"
                             if result=="sl_resized" else "all tracked protection orders reconciled/removed",
                             intent,
                             remaining_qty=lifecycle.get("remaining_qty"),
