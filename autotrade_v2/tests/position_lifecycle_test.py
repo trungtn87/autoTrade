@@ -167,6 +167,8 @@ def main():
         # without creating a second SL.
         exchange2=Exchange()
         exchange2.position=Decimal("0.5")
+        exchange2.orders["tp-own"]["status"]="FILLED"
+        exchange2.orders["tp-own"]["executedQty"]="0.5"
         exchange2.replace_lost=True
         store.save_state("C2",state("C2"))
         service.executor.client=exchange2
@@ -179,6 +181,8 @@ def main():
         # Crash after writing a deterministic journal but before POST.
         exchange3=Exchange()
         exchange3.position=Decimal("0.5")
+        exchange3.orders["tp-own"]["status"]="FILLED"
+        exchange3.orders["tp-own"]["executedQty"]="0.5"
         st=state("C3")
         st["lifecycle"]["pending_sl_replace"]={
             "old_order_id":"sl-original","quantity":"0.5",
