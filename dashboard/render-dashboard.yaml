@@ -1,0 +1,45 @@
+# Standalone Render Blueprint for the dashboard, intended for a separate service.
+# Configure rootDir=dashboard if these files live inside the autoTrade repository.
+services:
+  - type: web
+    name: autotrade-live-dashboard
+    runtime: python
+    plan: starter
+    rootDir: dashboard
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn autotrade_live.mobile:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DB_SCHEMA
+        value: autotrade_analytics
+      - key: DATABASE_URL
+        sync: false
+      - key: DASHBOARD_PASSWORD
+        sync: false
+      - key: APP_SESSION_SECRET
+        generateValue: true
+      - key: COLLECTOR_TOKEN
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: 'true'
+  - type: cron
+    name: autotrade-bingx-collector
+    runtime: python
+    plan: starter
+    rootDir: dashboard
+    schedule: '*/15 * * * *'
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m autotrade_live.collect --days 2
+    envVars:
+      - key: DB_SCHEMA
+        value: autotrade_analytics
+      - key: DATABASE_URL
+        sync: false
+      - key: BINGX_READ_API_KEY
+        sync: false
+      - key: BINGX_READ_API_SECRET
+        sync: false
+      - key: BINGX_SYMBOLS
+        value: BTC-USDT,ETH-USDT
+      - key: BINGX_REQUEST_DELAY
+        value: '0.6'
