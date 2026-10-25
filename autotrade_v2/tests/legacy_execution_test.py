@@ -22,6 +22,14 @@ class FakeClient:
         self.fail_tp=False
         self.fail_close=False
         self.matching={}
+        self.position_id="123"
+        self.position_qty="1"
+
+    def get_positions(self,symbol):
+        if float(self.position_qty)<=0:
+            return []
+        return [{"symbol":symbol,"positionSide":"LONG",
+                 "positionId":self.position_id,"positionAmt":self.position_qty}]
 
     def get_open_orders(self,symbol):
         # Offline fake: never query the network; known trades are confirmed by
@@ -50,6 +58,7 @@ class FakeClient:
             "executedQty":"1" if self.entry_status in {"FILLED","PARTIALLY_FILLED"} else "0",
             "avgPrice":str(self.avg_price) if self.entry_status in {"FILLED","PARTIALLY_FILLED"} else "0",
             "status":self.entry_status,
+            "positionId":self.position_id,
         }
         payload={"code":0,"data":{"order":order}}
         self.by_client[client_order_id]=payload
@@ -110,6 +119,7 @@ class FakeClient:
         self.calls.append(("close",symbol,entry_side,qty,leverage,client_order_id))
         if self.fail_close:
             raise RuntimeError("simulated close failure")
+        self.position_qty=str(max(0.0,float(self.position_qty)-float(qty)))
         order={
             "orderId":"close-1",
             "clientOrderId":client_order_id,
