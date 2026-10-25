@@ -32,11 +32,11 @@ class FakeTrailingClient(FakeClient):
         self.calls.append(("contracts",symbol))
         return self.contract_rules
 
-    def place_take_profit(self,symbol,entry_side,qty,tp,quantity_precision=None):
+    def place_take_profit(self,symbol,entry_side,qty,tp,quantity_precision=None,position_id=None):
         # Same fake exchange behavior, while accepting validated quantity precision.
         return super().place_take_profit(symbol,entry_side,qty,tp)
 
-    def place_trailing_stop(self,symbol,entry_side,qty,activation_price,callback_rate,quantity_precision=None):
+    def place_trailing_stop(self,symbol,entry_side,qty,activation_price,callback_rate,quantity_precision=None,position_id=None):
         self.calls.append(("trailing",symbol,entry_side,qty,activation_price,callback_rate))
         if self.fail_trailing:
             raise RuntimeError("simulated trailing post failure")
@@ -46,7 +46,7 @@ class FakeTrailingClient(FakeClient):
         self.by_order["trail-1"]=payload
         return payload
 
-    def find_matching_trailing(self,symbol,entry_side,qty,activation_price,callback_rate):
+    def find_matching_trailing(self,symbol,entry_side,qty,activation_price,callback_rate,position_id=None):
         self.calls.append(("find_trailing",qty,activation_price,callback_rate))
         return self.trailing_match
 
