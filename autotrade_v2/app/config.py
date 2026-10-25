@@ -42,6 +42,7 @@ class Settings:
 
     # Opt-in only: 50% fixed TP + 50% exchange-native trailing, full hard SL.
     tp_trailing_split_enabled: bool = _bool("TP_TRAILING_SPLIT_ENABLED", False)
+    tp_trailing_activation_pct: float = float(os.getenv("TP_TRAILING_ACTIVATION_PCT", "0.005"))
     tp_trailing_callback_rate: float = float(os.getenv("TP_TRAILING_CALLBACK_RATE", "0.005"))
     position_lifecycle_enabled: bool = _bool("POSITION_LIFECYCLE_ENABLED", False)
 
@@ -84,6 +85,9 @@ def enable_runtime_trailing(settings: Settings) -> Settings:
         settings,
         tp_trailing_split_enabled=trailing,
         position_lifecycle_enabled=lifecycle,
+        tp_trailing_activation_pct=float(
+            os.getenv("TP_TRAILING_ACTIVATION_PCT",str(settings.tp_trailing_activation_pct))
+        ),
         tp_trailing_callback_rate=float(
             os.getenv("TP_TRAILING_CALLBACK_RATE",str(settings.tp_trailing_callback_rate))
         ),
@@ -93,6 +97,8 @@ def enable_runtime_trailing(settings: Settings) -> Settings:
 def validate_settings(settings: Settings) -> None:
     if settings.tp_trailing_split_enabled and not settings.position_lifecycle_enabled:
         raise ValueError("50/50 TP requires POSITION_LIFECYCLE_ENABLED=true")
+    if not 0 < settings.tp_trailing_activation_pct < 1:
+        raise ValueError("TP_TRAILING_ACTIVATION_PCT must be in (0, 1)")
     if not 0 < settings.tp_trailing_callback_rate <= 1:
         raise ValueError("TP_TRAILING_CALLBACK_RATE must be in (0, 1]")
     if settings.historical_request_limit != 1000:
