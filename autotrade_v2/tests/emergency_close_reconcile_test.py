@@ -128,6 +128,47 @@ def main():
     unresolved=close(ex,resumed,persist)
     assert not unresolved["confirmed"] and fake.posts==0,unresolved
 
+    # Existing residual may be smaller than entry fill after another exit
+    # partially closes the exact isolated position. Send only the live size.
+    ex,fake,state,persist,writes=setup(
+        [{"status":"FILLED","filled":0.6,"applied":0.6}],qty=0.6
+    )
+    residual=close(ex,state,persist,qty=1.0)
+    assert residual["confirmed"] and fake.posts==1,residual
+    assert float(writes[0]["emergency_close"]["requested_qty"])==0.6
+
+    # An unavailable Supabase write must fail BEFORE the MARKET POST.
+    ex,fake,state,persist,writes=setup([])
+    def db_down(_):
+        raise RuntimeError("simulated Supabase unavailable")
+    try:
+        close(ex,state,db_down)
+        assert False
+    except RuntimeError:
+        pass
+    assert fake.posts==0
+
+    # No re-POST of an unresolved close from before the journal feature.
+    ex,fake,state,persist,writes=setup([])
+    cid=ex.client_order_id(intent().event_id,"close")
+    state["close_result"]={"client_order_id":cid,"confirmed":False}
+    historical=close(ex,state,persist)
+    assert not historical["confirmed"] and fake.posts==0,historical
+
+    # Position reads disagree (empty -> active). Do not conclude flat or
+    # accidentally send a close for an unverified snapshot.
+    ex,fake,state,persist,writes=setup([])
+    counts=[0.0,1.0]
+    def disagree(symbol):
+        amount=counts.pop(0) if counts else 1.0
+        return [] if amount==0 else [
+            {"symbol":symbol,"positionSide":"LONG","positionId":"456",
+             "positionAmt":str(amount)}
+        ]
+    fake.get_positions=disagree
+    conflicted=close(ex,state,persist)
+    assert not conflicted["confirmed"] and fake.posts==0,conflicted
+
     # A peer Separate Isolated position of the same side is never closed.
     # If the targeted positionId is absent, its quantity is already zero.
     ex,fake,state,persist,writes=setup([{"status":"FILLED"}])
