@@ -7,7 +7,7 @@ import time
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from .config import Settings, validate_settings
+from .config import Settings, enable_runtime_trailing, validate_settings
 from .control.logging import configure_logging
 from .control.events import EventReporter
 from .data.historical import HistoricalKlineClient
@@ -26,7 +26,7 @@ RECOVERY_RETRY_MS=60_000
 RECOVERY_MAX_ATTEMPTS=2
 EXECUTION_RECONCILE_POLL_SEC=15.0
 
-settings=Settings()
+settings=enable_runtime_trailing(Settings())
 configure_logging(settings.log_level)
 log=logging.getLogger("autotrade_v2")
 validate_settings(settings)
@@ -504,6 +504,9 @@ def health():
         "bootstrap_enabled":settings.bootstrap_enabled,
         "websocket_enabled":settings.websocket_enabled,
         "execution_enabled":settings.execution_enabled,
+        "tp_trailing_split_enabled":settings.tp_trailing_split_enabled,
+        "tp_trailing_callback_rate":settings.tp_trailing_callback_rate,
+        "position_lifecycle_enabled":settings.position_lifecycle_enabled,
         "execution_credentials_verified":execution_service.credentials_verified,
         "dry_run":settings.dry_run,
         "db_backend":candle_store.backend,
