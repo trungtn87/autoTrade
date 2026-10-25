@@ -5,7 +5,7 @@ from decimal import Decimal
 from app.config import Settings
 from app.execution.final14_executor import Final14Executor
 from app.execution.executor import LegacyStyleBingXClient
-from app.execution.quantity import allocate_exit_qty,confirmed_position_qty,PositionQuantityMismatch
+from app.execution.quantity import allocate_exit_qty,confirmed_position_qty,remaining_position_qty,PositionQuantityMismatch
 
 from legacy_execution_test import FakeClient, intent
 
@@ -140,6 +140,17 @@ def main():
             "BTC-USDT","BUY","0.0015",
         )
         assert False,"aggregated same-side position must be rejected"
+    except PositionQuantityMismatch:
+        pass
+
+    # After any partial close SL must use a NEW snapshot, not a local subtraction.
+    current=[{"symbol":"BTC-USDT","positionSide":"LONG",
+              "positionAmt":"0.0008","positionId":"p-a"}]
+    assert remaining_position_qty(current,"BTC-USDT","BUY","p-a")=="0.0008"
+    assert remaining_position_qty([],"BTC-USDT","BUY","p-a")=="0"
+    try:
+        remaining_position_qty(current,"BTC-USDT","BUY","other-id")
+        assert False,"cannot confuse another position with tracked SL position"
     except PositionQuantityMismatch:
         pass
 
