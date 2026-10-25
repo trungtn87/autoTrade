@@ -19,12 +19,15 @@ def _amount(value, label:str)->Decimal:
 
 
 def confirmed_position_qty(
-    positions:list[dict],symbol:str,entry_side:str,executed_qty
+    positions:list[dict],symbol:str,entry_side:str,executed_qty,
+    allow_aggregate:bool=False,
 )->tuple[str,str|None]:
-    """Read actual positionAmt; reject aggregated/shared positions and timing races.
+    """Source this trade's real quantity from its own BingX executedQty.
 
-    executedQty identifies this trade's fill; positionAmt identifies what is
-    actually open NOW. If they differ, there is no safe per-trade allocation.
+    Multiple independent combos may share a BingX hedge position; positionAmt
+    then describes *all* combos, never an individual combo's trade size.
+    Confirm that the exchange position can accommodate the real entry fill,
+    without treating aggregated positionAmt as this trade's order quantity.
     """
     side="LONG" if entry_side.upper()=="BUY" else "SHORT"
     candidates=[]
@@ -34,18 +37,29 @@ def confirmed_position_qty(
         amount=_amount(row.get("positionAmt"),"positionAmt")
         if amount>0:
             candidates.append((row,amount))
-    if len(candidates)!=1:
-        raise PositionQuantityMismatch(
-            f"BingX returned {len(candidates)} active {symbol} {side} positions; cannot allocate partial exits"
-        )
-    position,remaining=candidates[0]
     filled=_amount(executed_qty,"executedQty")
-    if filled<=0 or remaining!=filled:
-        raise PositionQuantityMismatch(
-            f"BingX positionAmt={remaining} differs from executedQty={filled}; "
-            "another trade or partial exit may share the position"
-        )
-    return format(remaining,"f"),str(position.get("positionId") or "") or None
+    if filled<=0 or not candidates:
+        raise PositionQuantityMismatch("BingX entry filled but no matching live position")
+    total=sum((amount for _,amount in candidates),Decimal(0))
+    if allow_aggregate:
+        if total<filled:
+            raise PositionQuantityMismatch(
+                f"BingX shared positionAmt={total} smaller than actual executedQty={filled}"
+            )
+        # The account-side position can exceed this trade's exact fill due to
+        # other same-side combos. Preserve the per-order exchange fill.
+        own=filled
+    else:
+        if len(candidates)!=1 or total!=filled:
+            raise PositionQuantityMismatch(
+                f"BingX positionAmt={total} differs from executedQty={filled}"
+            )
+        own=total
+    position_id=(
+        str(candidates[0][0].get("positionId") or "") or None
+        if len(candidates)==1 else None
+    )
+    return format(own,"f"),position_id
 
 
 def remaining_position_qty(
