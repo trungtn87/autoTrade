@@ -8,7 +8,7 @@ from dataclasses import replace
 from decimal import Decimal
 
 from app.config import Settings
-from app.execution.lifecycle import ProtectionLifecycle
+from app.execution.lifecycle import ProtectionLifecycle,LifecycleRisk
 from app.execution.service import ExecutionService
 from app.execution.store import ExecutionStore
 from app.contracts import TradeIntent
@@ -29,6 +29,8 @@ class Exchange:
     def __init__(self):
         self.position=Decimal("1")
         self.position_id="p-101"
+        self.other_positions={}
+        self.anonymous_same_side_position=Decimal("0")
         self.orders={
             "sl-original":order("sl-original","STOP_MARKET","1"),
             "tp-own":order("tp-own","TAKE_PROFIT_MARKET","0.5"),
@@ -96,12 +98,22 @@ class Exchange:
 
     def get_positions(self,symbol):
         self.calls.append(("positions",symbol))
-        if self.position==0:
-            return []
-        return [{
-            "symbol":symbol,"positionSide":"LONG",
-            "positionId":self.position_id,"positionAmt":str(self.position),
-        }]
+        rows=[]
+        if self.position>0:
+            rows.append({
+                "symbol":symbol,"positionSide":"LONG",
+                "positionId":self.position_id,"positionAmt":str(self.position),
+            })
+        for pid,qty in self.other_positions.items():
+            if qty>0:
+                rows.append({
+                    "symbol":symbol,"positionSide":"LONG",
+                    "positionId":pid,"positionAmt":str(qty),
+                })
+        if self.anonymous_same_side_position>0:
+            rows.append({"symbol":symbol,"positionSide":"LONG",
+                         "positionAmt":str(self.anonymous_same_side_position)})
+        return rows
 
     def get_contract_rules(self,symbol):
         self.calls.append(("contract",symbol))
@@ -338,20 +350,76 @@ def main():
         separate.cancel_failure=False
         assert isolated.reconcile(journal[0],persist)=="closed"
 
-        # Wrong positionId: no cancellation even if old position seems gone.
-        wrong=Exchange()
-        wrong.position_id="other-position"
-        wrong.position=Decimal("0.5")
-        isolated=ProtectionLifecycle(wrong)
+        # Independent Separate Isolated LONG positions of same symbol.
+        # The independently owned peer must not inflate this trade's SL.
+        separate_ids=Exchange()
+        separate_ids.other_positions={"p-202":Decimal("1")}
+        for oid,typ,q in (
+            ("sl-202","STOP_MARKET","1"),
+            ("tp-202","TAKE_PROFIT_MARKET","0.5"),
+            ("trail-202","TRAILING_STOP_MARKET","0.5"),
+        ):
+            separate_ids.orders[oid]=order(oid,typ,q)
+            separate_ids.orders[oid]["positionId"]="p-202"
+        for oid in ("sl-original","tp-own","trail-own"):
+            separate_ids.orders[oid]["positionId"]="p-101"
+        a=state("C8")
+        b=state("C9")
+        b["position_id"]="p-202"
+        b["protection"]["sl"]["order_id"]="sl-202"
+        b["protection"]["tp"]["order_id"]="tp-202"
+        b["protection"]["trailing"]["order_id"]="trail-202"
+        ledger=[deepcopy(a),deepcopy(b)]
+        isolated=ProtectionLifecycle(separate_ids)
+        def save_a(v):
+            ledger[0]=deepcopy(v)
+        def save_b(v):
+            ledger[1]=deepcopy(v)
+        assert isolated.reconcile(ledger[0],save_a,peer_states=[ledger[1]])=="unchanged"
+        assert isolated.reconcile(ledger[1],save_b,peer_states=[ledger[0]])=="unchanged"
+        assert not any(x[0] in ("replace","cancel") for x in separate_ids.calls)
+        # A TP fills, but the other positionId B stays the same.
+        separate_ids.position=Decimal("0.5")
+        separate_ids.orders["tp-own"]["status"]="FILLED"
+        separate_ids.orders["tp-own"]["executedQty"]="0.5"
+        assert isolated.reconcile(ledger[0],save_a,peer_states=[ledger[1]])=="sl_resized"
+        assert isolated.reconcile(ledger[1],save_b,peer_states=[ledger[0]])=="unchanged"
+        assert separate_ids.orders["sl-202"]["status"]=="NEW"
+        assert separate_ids.orders["sl-202"]["origQty"]=="1"
+        # A disappears (e.g. external liquidation) while B remains LONG.
+        # Cleanup ONLY A's stored Order IDs.
+        separate_ids.position=Decimal("0")
+        assert isolated.reconcile(ledger[0],save_a,peer_states=[ledger[1]])=="closed"
+        assert ledger[0]["lifecycle"]["closure_evidence"]=="exchange_position_flat"
+        assert isolated.reconcile(ledger[1],save_b,peer_states=[ledger[0]])=="unchanged"
+        for oid in ("sl-202","tp-202","trail-202","foreign"):
+            assert separate_ids.orders[oid]["status"]=="NEW",oid
+
+        # A positive position without positionId could be the tracked trade;
+        # fail closed instead of mistakenly canceling live protection orders.
+        unknown=Exchange()
+        unknown.position=Decimal("0")
+        unknown.anonymous_same_side_position=Decimal("0.5")
         try:
-            isolated.reconcile(state("C7"),lambda s: None)
-            assert False,"position mismatch must block"
-        except Exception:
-            assert not any(x[0] in ("replace","cancel") for x in wrong.calls)
+            ProtectionLifecycle(unknown).reconcile(state("C10"),lambda v:None)
+            assert False,"unidentified live position must fail closed"
+        except LifecycleRisk:
+            assert not any(x[0] in ("replace","cancel") for x in unknown.calls)
+
+        # A different, positively identified position is not our trade.
+        other=Exchange()
+        other.position_id="p-202"
+        closed=[state("C11")]
+        assert ProtectionLifecycle(other).reconcile(
+            closed[0],lambda v:closed.__setitem__(0,deepcopy(v))
+        )=="closed"
+        assert other.orders["foreign"]["status"]=="NEW"
 
         print({"ok":True,"sl_resize":True,"full_close_cleanup":True,
                "owned_ids_only":True,"no_duplicate_on_restart":True,
-               "lost_http_responses":True,"concurrent_combo_entry_allowed":True})
+               "lost_http_responses":True,"concurrent_combo_entry_allowed":True,
+                "distinct_position_id_lifecycle":True,
+                "unrelated_combo_orders_untouched":True})
     finally:
         os.unlink(path)
 
