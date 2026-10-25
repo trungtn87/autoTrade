@@ -1,0 +1,64 @@
+name: 20FINAL V2 Split TP Trailing Backtest 5 Windows
+on:
+  push:
+    branches: [backtest-v2-split-5windows-20261025]
+    paths:
+      - 'autotrade_v2/tests/backtest_20final_windows_split.py'
+      - '.github/workflows/backtest-v2-split-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PYTHONHASHSEED: '0'
+      OPENBLAS_NUM_THREADS: '1'
+      TZ: UTC
+      RUN17_ARTIFACT_ID: '10635463447'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.14'
+      - name: Install backtest dependencies
+        run: python -m pip install numpy==2.3.5 pandas==2.2.3 httpx==0.28.1
+      - name: Restore validated full-history 15m BTC ETH candles
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/history
+          gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${RUN17_ARTIFACT_ID}/zip" > /tmp/history/historical.zip
+          unzip -q /tmp/history/historical.zip -d /tmp/history
+          test -f /tmp/history/data/multisource/BTCUSDT_hybrid_15m.pkl
+          test -f /tmp/history/data/multisource/ETHUSDT_hybrid_15m.pkl
+      - name: Run 20 combos over 3M 6M 1Y 3Y and 5Y (TP 50 / trailing 50)
+        env:
+          PYTHONPATH: autotrade_v2
+        run: |
+          python -u autotrade_v2/tests/backtest_20final_windows_split.py \
+            --btc /tmp/history/data/multisource/BTCUSDT_hybrid_15m.pkl \
+            --eth /tmp/history/data/multisource/ETHUSDT_hybrid_15m.pkl \
+            --out-dir backtest_results
+      - name: Publish per-combo results
+        if: always()
+        shell: bash
+        run: |
+          if [ -f backtest_results/per_combo_windows.csv ]; then
+            echo "## 20FINAL 5 windows - per combo" >> "$GITHUB_STEP_SUMMARY"
+            cat backtest_results/per_combo_windows.csv >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload backtest results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-v2-split-5windows-${{ github.run_id }}
+          path: backtest_results/
+          if-no-files-found: warn
+          retention-days: 90
