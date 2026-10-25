@@ -29,12 +29,21 @@ Layered live engine for the locked FINAL14 strategy.
 
 ## Optional 50/50 trailing exit (staged, disabled by default)
 
-Set `TP_TRAILING_SPLIT_ENABLED=true` to place full-size hard SL first,
-then a fixed TAKE_PROFIT_MARKET for approximately 50% of the actual fill,
-then an exchange-native TRAILING_STOP_MARKET for the remainder. Coin quantity
-rounds **down** to 4 decimals for trailing; the fixed-TP half takes the
-rounding remainder. If the filled quantity cannot be split into two nonzero
-4-decimal orders, the trade falls back to the original 100% fixed TP.
+Set `TP_TRAILING_SPLIT_ENABLED=true` to place a full-size hard SL first,
+then read the **actual filled entry** (`executedQty`) and independently
+re-read the exchange's open `positionAmt`, its `positionId` and current
+contract rules (`quantityPrecision`, `tradeMinQuantity`, `tradeMinUSDT`).
+If the position differs from the fill, pause partial-exit placement with
+SL still active: another order may be sharing that symbol and side.
+
+Allocate exactly half to the trailing order, rounded **down** to BingX's
+symbol-specific quantity step using decimal arithmetic, and allocate the
+exact remainder to the fixed-TP order; verify both sum to `positionAmt`.
+If either half falls below the exchange minimum quantity/notional, revert
+this trade to a single full-size hard TP rather than forcing invalid halves.
+This plan never estimates the remaining live SL size by subtracting local
+expected TP fills: position-level SL reconciliation must read a **fresh**
+`positionAmt` each time a partial exit is executed.
 
 The native trailing activation price is the trade's original TP price and
 `TP_TRAILING_CALLBACK_RATE` defaults to `0.005` (**0.5% price retracement**,
