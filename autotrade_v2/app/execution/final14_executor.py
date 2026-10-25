@@ -551,6 +551,22 @@ class Final14Executor:
             except Exception:
                 pass
 
+        # A previously VERIFIED Order ID is more authoritative than any
+        # new lookup. Never mint a second exit because a recorded order cannot
+        # currently be verified (timeout, canceled, filled but unreported).
+        # Lifecycle/manual reconciliation must resolve its terminal state.
+        if journal is not None:
+            for kind,old_id,verified in (
+                ("sl",old_sl_id,sl_verified),
+                ("tp",old_tp_id,tp_verified),
+                ("trailing",old_trailing_id,trailing_verified),
+            ):
+                if old_id and verified is None:
+                    raise ProtectionReconcilePending(
+                        f"{kind}: persisted protection order {old_id} is unverified; "
+                        "refusing a replacement without exchange-side reconciliation"
+                    )
+
         if sl_verified is None:
             try:
                 if journal is not None:
