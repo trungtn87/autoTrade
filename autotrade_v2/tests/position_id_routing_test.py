@@ -1,11 +1,15 @@
 """Offline positionId binding/regression: no BingX HTTP requests."""
 from dataclasses import replace
+import os
+import tempfile
 
 from app.config import Settings
 from app.execution.executor import LegacyStyleBingXClient
 from app.execution.identity import entry_baseline,identify_entry_position
 from app.execution.quantity import PositionQuantityMismatch
 from app.execution.final14_executor import Final14Executor
+from app.execution.service import ExecutionService
+from app.execution.store import ExecutionStore
 from tp_trailing_split_test import FakeTrailingClient
 from legacy_execution_test import intent
 
@@ -113,9 +117,58 @@ def main():
     )
     assert risk["confirmed"],risk
 
+    # Crash-safe DB state: ambiguous post-entry ID must retain its BEFORE snapshot
+    # and must not submit another MARKET entry during recovery.
+    class RecoveryFake(FakeTrailingClient):
+        def __init__(self):
+            super().__init__()
+            self.position_qty="0"
+            self.position_id="301"
+            self.ambiguous=True
+
+        def get_positions(self,symbol):
+            if self.position_qty=="0":
+                return []
+            return [pos("301","1"),pos("302","1")] if self.ambiguous else [pos("301","1")]
+
+        def place_market_entry(self,*args,**kwargs):
+            result=super().place_market_entry(*args,**kwargs)
+            self.position_qty="1"
+            return result
+
+    fd,db_path=tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    try:
+        store=ExecutionStore(db_path)
+        fake_db=RecoveryFake()
+        service=ExecutionService(
+            replace(live,position_lifecycle_enabled=True),store,
+        )
+        service.credentials_verified=True
+        service.executor.client=fake_db
+        first=service.execute(intent())
+        assert first.status=="position_identification_pending",first
+        state=store.get_state(intent().event_id)
+        assert state["pre_entry_positions"]=={},state
+        assert state["terminal"] is False
+        assert len([c for c in fake_db.calls if c[0]=="entry"])==1
+        fake_db.ambiguous=False
+        restarted=ExecutionService(
+            replace(live,position_lifecycle_enabled=True),store,
+        )
+        restarted.credentials_verified=True
+        restarted.executor.client=fake_db
+        replay=restarted.recover_pending()
+        assert replay and replay[0]["status"]=="complete",replay
+        state=store.get_state(intent().event_id)
+        assert state["position_id"]=="301" and state["pre_entry_positions"]=={}
+        assert len([c for c in fake_db.calls if c[0]=="entry"])==1
+    finally:
+        os.unlink(db_path)
+
     print({"ok":True,"separate_isolated_id_proof":True,"aggregated_hedge_proof":True,
            "ambiguous_fail_closed":True,"all_exit_types_bound":True,
-           "emergency_close_bound":True})
+           "emergency_close_bound":True,"restart_recovery":True})
 
 
 if __name__=="__main__":
