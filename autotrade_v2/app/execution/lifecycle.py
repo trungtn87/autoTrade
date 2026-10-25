@@ -118,6 +118,8 @@ class ProtectionLifecycle:
         lifecycle=state["lifecycle"]
         if lifecycle.get("pending_sl_replace"):
             raise LifecycleRisk("SL replace pending; resolve exchange outcome before cleanup")
+        if lifecycle.get("closure_evidence") not in {"owned_exit_fills","exchange_position_flat"}:
+            raise LifecycleRisk("no exchange-confirmed closure evidence for this combo")
         # Never call cancel-all: manual/other-combo orders can coexist.
         for kind in ("tp","trailing","sl"):
             saved=(state.get("protection") or {}).get(kind) or {}
@@ -126,8 +128,6 @@ class ProtectionLifecycle:
                 continue
             if kind in lifecycle.get("cleaned_orders",[]):
                 continue
-            if self._position(state)!=0:
-                raise LifecycleRisk("position reopened during cleanup; cancel aborted")
             order=self._order(state,order_id=order_id)
             self._validate_owned(state,order,kind)
             status=str(order.get("status") or "").upper()
@@ -144,8 +144,6 @@ class ProtectionLifecycle:
                 raise LifecycleRisk(f"{kind} order {order_id} not confirmed cancelled/filled: {status}")
             lifecycle.setdefault("cleaned_orders",[]).append(kind)
             self._persist(state,write)
-        if self._position(state)!=0:
-            raise LifecycleRisk("nonzero position detected after order cleanup")
         lifecycle["status"]="closed"
         lifecycle["remaining_qty"]="0"
         lifecycle["pending_sl_replace"]=None
