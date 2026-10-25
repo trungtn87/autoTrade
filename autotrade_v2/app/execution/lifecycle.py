@@ -186,8 +186,12 @@ class ProtectionLifecycle:
             raise LifecycleRisk("old SL no longer active but replacement cannot be found")
         return False  # Old SL still active: safe to retry STOP_ON_FAILURE.
 
-    def reconcile(self,state:dict,write,conflicting_position:bool=False)->str:
-        """Return 'unchanged', 'sl_resized' or 'closed'; raises on unsafe states."""
+    def reconcile(self,state:dict,write,peer_states:list[dict]|None=None)->str:
+        """Reconcile only this combo's owned exit orders, never global cancel-all.
+
+        Actual account positionAmt is a cross-check. This combo's remainder
+        comes exclusively from its own BingX entry/exit executedQty values.
+        """
         state=deepcopy(state)
         if not state.get("ok") or not state.get("terminal"):
             return "unchanged"
@@ -196,41 +200,70 @@ class ProtectionLifecycle:
         lifecycle=state.get("lifecycle")
         if not isinstance(lifecycle,dict) or lifecycle.get("status") not in {"open","cleanup"}:
             return "unchanged"
-        if conflicting_position:
-            raise LifecycleRisk("more than one active bot trade has the same symbol and positionSide")
 
-        initial=_amount(state.get("actual_position_qty") or state.get("executed_qty"),"initial position")
-        if initial<=0:
-            raise LifecycleRisk("missing initial position size")
-        current=self._position(state)
-        if current>initial:
-            raise LifecycleRisk("BingX positionAmt exceeds tracked entry quantity; shared/changed position")
-        if current==0:
-            # Confirm independently before canceling anything.
-            if self._position(state)!=0:
-                raise LifecycleRisk("position close was transient")
-            if lifecycle.get("status")!="cleanup":
-                lifecycle["status"]="cleanup"
-                self._persist(state,write)
+        # A prior iteration witnessed a fully closed trade and durably recorded
+        # the proof. Continue per-order cleanup after Render restarts, even if
+        # another combo subsequently opened the same BingX side.
+        if lifecycle.get("status")=="cleanup":
             return self._cancel_exits(state,write)
 
-        if lifecycle.get("status")=="cleanup":
-            lifecycle["status"]="open"
-            lifecycle["cleaned_orders"]=[]
+        current,orders=self._owned_remaining(state)
+        exchange_total=self._position(state)
+        if current==0:
+            evidence="owned_exit_fills"
+        elif exchange_total==0:
+            if self._position(state)!=0:
+                raise LifecycleRisk("BingX side briefly appeared flat; retry")
+            evidence="exchange_position_flat"
+        else:
+            evidence=None
+
+        if evidence:
+            lifecycle["closure_evidence"]=evidence
+            lifecycle["status"]="cleanup"
             self._persist(state,write)
+            return self._cancel_exits(state,write)
+
+        if current>exchange_total:
+            raise LifecycleRisk(
+                "own exchange-confirmed remaining quantity exceeds aggregate BingX positionAmt"
+            )
+
+        # Additional combos never block entry. For safety, before changing SL,
+        # compare the sum of independently observed owned remainders against
+        # the account-wide positionAmt. External/manual reductions then fail
+        # closed instead of accidentally resizing an unrelated strategy SL.
+        peer_total=Decimal(0)
+        for peer in peer_states or []:
+            status=(peer.get("lifecycle") or {}).get("status")
+            if status=="closed":
+                continue
+            if status in {"open","cleanup"} and peer.get("ok"):
+                peer_qty,_=self._owned_remaining(peer)
+                peer_total+=peer_qty
+            elif not peer.get("terminal"):
+                raise LifecycleRisk(
+                    "another same-side entry is still settling; defer SL amendment, not entry"
+                )
+        if current+peer_total>exchange_total:
+            raise LifecycleRisk(
+                "exchange positionAmt smaller than summed real unclosed combo fills"
+            )
+
+        if lifecycle.get("pending_sl_replace"):
+            # Reconcile the deterministic replacement first. Do not submit a
+            # different replacement until a prior ambiguous POST is resolved.
+            if self._reconcile_replacement(state,write):
+                return "sl_resized"
+
         sl_saved=state["protection"]["sl"]
         old_id=str(sl_saved.get("order_id") or "")
         if not old_id:
-            raise LifecycleRisk("missing tracked SL orderId")
-
-        if lifecycle.get("pending_sl_replace"):
-            self._reconcile_replacement(state,write)
-            if not state["lifecycle"].get("pending_sl_replace"):
-                return "sl_resized"
-        sl_order=self._order(state,order_id=old_id)
+            raise LifecycleRisk("tracked SL orderId missing")
+        sl_order=orders.get("sl") or self._order(state,order_id=old_id)
         self._validate_owned(state,sl_order,"sl")
         if str(sl_order.get("status") or "").upper()!="NEW":
-            raise LifecycleRisk("SL not NEW while position remains; manual/exchange reconciliation required")
+            raise LifecycleRisk("SL is not NEW while trade remains open")
 
         sl_qty=_amount(sl_order.get("origQty"),"SL origQty")
         if sl_qty==current:
@@ -240,7 +273,7 @@ class ProtectionLifecycle:
                 self._persist(state,write)
             return "unchanged"
         if sl_qty<current:
-            raise LifecycleRisk("SL amount smaller than live BingX position; do not fabricate quantity")
+            raise LifecycleRisk("own SL amount smaller than this trade's remaining quantity")
 
         symbol,_,_=self._sid(state)
         rules=self.client.get_contract_rules(symbol)
@@ -251,32 +284,28 @@ class ProtectionLifecycle:
             or current<minimum
             or current!=current.quantize(Decimal(1).scaleb(-precision))
         ):
-            raise LifecycleRisk("remaining position cannot be represented as a valid replacement SL order")
+            raise LifecycleRisk("own remaining qty cannot be placed as valid BingX SL")
 
-        # Verify this trade's other exits; do not resize around overlapping
-        # conditional quantities or a second strategy sharing this position.
         other_open=Decimal(0)
         for kind in ("tp","trailing"):
-            item=state["protection"].get(kind) or {}
-            oid=str(item.get("order_id") or "")
-            if not oid:
+            order=orders.get(kind)
+            if not order:
                 continue
-            order=self._order(state,order_id=oid)
-            self._validate_owned(state,order,kind)
-            status=str(order.get("status") or "").upper()
-            if status in ACTIVE:
-                ordered=_amount(order.get("origQty"),kind+" origQty")
-                executed=_amount(order.get("executedQty"),kind+" executedQty")
-                if executed>ordered:
-                    raise LifecycleRisk("executedQty exceeds origQty in open exit")
-                other_open+=ordered-executed
-            elif status not in TERMINAL:
-                raise LifecycleRisk("unrecognized exit order state")
+            if str(order.get("status") or "").upper() in ACTIVE:
+                other_open+=(
+                    _amount(order.get("origQty"),kind+" origQty")
+                    -_amount(order.get("executedQty"),kind+" executedQty")
+                )
         if other_open>current:
-            raise LifecycleRisk("remaining conditional exit sizes exceed actual position")
+            raise LifecycleRisk("owned conditional exit quantities exceed own remaining fill")
 
-        if self._position(state)!=current:
-            raise LifecycleRisk("position changed while preparing SL replacement; retry next poll")
+        # Re-read BingX before mutating. Other combos can be opening/closing
+        # concurrently and must not be affected by this SL correction.
+        if self._position(state)!=exchange_total:
+            raise LifecycleRisk("BingX account-side position changed during SL reconcile")
+        fresh_current,_=self._owned_remaining(state)
+        if fresh_current!=current:
+            raise LifecycleRisk("this trade's own exits changed during SL reconcile")
 
         revision=int(lifecycle.get("sl_revision",0))+1
         pending=lifecycle.get("pending_sl_replace")
@@ -292,8 +321,8 @@ class ProtectionLifecycle:
             }
             lifecycle["pending_sl_replace"]=pending
             self._persist(state,write)
-        elif pending["old_order_id"]!=old_id or _amount(pending["quantity"],"pending amount")!=current:
-            raise LifecycleRisk("pending SL replacement no longer matches live position")
+        elif pending["old_order_id"]!=old_id or _amount(pending["quantity"],"pending qty")!=current:
+            raise LifecycleRisk("pending replacement no longer matches own live fills")
 
         try:
             result=self.client.cancel_replace_stop_loss(
@@ -303,12 +332,11 @@ class ProtectionLifecycle:
             )
             data=result.get("data") or {}
             if data.get("cancelResult")!="SUCCESS" or data.get("newOrderResult")!="SUCCESS":
-                raise LifecycleRisk("BingX did not confirm both parts of atomic cancelReplace")
+                raise LifecycleRisk("BingX did not confirm atomic SL cancelReplace success")
         except Exception:
-            # Result might be lost despite exchange success; inspect by CID.
             if self._reconcile_replacement(state,write):
                 return "sl_resized"
-            raise LifecycleRisk("SL cancelReplace unconfirmed; original SL remains active")
+            raise LifecycleRisk("SL cancelReplace unconfirmed; old SL status must be verified")
         if not self._reconcile_replacement(state,write):
-            raise LifecycleRisk("SL replacement was acknowledged but is not queryable yet")
+            raise LifecycleRisk("SL replacement acknowledged but not yet queryable")
         return "sl_resized"
