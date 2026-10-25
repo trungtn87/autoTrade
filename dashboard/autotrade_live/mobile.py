@@ -1,0 +1,198 @@
+"""HTTPS/PWA read-only dashboard and optional Combo receiver, separate from trading bot."""
+from __future__ import annotations
+import base64
+import hashlib
+import hmac
+import os
+import secrets
+import time
+from collections import defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import urlencode
+
+from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import select
+
+from .analytics import build_trades, summarize
+from .db import (Fill, ForceOrder, Income, Order, PositionHistory,
+                 SignalLink, SyncRun, get_engine, get_sessionmaker, init_db)
+from .ingest import app as ingest_app
+
+STATIC = Path(__file__).resolve().parent / 'static'
+app = FastAPI(title='Autotrade Live Dashboard PWA', docs_url=None, redoc_url=None)
+app.mount('/static', StaticFiles(directory=str(STATIC)), name='static')
+app.mount('/collector', ingest_app)
+ATTEMPTS: dict[str, list[float]] = defaultdict(list)
+COOKIE = 'autotrade_dashboard_session'
+
+
+def _secrets():
+    password = os.environ.get('DASHBOARD_PASSWORD', '')
+    key = os.environ.get('APP_SESSION_SECRET', '')
+    if len(password) < 12 or len(key) < 32:
+        raise RuntimeError('DASHBOARD_PASSWORD (12+) and APP_SESSION_SECRET (32+) required')
+    return password, key.encode()
+
+
+def _session_token():
+    _, key = _secrets()
+    ts = str(int(time.time()))
+    nonce = secrets.token_hex(12)
+    msg = f'{ts}:{nonce}'
+    sig = hmac.new(key, msg.encode(), hashlib.sha256).hexdigest()
+    return base64.urlsafe_b64encode(f'{msg}:{sig}'.encode()).decode()
+
+
+def _authenticated(request):
+    raw = request.cookies.get(COOKIE, '')
+    if not raw:
+        return False
+    try:
+        decoded = base64.urlsafe_b64decode(raw.encode()).decode()
+        ts, nonce, sig = decoded.split(':', 2)
+        if int(time.time()) - int(ts) > 86400 or int(ts) > int(time.time()) + 60:
+            return False
+        _, key = _secrets()
+        expected = hmac.new(key, f'{ts}:{nonce}'.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(sig, expected)
+    except (ValueError, UnicodeError, RuntimeError):
+        return False
+
+
+def _require_auth(request):
+    if not _authenticated(request):
+        raise HTTPException(status_code=401, detail='Login required')
+
+
+def _no_cache(response):
+    response.headers['Cache-Control'] = 'no-store, private'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    return response
+
+
+@app.get('/health')
+def health():
+    return {'ok': True, 'service': 'autotrade-dashboard', 'trade_api': False}
+
+
+@app.get('/')
+def home(request: Request):
+    return RedirectResponse('/mobile' if _authenticated(request) else '/login', status_code=303)
+
+
+@app.get('/login', response_class=HTMLResponse)
+def login_form(request: Request):
+    if _authenticated(request):
+        return RedirectResponse('/mobile', status_code=303)
+    html = '''<!DOCTYPE html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta charset="UTF-8"><title>Autotrade • Đăng nhập</title><link rel="manifest" href="/static/manifest.webmanifest">
+    <style>body{font:16px system-ui;background:#0d1220;color:#f2f7fc;margin:0;display:grid;place-items:center;min-height:100vh}
+    form{width:min(350px,82vw);padding:30px;background:#192339;border-radius:22px;border:1px solid #35435e}
+    input,button{width:100%;padding:15px;box-sizing:border-box;border-radius:10px;font-size:16px;margin-top:15px}
+    input{background:#0c1527;color:white;border:1px solid #51617b}button{background:#3fd9b1;color:#09221b;border:0;font-weight:800}</style></head>
+    <body><form action="/login" method="post"><h2>◈ AUTOTRADE</h2><p>Dashboard giao dịch thật</p>
+    <input name="password" type="password" placeholder="Mật khẩu" autocomplete="current-password" required>
+    <button>Đăng nhập</button></form></body></html>'''
+    return _no_cache(HTMLResponse(html))
+
+
+@app.post('/login')
+def login(request: Request, password: str = Form('')):
+    expected, _ = _secrets()
+    identity = request.client.host if request.client else 'unknown'
+    now = time.monotonic()
+    ATTEMPTS[identity] = [x for x in ATTEMPTS[identity] if now - x < 900]
+    if len(ATTEMPTS[identity]) >= 8:
+        raise HTTPException(status_code=429, detail='Too many attempts')
+    if not hmac.compare_digest(password, expected):
+        ATTEMPTS[identity].append(now)
+        return _no_cache(HTMLResponse('Sai mật khẩu. <a href="/login">Thử lại</a>', status_code=401))
+    ATTEMPTS.pop(identity, None)
+    response = RedirectResponse('/mobile', status_code=303)
+    response.set_cookie(COOKIE, _session_token(), max_age=86400,
+                        httponly=True, secure=os.getenv('COOKIE_SECURE', 'true').lower() != 'false',
+                        samesite='lax', path='/')
+    return _no_cache(response)
+
+
+@app.post('/logout')
+def logout():
+    r = RedirectResponse('/login', status_code=303)
+    r.delete_cookie(COOKIE, path='/')
+    return _no_cache(r)
+
+
+@app.get('/mobile')
+def mobile(request: Request):
+    if not _authenticated(request):
+        return RedirectResponse('/login', status_code=303)
+    return _no_cache(HTMLResponse((STATIC / 'index.html').read_text('utf-8')))
+
+
+def _db_records():
+    engine = get_engine()
+    Session = get_sessionmaker(engine)
+    with Session() as db:
+        return dict(
+            orders=db.scalars(select(Order)).all(),
+            fills=db.scalars(select(Fill).order_by(Fill.timestamp_ms, Fill.trade_id)).all(),
+            incomes=db.scalars(select(Income)).all(),
+            forces=db.scalars(select(ForceOrder)).all(),
+            positions=db.scalars(select(PositionHistory)).all(),
+            links=db.scalars(select(SignalLink)).all(),
+            runs=db.scalars(select(SyncRun).order_by(SyncRun.id.desc()).limit(1)).all(),
+        )
+
+
+def dashboard_payload(records, symbol=None, combo=None):
+    completed, pending, unresolved = build_trades(records['fills'], records['orders'], records['links'], records['forces'])
+    all_combos = sorted({x.combo for x in records['links']})
+    all_symbols = sorted({x.symbol for x in records['orders'] + records['fills']})
+    completed = [x for x in completed if (not symbol or x['symbol'] == symbol)]
+    pending = [x for x in pending if (not symbol or x['symbol'] == symbol)]
+    visible = [x for x in completed if not combo or x['combo'] == combo]
+    mapped = [x for x in visible if x['combo']]
+    total = round(sum(x['pnl'] for x in mapped), 6)
+    chart, running = [], 0.0
+    for trade in sorted(mapped, key=lambda x:x['exit_ms'] or 0):
+        running += trade['pnl']
+        chart.append({'t': trade['exit_ms'], 'v': round(running, 6)})
+    liqs = sum(1 for x in visible if x['liquidated'])
+    fill_net = sum(float(f.realized_pnl) + float(f.fee)
+                   for f in records['fills'] if not symbol or f.symbol == symbol)
+    return {
+        'summary': {
+            'pnl_usdt': total,
+            'win_rate': round(100 * sum(x['pnl'] > 0 for x in mapped) / len(mapped), 2) if mapped else 0.0,
+            'closed': len(mapped),
+            'unmapped': sum(not x['combo'] for x in completed),
+            'liquidations': liqs,
+            'open_positions': len(pending),
+            'fill_net_usdt': round(fill_net, 6),
+            'unresolved_fills': len(unresolved),
+        },
+        'combos': summarize(mapped),
+        'trades': sorted(visible, key=lambda x:x['exit_ms'] or 0, reverse=True)[:100],
+        'equity': chart,
+        'filters': {'combos': all_combos, 'symbols': all_symbols},
+        'last_sync': ({'status':records['runs'][0].status,
+                       'time':records['runs'][0].finished_at.isoformat() if records['runs'][0].finished_at else None,
+                       'details':records['runs'][0].details} if records['runs'] else None),
+        'disclaimer': 'PnL dựa trên fills thực tế, gồm phí fill; funding lưu riêng. Combo chỉ gán khi khớp orderId.'
+    }
+
+
+@app.get('/api/dashboard')
+def api_dashboard(request: Request, symbol: str = '', combo: str = ''):
+    _require_auth(request)
+    try:
+        records = _db_records()
+        data = dashboard_payload(records, symbol=symbol, combo=combo)
+        return _no_cache(JSONResponse(data))
+    except Exception:
+        # Avoid leaking database URLs, credentials, or raw data in error responses.
+        return _no_cache(JSONResponse({'error': 'Không đọc được dữ liệu. Kiểm tra collector/database.'}, status_code=503))

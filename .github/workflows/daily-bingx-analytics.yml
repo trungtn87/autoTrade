@@ -1,0 +1,61 @@
+name: Daily BingX trading archive
+
+on:
+  schedule:
+    # 03:17 UTC = 10:17 Asia/Bangkok / Vietnam
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Initial history lookback in days (daily scheduled runs use 3)'
+        required: true
+        default: '30'
+        type: choice
+        options:
+          - '3'
+          - '7'
+          - '30'
+          - '60'
+          - '90'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-bingx-trade-archive
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    name: Read BingX and archive to Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DB_SCHEMA: autotrade_analytics
+      BINGX_READ_API_KEY: ${{ secrets.BINGX_READ_API_KEY }}
+      BINGX_READ_API_SECRET: ${{ secrets.BINGX_READ_API_SECRET }}
+      BINGX_SYMBOLS: BTC-USDT,ETH-USDT
+      BINGX_REQUEST_DELAY: '0.6'
+    steps:
+      - name: Check required secrets without printing values
+        shell: bash
+        run: |
+          test -n "$DATABASE_URL" || { echo "::error::Missing GitHub Actions secret DATABASE_URL"; exit 1; }
+          test -n "$BINGX_READ_API_KEY" || { echo "::error::Missing GitHub Actions secret BINGX_READ_API_KEY"; exit 1; }
+          test -n "$BINGX_READ_API_SECRET" || { echo "::error::Missing GitHub Actions secret BINGX_READ_API_SECRET"; exit 1; }
+          case "$DATABASE_URL" in
+            postgresql://*|postgres://*) ;;
+            *) echo "::error::DATABASE_URL must be a PostgreSQL connection string"; exit 1 ;;
+          esac
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install minimal read-only collector requirements
+        run: python -m pip install --disable-pip-version-check -r dashboard/requirements-collector.txt
+      - name: Store real fills, fees, liquidations and Combo links
+        working-directory: dashboard
+        env:
+          DAYS: ${{ github.event_name == 'workflow_dispatch' && inputs.days || '3' }}
+        run: python -m autotrade_live.collect --days "$DAYS"
