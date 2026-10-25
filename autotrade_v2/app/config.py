@@ -84,6 +84,9 @@ def enable_runtime_trailing(settings: Settings) -> Settings:
         settings,
         tp_trailing_split_enabled=trailing,
         position_lifecycle_enabled=lifecycle,
+        tp_trailing_callback_rate=float(
+            os.getenv("TP_TRAILING_CALLBACK_RATE",str(settings.tp_trailing_callback_rate))
+        ),
     )
 
 
