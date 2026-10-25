@@ -9,12 +9,11 @@ from contextlib import contextmanager
 from .errors import BingXApiError
 
 log = logging.getLogger(__name__)
-# 109425 means unsupported symbol, NOT a rate limit; never freeze protection
-# requests for a business-validation error. 109415 is undocumented in the
-# current BingX error reference, so it is not evidence of an API ban either.
-# A real 429/109429 may restrict the entire API; do not bypass it, even for
-# emergency orders, without explicit exchange confirmation.
-BLOCK_CODES = {"109429", "HTTP_429"}
+# 109425 means unsupported symbol, NOT a rate limit; never freeze
+# unrelated protection requests for a business-validation error.
+# Keep the legacy guard for 109415 until its exact BingX semantics are verified.
+# A real 429/109429 may restrict the entire API; never blindly bypass it.
+BLOCK_CODES = {"109415", "109429", "HTTP_429"}
 TRANSIENT_RATE_LIMIT_CODES = {"100410"}
 
 
