@@ -37,27 +37,33 @@ class ProtectionLifecycle:
         return str(intent["symbol"]),side,opposite
 
     def _position(self,state:dict)->Decimal:
-        """Account-wide exchange volume; not attributable to a single combo."""
+        """Remaining exchange volume of this positionId, never side aggregate.
+
+        Multiple Separate Isolated LONG positions can exist for one symbol.
+        A missing *identified* position is flat even when a peer is still open;
+        an unidentified nonzero row is ambiguous and must fail closed.
+        """
         symbol,side,_=self._sid(state)
+        expected=str(state.get("position_id") or "")
+        if not expected:
+            raise LifecycleRisk("tracked BingX positionId missing; cannot reconcile lifecycle safely")
         rows=self.client.get_positions(symbol)
         if not isinstance(rows,list):
             raise LifecycleRisk("BingX position list missing")
-        total=Decimal(0)
-        matching=[]
+        found=None
         for row in rows:
-            if row.get("symbol")==symbol and str(row.get("positionSide") or "").upper()==side:
-                amount=_amount(row.get("positionAmt"),"BingX positionAmt")
-                total+=amount
-                if amount>0:
-                    matching.append(row)
-        # If another separate isolated position still exists, do NOT mistake it
-        # for the tracked one or use its size to resize this trade's SL.
-        expected=str(state.get("position_id") or "")
-        if expected and matching and not any(
-            str(row.get("positionId") or "")==expected for row in matching
-        ):
-            raise LifecycleRisk("tracked positionId absent while other same-side positions remain")
-        return total
+            if row.get("symbol")!=symbol or str(row.get("positionSide") or "").upper()!=side:
+                continue
+            amount=_amount(row.get("positionAmt"),"BingX positionAmt")
+            row_id=str(row.get("positionId") or "")
+            if not row_id and amount>0:
+                raise LifecycleRisk("BingX nonzero same-side position missing positionId")
+            if row_id!=expected:
+                continue
+            if found is not None:
+                raise LifecycleRisk("duplicate tracked BingX positionId in position snapshot")
+            found=amount
+        return found if found is not None else Decimal(0)
 
     def _order(self,state:dict,order_id:str|None=None,client_order_id:str|None=None)->dict:
         symbol,_,_=self._sid(state)
@@ -241,19 +247,26 @@ class ProtectionLifecycle:
 
         if current>exchange_total:
             raise LifecycleRisk(
-                "own exchange-confirmed remaining quantity exceeds aggregate BingX positionAmt"
+                "own exchange-confirmed remaining quantity exceeds tracked BingX positionAmt"
             )
 
-        # Additional combos never block entry. For safety, before changing SL,
-        # compare the sum of independently observed owned remainders against
-        # the account-wide positionAmt. External/manual reductions then fail
-        # closed instead of accidentally resizing an unrelated strategy SL.
+        # Only peer combos sharing this *exact positionId* contribute to the
+        # exchange cross-check. Separate Isolated peers have their own position
+        # and must neither prevent this trade's closure nor inflate its SL.
         peer_total=Decimal(0)
+        tracked_id=str(state.get("position_id") or "")
         for peer in peer_states or []:
+            peer_id=str(peer.get("position_id") or "")
+            if peer_id and peer_id!=tracked_id:
+                continue
             status=(peer.get("lifecycle") or {}).get("status")
             if status=="closed":
                 continue
             if status in {"open","cleanup"} and peer.get("ok"):
+                if not peer_id:
+                    raise LifecycleRisk(
+                        "active peer missing positionId; defer SL amendment"
+                    )
                 peer_qty,_=self._owned_remaining(peer)
                 peer_total+=peer_qty
             elif not peer.get("terminal"):
@@ -262,7 +275,7 @@ class ProtectionLifecycle:
                 )
         if current+peer_total>exchange_total:
             raise LifecycleRisk(
-                "exchange positionAmt smaller than summed real unclosed combo fills"
+                "exchange positionAmt smaller than summed fills sharing the same positionId"
             )
 
         if lifecycle.get("pending_sl_replace"):
@@ -317,7 +330,7 @@ class ProtectionLifecycle:
         # Re-read BingX before mutating. Other combos can be opening/closing
         # concurrently and must not be affected by this SL correction.
         if self._position(state)!=exchange_total:
-            raise LifecycleRisk("BingX account-side position changed during SL reconcile")
+            raise LifecycleRisk("tracked BingX position changed during SL reconcile")
         fresh_current,_=self._owned_remaining(state)
         if fresh_current!=current:
             raise LifecycleRisk("this trade's own exits changed during SL reconcile")
