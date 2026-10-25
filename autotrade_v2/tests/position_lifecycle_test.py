@@ -243,29 +243,70 @@ def main():
         assert restarted.reconcile_open_positions()[0]["status"]=="unchanged"
         assert exchange3.num==1
 
-        # Two live combos sharing a symbol/side: do not touch any orders.
+        # Two independently protected combos in the same aggregated LONG position.
+        c3=store.get_state("C3")
+        c3["lifecycle"]["status"]="closed"
+        store.save_state("C3",c3)
         shared=Exchange()
-        shared.position=Decimal("0.5")
+        shared.position=Decimal("2")
+        for oid,typ,qty in (
+            ("sl-second","STOP_MARKET","1"),
+            ("tp-second","TAKE_PROFIT_MARKET","0.5"),
+            ("trail-second","TRAILING_STOP_MARKET","0.5"),
+        ):
+            shared.orders[oid]=order(oid,typ,qty)
         shared_service=ExecutionService(settings,store)
         shared_service.credentials_verified=True
         shared_service.executor.client=shared
         store.save_state("C4",state("C4"))
-        store.save_state("C5",state("C5"))
+        second=state("C5")
+        second["protection"]["sl"]["order_id"]="sl-second"
+        second["protection"]["tp"]["order_id"]="tp-second"
+        second["protection"]["trailing"]["order_id"]="trail-second"
+        store.save_state("C5",second)
         result=shared_service.reconcile_open_positions()
-        conflicts=[x for x in result if x["event_id"] in ("C4","C5")]
-        assert len(conflicts)==2 and all(x["status"]=="risk" for x in conflicts)
+        status_by_id={x["event_id"]:x["status"] for x in result}
+        assert status_by_id["C4"]=="unchanged" and status_by_id["C5"]=="unchanged",result
         assert not any(x[0] in ("cancel","replace") for x in shared.calls)
 
-        # New combo must not create an aggregated same-side position.
+        # TP for C4 fills 0.5; C5 remains exactly 1, untouched.
+        shared.position=Decimal("1.5")
+        shared.orders["tp-own"]["status"]="FILLED"
+        shared.orders["tp-own"]["executedQty"]="0.5"
+        result=shared_service.reconcile_open_positions()
+        status_by_id={x["event_id"]:x["status"] for x in result}
+        assert status_by_id["C4"]=="sl_resized" and status_by_id["C5"]=="unchanged",result
+        c4_sl=store.get_state("C4")["protection"]["sl"]["order_id"]
+        assert shared.orders[c4_sl]["origQty"]=="0.5"
+        assert shared.orders["sl-second"]["status"]=="NEW"
+        assert shared.orders["sl-second"]["origQty"]=="1"
+
+        # C4 trailing completes while C5 remains open. Only C4 orders cleaned.
+        shared.position=Decimal("1")
+        shared.orders["trail-own"]["status"]="FILLED"
+        shared.orders["trail-own"]["executedQty"]="0.5"
+        result=shared_service.reconcile_open_positions()
+        status_by_id={x["event_id"]:x["status"] for x in result}
+        assert status_by_id["C4"]=="closed" and status_by_id["C5"]=="unchanged",result
+        assert shared.orders[c4_sl]["status"]=="CANCELED"
+        assert shared.orders["sl-second"]["status"]=="NEW"
+        assert shared.orders["tp-second"]["status"]=="NEW"
+        assert shared.orders["trail-second"]["status"]=="NEW"
+        assert shared.orders["foreign"]["status"]=="NEW"
+
+        # Another combo can now enter with the existing C5 still open.
         next_trade=TradeIntent(
             event_id="C99",symbol="BTC-USDT",combo=1,side="BUY",
             timeframe="15m",close_time=9999,entry=100.0,tp=102.0,
             sl=99.0,smc_dir=1,
         )
-        refused=shared_service.execute(next_trade)
-        assert refused.status=="position_busy" and refused.accepted is False,refused
-        assert store.get_state("C99") is None
-        assert not any(x[0] in ("replace","cancel") for x in shared.calls)
+        entered=shared_service.execute(next_trade)
+        assert entered.status=="complete" and entered.accepted is True,entered
+        c99=store.get_state("C99")
+        assert c99["executed_qty"]==1 and c99["actual_position_qty"]=="1",c99
+        assert c99["tp_qty"] and c99["trailing_qty"],c99
+        assert shared.position==Decimal("2")
+        assert shared.orders["sl-second"]["status"]=="NEW"
 
         # Repeat same problem does not repeatedly flood Layer 4 alerts.
         count=len(events)
