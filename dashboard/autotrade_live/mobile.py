@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
-from .analytics import build_trades, summarize
+from .analytics import build_trades, margin_roi, summarize
 from .db import (Fill, ForceOrder, Income, Order, PositionHistory,
                  SignalLink, SyncRun, get_engine, get_sessionmaker, init_db)
 from .ingest import app as ingest_app
@@ -162,41 +162,62 @@ def _db_records():
         )
 
 
+def _start_ms():
+    """Count only positions opened on/after this fixed, timezone-aware date."""
+    start_at = os.getenv('DASHBOARD_START_AT', '').strip()
+    if not start_at:
+        return 0
+    dt = datetime.fromisoformat(start_at.replace('Z', '+00:00'))
+    if dt.tzinfo is None:
+        raise ValueError('DASHBOARD_START_AT must include a UTC offset')
+    return int(dt.timestamp() * 1000)
+
+
 def dashboard_payload(records, symbol=None, combo=None):
+    start_ms = _start_ms()
     completed, pending, unresolved = build_trades(records['fills'], records['orders'], records['links'], records['forces'])
     all_combos = sorted({x.combo for x in records['links']})
     all_symbols = sorted({x.symbol for x in records['orders'] + records['fills']})
-    completed = [x for x in completed if (not symbol or x['symbol'] == symbol)]
-    pending = [x for x in pending if (not symbol or x['symbol'] == symbol)]
+    # Count only whole positions whose first ENTRY is at/after the baseline.
+    # An old position closed today never becomes a new-period profit.
+    completed = [x for x in completed if x['entry_ms'] >= start_ms and
+                 (not symbol or x['symbol'] == symbol)]
+    pending = [x for x in pending if x['entry_ms'] >= start_ms and
+               (not symbol or x['symbol'] == symbol)]
     visible = [x for x in completed if not combo or x['combo'] == combo]
     mapped = [x for x in visible if x['combo']]
     total = round(sum(x['pnl'] for x in mapped), 6)
+    roi_pct, margin = margin_roi(mapped)
     chart, running = [], 0.0
     for trade in sorted(mapped, key=lambda x:x['exit_ms'] or 0):
         running += trade['pnl']
         chart.append({'t': trade['exit_ms'], 'v': round(running, 6)})
     liqs = sum(1 for x in visible if x['liquidated'])
     fill_net = sum(float(f.realized_pnl) + float(f.fee)
-                   for f in records['fills'] if not symbol or f.symbol == symbol)
+                   for f in records['fills'] if f.timestamp_ms >= start_ms and
+                   (not symbol or f.symbol == symbol))
     return {
         'summary': {
             'pnl_usdt': total,
+            'pnl_pct': roi_pct,
+            'margin_used_usdt': margin,
             'win_rate': round(100 * sum(x['pnl'] > 0 for x in mapped) / len(mapped), 2) if mapped else 0.0,
             'closed': len(mapped),
             'unmapped': sum(not x['combo'] for x in completed),
             'liquidations': liqs,
             'open_positions': len(pending),
             'fill_net_usdt': round(fill_net, 6),
-            'unresolved_fills': len(unresolved),
+            'unresolved_fills': sum(1 for x in unresolved if x.get('timestamp_ms', 0) >= start_ms),
         },
         'combos': summarize(mapped),
         'trades': sorted(visible, key=lambda x:x['exit_ms'] or 0, reverse=True)[:100],
         'equity': chart,
         'filters': {'combos': all_combos, 'symbols': all_symbols},
+        'start_at': datetime.fromtimestamp(start_ms/1000, timezone.utc).isoformat() if start_ms else None,
         'last_sync': ({'status':records['runs'][0].status,
                        'time':records['runs'][0].finished_at.isoformat() if records['runs'][0].finished_at else None,
                        'details':records['runs'][0].details} if records['runs'] else None),
-        'disclaimer': 'PnL dựa trên fills thực tế, gồm phí fill; funding lưu riêng. Combo chỉ gán khi khớp orderId.'
+        'disclaimer': 'PnL gồm realisedPNL và phí fills, chưa phân bổ funding. PnL % = PnL ròng / tổng (giá trị Entry / đòn bẩy). Đây là ROI ký quỹ ước tính, không phải lợi nhuận tài khoản; có thể khác ký quỹ thực do thêm margin và cơ chế thanh lý.'
     }
 
 
@@ -209,7 +230,7 @@ def api_dashboard(request: Request, symbol: str = '', combo: str = ''):
         if _public_readonly():
             # Public summaries do not expose exchange order IDs, raw fills or
             # collector error details (which can contain internal infrastructure).
-            public_fields = ('symbol', 'combo', 'side', 'exit_ms', 'exit_types', 'pnl', 'liquidated')
+            public_fields = ('symbol', 'combo', 'side', 'exit_ms', 'exit_types', 'pnl', 'pnl_pct', 'liquidated')
             data['trades'] = [{k: trade.get(k) for k in public_fields} for trade in data['trades']]
             if data['last_sync']:
                 data['last_sync'].pop('details', None)

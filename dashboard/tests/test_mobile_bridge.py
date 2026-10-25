@@ -97,3 +97,43 @@ def test_public_readonly_strips_trade_ids_and_sync_details(monkeypatch):
         assert 'order_id' not in res.json()['trades'][0]
         assert 'raw' not in res.json()['trades'][0]
         assert 'details' not in res.json()['last_sync']
+
+
+def test_baseline_starts_at_entry_not_exit(monkeypatch):
+    from autotrade_live import mobile as web
+    monkeypatch.setenv('DASHBOARD_START_AT','2026-10-25T17:40:50+07:00')
+    base=int(__import__('datetime').datetime.fromisoformat('2026-10-25T17:40:50+07:00').timestamp()*1000)
+    from types import SimpleNamespace as O
+    def row(i,ts,oid,side,pnl,fee=0):
+        return O(trade_id=str(i),timestamp_ms=ts,order_id=oid,symbol='BTC-USDT',
+                 side=side,position_side='LONG',qty=1,price=100,realized_pnl=pnl,fee=fee)
+    orders=[O(order_id=x,type='MARKET',position_side='LONG',raw={'leverage':'50X','positionID':pos})
+            for x,pos in [('old_in','old'),('old_out','old'),('new_in','new'),('new_out','new')]]
+    rows=[row('1',base-5000,'old_in','BUY',0),
+          row('2',base+1000,'old_out','SELL',50),
+          row('3',base+2000,'new_in','BUY',0),
+          row('4',base+3000,'new_out','SELL',10)]
+    records=dict(fills=rows,orders=orders,links=[O(entry_order_id='old_in',combo='C1'),
+                 O(entry_order_id='new_in',combo='C2')],forces=[],incomes=[],runs=[],positions=[])
+    result=web.dashboard_payload(records)
+    assert result['summary']['pnl_usdt']==10
+    assert result['summary']['closed']==1
+    assert result['summary']['pnl_pct']==500
+    assert result['combos'][0]['Combo']=='C2'
+    assert result['start_at'].startswith('2026-10-25T10:40:50')
+    monkeypatch.delenv('DASHBOARD_START_AT',raising=False)
+
+
+def test_public_api_percent_kept_private_trade_ids_rejected(monkeypatch):
+    from autotrade_live import mobile as web
+    monkeypatch.setenv('DASHBOARD_PUBLIC_READONLY','true')
+    monkeypatch.delenv('DASHBOARD_START_AT',raising=False)
+    monkeypatch.setattr(web,'_db_records',lambda:{'anything':True})
+    monkeypatch.setattr(web,'dashboard_payload',lambda *a,**kw:{
+        'trades':[{'symbol':'ETH-USDT','combo':'C8','pnl':4,'pnl_pct':200,
+                   'order_id':'secret-id'}], 'last_sync':None,'summary':{'pnl_pct':200}})
+    with TestClient(app) as c:
+        x=c.get('/api/dashboard')
+        assert x.status_code==200
+        assert x.json()['trades'][0]['pnl_pct']==200
+        assert 'order_id' not in x.json()['trades'][0]

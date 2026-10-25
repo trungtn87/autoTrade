@@ -21,3 +21,23 @@ The free Render web service `autotrade-live-dashboard` must separately have `DAT
 
 ## Constraints
 GitHub Actions schedules are best-effort: they can be delayed or missed. Public repository schedules can be disabled after 60 days without repository activity; review Actions periodically. The 3-day overlap allows reprocessing late records without duplicates, but it is **not an infinite archive catch-up**. To recover a longer gap, use the manual run with 7, 30, 60 or 90 days (subject to BingX API retention). Standard GitHub-hosted runners are free for public repositories; Render Cron Jobs are not used. If repo is made private, reassess GitHub Actions billing.
+
+## PnL % and historical baseline
+
+The dashboard reports estimated **entry-margin ROI**, NOT return on account equity:
+`PnL % = 100 * (sum of realized fill PnL + signed fill fees) / sum(entry qty * entry price / entry leverage)`.
+BingX order responses carry leverage such as `50X` or `100X`. For a closed position with
+several entries, the denominator is the sum of their estimated entry margins; across
+positions and Combos this is a **margin-weighted** ROI (never sum of individual percentages).
+Funding, manually added margin, margin-mode differences and liquidations may change real
+ROI; compare against BingX before relying on percentages. If entry leverage is unavailable,
+the percentage displays `—` instead of inventing a denominator.
+
+To **start fresh while keeping old exchange history for audit**, set
+`DASHBOARD_START_AT=2026-10-25T17:40:50+07:00` in the separate Render dashboard service.
+Only positions whose first entry fill is at or after the timestamp are included in
+performance, open counts, charts and trade list. Old data is **not deleted** from Supabase;
+the daily collector still rereads up to 3 days for idempotency. Reverting the flag to empty
+allows historical, but potentially incomplete, positions to be shown again.
+Changing this value never changes the live trading bot. The dashboard remains public
+if DASHBOARD_PUBLIC_READONLY=true.
