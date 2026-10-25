@@ -9,7 +9,13 @@ from contextlib import contextmanager
 from .errors import BingXApiError
 
 log = logging.getLogger(__name__)
-BLOCK_CODES = {"109415", "109425", "109429", "HTTP_429"}
+# 109425 means unsupported symbol, NOT a rate limit; never freeze protection
+# requests for a business-validation error. 109415 is undocumented in the
+# current BingX error reference, so it is not evidence of an API ban either.
+# A real 429/109429 may restrict the entire API; do not bypass it, even for
+# emergency orders, without explicit exchange confirmation.
+BLOCK_CODES = {"109429", "HTTP_429"}
+TRANSIENT_RATE_LIMIT_CODES = {"100410"}
 
 
 class BingXRequestGuard:
@@ -43,12 +49,22 @@ class BingXRequestGuard:
                 self._last_call = time.monotonic()
 
     def api_error(self, source: str, code, message: str, path: str, params: dict) -> BingXApiError:
-        if str(code) in BLOCK_CODES:
+        code_str = str(code)
+        if code_str in BLOCK_CODES:
             retry_at = self._retry_at_from_message(message)
             now_ms = int(time.time() * 1000)
             self._blocked_until_ms = max(
                 self._blocked_until_ms,
                 (retry_at or now_ms + 15 * 60_000) + self.cooldown_guard_ms,
+            )
+        elif code_str in TRANSIENT_RATE_LIMIT_CODES:
+            # Gateway 100410 is a transient throttle, not a 15-minute ban.
+            # Back off, and keep every trading path fail-closed during cooldown.
+            retry_at = self._retry_at_from_message(message)
+            now_ms = int(time.time() * 1000)
+            self._blocked_until_ms = max(
+                self._blocked_until_ms,
+                (retry_at or now_ms) + self.cooldown_guard_ms,
             )
         log.warning(
             "BINGX_API_ERROR source=%s code=%s path=%s blocked_until_ms=%s msg=%s",
