@@ -200,7 +200,6 @@ class LegacyStyleBingXClient:
         }
         if client_order_id:
             params["clientOrderId"]=str(client_order_id)
-        self._add_position_id(params,position_id)
         return self._signed_request("POST",self.ORDER_PATH,params)
 
     def get_order_detail(
@@ -462,4 +461,5 @@ class LegacyStyleBingXClient:
         }
         if client_order_id:
             params["clientOrderId"]=str(client_order_id)
+        self._add_position_id(params,position_id)
         return self._signed_request("POST",self.ORDER_PATH,params)
