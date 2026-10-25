@@ -2,16 +2,33 @@
 import argparse
 import json
 from .bridge import refresh_signal_links
-from .db import get_engine, init_db
-from .sync import sync
+from sqlalchemy import select
+from .db import Fill, get_engine, get_sessionmaker, init_db
+from .sync import as_fill, sync
+
+
+def repair_legacy_fills(engine):
+    """Normalize previously archived fills without re-fetching BingX history."""
+    Session = get_sessionmaker(engine)
+    repaired = 0
+    with Session.begin() as db:
+        for old in db.scalars(select(Fill).where(Fill.timestamp_ms <= 0)).all():
+            normalized = as_fill(old.raw)
+            if normalized['trade_id'] != old.trade_id or normalized['symbol'] != old.symbol:
+                raise ValueError('Archived BingX fill identity mismatch; manual reconciliation required')
+            old.timestamp_ms = normalized['timestamp_ms']
+            old.realized_pnl = normalized['realized_pnl']
+            repaired += 1
+    return repaired
 
 
 def collect(days=2):
     engine = get_engine()
     init_db(engine)
     mapped = refresh_signal_links(engine)
+    repaired = repair_legacy_fills(engine)
     bingx = sync(days=days)
-    return {'combo_links': mapped, 'bingx': bingx}
+    return {'combo_links': mapped, 'repaired_historical_fills': repaired, 'bingx': bingx}
 
 
 if __name__ == '__main__':

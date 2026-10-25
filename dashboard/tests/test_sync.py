@@ -243,3 +243,25 @@ def test_real_fill_entry_and_exit_combo_attribution():
     assert len(done)==1 and not pending and not issues
     assert done[0]['combo']=='C7'
     assert round(done[0]['pnl'],4)==9.8
+
+
+def test_repair_old_archived_fills_from_raw(tmp_path, monkeypatch):
+    monkeypatch.setenv('DATABASE_URL', 'sqlite:///' + str(tmp_path / 'repair.db'))
+    from autotrade_live.collect import repair_legacy_fills
+    from autotrade_live.db import get_engine, init_db, get_sessionmaker, Fill
+    from sqlalchemy import select
+    engine = get_engine()
+    init_db(engine)
+    raw={'tradeId': '9', 'orderId':'1', 'symbol':'ETH-USDT',
+         'side':'SELL','positionSide':'LONG', 'qty':'1', 'price':'120',
+         'realisedPNL':'12.25', 'commission':'-0.2',
+         'filledTime':'2026-10-25T10:06:12.000+08:00'}
+    with get_sessionmaker(engine).begin() as db:
+        db.add(Fill(trade_id='9',order_id='1',symbol='ETH-USDT',side='SELL',position_side='LONG',
+                    qty=1,price=120,realized_pnl=0,fee=-.2,timestamp_ms=0,raw=raw))
+    assert repair_legacy_fills(engine)==1
+    assert repair_legacy_fills(engine)==0
+    with get_sessionmaker(engine)() as db:
+        obj = db.scalars(select(Fill)).one()
+        assert obj.timestamp_ms > 1_700_000_000_000
+        assert obj.realized_pnl == 12.25
