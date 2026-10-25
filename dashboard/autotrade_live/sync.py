@@ -152,6 +152,8 @@ def sync(days=1, symbols=None, now_ms=None):
                 for key, values in [('orders', orders), ('fills', fills), ('income', incomes),
                                     ('forced', forces), ('positions', positions)]:
                     totals[key] += len(values)
+        # Explicit code=0, data=null windows are counted for reconciliation.
+        totals['null_data_windows'] = dict(getattr(client, 'null_data_counts', {}))
         with Session.begin() as db:
             run = db.get(SyncRun, run_id)
             run.finished_at = datetime.now(timezone.utc)

@@ -108,3 +108,82 @@ def test_empty_response_not_assumed_when_no_total():
     import pytest
     with pytest.raises(ValueError):
         extract_list({'fill_history_orders': None}, ('fill_history_orders',))
+
+
+def test_explicit_success_with_null_data_archived_as_empty():
+    from unittest.mock import Mock
+    from autotrade_live.bingx import BingXReadClient
+    client = BingXReadClient(key='read-only', secret='fake-secret')
+    client.min_delay = 0
+    response = Mock(status_code=200)
+    response.json.return_value = {'code': 0, 'data': None}
+    client.http.get = Mock(return_value=response)
+    for path in ['/openApi/swap/v2/user/income',
+                 '/openApi/swap/v2/trade/forceOrders',
+                 '/openApi/swap/v1/trade/positionHistory',
+                 '/openApi/swap/v2/trade/fillHistory',
+                 '/openApi/swap/v2/trade/allOrders']:
+        assert client.get(path, {'symbol': 'BTC-USDT'}) == []
+        assert client.null_data_counts[path] == 1
+
+
+def test_null_does_not_mask_errors_or_missing_fields():
+    import pytest
+    from unittest.mock import Mock
+    from autotrade_live.bingx import BingXReadClient
+    client = BingXReadClient(key='read-only', secret='fake-secret')
+    client.min_delay = 0
+    response = Mock(status_code=200)
+    client.http.get = Mock(return_value=response)
+    response.json.return_value = {'code': 109400, 'data': None, 'msg': 'private'}
+    with pytest.raises(RuntimeError, match='code=109400') as err:
+        client.get('/openApi/swap/v2/user/income', {})
+    assert 'private' not in str(err.value)
+    response.json.return_value = {'code': 0}
+    with pytest.raises(RuntimeError, match='missing data field'):
+        client.get('/openApi/swap/v2/user/income', {})
+    response.json.return_value = {'code': 0, 'data': None}
+    with pytest.raises(RuntimeError, match='Unexpected BingX null data'):
+        client.get('/openApi/swap/v2/unknown', {})
+
+
+def test_real_fills_saved_even_when_income_null(tmp_path, monkeypatch):
+    import autotrade_live.sync as module
+    import json
+    from unittest.mock import Mock
+    from autotrade_live.bingx import BingXReadClient
+    from autotrade_live.db import Order, Fill, SyncRun, get_engine, get_sessionmaker
+    from sqlalchemy import select
+    monkeypatch.setenv('DATABASE_URL', 'sqlite:///' + str(tmp_path / 'null-income.db'))
+    monkeypatch.setenv('DB_SCHEMA', '')
+    class FakeClient(BingXReadClient):
+        def __init__(self):
+            super().__init__(key='read-only', secret='fake-secret')
+            self.min_delay = 0
+            def fake_get(url, **kwargs):
+                response = Mock(status_code=200)
+                if url.endswith('allOrders'):
+                    data = [{'orderId': '10001', 'symbol': 'BTC-USDT',
+                             'side': 'BUY', 'positionSide': 'LONG', 'time': 1000}]
+                elif url.endswith('fillHistory'):
+                    data = {'fill_history_orders': [{
+                        'tradeId': '11', 'orderId': '10001', 'symbol': 'BTC-USDT',
+                        'side': 'BUY', 'positionSide': 'LONG',
+                        'qty': '1', 'price': '100', 'fee': '-0.1', 'time': 1000}]}
+                elif url.endswith(('income', 'forceOrders', 'positionHistory')):
+                    data = None
+                else:
+                    raise AssertionError(url)
+                response.json.return_value = {'code': 0, 'data': data}
+                return response
+            self.http.get = fake_get
+    monkeypatch.setattr(module, 'BingXReadClient', FakeClient)
+    stats = module.sync(days=1, symbols=['BTC-USDT'], now_ms=86402000)
+    Session = get_sessionmaker(get_engine())
+    with Session() as db:
+        assert len(db.scalars(select(Order)).all()) == 1
+        assert len(db.scalars(select(Fill)).all()) == 1
+        run = db.scalars(select(SyncRun)).one()
+        assert run.status == 'success'
+        assert json.loads(run.details)['null_data_windows']['/openApi/swap/v2/user/income'] == 2
+    assert stats['null_data_windows']['/openApi/swap/v2/trade/forceOrders'] == 4

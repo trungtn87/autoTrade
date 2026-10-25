@@ -9,6 +9,15 @@ import requests
 
 BASE = 'https://open-api.bingx.com'
 
+# Strictly scoped historical list endpoints. Log successful data:null for audit.
+EMPTY_LIST_ENDPOINTS = frozenset({
+    '/openApi/swap/v2/trade/allOrders',
+    '/openApi/swap/v2/trade/fillHistory',
+    '/openApi/swap/v2/user/income',
+    '/openApi/swap/v2/trade/forceOrders',
+    '/openApi/swap/v1/trade/positionHistory',
+})
+
 
 class BingXReadClient:
     def __init__(self, key=None, secret=None):
@@ -20,6 +29,7 @@ class BingXReadClient:
         self.http.headers.update({'X-BX-APIKEY': self.key})
         self.min_delay = float(os.getenv('BINGX_REQUEST_DELAY', '0.5'))
         self.last_request = 0.0
+        self.null_data_counts = {}
 
     def get(self, path: str, params: dict):
         if not path.startswith('/openApi/swap/'):
@@ -47,9 +57,20 @@ class BingXReadClient:
                     time.sleep(2 ** attempt)
                     continue
                 raise RuntimeError(f'BingX request failed: {path}') from None
-            if str(payload.get('code', 0)) != '0':
-                raise RuntimeError(f'BingX API error {path}: code={payload.get("code")} msg={payload.get("msg", "")}')
-            return payload.get('data')
+            if not isinstance(payload, dict):
+                raise RuntimeError(f'BingX invalid response envelope: {path}')
+            if str(payload.get('code', 'missing')) != '0':
+                # Avoid logging account-related messages on public Actions runs.
+                raise RuntimeError(f'BingX API error: {path} code={payload.get("code")}')
+            if 'data' not in payload:
+                raise RuntimeError(f'BingX success response missing data field: {path}')
+            data = payload['data']
+            if data is None:
+                if path not in EMPTY_LIST_ENDPOINTS:
+                    raise RuntimeError(f'Unexpected BingX null data at: {path}')
+                self.null_data_counts[path] = self.null_data_counts.get(path, 0) + 1
+                return []
+            return data
         raise RuntimeError(f'BingX request failed: {path}')
 
 
