@@ -156,22 +156,19 @@ class ExecutionService:
                 intent=self._intent_from_state(state)
                 if intent is None:
                     continue
-                same_side=[eid for eid,other in snapshots if eid!=event_id
-                           and (other.get("lifecycle") or {}).get("status") in ("open","cleanup")
-                           and isinstance(other.get("intent"),dict)
-                           and other["intent"].get("symbol")==intent.symbol
-                           and other["intent"].get("side")==intent.side]
-                # Also block another in-flight entry for this symbol and side.
-                same_side.extend(eid for eid,other in snapshots if eid!=event_id
-                                 and not other.get("terminal")
-                                 and isinstance(other.get("intent"),dict)
-                                 and other["intent"].get("symbol")==intent.symbol
-                                 and other["intent"].get("side")==intent.side)
+                # Concurrent combos are allowed. Ownership is determined from
+                # each trade's exchange order IDs, not by blocking new entries.
+                peer_states=[other for eid,other in snapshots if eid!=event_id
+                             and isinstance(other.get("intent"),dict)
+                             and other["intent"].get("symbol")==intent.symbol
+                             and other["intent"].get("side")==intent.side
+                             and ((other.get("lifecycle") or {}).get("status") in ("open","cleanup")
+                                  or not other.get("terminal"))]
                 current=self.store.get_state(event_id) or state
                 def persist(new_state):
                     self.store.save_state(event_id,new_state)
                 try:
-                    result=self._lifecycle.reconcile(current,persist,bool(same_side))
+                    result=self._lifecycle.reconcile(current,persist,peer_states=peer_states)
                     newest=self.store.get_state(event_id) or current
                     lifecycle=newest.get("lifecycle") or {}
                     if lifecycle.get("last_error"):
@@ -277,26 +274,6 @@ class ExecutionService:
                 status="duplicate_skipped",
                 details={"reason": "event_id already processed"},
             )
-
-        # Prevent Binance/BingX-style same-side position aggregation from
-        # mixing protection orders owned by two independent strategy events.
-        if self.settings.position_lifecycle_enabled and not pending and not recovery_only:
-            blocked=[eid for eid,other in self.store.list_states() if eid!=intent.event_id
-                and isinstance(other.get("intent"),dict)
-                and other["intent"].get("symbol")==intent.symbol
-                and other["intent"].get("side")==intent.side
-                and ((other.get("lifecycle") or {}).get("status") in ("open","cleanup")
-                     or not other.get("terminal"))]
-            if blocked:
-                self._emit(
-                    "L3.EXEC.POSITION_BUSY","WARNING",
-                    "same-symbol/side tracked position still active; new entry not sent",
-                    intent,blocking_event_ids=blocked,
-                )
-                return ExecutionResult(
-                    event_id=intent.event_id,accepted=False,status="position_busy",
-                    details={"network_called":False,"blocking_event_ids":blocked},
-                )
 
         client_order_id=self.executor.client_order_id(intent.event_id,"entry")
         if not state:
