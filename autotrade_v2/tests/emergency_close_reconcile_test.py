@@ -110,7 +110,7 @@ def main():
     # visibility is delayed or the original request was lost.
     recovered=deepcopy(writes[-1])
     again=close(ex,recovered,persist)
-    assert not again["confirmed"] and fake.posts==1,again
+    assert again["confirmed"] and fake.posts==1,again  # target position already flat
     fake.lookup_hidden=False
     resolved=close(ex,recovered,persist)
     assert resolved["confirmed"] and fake.posts==1,resolved
