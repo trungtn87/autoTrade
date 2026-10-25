@@ -1,7 +1,7 @@
 name: 20FINAL V2 Split TP Trailing Backtest 5 Windows
 on:
   push:
-    branches: [backtest-v2-split-5windows-20261025]
+    branches: [backtest-trailing-entry-005-20261026]
     paths:
       - 'autotrade_v2/tests/backtest_20final_windows_split.py'
       - '.github/workflows/backtest-v2-split-windows.yml'
@@ -38,7 +38,7 @@ jobs:
           unzip -q /tmp/history/historical.zip -d /tmp/history
           test -f /tmp/history/data/multisource/BTCUSDT_hybrid_15m.pkl
           test -f /tmp/history/data/multisource/ETHUSDT_hybrid_15m.pkl
-      - name: Run 20 combos over 3M 6M 1Y 3Y and 5Y (TP 50 / trailing 50)
+      - name: Run 20 combos over 3M 6M 1Y 3Y and 5Y (TP 50 / trailing 50 activation 0.5pct from entry)
         env:
           PYTHONPATH: autotrade_v2
         run: |
