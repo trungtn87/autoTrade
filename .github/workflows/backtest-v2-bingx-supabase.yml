@@ -1,0 +1,52 @@
+name: Rerun Live V2 on Supabase BingX 15m
+on:
+  push:
+    branches: [backtest-live-v2-recheck-20261026]
+    paths:
+      - 'autotrade_v2/tests/backtest_bingx_supabase.py'
+      - 'autotrade_v2/tests/data/bingx_supabase_*_15m_20261026.csv'
+      - '.github/workflows/backtest-v2-bingx-supabase.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TZ: UTC
+      PYTHONHASHSEED: '0'
+      OPENBLAS_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.14'
+      - name: Install pinned dependencies
+        run: pip install numpy==2.3.5 pandas==2.2.3 httpx==0.28.1
+      - name: Run read-only snapshot backtest of BingX candles from Supabase
+        env:
+          PYTHONPATH: autotrade_v2
+        run: |
+          python -u autotrade_v2/tests/backtest_bingx_supabase.py \
+            --btc autotrade_v2/tests/data/bingx_supabase_BTC_15m_20261026.csv \
+            --eth autotrade_v2/tests/data/bingx_supabase_ETH_15m_20261026.csv \
+            --out-dir backtest_supabase_results
+      - name: Publish per-combo outcomes
+        if: always()
+        shell: bash
+        run: |
+          if [ -f backtest_supabase_results/per_combo.csv ]; then
+            echo "## BingX candles from Supabase - per combo" >> "$GITHUB_STEP_SUMMARY"
+            cat backtest_supabase_results/per_combo.csv >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload CSV JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bingx-backtest-${{ github.run_id }}
+          path: backtest_supabase_results/
+          retention-days: 90
+          if-no-files-found: warn
