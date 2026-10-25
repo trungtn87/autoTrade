@@ -172,6 +172,9 @@ def main():
         service.executor.client=exchange2
         assert service.reconcile_open_positions()[0]["status"]=="sl_resized"
         assert exchange2.num==1 and store.get_state("C2")["lifecycle"]["sl_revision"]==1
+        c2_state=store.get_state("C2")
+        c2_state["lifecycle"]["status"]="closed"
+        store.save_state("C2",c2_state)
 
         # Crash after writing a deterministic journal but before POST.
         exchange3=Exchange()
