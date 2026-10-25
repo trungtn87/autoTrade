@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import logging
 import time
+from decimal import Decimal, InvalidOperation
 
 import httpx
 
@@ -24,6 +25,8 @@ class LegacyStyleBingXClient:
     ORDER_PATH="/openApi/swap/v2/trade/order"
     OPEN_ORDERS_PATH="/openApi/swap/v2/trade/openOrders"
     BALANCE_PATH="/openApi/swap/v3/user/balance"
+    POSITIONS_PATH="/openApi/swap/v2/user/positions"
+    CONTRACTS_PATH="/openApi/swap/v2/quote/contracts"
 
     def __init__(self,settings:Settings,request_guard=None):
         self.settings=settings
@@ -33,6 +36,54 @@ class LegacyStyleBingXClient:
     @staticmethod
     def _fmt_qty(qty:float)->str:
         return f"{float(qty):.4f}".rstrip("0").rstrip(".")
+
+    @staticmethod
+    def _fmt_exact_qty(qty,precision:int)->str:
+        """No silent truncation: accept only exact exchange quantity steps."""
+        if isinstance(precision,bool) or not isinstance(precision,int) or precision<0 or precision>12:
+            raise ValueError("invalid BingX quantityPrecision")
+        try:
+            quantity=Decimal(str(qty))
+            step=Decimal(1).scaleb(-precision)
+            if not quantity.is_finite() or quantity<=0 or quantity!=quantity.quantize(step):
+                raise ValueError("quantity is nonpositive or does not match BingX precision")
+        except (InvalidOperation,TypeError) as exc:
+            raise ValueError("invalid BingX quantity") from exc
+        return format(quantity,"f")
+
+    def get_contract_rules(self,symbol:str)->dict:
+        """Read live contract precision and minimum order size from BingX."""
+        with self.guard.request_slot():
+            response=self.http.get(
+                f"{self.settings.bingx_base_url}{self.CONTRACTS_PATH}",
+                params={"symbol":symbol},
+            )
+            response.raise_for_status()
+            payload=response.json()
+        if not isinstance(payload,dict) or payload.get("code") not in (0,"0"):
+            raise RuntimeError("BingX contract rules request failed")
+        data=payload.get("data")
+        if isinstance(data,dict):
+            data=[data]
+        if not isinstance(data,list):
+            raise RuntimeError("BingX contract rules returned no contract list")
+        matching=[row for row in data if isinstance(row,dict) and row.get("symbol")==symbol]
+        if len(matching)!=1:
+            raise RuntimeError("BingX contract rules missing or ambiguous symbol")
+        rule=matching[0]
+        if "quantityPrecision" not in rule or "tradeMinQuantity" not in rule:
+            raise RuntimeError("BingX contract rules missing quantity precision/minimum")
+        return rule
+
+    def get_positions(self,symbol:str)->list[dict]:
+        """Exchange positionAmt is authoritative remaining quantity (not local subtraction)."""
+        payload=self._signed_request("GET",self.POSITIONS_PATH,{"symbol":symbol})
+        data=payload.get("data")
+        if isinstance(data,dict):
+            data=data.get("positions")
+        if not isinstance(data,list):
+            raise RuntimeError("BingX position response missing positions list")
+        return [row for row in data if isinstance(row,dict)]
 
     @staticmethod
     def _fmt_price(price:float)->str:
@@ -253,6 +304,7 @@ class LegacyStyleBingXClient:
         entry_side:str,
         qty:float,
         tp:float,
+        quantity_precision:int|None=None,
     )->dict:
         opposite,position_side=self._protection_side(entry_side)
         params={
@@ -261,7 +313,7 @@ class LegacyStyleBingXClient:
             "positionSide":position_side,
             "type":"TAKE_PROFIT_MARKET",
             "stopPrice":self._fmt_price(tp),
-            "quantity":self._fmt_qty(qty),
+            "quantity":self._fmt_qty(qty) if quantity_precision is None else self._fmt_exact_qty(qty,quantity_precision),
         }
         return self._signed_request("POST",self.ORDER_PATH,params)
 
@@ -272,6 +324,7 @@ class LegacyStyleBingXClient:
         qty:float,
         activation_price:float,
         callback_rate:float,
+        quantity_precision:int|None=None,
     )->dict:
         """Exchange-native trailing close of the requested partial quantity."""
         opposite,position_side=self._protection_side(entry_side)
@@ -280,7 +333,7 @@ class LegacyStyleBingXClient:
             "side":opposite,
             "positionSide":position_side,
             "type":"TRAILING_STOP_MARKET",
-            "quantity":self._fmt_qty(qty),
+            "quantity":self._fmt_qty(qty) if quantity_precision is None else self._fmt_exact_qty(qty,quantity_precision),
             "activationPrice":self._fmt_price(activation_price),
             "priceRate":str(callback_rate),
         }
