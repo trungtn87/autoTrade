@@ -8,6 +8,7 @@ from ..contracts import TradeIntent
 from ..strategy.final14_config import case_name,get_case
 from .executor import LegacyStyleBingXClient
 from .quantity import allocate_exit_qty,confirmed_position_qty,PositionQuantityMismatch
+from .identity import identify_entry_position
 
 log=logging.getLogger(__name__)
 
@@ -74,15 +75,31 @@ class Final14Executor:
         return None,last_error
 
     def _confirm_market_close(
-        self,intent:TradeIntent,qty:float,reason:str
+        self,intent:TradeIntent,qty:float,reason:str,
+        position_id:str|None=None,resume_state:dict|None=None,
     )->dict:
+        # Separate Isolated must NOT be closed by side alone when multiple
+        # positions coexist. Resolve from durable pre-entry snapshot if supplied.
+        before=(resume_state or {}).get("pre_entry_positions")
+        if position_id is None and isinstance(before,dict):
+            try:
+                position_id=identify_entry_position(
+                    self.client.get_positions(intent.symbol),
+                    intent.symbol,intent.side,qty,baseline=before,
+                )
+            except Exception as exc:
+                return {
+                    "confirmed":False,"reason":reason,
+                    "error":f"positionId not attributable; refusing ambiguous close: {exc}",
+                }
         cid=self.client_order_id(intent.event_id,"close")
         raw=self.client.find_order_by_client_id(intent.symbol,cid)
         if raw is None:
             try:
+                kwargs={"position_id":position_id} if position_id else {}
                 self.client.close_market(
                     intent.symbol,intent.side,qty,FINAL14_EXECUTION_LEVERAGE,
-                    client_order_id=cid,
+                    client_order_id=cid,**kwargs,
                 )
             except Exception as send_exc:
                 raw,recheck_error=self._find_entry_after_ambiguous_send(
@@ -137,7 +154,9 @@ class Final14Executor:
             "error":"emergency close fill not confirmed",
         }
 
-    def _verify_protection(self,symbol:str,payload:dict,kind:str)->dict:
+    def _verify_protection(
+        self,symbol:str,payload:dict,kind:str,position_id:str|None=None
+    )->dict:
         order=self.client.extract_order(payload)
         order_id=self._order_id(order)
         if not order_id:
@@ -145,6 +164,8 @@ class Final14Executor:
         raw=self.client.get_order_detail(symbol,order_id=order_id)
         detail=self.client.extract_order(raw)
         status=str(detail.get("status") or "").upper()
+        if position_id and detail.get("positionId") and str(detail["positionId"])!=str(position_id):
+            raise RuntimeError(f"{kind} targets the wrong positionId")
         if status not in {"NEW","PARTIALLY_FILLED","FILLED"}:
             raise RuntimeError(f"{kind} not active after placement: status={status or 'UNKNOWN'}")
         return {
@@ -159,6 +180,7 @@ class Final14Executor:
         resume_state:dict|None=None,
         allow_new_entry:bool=True,
     )->dict:
+        resume_state=resume_state or {}
         cfg=get_case(intent.symbol,intent.combo)
         if not cfg:
             raise RuntimeError(
@@ -333,7 +355,8 @@ class Final14Executor:
                 status=final_status
                 order_id=final_order_id
                 close=self._confirm_market_close(
-                    intent,executed_qty,"partial_entry_timeout"
+                    intent,executed_qty,"partial_entry_timeout",
+                    resume_state=resume_state,
                 )
                 if close.get("confirmed"):
                     return {
@@ -386,7 +409,8 @@ class Final14Executor:
 
         if not self._valid_fill(side,avg_price,tp,sl):
             close=self._confirm_market_close(
-                intent,executed_qty,"fill_outside_final14_range"
+                intent,executed_qty,"fill_outside_final14_range",
+                resume_state=resume_state,
             )
             if close.get("confirmed"):
                 return {
@@ -421,7 +445,6 @@ class Final14Executor:
                 "error":"invalid fill and emergency close not confirmed",
             }
 
-        resume_state=resume_state or {}
         # Freeze the per-trade exit mode across restart/recovery and config changes.
         exit_mode=str(resume_state.get("exit_mode") or (
             "split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp"
@@ -436,6 +459,32 @@ class Final14Executor:
         position_id=None
         split_fallback_reason=None
         old_protection=resume_state.get("protection") or {}
+        # Resolve the particular position BEFORE placing conditional exit orders.
+        # Baseline is durable in Supabase prior to the MARKET POST.
+        before=resume_state.get("pre_entry_positions")
+        if split_trailing and isinstance(before,dict):
+            last_error=None
+            for attempt in range(1,AMBIGUOUS_RECHECK_ATTEMPTS+1):
+                try:
+                    position_id=identify_entry_position(
+                        self.client.get_positions(intent.symbol),
+                        intent.symbol,side,filled_qty_raw,baseline=before,
+                        entry_position_id=str(detail.get("positionId") or "") or None,
+                    )
+                    break
+                except Exception as exc:
+                    last_error=exc
+                    if attempt<AMBIGUOUS_RECHECK_ATTEMPTS:
+                        time.sleep(AMBIGUOUS_RECHECK_SLEEP_SEC)
+            if not position_id:
+                return {
+                    "processed":False,"entry_accepted":True,"entry_filled":True,
+                    "ok":False,"stage":"position_identification_pending",
+                    "client_order_id":client_order_id,"order_id":order_id,
+                    "avg_price":avg_price,"executed_qty":executed_qty,
+                    "unsafe_open_position":True,
+                    "error":f"cannot attribute entry to exactly one BingX positionId: {last_error}",
+                }
         sl_verified=None
         tp_verified=None
         trailing_verified=None
@@ -493,21 +542,23 @@ class Final14Executor:
         if sl_verified is None:
             try:
                 sl_payload=self.client.place_stop_loss(
-                    intent.symbol,side,executed_qty,sl
+                    intent.symbol,side,executed_qty,sl,
+                    **({"position_id":position_id} if position_id else {})
                 )
                 sl_verified=self._verify_protection(
-                    intent.symbol,sl_payload,"stop-loss"
+                    intent.symbol,sl_payload,"stop-loss",position_id
                 )
             except Exception as sl_exc:
                 # The POST may have reached BingX while its response was lost.
                 # Search current open protection orders before emergency close.
                 try:
                     matched=self.client.find_matching_protection(
-                        intent.symbol,side,executed_qty,sl,"STOP_MARKET"
+                        intent.symbol,side,executed_qty,sl,"STOP_MARKET",
+                        **({"position_id":position_id} if position_id else {})
                     )
                     if matched is not None:
                         sl_verified=self._verify_protection(
-                            intent.symbol,matched,"stop-loss"
+                            intent.symbol,matched,"stop-loss",position_id
                         )
                 except Exception:
                     sl_verified=None
@@ -518,7 +569,8 @@ class Final14Executor:
                         intent.symbol,order_id,
                     )
                     close=self._confirm_market_close(
-                        intent,executed_qty,"stop_loss_unconfirmed"
+                        intent,executed_qty,"stop_loss_unconfirmed",
+                        position_id=position_id,resume_state=resume_state,
                     )
                     if close.get("confirmed"):
                         return {
@@ -599,7 +651,7 @@ class Final14Executor:
                 positions=self.client.get_positions(intent.symbol)
                 actual_position_qty,position_id=confirmed_position_qty(
                     positions,intent.symbol,side,filled_qty_raw,
-                    allow_aggregate=True,
+                    allow_aggregate=True,expected_position_id=position_id,
                 )
                 old_position_id=resume_state.get("position_id")
                 if old_position_id and str(old_position_id)!=str(position_id):
@@ -655,19 +707,21 @@ class Final14Executor:
             try:
                 tp_payload=self.client.place_take_profit(
                     intent.symbol,side,tp_qty,tp,
-                    **({"quantity_precision":qty_precision} if qty_precision is not None else {})
+                    **({"quantity_precision":qty_precision} if qty_precision is not None else {}),
+                    **({"position_id":position_id} if position_id else {}),
                 )
                 tp_verified=self._verify_protection(
-                    intent.symbol,tp_payload,"take-profit"
+                    intent.symbol,tp_payload,"take-profit",position_id
                 )
             except Exception as tp_exc:
                 try:
                     matched=self.client.find_matching_protection(
-                        intent.symbol,side,tp_qty,tp,"TAKE_PROFIT_MARKET"
+                        intent.symbol,side,tp_qty,tp,"TAKE_PROFIT_MARKET",
+                        **({"position_id":position_id} if position_id else {}),
                     )
                     if matched is not None:
                         tp_verified=self._verify_protection(
-                            intent.symbol,matched,"take-profit"
+                            intent.symbol,matched,"take-profit",position_id
                         )
                 except Exception:
                     tp_verified=None
@@ -759,19 +813,21 @@ class Final14Executor:
                 try:
                     trailing_payload=self.client.place_trailing_stop(
                         intent.symbol,side,trail_qty,tp,callback_rate,
-                        **({"quantity_precision":qty_precision} if qty_precision is not None else {})
+                        **({"quantity_precision":qty_precision} if qty_precision is not None else {}),
+                        **({"position_id":position_id} if position_id else {}),
                     )
                     trailing_verified=self._verify_protection(
-                        intent.symbol,trailing_payload,"trailing-stop"
+                        intent.symbol,trailing_payload,"trailing-stop",position_id
                     )
                 except Exception as trailing_exc:
                     try:
                         matched=self.client.find_matching_trailing(
-                            intent.symbol,side,trail_qty,tp,callback_rate
+                            intent.symbol,side,trail_qty,tp,callback_rate,
+                            **({"position_id":position_id} if position_id else {}),
                         )
                         if matched is not None:
                             trailing_verified=self._verify_protection(
-                                intent.symbol,matched,"trailing-stop"
+                                intent.symbol,matched,"trailing-stop",position_id
                             )
                     except Exception:
                         trailing_verified=None
