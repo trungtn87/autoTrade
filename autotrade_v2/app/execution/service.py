@@ -278,6 +278,26 @@ class ExecutionService:
                 details={"reason": "event_id already processed"},
             )
 
+        # Prevent Binance/BingX-style same-side position aggregation from
+        # mixing protection orders owned by two independent strategy events.
+        if self.settings.position_lifecycle_enabled and not pending and not recovery_only:
+            blocked=[eid for eid,other in self.store.list_states() if eid!=intent.event_id
+                and isinstance(other.get("intent"),dict)
+                and other["intent"].get("symbol")==intent.symbol
+                and other["intent"].get("side")==intent.side
+                and ((other.get("lifecycle") or {}).get("status") in ("open","cleanup")
+                     or not other.get("terminal"))]
+            if blocked:
+                self._emit(
+                    "L3.EXEC.POSITION_BUSY","WARNING",
+                    "same-symbol/side tracked position still active; new entry not sent",
+                    intent,blocking_event_ids=blocked,
+                )
+                return ExecutionResult(
+                    event_id=intent.event_id,accepted=False,status="position_busy",
+                    details={"network_called":False,"blocking_event_ids":blocked},
+                )
+
         client_order_id=self.executor.client_order_id(intent.event_id,"entry")
         if not state:
             self.store.save_state(
