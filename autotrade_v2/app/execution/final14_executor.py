@@ -596,6 +596,18 @@ class Final14Executor:
                     "error":str(pending),
                 }
             except Exception as sl_exc:
+                if journal is not None:
+                    # Journal snapshot/persistence/transport was not verified.
+                    # Never trust an arbitrary same-side open order or retry.
+                    return {
+                        "processed":False,"entry_accepted":True,"entry_filled":True,
+                        "ok":False,"stage":"protection_sl_reconcile_pending",
+                        "client_order_id":client_order_id,"order_id":order_id,
+                        "executed_qty":executed_qty,"avg_price":avg_price,
+                        "unsafe_open_position":True,
+                        "protection":resume_state.get("protection") or {},
+                        "error":f"SL WAL reconciliation failed: {sl_exc}",
+                    }
                 # The POST may have reached BingX while its response was lost.
                 # Search current open protection orders before emergency close.
                 try:
@@ -781,6 +793,16 @@ class Final14Executor:
                     "error":str(pending),
                 }
             except Exception as tp_exc:
+                if journal is not None:
+                    return {
+                        "processed":False,"entry_accepted":True,"entry_filled":True,
+                        "ok":False,"stage":"protection_tp_reconcile_pending",
+                        "client_order_id":client_order_id,"order_id":order_id,
+                        "executed_qty":executed_qty,"avg_price":avg_price,
+                        "sl_protected":True,
+                        "protection":resume_state.get("protection") or {"sl":sl_verified},
+                        "error":f"TP WAL reconciliation failed: {tp_exc}",
+                    }
                 try:
                     matched=self.client.find_matching_protection(
                         intent.symbol,side,tp_qty,tp,"TAKE_PROFIT_MARKET",
@@ -907,6 +929,16 @@ class Final14Executor:
                         "error":str(pending),
                     }
                 except Exception as trailing_exc:
+                    if journal is not None:
+                        return {
+                            "processed":False,"entry_accepted":True,"entry_filled":True,
+                            "ok":False,"stage":"protection_trailing_reconcile_pending",
+                            "client_order_id":client_order_id,"order_id":order_id,
+                            "executed_qty":executed_qty,"avg_price":avg_price,
+                            "sl_protected":True,
+                            "protection":resume_state.get("protection") or {"sl":sl_verified,"tp":tp_verified},
+                            "error":f"trailing WAL reconciliation failed: {trailing_exc}",
+                        }
                     try:
                         matched=self.client.find_matching_trailing(
                             intent.symbol,side,trail_qty,tp,callback_rate,
