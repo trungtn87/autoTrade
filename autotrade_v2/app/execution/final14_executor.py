@@ -9,6 +9,7 @@ from ..strategy.final14_config import case_name,get_case
 from .executor import LegacyStyleBingXClient
 from .quantity import allocate_exit_qty,confirmed_position_qty,PositionQuantityMismatch
 from .identity import identify_entry_position
+from .protection_journal import ProtectionJournal,ProtectionReconcilePending
 
 log=logging.getLogger(__name__)
 
@@ -179,6 +180,7 @@ class Final14Executor:
         intent:TradeIntent,
         resume_state:dict|None=None,
         allow_new_entry:bool=True,
+        protection_persist=None,
     )->dict:
         resume_state=resume_state or {}
         cfg=get_case(intent.symbol,intent.combo)
@@ -459,6 +461,16 @@ class Final14Executor:
         position_id=None
         split_fallback_reason=None
         old_protection=resume_state.get("protection") or {}
+        # On production, the caller persists journal snapshots in Supabase
+        # *before* every conditional POST and after every confirmation.
+        journal=(
+            ProtectionJournal(
+                self.client,resume_state,protection_persist,
+                lambda raw,kind,pid:self._verify_protection(
+                    intent.symbol,raw,kind,pid
+                ),
+            ) if protection_persist is not None else None
+        )
         # Resolve the particular position BEFORE placing conditional exit orders.
         # Baseline is durable in Supabase prior to the MARKET POST.
         before=resume_state.get("pre_entry_positions")
@@ -541,13 +553,32 @@ class Final14Executor:
 
         if sl_verified is None:
             try:
-                sl_payload=self.client.place_stop_loss(
-                    intent.symbol,side,executed_qty,sl,
-                    **({"position_id":position_id} if position_id else {})
-                )
-                sl_verified=self._verify_protection(
-                    intent.symbol,sl_payload,"stop-loss",position_id
-                )
+                if journal is not None:
+                    sl_verified=journal.place(
+                        "sl",intent.symbol,side,executed_qty,sl,position_id,
+                        lambda:self.client.place_stop_loss(
+                            intent.symbol,side,executed_qty,sl,
+                            **({"position_id":position_id} if position_id else {})
+                        ),
+                    )
+                else:
+                    sl_payload=self.client.place_stop_loss(
+                        intent.symbol,side,executed_qty,sl,
+                        **({"position_id":position_id} if position_id else {})
+                    )
+                    sl_verified=self._verify_protection(
+                        intent.symbol,sl_payload,"stop-loss",position_id
+                    )
+            except ProtectionReconcilePending as pending:
+                return {
+                    "processed":False,"entry_accepted":True,"entry_filled":True,
+                    "ok":False,"stage":"protection_sl_reconcile_pending",
+                    "client_order_id":client_order_id,"order_id":order_id,
+                    "executed_qty":executed_qty,"avg_price":avg_price,
+                    "unsafe_open_position":True,
+                    "protection":resume_state.get("protection") or {},
+                    "error":str(pending),
+                }
             except Exception as sl_exc:
                 # The POST may have reached BingX while its response was lost.
                 # Search current open protection orders before emergency close.
@@ -705,14 +736,34 @@ class Final14Executor:
         # lost TP response, first search open orders for the exact protection.
         if tp_verified is None:
             try:
-                tp_payload=self.client.place_take_profit(
-                    intent.symbol,side,tp_qty,tp,
-                    **({"quantity_precision":qty_precision} if qty_precision is not None else {}),
-                    **({"position_id":position_id} if position_id else {}),
-                )
-                tp_verified=self._verify_protection(
-                    intent.symbol,tp_payload,"take-profit",position_id
-                )
+                if journal is not None:
+                    tp_verified=journal.place(
+                        "tp",intent.symbol,side,tp_qty,tp,position_id,
+                        lambda:self.client.place_take_profit(
+                            intent.symbol,side,tp_qty,tp,
+                            **({"quantity_precision":qty_precision} if qty_precision is not None else {}),
+                            **({"position_id":position_id} if position_id else {}),
+                        ),
+                    )
+                else:
+                    tp_payload=self.client.place_take_profit(
+                        intent.symbol,side,tp_qty,tp,
+                        **({"quantity_precision":qty_precision} if qty_precision is not None else {}),
+                        **({"position_id":position_id} if position_id else {}),
+                    )
+                    tp_verified=self._verify_protection(
+                        intent.symbol,tp_payload,"take-profit",position_id
+                    )
+            except ProtectionReconcilePending as pending:
+                return {
+                    "processed":False,"entry_accepted":True,"entry_filled":True,
+                    "ok":False,"stage":"protection_tp_reconcile_pending",
+                    "client_order_id":client_order_id,"order_id":order_id,
+                    "executed_qty":executed_qty,"avg_price":avg_price,
+                    "sl_protected":True,
+                    "protection":resume_state.get("protection") or {"sl":sl_verified},
+                    "error":str(pending),
+                }
             except Exception as tp_exc:
                 try:
                     matched=self.client.find_matching_protection(
@@ -811,14 +862,34 @@ class Final14Executor:
             callback_rate=self.settings.tp_trailing_callback_rate
             if trailing_verified is None:
                 try:
-                    trailing_payload=self.client.place_trailing_stop(
-                        intent.symbol,side,trail_qty,tp,callback_rate,
-                        **({"quantity_precision":qty_precision} if qty_precision is not None else {}),
-                        **({"position_id":position_id} if position_id else {}),
-                    )
-                    trailing_verified=self._verify_protection(
-                        intent.symbol,trailing_payload,"trailing-stop",position_id
-                    )
+                    if journal is not None:
+                        trailing_verified=journal.place(
+                            "trailing",intent.symbol,side,trail_qty,tp,position_id,
+                            lambda:self.client.place_trailing_stop(
+                                intent.symbol,side,trail_qty,tp,callback_rate,
+                                **({"quantity_precision":qty_precision} if qty_precision is not None else {}),
+                                **({"position_id":position_id} if position_id else {}),
+                            ),callback_rate=callback_rate,
+                        )
+                    else:
+                        trailing_payload=self.client.place_trailing_stop(
+                            intent.symbol,side,trail_qty,tp,callback_rate,
+                            **({"quantity_precision":qty_precision} if qty_precision is not None else {}),
+                            **({"position_id":position_id} if position_id else {}),
+                        )
+                        trailing_verified=self._verify_protection(
+                            intent.symbol,trailing_payload,"trailing-stop",position_id
+                        )
+                except ProtectionReconcilePending as pending:
+                    return {
+                        "processed":False,"entry_accepted":True,"entry_filled":True,
+                        "ok":False,"stage":"protection_trailing_reconcile_pending",
+                        "client_order_id":client_order_id,"order_id":order_id,
+                        "executed_qty":executed_qty,"avg_price":avg_price,
+                        "sl_protected":True,
+                        "protection":resume_state.get("protection") or {"sl":sl_verified,"tp":tp_verified},
+                        "error":str(pending),
+                    }
                 except Exception as trailing_exc:
                     try:
                         matched=self.client.find_matching_trailing(
@@ -908,6 +979,7 @@ class Final14Executor:
         intent:TradeIntent,
         resume_state:dict|None=None,
         allow_new_entry:bool=True,
+        protection_persist=None,
     )->dict:
         selected_mode=str((resume_state or {}).get("exit_mode") or (
             "split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp"
@@ -917,6 +989,7 @@ class Final14Executor:
                 intent,
                 resume_state=resume_state,
                 allow_new_entry=allow_new_entry,
+                protection_persist=protection_persist,
             )
             result.setdefault("exit_mode",selected_mode)
             return result
