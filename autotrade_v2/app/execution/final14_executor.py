@@ -79,6 +79,7 @@ class Final14Executor:
     def _confirm_market_close(
         self,intent:TradeIntent,qty:float,reason:str,
         position_id:str|None=None,resume_state:dict|None=None,
+        protection_persist=None,
     )->dict:
         # Separate Isolated must NOT be closed by side alone when multiple
         # positions coexist. Resolve from durable pre-entry snapshot if supplied.
@@ -94,9 +95,45 @@ class Final14Executor:
                     "confirmed":False,"reason":reason,
                     "error":f"positionId not attributable; refusing ambiguous close: {exc}",
                 }
-        cid=self.client_order_id(intent.event_id,"close")
+        state=resume_state if resume_state is not None else {}
+        journal=dict(state.get("emergency_close") or {})
+        cid=str(journal.get("client_order_id") or self.client_order_id(intent.event_id,"close"))
+        if journal and str(journal.get("position_id") or "")!=str(position_id or ""):
+            return {"confirmed":False,"reason":reason,
+                    "error":"emergency close journal positionId mismatch; refusing another order"}
+        if protection_persist is not None:
+            try:
+                if not position_id:
+                    raise PositionConfirmationError("cannot close without uniquely identified positionId")
+                position_qty=position_remaining(
+                    self.client,intent.symbol,intent.side,str(position_id)
+                )
+            except Exception as exc:
+                return {"confirmed":False,"reason":reason,
+                        "error":f"pre-close position could not be verified: {exc}"}
+            if position_qty==0:
+                return {"confirmed":True,"reason":reason,"status":"POSITION_FLAT",
+                        "position_id":position_id,"remaining_qty":"0"}
+            if float(position_qty)>qty+0.0001:
+                return {"confirmed":False,"reason":reason,
+                        "error":"position quantity exceeds entry fill; refusing cross-combo close",
+                        "position_id":position_id,"remaining_qty":str(position_qty)}
+
         raw=self.client.find_order_by_client_id(intent.symbol,cid)
         if raw is None:
+            if journal:
+                # Prepared or previously sent. Missing lookup is not proof
+                # that the MARKET POST was rejected: never re-submit.
+                return {"confirmed":False,"client_order_id":cid,"reason":reason,
+                        "error":"prepared emergency close lookup unresolved; not resending"}
+            if protection_persist is not None:
+                journal={"client_order_id":cid,"position_id":str(position_id),
+                         "reason":reason,"phase":"prepared",
+                         "requested_qty":str(qty),"revision":0}
+                prepared={**state,"emergency_close":journal}
+                protection_persist(prepared)  # durable BEFORE signed MARKET POST
+                state.clear()
+                state.update(prepared)
             try:
                 kwargs={"position_id":position_id} if position_id else {}
                 self.client.close_market(
@@ -383,7 +420,7 @@ class Final14Executor:
                 order_id=final_order_id
                 close=self._confirm_market_close(
                     intent,executed_qty,"partial_entry_timeout",
-                    resume_state=resume_state,
+                    resume_state=resume_state,protection_persist=protection_persist,
                 )
                 if close.get("confirmed"):
                     return {
@@ -437,7 +474,7 @@ class Final14Executor:
         if not self._valid_fill(side,avg_price,tp,sl):
             close=self._confirm_market_close(
                 intent,executed_qty,"fill_outside_final14_range",
-                resume_state=resume_state,
+                resume_state=resume_state,protection_persist=protection_persist,
             )
             if close.get("confirmed"):
                 return {
@@ -655,6 +692,7 @@ class Final14Executor:
                     close=self._confirm_market_close(
                         intent,executed_qty,"stop_loss_unconfirmed",
                         position_id=position_id,resume_state=resume_state,
+                        protection_persist=protection_persist,
                     )
                     if close.get("confirmed"):
                         return {
