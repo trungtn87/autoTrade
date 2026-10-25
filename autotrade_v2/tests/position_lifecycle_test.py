@@ -42,6 +42,47 @@ class Exchange:
         self.replace_lost=False
         self.replace_rejected=False
         self.num=0
+        self.seq=0
+
+    def find_order_by_client_id(self,symbol,client_order_id):
+        self.calls.append(("find_client",client_order_id))
+        oid=self.clients.get(client_order_id)
+        return self.get_order_detail(symbol,order_id=oid) if oid else None
+
+    def place_market_entry(self,symbol,side,qty,leverage,client_order_id=None):
+        self.calls.append(("entry",client_order_id,str(qty)))
+        self.seq+=1
+        oid=f"entry-new-{self.seq}"
+        self.position+=Decimal(str(qty))
+        self.orders[oid]={
+            "orderId":oid,"clientOrderId":client_order_id,
+            "symbol":symbol,"side":side,
+            "positionSide":"LONG" if side=="BUY" else "SHORT",
+            "status":"FILLED","type":"MARKET",
+            "executedQty":str(qty),"origQty":str(qty),"avgPrice":"100",
+        }
+        self.clients[client_order_id]=oid
+        return self.get_order_detail(symbol,order_id=oid)
+
+    def _new_exit(self,kind,symbol,entry_side,qty,price=None):
+        self.seq+=1
+        oid=f"{kind}-{self.seq}"
+        self.calls.append((kind,oid,str(qty)))
+        types={"sl":"STOP_MARKET","tp":"TAKE_PROFIT_MARKET","trailing":"TRAILING_STOP_MARKET"}
+        item=order(oid,types[kind],qty)
+        if price is not None:
+            item["stopPrice"]=str(price)
+        self.orders[oid]=item
+        return self.get_order_detail(symbol,order_id=oid)
+
+    def place_stop_loss(self,symbol,entry_side,qty,sl):
+        return self._new_exit("sl",symbol,entry_side,qty,sl)
+
+    def place_take_profit(self,symbol,entry_side,qty,tp,quantity_precision=None):
+        return self._new_exit("tp",symbol,entry_side,qty,tp)
+
+    def place_trailing_stop(self,symbol,entry_side,qty,activation_price,callback_rate,quantity_precision=None):
+        return self._new_exit("trailing",symbol,entry_side,qty)
 
     def get_positions(self,symbol):
         self.calls.append(("positions",symbol))
