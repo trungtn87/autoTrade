@@ -27,37 +27,59 @@ Layered live engine for the locked FINAL14 strategy.
 4. **Layer 4 — Control**
    - Structured events, audit persistence, Discord notifications, error classification, health reporting, and BingX request guard.
 
-## Optional 50/50 trailing exit (staged, disabled by default)
+## Optional 50/50 TP + trailing, lifecycle monitor (staged)
 
-Set `TP_TRAILING_SPLIT_ENABLED=true` to place a full-size hard SL first,
-then read the **actual filled entry** (`executedQty`) and independently
-re-read the exchange's open `positionAmt`, its `positionId` and current
-contract rules (`quantityPrecision`, `tradeMinQuantity`, `tradeMinUSDT`).
-If the position differs from the fill, pause partial-exit placement with
-SL still active: another order may be sharing that symbol and side.
+All live behavior stays unchanged until the two environment switches
+`TP_TRAILING_SPLIT_ENABLED=true` and `POSITION_LIFECYCLE_ENABLED=true`
+are deliberately enabled, with exchange-specific validation completed.
+The split switch requires the lifecycle switch.
 
-Allocate exactly half to the trailing order, rounded **down** to BingX's
-symbol-specific quantity step using decimal arithmetic, and allocate the
-exact remainder to the fixed-TP order; verify both sum to `positionAmt`.
-If either half falls below the exchange minimum quantity/notional, revert
-this trade to a single full-size hard TP rather than forcing invalid halves.
-This plan never estimates the remaining live SL size by subtracting local
-expected TP fills: position-level SL reconciliation must read a **fresh**
-`positionAmt` each time a partial exit is executed.
+**Concurrent combos on the same symbol and side are allowed.** There is no
+position-busy entry gate. When BingX aggregates positionAmt across same-side
+orders, never treat that aggregate as a single trade's quantity. Use the
+individual entry's exchange-confirmed `executedQty` as the authoritative
+quantity for its 50/50 split. Use exact decimal arithmetic and the current
+symbol's `quantityPrecision`, `tradeMinQuantity`, and `tradeMinUSDT`:
+allocate one half rounded down to the exchange step and the exact remainder
+to the other. If either half is invalid, use a single full-quantity hard TP.
+An exchange snapshot of positionAmt must contain at least the actual filled
+quantity of this entry before partial exits are placed.
 
-The native trailing activation price is the trade's original TP price and
-`TP_TRAILING_CALLBACK_RATE` defaults to `0.005` (**0.5% price retracement**,
-not 0.5 percentage points of leveraged PnL). The existing fill vs TP/SL
-validation and the hard SL placement-first behavior remain unchanged.
+Hard SL is always placed and confirmed first. Each trade retains its own
+persisted entry/SL/TP/trailing order IDs and, after terminal entry
+confirmation, a durable position-lifecycle state. The Layer-3 monitor runs
+at startup and every 15 seconds even if entry processing already finished.
+For each trade:
 
-**Deployment warning:** This PR stages the functionality only. Production
-stays in 100% hard TP mode by default. Before enabling, verify exchange
-minimum order sizing, live BingX trailing parameter acceptance, and exit
-reconciliation: when one half closes, the full-size SL must be reduced to the
-remaining position, and stale TP/trailing/SL orders must be cancelled after a
-complete exit. The existing completion monitor does **not** yet implement
-that ongoing position-level cleanup, so leave the flag off in live trading
-until that protection lifecycle is implemented and tested.
+1. Read the real `executedQty` values on **its own** BingX exit order IDs,
+   not the expected TP volumes, to determine its remaining order allocation.
+2. Cross-check the sum of active tracked combos' remaining exchange fills
+   against BingX's account-wide `positionAmt`. A mismatch from an external
+   close or in-flight trade requires reconciliation; it **never blocks new
+   entries** and it never blindly changes another combo's SL.
+3. When a partial close is confirmed, replace just that trade's old SL
+   with an exact-quantity SL at the original stopPrice via BingX
+   `cancelReplace` / `STOP_ON_FAILURE`. Persist deterministic replacement
+   identifiers before posting and reconcile by clientOrderId on lost replies.
+4. When all exit fills for **that trade** are confirmed (even if other
+   same-side trades remain), cancel only its own remaining SL/TP/trailing
+   order IDs, verifying each. Also clean up when BingX confirms the entire
+   account-side position is flat, e.g. after liquidation/manual close.
+5. Persist per-order cleanup progress so a Render restart resumes without
+   replaying the market entry or cancelling an unrelated order. Raise a
+   Layer-4 CRITICAL event if an exchange response is ambiguous or unsafe.
+
+The exchange-native trailing activation price is the original TP level.
+`TP_TRAILING_CALLBACK_RATE` defaults to `0.005` (0.5% price retracement,
+not leveraged PnL). Original fill validation and SL price remain unchanged.
+
+**Production warning:** These changes are staged on PR #16, not merged or
+deployed. Tests simulate BingX responses but do **not** establish live API
+compatibility, order routing semantics or cross-process locks. Verify
+atomic replacement, shared-position behavior and reconciliation on a
+BingX test account before enabling on Render. If per-trade ownership is
+uncertain due to external/manual activity, the monitor must alert instead
+of cancelling/modifying potentially unrelated protections.
 
 ## Locked strategy
 
