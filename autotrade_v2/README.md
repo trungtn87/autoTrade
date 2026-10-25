@@ -27,12 +27,23 @@ Layered live engine for the locked FINAL14 strategy.
 4. **Layer 4 — Control**
    - Structured events, audit persistence, Discord notifications, error classification, health reporting, and BingX request guard.
 
-## Optional 50/50 TP + trailing, lifecycle monitor (staged)
+## 50/50 TP + trailing, lifecycle monitor (runtime activation)
 
-All live behavior stays unchanged until the two environment switches
-`TP_TRAILING_SPLIT_ENABLED=true` and `POSITION_LIFECYCLE_ENABLED=true`
-are deliberately enabled, with exchange-specific validation completed.
-The split switch requires the lifecycle switch.
+The deployed FastAPI entrypoint `app.main` now defaults to enabling
+`TP_TRAILING_SPLIT_ENABLED` and `POSITION_LIFECYCLE_ENABLED`, following an
+explicit request to activate trailing using GitHub auto-deploy. The underlying
+`Settings()` dataclass still defaults these values to false for offline
+tests and tooling. If the Render environment defines either key, that value
+takes precedence over the startup default. To disable 50/50 exits without a
+GitHub commit, set `TP_TRAILING_SPLIT_ENABLED=false` in Render; disabling
+`POSITION_LIFECYCLE_ENABLED` also forces trailing off. The callback rate is
+`TP_TRAILING_CALLBACK_RATE=0.005` (0.5%) unless overridden.
+
+**Deployment caveat:** A code push only auto-deploys if the Render service
+follows `autotrade-v2-clean` with auto-deploy enabled. GitHub cannot reveal
+whether Render currently overrides the feature flags; check `/health` for
+`tp_trailing_split_enabled`, `position_lifecycle_enabled` and
+`tp_trailing_callback_rate` after deploy.
 
 **Concurrent combos on the same symbol and side are allowed.** There is no
 position-busy entry gate. When BingX aggregates positionAmt across same-side
@@ -73,12 +84,12 @@ The exchange-native trailing activation price is the original TP level.
 `TP_TRAILING_CALLBACK_RATE` defaults to `0.005` (0.5% price retracement,
 not leveraged PnL). Original fill validation and SL price remain unchanged.
 
-**Production warning:** These changes are staged on PR #16, not merged or
-deployed. Tests simulate BingX responses but do **not** establish live API
-compatibility, order routing semantics or cross-process locks. Verify
-atomic replacement, shared-position behavior and reconciliation on a
-BingX test account before enabling on Render. If per-trade ownership is
-uncertain due to external/manual activity, the monitor must alert instead
+**Production warning:** Tests simulate BingX responses but do **not**
+establish live API compatibility, order routing semantics or cross-process
+locks. An API rejection or unexpected exchange state can cause a partial
+position to remain protected only by its original hard SL; inspect critical
+lifecycle alerts and test-account behavior. If per-trade ownership is
+uncertain due to external/manual activity, the monitor alerts instead
 of cancelling/modifying potentially unrelated protections.
 
 ## Locked strategy
