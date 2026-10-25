@@ -67,7 +67,7 @@ def run(kind,trigger,qty,rate=None):
     send=lambda lose=False: exchange.submit(kind,qty,trigger,rate,lose_response=lose)
 
     # Happy path: durable prepare BEFORE POST, confirmed orderId after POST.
-    result=journal(exchange,state,persist).place(kind,*args,send)
+    result=journal(exchange,state,persist).place(kind,*args,send,callback_rate=rate)
     assert result["order_id"]=="101"
     assert exchange.posts==1
     assert len(history)==2
