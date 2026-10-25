@@ -87,8 +87,9 @@ def build_events(symbol: str, raw15: pd.DataFrame):
 
 
 # Deterministic OHLC simulation; never touches BingX trading API.
-# Live path uses 50% hard TP, 50% TRAILING_STOP_MARKET activation at TP,
-# callback = 0.5% price retracement, and full hard SL resized after TP fill.
+# Hard TP stays per combo; trailing separately activates after a 0.5% favorable
+# move from entry and uses its own 0.5% callback.
+ACTIVATION_PCT = 0.005
 CALLBACK_RATE = 0.005
 WINDOWS = [("3M",3),("6M",6),("1Y",12),("3Y",36),("5Y",60)]
 
@@ -106,91 +107,107 @@ def check_dataset(d, symbol):
 
 
 def simulate_case(d, events, cfg, start_i, end_i, *, mode="split"):
+    """Independent hard TP and 0.5%-from-entry trailing leg.
+
+    Assumes SL before any profitable exit within ambiguous OHLC candles.
+    Do not fabricate trailing execution on its activation candle. A trailing
+    fill BEFORE TP closes only its half; pending hard TP remains for the rest.
+    """
     h = d.high.to_numpy(dtype=float)
     l = d.low.to_numpy(dtype=float)
     c = d.close.to_numpy(dtype=float)
     idx = d.index
     ev = [e for e in events if start_i <= e[0] < end_i]
-    p = 0
     rows = []
+    p = 0
     while p < len(ev):
         ei, side, ot, strategy = ev[p]
         entry = float(c[ei])
         direction = 1 if side == "L" else -1
-        tp_pct = float(cfg["tp_pct"])
-        sl_pct = float(cfg["sl_pct"])
-        tp = entry * (1 + direction * tp_pct)
-        sl = entry * (1 - direction * sl_pct)
-        best = tp
-        tp_done = False
+        tp = entry*(1+direction*float(cfg["tp_pct"]))
+        sl = entry*(1-direction*float(cfg["sl_pct"]))
+        activate = entry*(1+direction*ACTIVATION_PCT)
+        active = False
+        best = activate
+        fixed_done = False
+        trailing_done = False
         legs = []
-        end_bar = end_i - 1
+        end_bar = end_i-1
 
-        # No exit on the entry candle. Stop-first handles OHLC ambiguity.
-        for i in range(ei + 1, end_i):
-            stop_hit = (l[i] <= sl) if direction > 0 else (h[i] >= sl)
-            tp_hit = (h[i] >= tp) if direction > 0 else (l[i] <= tp)
-            if not tp_done:
-                if stop_hit:
-                    legs.append((1.0, sl, "SL_FULL"))
+        for i in range(ei+1,end_i):
+            stop_hit = l[i]<=sl if direction>0 else h[i]>=sl
+            tp_hit = h[i]>=tp if direction>0 else l[i]<=tp
+            favorable = h[i] if direction>0 else l[i]
+            adverse = l[i] if direction>0 else h[i]
+
+            # Remaining full-size hard SL, reduced to own remaining qty
+            # after either 50% exit; never assume an unprotected remainder.
+            remaining = 1 - sum(w for w,px,reason in legs)
+            if stop_hit:
+                legs.append((remaining,sl,"SL_FULL" if remaining==1 else "SL_AFTER_PARTIAL"))
+                end_bar = i
+                break
+
+            if mode=="hard":
+                if tp_hit:
+                    legs.append((1.0,tp,"TP_FULL"))
                     end_bar = i
                     break
-                if tp_hit:
-                    if mode == "hard":
-                        legs.append((1.0, tp, "TP_FULL"))
-                        end_bar = i
-                        break
-                    legs.append((0.5, tp, "TP_HALF"))
-                    tp_done = True
-                    best = tp
-                    # Same-candle trailing activation/trigger sequence unknowable.
-                    # Do not credit a trailing fill on the activation candle.
+                continue
+
+            if not active:
+                activation_hit = (favorable>=activate if direction>0 else favorable<=activate)
+                if activation_hit:
+                    active=True
+                    best=float(favorable)
+                    # A TP reached in the activation bar is independently
+                    # valid. Trailing close on that same bar is NOT inferable.
+                    if tp_hit:
+                        legs.append((0.5,tp,"TP_HALF"))
+                        fixed_done=True
                     continue
                 continue
 
-            # After TP: full SL has been resized for the remaining half.
-            # Conservatively apply SL before trailing if both touched.
-            if stop_hit:
-                legs.append((0.5, sl, "SL_AFTER_TP"))
-                end_bar = i
+            # Both orders may be live. On ambiguous same-bar high/low,
+            # defer the favorable TP if trailing threshold also touched.
+            if not trailing_done:
+                threshold=best*(1-direction*CALLBACK_RATE)
+                hit=adverse<=threshold if direction>0 else adverse>=threshold
+                if hit:
+                    legs.append((0.5,threshold,"TRAILING"))
+                    trailing_done=True
+            if not fixed_done and not (trailing_done and
+                    legs and legs[-1][2]=="TRAILING"):
+                if tp_hit:
+                    legs.append((0.5,tp,"TP_HALF"))
+                    fixed_done=True
+            if trailing_done and fixed_done:
+                end_bar=i
                 break
-            threshold = best * (1 - CALLBACK_RATE * direction)
-            trailing_hit = (l[i] <= threshold) if direction > 0 else (h[i] >= threshold)
-            if trailing_hit:
-                legs.append((0.5, threshold, "TRAILING"))
-                end_bar = i
-                break
-            # Only update best AFTER evaluating the existing threshold.
-            # This avoids assuming favorable intrabar extreme happened first.
-            best = max(best, float(h[i])) if direction > 0 else min(best, float(l[i]))
+            if not trailing_done:
+                best=max(best,float(favorable)) if direction>0 else min(best,float(favorable))
         else:
-            remaining = 0.5 if tp_done and mode == "split" else 1.0
-            legs.append((remaining, float(c[end_bar]), "END_MTM"))
+            remaining=1-sum(w for w,px,reason in legs)
+            if remaining>0:
+                legs.append((remaining,float(c[end_bar]),"END_MTM"))
 
-        assert abs(sum(weight for weight, _, _ in legs) - 1.0) < 1e-10
-        qty = NOTIONAL / entry
-        gross = sum(direction * (px - entry) * qty * weight for weight, px, _ in legs)
-        fees = NOTIONAL * FEE + sum(px * qty * weight * FEE for weight,px,_ in legs)
+        assert abs(sum(w for w,_,_ in legs)-1)<1e-9,legs
+        qty=NOTIONAL/entry
+        gross=sum(direction*(px-entry)*qty*w for w,px,_ in legs)
+        fees=NOTIONAL*FEE+sum(px*qty*w*FEE for w,px,_ in legs)
         rows.append({
-            "entry_time": str(idx[ei]),
-            "exit_time": str(idx[end_bar]),
-            "symbol": "",
-            "combo": "",
-            "side": side,
-            "strategy": strategy,
-            "entry": entry,
-            "tp": tp,
-            "sl": sl,
-            "legs": [{"fraction":w,"price":px,"reason":why} for w,px,why in legs],
-            "exit_reason": legs[-1][2],
-            "net_pnl": round(gross-fees,8),
-            "fees": round(fees,8),
-            "bars_held": int(end_bar-ei),
+            "entry_time":str(idx[ei]),"exit_time":str(idx[end_bar]),
+            "symbol":"","combo":"","side":side,"strategy":strategy,
+            "entry":entry,"tp":tp,"sl":sl,
+            "trailing_activation":activate,
+            "legs":[{"fraction":w,"price":px,"reason":reason} for w,px,reason in legs],
+            "exit_reason":legs[-1][2],
+            "net_pnl":round(gross-fees,8),"fees":round(fees,8),
+            "bars_held":int(end_bar-ei),
         })
-        p += 1
-        # No re-entry during a candle whose OHLC determined a prior exit.
-        while p < len(ev) and ev[p][0] <= end_bar:
-            p += 1
+        p+=1
+        while p<len(ev) and ev[p][0]<=end_bar:
+            p+=1
     return rows
 
 
@@ -215,7 +232,8 @@ def metrics(rows):
         "tp_half_count": sum(any(x["reason"]=="TP_HALF" for x in r["legs"]) for r in rows),
         "trailing_close_count": sum(any(x["reason"]=="TRAILING" for x in r["legs"]) for r in rows),
         "sl_full_count": sum(r["exit_reason"]=="SL_FULL" for r in rows),
-        "sl_after_tp_count": sum(r["exit_reason"]=="SL_AFTER_TP" for r in rows),
+        "sl_after_tp_count": sum(r["exit_reason"]=="SL_AFTER_PARTIAL" for r in rows),
+        "trailing_first_count": sum((r["legs"][0]["reason"]=="TRAILING") for r in rows),
     }
 
 
@@ -271,13 +289,14 @@ def main():
     output={
         "ok":True,
         "strategy":"20FINAL_2026-09-25",
-        "exit_mode":"50% hard TP + 50% exchange-native trailing at TP; callback 0.5%; remaining original hard SL",
+        "exit_mode":"50% hard TP per combo + 50% exchange-native trailing activating at entry +/- 0.5%; callback 0.5%; hard SL resized after either exit",
         "data_source":"RUN17 hybrid Binance 2021-01-01..2026-03-31 + BingX 2026-04-01..2026-09-20",
         "end_exclusive_utc":str(end),
         "notional_per_trade_usdt":NOTIONAL,
         "fee_per_side":FEE,
+        "activation_pct":ACTIVATION_PCT,
         "callback_rate":CALLBACK_RATE,
-        "assumptions":"OHLC 15m; no exit on entry; SL-first ambiguity; trailing evaluated on prior best; no same-bar trailing activation close; no slippage/funding/liquidation/API failure/lot-size rounding",
+        "assumptions":"OHLC 15m; no exit on entry; SL-first ambiguity; trailing evaluated on prior best; no same-bar trailing activation close; trailing may close before TP; no slippage/funding/liquidation/API failure/lot-size rounding",
         "combo_results":summary,
         "windows":[{"window":w,**metrics([r for r in trades if r["window"]==w])} for w,_ in WINDOWS]
     }
