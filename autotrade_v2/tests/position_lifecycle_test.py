@@ -11,6 +11,7 @@ from app.config import Settings
 from app.execution.lifecycle import ProtectionLifecycle
 from app.execution.service import ExecutionService
 from app.execution.store import ExecutionStore
+from app.contracts import TradeIntent
 
 
 def order(oid,typ,qty,status="NEW"):
@@ -213,6 +214,17 @@ def main():
         conflicts=[x for x in result if x["event_id"] in ("C4","C5")]
         assert len(conflicts)==2 and all(x["status"]=="risk" for x in conflicts)
         assert not any(x[0] in ("cancel","replace") for x in shared.calls)
+
+        # New combo must not create an aggregated same-side position.
+        next_trade=TradeIntent(
+            event_id="C99",symbol="BTC-USDT",combo=1,side="BUY",
+            timeframe="15m",close_time=9999,entry=100.0,tp=102.0,
+            sl=99.0,smc_dir=1,
+        )
+        refused=shared_service.execute(next_trade)
+        assert refused.status=="position_busy" and refused.accepted is False,refused
+        assert store.get_state("C99") is None
+        assert not any(x[0] in ("replace","cancel") for x in shared.calls)
 
         # Repeat same problem does not repeatedly flood Layer 4 alerts.
         count=len(events)
