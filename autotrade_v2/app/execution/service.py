@@ -338,10 +338,17 @@ class ExecutionService:
             recovery_only=bool(recovery_only),
         )
 
+        # Write-ahead protection journal: each PREPARED state must be durable
+        # before BingX receives a conditional POST. This prevents duplicates
+        # when HTTP replies are lost or Render restarts mid-trade.
+        def persist_protection(next_state):
+            self.store.save_state(intent.event_id,next_state)
+
         result = self.executor.execute_safe(
             intent,
             resume_state=state,
             allow_new_entry=not (pending or recovery_only),
+            protection_persist=persist_protection,
         )
         accepted = bool(result.get("entry_accepted") or result.get("ok"))
         terminal = bool(result.get("processed"))
