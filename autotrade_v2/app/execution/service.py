@@ -209,6 +209,8 @@ class ExecutionService:
                 {
                     "terminal":False,
                     "stage":"entry_intent",
+                    # Per-event mode freezes protection semantics across restart.
+                    "exit_mode":"split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp",
                     "client_order_id":client_order_id,
                     "intent":asdict(intent),
                 },
@@ -274,6 +276,8 @@ class ExecutionService:
             self._emit("L3.EXEC.ORDER_FILLED", "INFO", "market entry FILLED confirmed", intent, **common)
             self._emit("L3.EXEC.SL_PLACED", "INFO", "hard stop-loss confirmed", intent, **common)
             self._emit("L3.EXEC.TP_PLACED", "INFO", "hard take-profit confirmed", intent, **common)
+            if result.get("protection",{}).get("trailing"):
+                self._emit("L3.EXEC.TRAILING_PLACED", "INFO", "50% trailing-stop confirmed", intent, **common)
             self._emit("L3.EXEC.ORDER_COMPLETE", "INFO", "entry and protections reconciled", intent, **common)
         else:
             stage = str(result.get("stage") or "failed")
@@ -311,6 +315,9 @@ class ExecutionService:
                 severity = "CRITICAL"
             elif stage == "orphan_sl_cleanup_required":
                 key = "L3.EXEC.ORPHAN_PROTECTION_CLEANUP"
+                severity = "CRITICAL"
+            elif stage in ("protection_trailing_failed_sl_active","partial_exit_reconcile_required"):
+                key = "L3.EXEC.PROTECTION_RECONCILE_REQUIRED"
                 severity = "CRITICAL"
             elif stage == "protection_tp_failed_sl_active":
                 key = "L3.EXEC.TP_FAILED_SL_ACTIVE"
