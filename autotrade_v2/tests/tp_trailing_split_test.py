@@ -76,7 +76,7 @@ def main():
     placements=[x for x in fake.calls if x[0] in {"sl","tp","trailing"}]
     assert [x[0] for x in placements]==["sl","tp","trailing"],placements
     assert placements[0][3]==1.0,placements  # hard SL always spans entry
-    assert placements[1][3]==0.5 and placements[2][3]==0.5,placements
+    assert str(placements[1][3])=="0.5" and str(placements[2][3])=="0.5",placements
 
     before=len(placements)
     resumed=executor.execute_safe(
