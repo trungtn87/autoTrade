@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from decimal import Decimal
 import logging
 import time
 
@@ -55,10 +56,12 @@ class Final14Executor:
         """Favorable move from the confirmed exchange entry, NOT the combo TP."""
         if entry_price<=0 or not 0<activation_pct<1:
             raise ValueError("invalid trailing entry or activation percentage")
+        entry=Decimal(str(entry_price))
+        pct=Decimal(str(activation_pct))
         if side.upper()=="BUY":
-            return entry_price*(1+activation_pct)
+            return float(entry*(Decimal(1)+pct))
         if side.upper()=="SELL":
-            return entry_price*(1-activation_pct)
+            return float(entry*(Decimal(1)-pct))
         raise ValueError("trailing activation side must be BUY or SELL")
 
     @staticmethod
