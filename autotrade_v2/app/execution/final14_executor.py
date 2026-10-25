@@ -119,6 +119,9 @@ class Final14Executor:
                         "error":"position quantity exceeds entry fill; refusing cross-combo close",
                         "position_id":position_id,"remaining_qty":str(position_qty)}
 
+        # Use the live remaining size for the FIRST close attempt. The SL
+        # may already have reduced this isolated position before recovery.
+        close_qty=float(position_qty) if protection_persist is not None else qty
         raw=self.client.find_order_by_client_id(intent.symbol,cid)
         if raw is None:
             if journal:
@@ -129,7 +132,7 @@ class Final14Executor:
             if protection_persist is not None:
                 journal={"client_order_id":cid,"position_id":str(position_id),
                          "reason":reason,"phase":"prepared",
-                         "requested_qty":str(qty),"revision":0}
+                         "requested_qty":str(close_qty),"revision":0}
                 prepared={**state,"emergency_close":journal}
                 protection_persist(prepared)  # durable BEFORE signed MARKET POST
                 state.clear()
@@ -137,7 +140,7 @@ class Final14Executor:
             try:
                 kwargs={"position_id":position_id} if position_id else {}
                 self.client.close_market(
-                    intent.symbol,intent.side,qty,FINAL14_EXECUTION_LEVERAGE,
+                    intent.symbol,intent.side,close_qty,FINAL14_EXECUTION_LEVERAGE,
                     client_order_id=cid,**kwargs,
                 )
             except Exception as send_exc:
