@@ -112,6 +112,16 @@ class Final14Executor:
                 return {"confirmed":False,"reason":reason,
                         "error":f"pre-close position could not be verified: {exc}"}
             if position_qty==0:
+                try:
+                    second=position_remaining(
+                        self.client,intent.symbol,intent.side,str(position_id)
+                    )
+                except Exception as exc:
+                    return {"confirmed":False,"reason":reason,
+                            "error":f"cannot confirm flat position twice: {exc}"}
+                if second!=0:
+                    return {"confirmed":False,"reason":reason,
+                            "error":"conflicting BingX position snapshots; refusing another close"}
                 return {"confirmed":True,"reason":reason,"status":"POSITION_FLAT",
                         "position_id":position_id,"remaining_qty":"0"}
             if float(position_qty)>qty+0.0001:
@@ -129,6 +139,14 @@ class Final14Executor:
                 # that the MARKET POST was rejected: never re-submit.
                 return {"confirmed":False,"client_order_id":cid,"reason":reason,
                         "error":"prepared emergency close lookup unresolved; not resending"}
+            previous_close=state.get("close_result") or {}
+            if (isinstance(previous_close,dict)
+                    and str(previous_close.get("client_order_id") or "")==cid):
+                # Recovery from legacy state without a write-ahead journal.
+                # The saved close CID may already have been accepted by BingX.
+                return {"confirmed":False,"client_order_id":cid,"reason":reason,
+                        "error":"previous close send unresolved; no legacy duplicate"}
+
             if protection_persist is not None:
                 journal={"client_order_id":cid,"position_id":str(position_id),
                          "reason":reason,"phase":"prepared",
@@ -209,7 +227,17 @@ class Final14Executor:
                 # Order status alone cannot guarantee that the specific
                 # isolated position is closed, especially after partial fills.
                 if remaining is not None and remaining==0:
-                    return {"confirmed":True,**base}
+                    try:
+                        repeat=position_remaining(
+                            self.client,intent.symbol,intent.side,str(position_id)
+                        )
+                        if repeat==0:
+                            return {"confirmed":True,**base}
+                        return {"confirmed":False,**base,
+                                "error":"conflicting BingX position snapshots after close"}
+                    except Exception as exc:
+                        return {"confirmed":False,**base,
+                                "error":f"second flat-position confirmation failed: {exc}"}
                 if status in {"CANCELED","EXPIRED"}:
                     if protection_persist is not None and remaining is not None and journal:
                         # Only a terminal order with a consistent remaining
