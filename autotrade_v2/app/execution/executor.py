@@ -73,8 +73,20 @@ class LegacyStyleBingXClient:
                 f"{self.settings.bingx_base_url}{self.CONTRACTS_PATH}",
                 params={"symbol":symbol},
             )
+            if response.status_code in (418,429):
+                raise self.guard.api_error(
+                    "contracts",f"HTTP_{response.status_code}",
+                    "BingX public contract endpoint is rate-restricted",
+                    self.CONTRACTS_PATH,{"symbol":symbol},
+                    retry_after=response.headers.get("Retry-After"),
+                )
             response.raise_for_status()
             payload=response.json()
+            if isinstance(payload,dict) and payload.get("code") not in (0,"0"):
+                raise self.guard.api_error(
+                    "contracts",payload.get("code"),str(payload.get("msg") or "contract query failed"),
+                    self.CONTRACTS_PATH,{"symbol":symbol},
+                )
         if not isinstance(payload,dict) or payload.get("code") not in (0,"0"):
             raise RuntimeError("BingX contract rules request failed")
         data=payload.get("data")
