@@ -71,8 +71,13 @@ def main():
     assert Decimal(result["tp_qty"])==Decimal("0.5") and Decimal(result["trailing_qty"])==Decimal("0.5"),result
     assert result["actual_position_qty"]=="1" and result["position_id"]=="p-1",result
     assert ("positions","BTC-USDT") in fake.calls and ("contracts","BTC-USDT") in fake.calls
-    assert result["trailing_activation_price"]==102.0,result
+    assert result["trailing_activation_price"]==100.5,result
+    assert result["trailing_activation_pct"]==0.005,result
     assert result["trailing_callback_rate"]==0.005,result
+    assert [x for x in fake.calls if x[0]=="trailing"][0][4]==100.5,fake.calls
+    assert Final14Executor.trailing_activation_price(100.0,"SELL",0.005)==99.5
+    assert Final14Executor.trailing_activation_price(100.0,"BUY",0.005)==100.5
+    assert result["tp"]==102.0,result  # hard TP independent of trailing activation
     assert result["protection"]["trailing"]["order_id"]=="trail-1",result
     placements=[x for x in fake.calls if x[0] in {"sl","tp","trailing"}]
     assert [x[0] for x in placements]==["sl","tp","trailing"],placements
@@ -192,7 +197,7 @@ def main():
     short_params=captured[-1][2]
     assert short_params["side"]=="BUY" and short_params["positionSide"]=="SHORT",short_params
 
-    print({"ok":True,"split":"50/50","activation":"old TP","callback":0.005,
+    print({"ok":True,"split":"50/50","activation":"entry +/- 0.5%","callback":0.005,
            "sl_full":True,"restart_dedupe":True,"lost_response_recovery":True})
 
 
