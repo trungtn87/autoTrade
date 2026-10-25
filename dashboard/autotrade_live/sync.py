@@ -141,7 +141,7 @@ def sync(days=1, symbols=None, now_ms=None):
                     forces += [(item, reason) for item in items]
                 positions = paged(client, '/openApi/swap/v1/trade/positionHistory',
                                    {'symbol': symbol, 'startTs': start, 'endTs': stop},
-                                   ('list',), 100)
+                                   ('positionHistory', 'list'), 100)
                 with Session.begin() as db:
                     upsert_rows(db, Order, orders, as_order)
                     upsert_rows(db, Fill, fills, as_fill)

@@ -33,7 +33,7 @@ def test_split_saturated_response():
 
 def test_idempotent_sync_into_sqlite(tmp_path, monkeypatch):
     import autotrade_live.sync as module
-    from autotrade_live.db import Order, Fill, Income, get_engine, get_sessionmaker
+    from autotrade_live.db import Order, Fill, Income, PositionHistory, get_engine, get_sessionmaker
     from sqlalchemy import select
     monkeypatch.setenv('DATABASE_URL', 'sqlite:///' + str(tmp_path / 'db.sqlite'))
     monkeypatch.setenv('BINGX_SYMBOLS', 'BTC-USDT')
@@ -53,7 +53,7 @@ def test_idempotent_sync_into_sqlite(tmp_path, monkeypatch):
             if path.endswith('/forceOrders'):
                 return []
             if path.endswith('/positionHistory'):
-                return {'list':[]}
+                return {'positionHistory':[{'positionId':'551', 'symbol':'BTC-USDT', 'closeTime':1000}]}
             raise AssertionError(path)
     monkeypatch.setattr(module, 'BingXReadClient', FakeClient)
     module.sync(days=1,symbols=['BTC-USDT'],now_ms=86402000)
@@ -64,6 +64,7 @@ def test_idempotent_sync_into_sqlite(tmp_path, monkeypatch):
         assert len(db.scalars(select(Order)).all()) == 1
         assert len(db.scalars(select(Fill)).all()) == 1
         assert len(db.scalars(select(Income)).all()) == 1
+        assert len(db.scalars(select(PositionHistory)).all()) == 1
 
 
 def test_bingx_fillhistory_sdk_key_and_empty_pages():
@@ -187,3 +188,26 @@ def test_real_fills_saved_even_when_income_null(tmp_path, monkeypatch):
         assert run.status == 'success'
         assert json.loads(run.details)['null_data_windows']['/openApi/swap/v2/user/income'] == 2
     assert stats['null_data_windows']['/openApi/swap/v2/trade/forceOrders'] == 4
+
+
+def test_position_history_live_wrapper_and_documented_alias():
+    # Actual 2026-10-25 BingX response is data.positionHistory rather than docs' data.list.
+    row = {'positionId': '709', 'symbol': 'ETH-USDT', 'closeTime': 1792908000000}
+    candidates = ('positionHistory', 'list')
+    assert extract_list({'positionHistory': [row]}, candidates) == [row]
+    assert extract_list({'positionHistory': []}, candidates) == []
+    assert extract_list({'total': 1, 'list': [row]}, candidates) == [row]
+
+
+def test_position_history_pagination_with_live_wrapper():
+    row1 = {'positionId': '701', 'symbol': 'BTC-USDT'}
+    row2 = {'positionId': '702', 'symbol': 'BTC-USDT'}
+    class Fake:
+        def get(self, path, params):
+            assert path.endswith('/positionHistory')
+            assert params['pageSize'] == 1
+            return {'positionHistory': {1: [row1], 2: [row2], 3: []}[params['pageIndex']]}
+    rows = paged(Fake(), '/openApi/swap/v1/trade/positionHistory',
+                 {'symbol': 'BTC-USDT', 'startTs': 100, 'endTs': 200},
+                 ('positionHistory', 'list'), 1)
+    assert rows == [row1, row2]
