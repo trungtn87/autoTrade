@@ -4,6 +4,7 @@ from dataclasses import replace
 from app.config import Settings
 from app.execution.final14_executor import Final14Executor
 from app.execution.executor import LegacyStyleBingXClient
+from app.execution.quantity import allocate_exit_qty,confirmed_position_qty,PositionQuantityMismatch
 
 from legacy_execution_test import FakeClient, intent
 
@@ -13,8 +14,28 @@ class FakeTrailingClient(FakeClient):
         super().__init__(**kwargs)
         self.fail_trailing=False
         self.trailing_match=None
+        self.position_qty="1"
+        self.position_id="p-1"
+        self.contract_rules={
+            "symbol":"BTC-USDT","quantityPrecision":4,
+            "tradeMinQuantity":"0.0001","tradeMinUSDT":"2",
+        }
 
-    def place_trailing_stop(self,symbol,entry_side,qty,activation_price,callback_rate):
+    def get_positions(self,symbol):
+        self.calls.append(("positions",symbol))
+        return [{"symbol":symbol,"positionSide":"LONG",
+                 "positionAmt":self.position_qty,"availableAmt":self.position_qty,
+                 "positionId":self.position_id}]
+
+    def get_contract_rules(self,symbol):
+        self.calls.append(("contracts",symbol))
+        return self.contract_rules
+
+    def place_take_profit(self,symbol,entry_side,qty,tp,quantity_precision=None):
+        # Same fake exchange behavior, while accepting validated quantity precision.
+        return super().place_take_profit(symbol,entry_side,qty,tp)
+
+    def place_trailing_stop(self,symbol,entry_side,qty,activation_price,callback_rate,quantity_precision=None):
         self.calls.append(("trailing",symbol,entry_side,qty,activation_price,callback_rate))
         if self.fail_trailing:
             raise RuntimeError("simulated trailing post failure")
@@ -46,7 +67,9 @@ def main():
     assert result["ok"] and result["stage"]=="complete",result
     assert result["protection_mode"]=="half_hard_tp_half_trailing_full_sl",result
     assert result["exit_mode"]=="split_trailing",result
-    assert result["tp_qty"]==0.5 and result["trailing_qty"]==0.5,result
+    assert result["tp_qty"]=="0.5" and result["trailing_qty"]=="0.5",result
+    assert result["actual_position_qty"]=="1" and result["position_id"]=="p-1",result
+    assert ("positions","BTC-USDT") in fake.calls and ("contracts","BTC-USDT") in fake.calls
     assert result["trailing_activation_price"]==102.0,result
     assert result["trailing_callback_rate"]==0.005,result
     assert result["protection"]["trailing"]["order_id"]=="trail-1",result
@@ -86,9 +109,54 @@ def main():
     )
     assert recovered["ok"] and recovered["protection"]["trailing"]["order_id"]=="trail-lost",recovered
 
-    assert executor._split_exit_qty(1.2345)==(0.6173,0.6172)
-    assert executor._split_exit_qty(0.0001) is None
-    assert executor._split_exit_qty(0.0002)==(0.0001,0.0001)
+    rules={"quantityPrecision":4,"tradeMinQuantity":"0.0001","tradeMinUSDT":"0"}
+    exact=allocate_exit_qty("0.0015",rules,"100")
+    assert exact["position_qty"]=="0.0015",exact
+    assert exact["tp_qty"]=="0.0008" and exact["trailing_qty"]=="0.0007",exact
+    assert exact["mode"]=="split_trailing",exact
+    one_tick=allocate_exit_qty("0.0001",rules,"100")
+    assert one_tick["mode"]=="hard_tp" and one_tick["tp_qty"]=="0.0001"
+    assert allocate_exit_qty("0.0002",rules,"100")["trailing_qty"]=="0.0001"
+    min_notional=allocate_exit_qty("0.0015",{**rules,"tradeMinUSDT":"1"},"100")
+    assert min_notional["mode"]=="hard_tp" and min_notional["trailing_qty"]=="0"
+    min_qty=allocate_exit_qty("0.0015",{**rules,"tradeMinQuantity":"0.001"},"100")
+    assert min_qty["mode"]=="hard_tp"
+    precision3=allocate_exit_qty("0.013",{"quantityPrecision":3,"tradeMinQuantity":"0.001","tradeMinUSDT":"0"},"100")
+    assert precision3["tp_qty"]=="0.007" and precision3["trailing_qty"]=="0.006"
+    try:
+        allocate_exit_qty("0.00151",rules,"100")
+        assert False,"unrepresentable quantity must fail closed"
+    except ValueError:
+        pass
+    pos,position_id=confirmed_position_qty(
+        [{"symbol":"BTC-USDT","positionSide":"LONG","positionAmt":"0.0015","positionId":"p-a"}],
+        "BTC-USDT","BUY","0.0015",
+    )
+    assert pos=="0.0015" and position_id=="p-a"
+    try:
+        confirmed_position_qty(
+            [{"symbol":"BTC-USDT","positionSide":"LONG","positionAmt":"0.003","positionId":"p-a"}],
+            "BTC-USDT","BUY","0.0015",
+        )
+        assert False,"aggregated same-side position must be rejected"
+    except PositionQuantityMismatch:
+        pass
+
+    mismatch=FakeTrailingClient()
+    mismatch.position_qty="0.9"
+    executor.client=mismatch
+    mismatch_result=executor.execute_safe(intent())
+    assert mismatch_result["stage"]=="position_quantity_mismatch_sl_active",mismatch_result
+    assert mismatch_result["sl_protected"] and not mismatch_result["processed"]
+    assert not any(x[0] in {"tp","trailing"} for x in mismatch.calls),mismatch.calls
+
+    tiny=FakeTrailingClient()
+    tiny.contract_rules={**rules,"tradeMinUSDT":"100"}
+    executor.client=tiny
+    fallback=executor.execute_safe(intent())
+    assert fallback["ok"] and fallback["exit_mode"]=="hard_tp",fallback
+    assert fallback["tp_qty"]=="1" and fallback["trailing_qty"]=="0",fallback
+    assert not any(x[0]=="trailing" for x in tiny.calls)
 
     settings_old=replace(settings,tp_trailing_split_enabled=False)
     legacy=Final14Executor(settings_old)
