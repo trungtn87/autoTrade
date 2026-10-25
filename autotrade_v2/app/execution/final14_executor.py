@@ -51,6 +51,17 @@ class Final14Executor:
         return tp<avg_price<sl
 
     @staticmethod
+    def trailing_activation_price(entry_price:float,side:str,activation_pct:float)->float:
+        """Favorable move from the confirmed exchange entry, NOT the combo TP."""
+        if entry_price<=0 or not 0<activation_pct<1:
+            raise ValueError("invalid trailing entry or activation percentage")
+        if side.upper()=="BUY":
+            return entry_price*(1+activation_pct)
+        if side.upper()=="SELL":
+            return entry_price*(1-activation_pct)
+        raise ValueError("trailing activation side must be BUY or SELL")
+
+    @staticmethod
     def _order_id(order:dict)->str:
         return str(order.get("orderID") or order.get("orderId") or "")
 
@@ -1060,23 +1071,39 @@ class Final14Executor:
                 }
 
         if split_trailing:
-            # Activation at the original fixed-TP price. The first half still
-            # closes at that TP; the trailing half follows further favorable moves.
+            # Hard TP is per combo; trailing activates independently once the
+            # CONFIRMED exchange entry advances favorably by 0.5% (default).
+            # Preserve already-prepared/existing conditional order parameters
+            # across deploy/restart: never silently recreate a live order.
             callback_rate=self.settings.tp_trailing_callback_rate
+            saved_activation=resume_state.get("trailing_activation_price")
+            trailing_journal=((resume_state.get("protection_journal") or {}).get("trailing") or {})
+            prepared_activation=(trailing_journal.get("spec") or {}).get("trigger")
+            if saved_activation is not None:
+                activation_price=float(saved_activation)
+            elif prepared_activation is not None:
+                activation_price=float(prepared_activation)
+            elif old_trailing_id:
+                # Existing trades placed under the old TP-activation release.
+                activation_price=tp
+            else:
+                activation_price=self.trailing_activation_price(
+                    avg_price,side,self.settings.tp_trailing_activation_pct
+                )
             if trailing_verified is None:
                 try:
                     if journal is not None:
                         trailing_verified=journal.place(
-                            "trailing",intent.symbol,side,trail_qty,tp,position_id,
+                            "trailing",intent.symbol,side,trail_qty,activation_price,position_id,
                             lambda:self.client.place_trailing_stop(
-                                intent.symbol,side,trail_qty,tp,callback_rate,
+                                intent.symbol,side,trail_qty,activation_price,callback_rate,
                                 **({"quantity_precision":qty_precision} if qty_precision is not None else {}),
                                 **({"position_id":position_id} if position_id else {}),
                             ),callback_rate=callback_rate,
                         )
                     else:
                         trailing_payload=self.client.place_trailing_stop(
-                            intent.symbol,side,trail_qty,tp,callback_rate,
+                            intent.symbol,side,trail_qty,activation_price,callback_rate,
                             **({"quantity_precision":qty_precision} if qty_precision is not None else {}),
                             **({"position_id":position_id} if position_id else {}),
                         )
@@ -1106,7 +1133,7 @@ class Final14Executor:
                         }
                     try:
                         matched=self.client.find_matching_trailing(
-                            intent.symbol,side,trail_qty,tp,callback_rate,
+                            intent.symbol,side,trail_qty,activation_price,callback_rate,
                             **({"position_id":position_id} if position_id else {}),
                         )
                         if matched is not None:
@@ -1180,7 +1207,8 @@ class Final14Executor:
             "protection_mode":"half_hard_tp_half_trailing_full_sl" if split_trailing else "separate_hard_tp_sl",
             "tp_qty":tp_qty,
             "trailing_qty":trail_qty,
-            "trailing_activation_price":tp if split_trailing else None,
+            "trailing_activation_price":activation_price if split_trailing else None,
+            "trailing_activation_pct":self.settings.tp_trailing_activation_pct if split_trailing else None,
             "trailing_callback_rate":self.settings.tp_trailing_callback_rate if split_trailing else None,
             "entry_result":entry_result,
             "protection":protection,
