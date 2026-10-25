@@ -48,6 +48,30 @@ def confirmed_position_qty(
     return format(remaining,"f"),str(position.get("positionId") or "") or None
 
 
+def remaining_position_qty(
+    positions:list[dict],symbol:str,entry_side:str,expected_position_id:str|None=None
+)->str:
+    """Fresh BingX positionAmt for SL resizing; never subtract hypothetical TP fills.
+
+    No position of this symbol/side means fully closed. If the tracked position
+    ID disappears while another one exists, refuse to confuse their sizes.
+    """
+    side="LONG" if entry_side.upper()=="BUY" else "SHORT"
+    candidates=[row for row in positions if row.get("symbol")==symbol
+                and str(row.get("positionSide") or "").upper()==side]
+    if expected_position_id:
+        selected=[row for row in candidates if str(row.get("positionId") or "")==str(expected_position_id)]
+        if not selected and candidates:
+            raise PositionQuantityMismatch("tracked positionId no longer matches BingX position")
+    else:
+        selected=candidates
+    if not selected:
+        return "0"
+    if len(selected)!=1:
+        raise PositionQuantityMismatch("multiple positions share this symbol/side")
+    return format(_amount(selected[0].get("positionAmt"),"positionAmt"),"f")
+
+
 def allocate_exit_qty(
     actual_qty,contract_rules:dict,reference_price
 )->dict:
