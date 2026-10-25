@@ -83,9 +83,10 @@ def main():
         "nominal_usdt_per_trade":NOTIONAL,
         "fee_per_side":FEE,
         "initial_equity_per_simulation":INITIAL_EQUITY,
+        "activation_pct":0.005,
         "callback_rate":CALLBACK_RATE,
-        "exit_mode":"50% hard TP + 50% trailing activated at TP; full initial SL resized after partial close",
-        "assumptions":"15m OHLC, SL before TP in ambiguous candles; prior-bar trailing best; ignores same-activation candle trailing; no slippage/funding/liquidation/lot rounding; unfinished trades END_MTM; independent combo positions; first 2400 bars may be cold-start",
+        "exit_mode":"50% hard TP per combo + 50% trailing activated entry +/- 0.5%; full SL resized after either half closes",
+        "assumptions":"15m OHLC, SL before TP in ambiguous candles; prior-bar trailing best; trailing may close before TP; ignores same-activation candle trailing; no slippage/funding/liquidation/lot rounding; unfinished trades END_MTM; independent combo positions; first 2400 bars may be cold-start",
         "windows":[{"window":w,**metrics([r for r in trade_rows if r["window"]==w])} for w,_ in windows],
         "per_combo":summary
     }
