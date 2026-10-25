@@ -12,7 +12,7 @@ Add values **inside GitHub Secrets only**, never in a public source file, issue,
 `DB_SCHEMA=autotrade_analytics`, `BINGX_SYMBOLS=BTC-USDT,ETH-USDT`, and request pacing are defined as nonsecret workflow settings.
 
 ## Render mobile dashboard
-The free Render web service `autotrade-live-dashboard` must separately have `DATABASE_URL` (same Supabase pooler string), `DB_SCHEMA=autotrade_analytics`, `DASHBOARD_PASSWORD`, `APP_SESSION_SECRET` and `COOKIE_SECURE=true`. Its current settings may still point to branch `autotrade-v2-clean`; after copying dashboard code to `main`, change the branch in **that dashboard service only**, if desired. Do not alter the live `autotrade-v2-shadow` bot.
+The free Render web service `autotrade-live-dashboard` must separately have `DATABASE_URL` (same Supabase pooler string), `DB_SCHEMA=autotrade_analytics`, `DASHBOARD_PUBLIC_READONLY=true`, and `COOKIE_SECURE=true`. With public mode enabled, `DASHBOARD_PASSWORD` and `APP_SESSION_SECRET` are not used; setting the flag back to `false` restores password-based access (both secrets then required). **All trade metrics are viewable by anyone with the public Render URL**; no trading or BingX keys are returned. Its current settings may still point to branch `autotrade-v2-clean`; after copying dashboard code to `main`, change the branch in **that dashboard service only**, if desired. Do not alter the live `autotrade-v2-shadow` bot.
 
 ## First synchronization
 1. In GitHub open **Actions -> Daily BingX trading archive -> Run workflow**; select **30 days** for initial backfill. The schedule uses **3 days** independently of this input. The manual run will fail clearly if any required secret is unset.

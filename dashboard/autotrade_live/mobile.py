@@ -29,6 +29,11 @@ ATTEMPTS: dict[str, list[float]] = defaultdict(list)
 COOKIE = 'autotrade_dashboard_session'
 
 
+def _public_readonly():
+    """Opt-in passwordless access: anyone with the URL can read summary/trades."""
+    return os.environ.get('DASHBOARD_PUBLIC_READONLY', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
 def _secrets():
     password = os.environ.get('DASHBOARD_PASSWORD', '')
     key = os.environ.get('APP_SESSION_SECRET', '')
@@ -63,7 +68,7 @@ def _authenticated(request):
 
 
 def _require_auth(request):
-    if not _authenticated(request):
+    if not _public_readonly() and not _authenticated(request):
         raise HTTPException(status_code=401, detail='Login required')
 
 
@@ -71,6 +76,8 @@ def _no_cache(response):
     response.headers['Cache-Control'] = 'no-store, private'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-Robots-Tag'] = 'noindex, nofollow, noarchive'
+    response.headers['Referrer-Policy'] = 'no-referrer'
     return response
 
 
@@ -81,12 +88,12 @@ def health():
 
 @app.get('/')
 def home(request: Request):
-    return RedirectResponse('/mobile' if _authenticated(request) else '/login', status_code=303)
+    return RedirectResponse('/mobile' if _public_readonly() or _authenticated(request) else '/login', status_code=303)
 
 
 @app.get('/login', response_class=HTMLResponse)
 def login_form(request: Request):
-    if _authenticated(request):
+    if _public_readonly() or _authenticated(request):
         return RedirectResponse('/mobile', status_code=303)
     html = '''<!DOCTYPE html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1">
     <meta charset="UTF-8"><title>Autotrade • Đăng nhập</title><link rel="manifest" href="/static/manifest.webmanifest">
@@ -102,6 +109,8 @@ def login_form(request: Request):
 
 @app.post('/login')
 def login(request: Request, password: str = Form('')):
+    if _public_readonly():
+        return RedirectResponse('/mobile', status_code=303)
     expected, _ = _secrets()
     identity = request.client.host if request.client else 'unknown'
     now = time.monotonic()
@@ -121,16 +130,21 @@ def login(request: Request, password: str = Form('')):
 
 @app.post('/logout')
 def logout():
-    r = RedirectResponse('/login', status_code=303)
+    r = RedirectResponse('/mobile' if _public_readonly() else '/login', status_code=303)
     r.delete_cookie(COOKIE, path='/')
     return _no_cache(r)
 
 
 @app.get('/mobile')
 def mobile(request: Request):
-    if not _authenticated(request):
+    if not _public_readonly() and not _authenticated(request):
         return RedirectResponse('/login', status_code=303)
-    return _no_cache(HTMLResponse((STATIC / 'index.html').read_text('utf-8')))
+    html = (STATIC / 'index.html').read_text('utf-8')
+    if _public_readonly():
+        # The public viewer cannot log out; the old control would mislead users.
+        html = html.replace('<form method="post" action="/logout"><button class="quiet">Đăng xuất</button></form>',
+                            '<span class="quiet" title="Dữ liệu công khai, chỉ đọc">Chỉ xem</span>')
+    return _no_cache(HTMLResponse(html))
 
 
 def _db_records():
@@ -192,6 +206,13 @@ def api_dashboard(request: Request, symbol: str = '', combo: str = ''):
     try:
         records = _db_records()
         data = dashboard_payload(records, symbol=symbol, combo=combo)
+        if _public_readonly():
+            # Public summaries do not expose exchange order IDs, raw fills or
+            # collector error details (which can contain internal infrastructure).
+            public_fields = ('symbol', 'combo', 'side', 'exit_ms', 'exit_types', 'pnl', 'liquidated')
+            data['trades'] = [{k: trade.get(k) for k in public_fields} for trade in data['trades']]
+            if data['last_sync']:
+                data['last_sync'].pop('details', None)
         return _no_cache(JSONResponse(data))
     except Exception:
         # Avoid leaking database URLs, credentials, or raw data in error responses.

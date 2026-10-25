@@ -13,6 +13,10 @@ services:
         value: autotrade_analytics
       - key: DATABASE_URL
         sync: false
+      # Anyone with the Render URL can view trade PnL; never exposes exchange keys.
+      - key: DASHBOARD_PUBLIC_READONLY
+        value: 'true'
+      # Set DASHBOARD_PUBLIC_READONLY=false and configure password/session to restore login.
       - key: DASHBOARD_PASSWORD
         sync: false
       - key: APP_SESSION_SECRET

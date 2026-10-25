@@ -17,7 +17,8 @@ def test_extract_from_realistic_v2_state():
     assert case_name(11)=='TIER'
 
 
-def test_mobile_rejects_unauthenticated():
+def test_mobile_rejects_unauthenticated(monkeypatch):
+    monkeypatch.delenv('DASHBOARD_PUBLIC_READONLY', raising=False)
     with TestClient(app) as c:
         assert c.get('/api/dashboard').status_code==401
         assert c.get('/mobile',follow_redirects=False).status_code==303
@@ -30,6 +31,7 @@ def test_mobile_login_cookie_and_private_api(tmp_path,monkeypatch):
     monkeypatch.setenv('DASHBOARD_PASSWORD','private-test-password-1234')
     monkeypatch.setenv('APP_SESSION_SECRET','long-session-secret-over-32-characters-test')
     monkeypatch.setenv('COOKIE_SECURE','false')
+    monkeypatch.delenv('DASHBOARD_PUBLIC_READONLY', raising=False)
     from autotrade_live.db import get_engine,init_db
     init_db(get_engine())
     with TestClient(app) as c:
@@ -51,3 +53,47 @@ def test_payload_zero_is_honest():
     p=dashboard_payload(no)
     assert p['summary']['pnl_usdt']==0
     assert p['trades']==[]
+
+
+def test_public_readonly_no_password_and_redacted_api(monkeypatch):
+    # Public mode must not require the password or session signing key.
+    monkeypatch.setenv('DASHBOARD_PUBLIC_READONLY', 'true')
+    monkeypatch.delenv('DASHBOARD_PASSWORD', raising=False)
+    monkeypatch.delenv('APP_SESSION_SECRET', raising=False)
+    from autotrade_live import mobile as web
+    records = {'orders': [], 'fills': [], 'links': [], 'forces': [],
+               'incomes': [], 'runs': [], 'positions': []}
+    monkeypatch.setattr(web, '_db_records', lambda: records)
+    with TestClient(app) as c:
+        assert c.get('/', follow_redirects=False).headers['location'] == '/mobile'
+        assert c.get('/login', follow_redirects=False).headers['location'] == '/mobile'
+        assert c.post('/login', data={'password': 'none'}, follow_redirects=False).headers['location'] == '/mobile'
+        page = c.get('/mobile')
+        assert page.status_code == 200
+        assert 'Đăng xuất' not in page.text
+        assert 'Chỉ xem' in page.text
+        data = c.get('/api/dashboard')
+        assert data.status_code == 200
+        assert data.json()['summary']['closed'] == 0
+        assert data.headers['x-robots-tag'].startswith('noindex')
+        assert c.post('/collector/v1/signals', json={'entry_order_id': '123', 'combo': 'C1'}).status_code == 401
+        assert c.post('/logout', follow_redirects=False).headers['location'] == '/mobile'
+
+
+def test_public_readonly_strips_trade_ids_and_sync_details(monkeypatch):
+    monkeypatch.setenv('DASHBOARD_PUBLIC_READONLY', 'true')
+    from autotrade_live import mobile as web
+    monkeypatch.setattr(web, '_db_records', lambda: {'dummy': True})
+    monkeypatch.setattr(web, 'dashboard_payload', lambda *a, **kw: {
+        'trades': [{'symbol': 'BTC-USDT', 'combo': 'C1', 'pnl': 1.5,
+                    'order_id': 'sensitive123', 'raw': {'private': True}}],
+        'last_sync': {'status': 'success', 'details': 'private internal error text'},
+        'summary': {'pnl_usdt': 1.5},
+    })
+    with TestClient(app) as c:
+        res = c.get('/api/dashboard')
+        assert res.status_code == 200
+        assert res.json()['trades'][0]['symbol'] == 'BTC-USDT'
+        assert 'order_id' not in res.json()['trades'][0]
+        assert 'raw' not in res.json()['trades'][0]
+        assert 'details' not in res.json()['last_sync']
