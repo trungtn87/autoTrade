@@ -66,6 +66,11 @@ jobs:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/execution_preflight_test.py
 
+      - name: Verify BingX cooldown and safe protection behavior
+        env:
+          PYTHONPATH: autotrade_v2
+        run: python autotrade_v2/tests/bingx_request_guard_test.py
+
       - name: Verify FINAL14 hard-TP/SL execution
         env:
           PYTHONPATH: autotrade_v2
