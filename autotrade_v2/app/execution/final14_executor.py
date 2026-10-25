@@ -598,7 +598,8 @@ class Final14Executor:
             try:
                 positions=self.client.get_positions(intent.symbol)
                 actual_position_qty,position_id=confirmed_position_qty(
-                    positions,intent.symbol,side,filled_qty_raw
+                    positions,intent.symbol,side,filled_qty_raw,
+                    allow_aggregate=True,
                 )
                 old_position_id=resume_state.get("position_id")
                 if old_position_id and str(old_position_id)!=str(position_id):
