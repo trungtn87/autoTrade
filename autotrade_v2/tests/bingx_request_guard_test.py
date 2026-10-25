@@ -24,15 +24,15 @@ def main() -> None:
     with patch("app.control.bingx_guard.time.time", return_value=now_ms / 1000):
         # BingX 109425 is an unsupported-symbol validation error. It must not
         # block SL or emergency-close transport for an unrelated valid symbol.
-        for code in ("109425", "109415"):
+        for code in ("109425",):
             guard = BingXRequestGuard(min_interval_sec=0)
             error = guard.api_error("test", code, "business error", "/order", {})
             assert error.code == code
             assert guard._blocked_until_ms == 0, code
             assert_available(guard)
 
-        # A genuine HTTP or exchange temporary ban is NOT safe to bypass.
-        for code in ("HTTP_429", "109429"):
+        # A genuine HTTP/exchange ban, or undocumented 109415, is NOT safe to bypass.
+        for code in ("HTTP_429", "109429", "109415"):
             guard = BingXRequestGuard(min_interval_sec=0)
             guard.api_error("test", code, "rate restricted", "/order", {})
             assert guard._blocked_until_ms == now_ms + 16 * 60_000
