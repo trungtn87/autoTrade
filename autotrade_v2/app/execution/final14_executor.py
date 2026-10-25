@@ -559,7 +559,7 @@ class Final14Executor:
             for kind,old_id,verified in (
                 ("sl",old_sl_id,sl_verified),
                 ("tp",old_tp_id,tp_verified),
-                ("trailing",old_trailing_id,trailing_verified),
+                ("trailing",old_trailing_id if split_trailing else "",trailing_verified),
             ):
                 if old_id and verified is None:
                     raise ProtectionReconcilePending(
