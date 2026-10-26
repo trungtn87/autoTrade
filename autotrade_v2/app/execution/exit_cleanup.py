@@ -225,10 +225,16 @@ def clean_one(client, state, open_by_id, positions, persist, alert, *, now_ms=No
     completed = []
     now_ms = int(now_ms if now_ms is not None else time.time()*1000)
     for order_id in candidates:
-        # The openOrders snapshot explicitly proves this exact order is still
-        # open. Never DELETE based only on a stale cached value.
+        # Never DELETE based on a stale cache. If the openOrders endpoint
+        # omits conditional stops, reconfirm via an exact-ID GET before DELETE.
         if order_id not in open_by_id:
-            continue
+            payload = client.get_order_detail(state["intent"]["symbol"],order_id=order_id)
+            fresh = client.extract_order(payload)
+            if oid(fresh) != order_id:
+                raise CleanupUncertain("cannot confirm orphan by exact ID")
+            validate_order(state,own_orders(state)[order_id],fresh)
+            if str(fresh.get("status") or "").upper() not in ACTIVE:
+                continue
         monitor["cancel_attempts"][order_id] = int(monitor["cancel_attempts"].get(order_id,0))+1
         monitor["last_cancel_at_ms"][order_id] = now_ms
         state["exit_cleanup"] = monitor
