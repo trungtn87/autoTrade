@@ -22,6 +22,7 @@ class ExecutionService:
         self.credentials_verified = False
         self.preflight_error: str | None = None
         self._execution_lock = threading.RLock()
+        self._exit_cleanup_scan_errors = {}
 
     def _emit(self, key: str, severity: str, message: str, intent: TradeIntent | None = None, **extra) -> None:
         if not self.event_cb:
@@ -159,10 +160,14 @@ class ExecutionService:
                             raise CleanupUncertain("ambiguous BingX open order list")
                         by_id[order_id]=row
                 except Exception as exc:
-                    self._emit("L3.EXEC.EXIT_CLEANUP_SCAN_FAIL","ERROR",
-                               "read-only BingX cleanup scan unavailable",
-                               None,symbol=symbol,error=type(exc).__name__)
+                    error=f"{type(exc).__name__}: {exc}"
+                    if self._exit_cleanup_scan_errors.get(symbol)!=error:
+                        self._emit("L3.EXEC.EXIT_CLEANUP_SCAN_FAIL","ERROR",
+                                   "read-only BingX cleanup scan unavailable",
+                                   None,symbol=symbol,error=error)
+                        self._exit_cleanup_scan_errors[symbol]=error
                     continue
+                self._exit_cleanup_scan_errors.pop(symbol,None)
                 # If historical state corruption has assigned one protection ID
                 # to multiple combos, none of those combos may be mutated.
                 claimed={}
