@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
 from .analytics import build_trades, margin_roi, summarize
+from .exits import load_exit_specs, build_exit_events
 from .db import (Fill, ForceOrder, Income, Order, PositionHistory,
                  SignalLink, SyncRun, get_engine, get_sessionmaker, init_db)
 from .ingest import app as ingest_app
@@ -151,7 +152,7 @@ def _db_records():
     engine = get_engine()
     Session = get_sessionmaker(engine)
     with Session() as db:
-        return dict(
+        records = dict(
             orders=db.scalars(select(Order)).all(),
             fills=db.scalars(select(Fill).order_by(Fill.timestamp_ms, Fill.trade_id)).all(),
             incomes=db.scalars(select(Income)).all(),
@@ -160,6 +161,9 @@ def _db_records():
             links=db.scalars(select(SignalLink)).all(),
             runs=db.scalars(select(SyncRun).order_by(SyncRun.id.desc()).limit(1)).all(),
         )
+    # Read only already-persisted trade IDs, never call BingX from dashboard.
+    records['exit_specs'] = load_exit_specs(engine)
+    return records
 
 
 def _start_ms():
@@ -193,6 +197,22 @@ def dashboard_payload(records, symbol=None, combo=None):
         running += trade['pnl']
         chart.append({'t': trade['exit_ms'], 'v': round(running, 6)})
     liqs = sum(1 for x in visible if x['liquidated'])
+
+    exit_events = [
+        x for x in build_exit_events(records['orders'], records['fills'],
+                                     records.get('exit_specs', []), records['forces'])
+        if x['time_ms'] >= start_ms and (not symbol or x['symbol'] == symbol)
+        and (not combo or x['combo'] == combo)
+    ]
+    # BingX exit PnL may be based on a shared average-price position.
+    confirmed_exit_events = [x for x in exit_events if x['confidence'] == 'ORDER_ID']
+    exit_summary = {
+        'matched_by_id': len(confirmed_exit_events),
+        'price_time_candidates': sum(x['confidence'] == 'PRICE_TIME_CANDIDATE' for x in exit_events),
+        'unmapped_or_ambiguous': sum(x['confidence'] in ('UNMAPPED','AMBIGUOUS','CONFLICT') for x in exit_events),
+        'bingx_exit_realized_usdt': round(sum(x['bingx_realized_pnl'] for x in confirmed_exit_events), 6),
+        'bingx_exit_fees_usdt': round(sum(x['exit_fees'] for x in confirmed_exit_events), 6),
+    }
     fill_net = sum(float(f.realized_pnl) + float(f.fee)
                    for f in records['fills'] if f.timestamp_ms >= start_ms and
                    (not symbol or f.symbol == symbol))
@@ -211,6 +231,8 @@ def dashboard_payload(records, symbol=None, combo=None):
         },
         'combos': summarize(mapped),
         'trades': sorted(visible, key=lambda x:x['exit_ms'] or 0, reverse=True)[:100],
+        'exit_events': exit_events[:100],
+        'exit_summary': exit_summary,
         'equity': chart,
         'filters': {'combos': all_combos, 'symbols': all_symbols},
         'start_at': datetime.fromtimestamp(start_ms/1000, timezone.utc).isoformat() if start_ms else None,
@@ -232,6 +254,11 @@ def api_dashboard(request: Request, symbol: str = '', combo: str = ''):
             # collector error details (which can contain internal infrastructure).
             public_fields = ('symbol', 'combo', 'side', 'exit_ms', 'exit_types', 'pnl', 'pnl_pct', 'liquidated')
             data['trades'] = [{k: trade.get(k) for k in public_fields} for trade in data['trades']]
+            exit_public_fields = ('symbol','combo','type','confidence','time_ms','qty',
+                                  'exit_price','bingx_realized_pnl','exit_fees')
+            data['exit_events'] = [
+                {k: row.get(k) for k in exit_public_fields} for row in data['exit_events']
+            ]
             if data['last_sync']:
                 data['last_sync'].pop('details', None)
         return _no_cache(JSONResponse(data))
