@@ -5,6 +5,8 @@ partial fills, stale exchange snapshots, and ambiguous cancel responses.
 """
 from copy import deepcopy
 from pathlib import Path
+from threading import RLock
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from app.config import Settings,enable_runtime_trailing,validate_settings
@@ -62,6 +64,17 @@ class FakeClient:
         self.canceled=[]
         self.lookups=[]
         self.fail_next_cancel=False
+        self.position_rows=position()
+        self.open_orders_calls=0
+        self.get_positions_calls=0
+
+    def get_open_orders(self,symbol):
+        self.open_orders_calls+=1
+        return [row for row in self.orders.values() if row["status"] in {"NEW","PARTIALLY_FILLED"}]
+
+    def get_positions(self,symbol):
+        self.get_positions_calls+=1
+        return self.position_rows
 
     @staticmethod
     def extract_order(data):
@@ -211,6 +224,53 @@ def test_legacy_without_position_id_is_not_eligible():
     assert eligible(trade())
 
 
+def test_service_batches_symbol_reads_once_and_never_touches_peer():
+    combo1=trade()
+    combo2=trade(combo=7,pids=("301","302","303"))
+    own1=rows(tp="0.0006",trailing="0.0006",tp_status="FILLED",
+              trailing_status="FILLED")
+    own2=rows(pids=("301","302","303"))
+    client=FakeClient(own1+own2)
+    client.position_rows=position("0.0013")
+    class Store:
+        def __init__(self):
+            self.rows={combo1["intent"]["event_id"]:combo1,
+                       combo2["intent"]["event_id"]:combo2}
+        def list_states(self):
+            return list(self.rows.items())
+        def save_state(self,eid,val):
+            self.rows[eid]=deepcopy(val)
+    service=object.__new__(ExecutionService)
+    service.settings=SimpleNamespace(execution_enabled=True,dry_run=False)
+    service.credentials_verified=True
+    service.store=Store()
+    service.executor=SimpleNamespace(client=client)
+    service._execution_lock=RLock()
+    service._exit_cleanup_scan_errors={}
+    service._emit=lambda *a,**kw:None
+    out=service.cleanup_closed_exits()
+    assert client.get_positions_calls==1
+    assert client.open_orders_calls==1
+    assert client.canceled==["201"]
+    assert len(out)==1 and out[0]["event_id"]==combo1["intent"]["event_id"]
+    assert service.store.rows[combo2["intent"]["event_id"]].get("exit_cleanup",{}).get("status")=="watching"
+
+
+def test_legacy_pending_sl_replacement_warns_without_resizing():
+    state=trade()
+    state["lifecycle"]={
+        "pending_sl_replace":{"old_order_id":"201",
+                              "client_order_id":"atv2sl-previous"},
+    }
+    old=rows(trailing="0.0006",trailing_status="FILLED",
+             sl_status="CANCELLED")
+    client=FakeClient(old)
+    out,_,alerts=execute_check(state,client,{"202":old[1]},position("0.0006"))
+    assert out["status"]=="watching"
+    assert any("LEGACY_SL_REPLACEMENT_UNVERIFIED" in repr(a) for a in alerts)
+    assert not client.canceled
+
+
 def test_runtime_cleanup_is_bounded_but_setup_recovery_remains_15s():
     path=(Path(__file__).parents[1]/"app"/"main.py").read_text("utf-8")
     assert "EXIT_CLEANUP_POLL_SEC=60.0" in path
@@ -237,6 +297,8 @@ def main():
         test_rejected_cross_position_order_never_mutated,
         test_legacy_without_position_id_is_not_eligible,
         test_runtime_cleanup_is_bounded_but_setup_recovery_remains_15s,
+        test_service_batches_symbol_reads_once_and_never_touches_peer,
+        test_legacy_pending_sl_replacement_warns_without_resizing,
     ]
     for test in tests:
         test()
