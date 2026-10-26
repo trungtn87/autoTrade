@@ -134,6 +134,7 @@ def test_flat_requires_two_distinct_scans():
 def test_missing_order_lookup_uncertain_no_mutations():
     state=trade()
     client=FakeClient(rows())
+    client.orders.pop("201")
     try:
         execute_check(state,client,{},position())
         raise AssertionError("should refuse unknown missing order")
