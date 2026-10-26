@@ -55,7 +55,7 @@ scenarios. Historical records missing positionId are skipped; legacy
 SL replacement cannot be safely deleted.
 
 This limited feature can be disabled independently with
-`EXIT_CLEANUP_ENABLED=false`. Default is true. No new trading signal,
+`EXIT_CLEANUP_ENABLED=false`. Default is false (explicit opt-in only). No new trading signal,
 entry, or dashboard API requests are added. It is NOT a guarantee against
 unexpected exchange-side execution, API outage, or position liquidation.
 
