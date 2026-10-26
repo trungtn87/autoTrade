@@ -47,6 +47,8 @@ class Settings:
     tp_trailing_callback_rate: float = float(os.getenv("TP_TRAILING_CALLBACK_RATE", "0.005"))
     # Deprecated compatibility flag: forcibly disabled by live entrypoint.
     position_lifecycle_enabled: bool = False
+    # Minimal orphan-order cleanup only; no SL resizing or cancelReplace.
+    exit_cleanup_enabled: bool = _bool("EXIT_CLEANUP_ENABLED", True)
 
     # Layer 4 only. Missing/broken Discord must never block trading.
     discord_enabled: bool = _bool("DISCORD_ENABLED", True)
