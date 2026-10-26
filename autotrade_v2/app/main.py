@@ -25,6 +25,7 @@ WATCHDOG_POLL_SEC=5.0
 RECOVERY_RETRY_MS=60_000
 RECOVERY_MAX_ATTEMPTS=2
 EXECUTION_RECONCILE_POLL_SEC=15.0
+EXIT_CLEANUP_POLL_SEC=60.0
 
 settings=enable_runtime_trailing(Settings())
 configure_logging(settings.log_level)
@@ -314,6 +315,34 @@ def _execution_reconcile_loop()->None:
             )
 
 
+def _exit_cleanup_loop()->None:
+    # Run separately from unfinished-setup recovery. A completed combo never
+    # needs constant order polling, and its SL/TP/trailing must not be resized.
+    while not _execution_reconcile_stop.wait(EXIT_CLEANUP_POLL_SEC):
+        if not settings.exit_cleanup_enabled:
+            continue
+        try:
+            results=execution_service.cleanup_closed_exits()
+            with _state_lock:
+                runtime["exit_cleanup_last"]={
+                    "checked_at_ms":int(time.time()*1000),
+                    "results":results,
+                }
+            if results:
+                log.warning("EXIT_CLEANUP_CHECK changes=%s",results)
+        except Exception as exc:
+            log.exception("EXIT_CLEANUP_LOOP_FAIL error=%s",exc)
+            with _state_lock:
+                runtime["exit_cleanup_last"]={
+                    "checked_at_ms":int(time.time()*1000),
+                    "error":str(exc),
+                }
+            event_reporter.emit(
+                "L3.EXEC.EXIT_CLEANUP_LOOP_FAIL","ERROR",str(exc),
+                details={"stage":"exit_cleanup"},
+            )
+
+
 def _start_data_runtime()->None:
     global stream
     with _state_lock:
@@ -433,6 +462,12 @@ def startup()->None:
                 name="v2-execution-reconcile",
                 daemon=True,
             ).start()
+            if settings.exit_cleanup_enabled:
+                threading.Thread(
+                    target=_exit_cleanup_loop,
+                    name="v2-exit-orphan-cleanup",
+                    daemon=True,
+                ).start()
     else:
         log.warning("EXECUTION_PREFLIGHT ok=false error=%s",preflight.get("error"))
         event_reporter.emit(
@@ -505,6 +540,8 @@ def health():
         "tp_trailing_split_enabled":settings.tp_trailing_split_enabled,
         "tp_trailing_callback_rate":settings.tp_trailing_callback_rate,
         "position_lifecycle_enabled":settings.position_lifecycle_enabled,
+        "exit_cleanup_enabled":settings.exit_cleanup_enabled,
+        "exit_cleanup_poll_seconds":EXIT_CLEANUP_POLL_SEC,
         "execution_credentials_verified":execution_service.credentials_verified,
         # Read-only, redacted status; a real API ban prevents both SL and close.
         "bingx_trade_guard":execution_service.executor.client.guard.status(),
