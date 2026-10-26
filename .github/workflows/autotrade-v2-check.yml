@@ -86,10 +86,15 @@ jobs:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/tp_trailing_split_test.py
 
-      - name: Verify completed orders are fully BingX-managed (no lifecycle polls)
+      - name: Verify SL replacement stays disabled (orphan cleanup only)
         env:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/position_lifecycle_test.py
+
+      - name: Verify 60s orphan cleanup and cross-Combo safeguards
+        env:
+          PYTHONPATH: autotrade_v2
+        run: python autotrade_v2/tests/exit_cleanup_test.py
 
       - name: Verify durable protection write-ahead crash recovery
         env:
