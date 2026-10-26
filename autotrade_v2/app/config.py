@@ -40,11 +40,13 @@ class Settings:
     execution_enabled: bool = _bool("EXECUTION_ENABLED", False)
     dry_run: bool = _bool("DRY_RUN", True)
 
-    # Opt-in only: 50% fixed TP + 50% exchange-native trailing, full hard SL.
+    # 50% fixed TP + 50% exchange-native trailing with full SL.
+    # BingX owns order lifecycle after exchange confirmation.
     tp_trailing_split_enabled: bool = _bool("TP_TRAILING_SPLIT_ENABLED", False)
     tp_trailing_activation_pct: float = float(os.getenv("TP_TRAILING_ACTIVATION_PCT", "0.005"))
     tp_trailing_callback_rate: float = float(os.getenv("TP_TRAILING_CALLBACK_RATE", "0.005"))
-    position_lifecycle_enabled: bool = _bool("POSITION_LIFECYCLE_ENABLED", False)
+    # Deprecated compatibility flag: forcibly disabled by live entrypoint.
+    position_lifecycle_enabled: bool = False
 
     # Layer 4 only. Missing/broken Discord must never block trading.
     discord_enabled: bool = _bool("DISCORD_ENABLED", True)
@@ -72,19 +74,16 @@ class Settings:
 
 
 def enable_runtime_trailing(settings: Settings) -> Settings:
-    """Activate deployed V2 50/50 exits, respecting explicit Render overrides.
+    """Configure exchange-native 50/50 exits without bot-owned SL lifecycle.
 
-    This is only called by the live FastAPI entrypoint, not from tests that
-    construct Settings() directly. Both flags can be disabled without a new
-    GitHub deploy by setting TP_TRAILING_SPLIT_ENABLED=false. Disabling the
-    lifecycle also automatically disables the 50/50 split for safety.
+    The trailing split remains independently configurable on Render.
+    POSITION_LIFECYCLE_ENABLED is ignored even if an old environment variable
+    is still set; the bot must not cancel/resize BingX orders post-placement.
     """
-    lifecycle=_bool("POSITION_LIFECYCLE_ENABLED", True)
-    trailing=_bool("TP_TRAILING_SPLIT_ENABLED", True) and lifecycle
     return replace(
         settings,
-        tp_trailing_split_enabled=trailing,
-        position_lifecycle_enabled=lifecycle,
+        tp_trailing_split_enabled=_bool("TP_TRAILING_SPLIT_ENABLED", True),
+        position_lifecycle_enabled=False,
         tp_trailing_activation_pct=float(
             os.getenv("TP_TRAILING_ACTIVATION_PCT",str(settings.tp_trailing_activation_pct))
         ),
@@ -93,10 +92,7 @@ def enable_runtime_trailing(settings: Settings) -> Settings:
         ),
     )
 
-
 def validate_settings(settings: Settings) -> None:
-    if settings.tp_trailing_split_enabled and not settings.position_lifecycle_enabled:
-        raise ValueError("50/50 TP requires POSITION_LIFECYCLE_ENABLED=true")
     if not 0 < settings.tp_trailing_activation_pct < 1:
         raise ValueError("TP_TRAILING_ACTIVATION_PCT must be in (0, 1)")
     if not 0 < settings.tp_trailing_callback_rate <= 1:
