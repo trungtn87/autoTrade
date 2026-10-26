@@ -181,7 +181,7 @@ def dashboard_payload(records, symbol=None, combo=None):
     start_ms = _start_ms()
     completed, pending, unresolved = build_trades(records['fills'], records['orders'], records['links'], records['forces'])
     all_combos = sorted({x.combo for x in records['links']})
-    all_symbols = sorted({x.symbol for x in records['orders'] + records['fills']})
+    all_symbols = sorted({getattr(x,'symbol','') for x in records['orders'] + records['fills'] if getattr(x,'symbol','')})
     # Count only whole positions whose first ENTRY is at/after the baseline.
     # An old position closed today never becomes a new-period profit.
     completed = [x for x in completed if x['entry_ms'] >= start_ms and
@@ -257,7 +257,7 @@ def api_dashboard(request: Request, symbol: str = '', combo: str = ''):
             exit_public_fields = ('symbol','combo','type','confidence','time_ms','qty',
                                   'exit_price','bingx_realized_pnl','exit_fees')
             data['exit_events'] = [
-                {k: row.get(k) for k in exit_public_fields} for row in data['exit_events']
+                {k: row.get(k) for k in exit_public_fields} for row in data.get('exit_events', [])
             ]
             if data['last_sync']:
                 data['last_sync'].pop('details', None)
