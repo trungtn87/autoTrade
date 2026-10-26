@@ -13,6 +13,7 @@ If exchange evidence is missing/ambiguous, no mutation is permitted.
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+import logging
 import re
 import time
 
@@ -21,6 +22,7 @@ KINDS = {"sl": "STOP_MARKET", "tp": "TAKE_PROFIT_MARKET",
 ACTIVE = {"NEW", "PARTIALLY_FILLED"}
 TERMINAL = {"FILLED", "CANCELLED", "CANCELED", "EXPIRED", "REJECTED"}
 MAX_CANCEL_ATTEMPTS = 2
+LOG = logging.getLogger(__name__)
 
 
 class CleanupUncertain(RuntimeError):
@@ -162,6 +164,16 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None):
                 payload = client.get_order_detail(state["intent"]["symbol"], order_id=order_id)
                 row = client.extract_order(payload)
                 if oid(row) != order_id:
+                    data = payload.get("data") if isinstance(payload,dict) else None
+                    LOG.warning(
+                        "EXIT_ORDER_LOOKUP_MISMATCH requested=%s extracted=%s "
+                        "raw_orderID=%s raw_orderId=%s data_type=%s data_keys=%s "
+                        "order_keys=%s",
+                        order_id,oid(row),row.get("orderID"),row.get("orderId"),
+                        type(data).__name__,
+                        list(data.keys())[:12] if isinstance(data,dict) else [],
+                        list(row.keys())[:20],
+                    )
                     raise CleanupUncertain("exchange returned wrong orderId")
                 validate_order(state, kind, row)
                 view = _order_view(row)
