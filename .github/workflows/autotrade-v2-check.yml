@@ -86,7 +86,7 @@ jobs:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/tp_trailing_split_test.py
 
-      - name: Verify position-level SL resize and orphan order cleanup
+      - name: Verify completed orders are fully BingX-managed (no lifecycle polls)
         env:
           PYTHONPATH: autotrade_v2
         run: python autotrade_v2/tests/position_lifecycle_test.py

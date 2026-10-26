@@ -286,19 +286,20 @@ def _execution_reconcile_loop()->None:
                 1 for _,state in execution_store.list_states()
                 if not bool(state.get("terminal"))
             )
+            # Only unfinished Entry/SL/TP/trailing setup needs crash recovery.
+            # Completed trades are fully exchange-owned: no further BingX
+            # order polls, cancellations, or stop-loss replacements.
             results=execution_service.recover_pending() if pending>0 else []
-            lifecycle=execution_service.reconcile_open_positions()
             with _state_lock:
                 runtime["execution_recovery_last"]={
                     "checked_at_ms":int(time.time()*1000),
                     "pending_before":pending,
                     "results":results,
-                    "lifecycle":lifecycle,
                 }
-            if pending or any(x.get("status") not in ("unchanged",) for x in lifecycle):
+            if pending:
                 log.info(
-                    "EXECUTION_RECONCILE_LOOP pending=%s reconciled=%s lifecycle_updates=%s",
-                    pending,len(results),[x for x in lifecycle if x.get("status")!="unchanged"],
+                    "EXECUTION_RECOVERY_LOOP pending=%s reconciled=%s",
+                    pending,len(results),
                 )
         except Exception as exc:
             log.exception("EXECUTION_RECONCILE_LOOP_FAIL error=%s",exc)
@@ -407,9 +408,6 @@ def startup()->None:
         )
         try:
             recovery=execution_service.recover_pending()
-            lifecycle_startup=execution_service.reconcile_open_positions()
-            if lifecycle_startup:
-                log.info("LIFECYCLE_STARTUP_CHECK results=%s",lifecycle_startup)
             with _state_lock:
                 runtime["execution_recovery"]=recovery
             if recovery:
