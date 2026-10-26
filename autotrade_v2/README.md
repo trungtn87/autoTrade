@@ -27,6 +27,38 @@ Layered live engine for the locked FINAL14 strategy.
 4. **Layer 4 — Control**
    - Structured events, audit persistence, Discord notifications, error classification, health reporting, and BingX request guard.
 
+## Limited 60-second orphan exit cleanup
+
+After BingX accepts Entry → full SL → hard TP 50% → trailing 50%, exit
+execution is still exchange-native. Since BingX may leave conditional exits
+open after a full trade closure, an **independent 60-second cleaner** checks
+*only* strategies with a durable entry `positionId`, their exact stored SL,
+TP, trailing IDs and actual exchange executedQty. It reads one openOrders and
+one positions snapshot per active symbol on each cycle; it queries individual
+missing order IDs only as needed (using the same shared BingX rate guard).
+
+An orphan is deleted ONLY after (a) this combo's own filled exit quantities
+sum exactly to its actual entry fill, or (b) the exact positionId is flat in
+two consecutive 60-second passes. Each DELETE targets one verified owned
+orderId, is durably journaled BEFORE sending, and has at most two attempts.
+Missing/contradictory exchange evidence blocks mutation with an error alert.
+It never uses cancel-all, cancelReplace, SL resizing or any unrelated order.
+The original 15-second unfinished setup recovery is retained separately.
+
+**Partial fill caveat:** if trailing/TP closes half, the cleaner warns when
+the original SL exceeds the combo's remaining quantity, but does NOT modify
+that SL. BingX does not reliably OCO separate conditional orders. Review
+oversized SL warnings and use an exchange-native whole-position SL product
+before treating this configuration as fully protected in all partial-close
+scenarios. Historical records missing positionId are skipped; legacy
+`pending_sl_replace` states raise a special warning because an untracked
+SL replacement cannot be safely deleted.
+
+This limited feature can be disabled independently with
+`EXIT_CLEANUP_ENABLED=false`. Default is true. No new trading signal,
+entry, or dashboard API requests are added. It is NOT a guarantee against
+unexpected exchange-side execution, API outage, or position liquidation.
+
 ## 50/50 TP + exchange-native trailing (BingX-managed exits)
 
 The deployed FastAPI entrypoint keeps 50% hard TP, 50% exchange-native
