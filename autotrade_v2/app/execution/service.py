@@ -7,6 +7,7 @@ from ..config import Settings
 from ..contracts import ExecutionResult, TradeIntent
 from .final14_executor import Final14Executor
 from .identity import entry_baseline
+from .exit_cleanup import clean_one, eligible, oid, CleanupUncertain
 from .store import ExecutionStore
 
 
@@ -131,14 +132,81 @@ class ExecutionService:
             })
         return recovered
 
-    def reconcile_open_positions(self)->list[dict]:
-        """Retired: BingX owns exits after initial SL/TP/trailing confirmation.
+    def cleanup_closed_exits(self)->list[dict]:
+        """Bounded, read-first orphan cleanup; never resize or cancelReplace SL.
 
-        Retained as a harmless compatibility no-op for callers from older
-        deployments. This method MUST NOT query, cancel, replace or amend an
-        exchange order. Only unfinished setup is handled by recover_pending().
+        Only states with a persisted positionId and verified SL/TP order IDs
+        qualify. The trade transport's existing request guard paces *all*
+        private BingX calls, including normal entry/protection traffic.
         """
-        return []
+        if (not self.settings.execution_enabled or self.settings.dry_run
+                or not self.credentials_verified):
+            return []
+        with self._execution_lock:
+            grouped={}
+            for event_id,state in self.store.list_states():
+                if eligible(state):
+                    grouped.setdefault(state["intent"]["symbol"],[]).append((event_id,state))
+            results=[]
+            for symbol,states in grouped.items():
+                try:
+                    orders=self.executor.client.get_open_orders(symbol)
+                    positions=self.executor.client.get_positions(symbol)
+                    by_id={}
+                    for row in orders:
+                        order_id=oid(row)
+                        if not order_id or order_id in by_id:
+                            raise CleanupUncertain("ambiguous BingX open order list")
+                        by_id[order_id]=row
+                except Exception as exc:
+                    self._emit("L3.EXEC.EXIT_CLEANUP_SCAN_FAIL","ERROR",
+                               "read-only BingX cleanup scan unavailable",
+                               None,symbol=symbol,error=type(exc).__name__)
+                    continue
+                # If historical state corruption has assigned one protection ID
+                # to multiple combos, none of those combos may be mutated.
+                claimed={}
+                collisions=set()
+                for eid,state in states:
+                    for item in (state.get("protection") or {}).values():
+                        oid_ = str((item or {}).get("order_id") or "") if isinstance(item,dict) else ""
+                        if not oid_:
+                            continue
+                        if oid_ in claimed and claimed[oid_] != eid:
+                            collisions.update((eid,claimed[oid_]))
+                        claimed[oid_]=eid
+                for event_id,state in states:
+                    intent=self._intent_from_state(state)
+                    if event_id in collisions or intent is None:
+                        self._emit("L3.EXEC.EXIT_CLEANUP_RISK","CRITICAL",
+                                   "ambiguous owned order IDs; cleanup refused",intent)
+                        continue
+                    def persist(value):
+                        self.store.save_state(event_id,value)
+                    def alert(key,severity,message):
+                        self._emit(key,severity,message,intent)
+                    try:
+                        result=clean_one(
+                            self.executor.client,state,by_id,positions,
+                            persist,alert
+                        )
+                        if result["cancel_requested"]:
+                            self._emit("L3.EXEC.EXIT_ORPHAN_CANCEL_REQUESTED","WARNING",
+                                       "BingX orphan exit cancel requested by exact orderId",
+                                       intent,orders=result["cancel_requested"])
+                        if result["cancel_requested"] or result["warnings"]:
+                            results.append({"event_id":event_id,**result})
+                    except Exception as exc:
+                        # Fail closed on all exchange/status inconsistencies.
+                        old=(state.get("exit_cleanup") or {}).get("last_inspection_error")
+                        message=f"{type(exc).__name__}: {exc}"
+                        if old!=message:
+                            state.setdefault("exit_cleanup",{})["last_inspection_error"]=message
+                            self.store.save_state(event_id,state)
+                            self._emit("L3.EXEC.EXIT_CLEANUP_RISK","CRITICAL",
+                                       "exit cleanup verification failed; no orders mutated",
+                                       intent,error=message)
+            return results
 
     def execute(self, intent: TradeIntent, recovery_only:bool=False) -> ExecutionResult:
         with self._execution_lock:
