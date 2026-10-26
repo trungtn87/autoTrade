@@ -199,7 +199,7 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None):
             and monitor["orders"][oid_]["status"] in ACTIVE
         ]
         condition = (
-            "NO_ACTIVE_SL" if not active_sl else
+            "NO_TRACKED_ACTIVE_SL" if not active_sl else
             "SL_OVER_REMAINING" if sum(active_sl)>remaining else
             ""
         )
