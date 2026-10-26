@@ -139,9 +139,19 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None):
     }
     now_ms = int(now_ms if now_ms is not None else time.time()*1000)
     own = own_orders(state)
+    # The previous lifecycle could cancelReplace SL into an ID that was never
+    # durably resolved. This cleanup cannot safely claim/delete that unknown
+    # order; alert once so it can be investigated on BingX.
+    legacy_pending = (state.get("lifecycle") or {}).get("pending_sl_replace")
+    if legacy_pending and "LEGACY_SL_REPLACEMENT_UNVERIFIED" not in monitor["warnings"]:
+        monitor["warnings"].append("LEGACY_SL_REPLACEMENT_UNVERIFIED")
     outstanding = []
     total_filled = Decimal(0)
-    alerts = []
+    alerts = (
+        ["LEGACY_SL_REPLACEMENT_UNVERIFIED"] if legacy_pending
+        and (state.get("exit_cleanup") or {}).get("status") is None
+        else []
+    )
     for order_id, kind in own.items():
         row = open_by_id.get(order_id)
         previous = monitor["orders"].get(order_id)
