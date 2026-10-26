@@ -111,7 +111,7 @@ def _compatible(order,spec):
     raw = getattr(order,"raw",{}) or {}
     if isinstance(raw,dict):
         oid = str(raw.get("positionID") or raw.get("positionId") or "")
-        if oid and spec["position_id"] and oid != spec["position_id"]:
+        if oid and oid != "0" and spec["position_id"] and oid != spec["position_id"]:
             return False
     qty = number(getattr(order,"quantity",0))
     if qty > 0 and spec["entry_qty"] > 0 and qty > spec["entry_qty"] + 1e-9:
@@ -180,6 +180,8 @@ def build_exit_events(orders,fills,specs,forced=()):
     for (order_id,symbol),rows in groups.items():
         order=order_by_id.get(order_id)
         spec,confidence,kind=identify_exit(order_id,order,specs)
+        if spec is not None and spec["symbol"] != symbol:
+            spec,confidence=None,"CONFLICT"
         if order_id in forced_ids:
             kind="LIQUIDATION"
         elif kind is None or kind not in {"TP","SL","TRAILING"}:
