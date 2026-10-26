@@ -2,6 +2,34 @@
 
 A standalone **read-only** analytics package for **real BingX futures executions**. Existing Autotrade trading and TradingView backtest workflows are not modified.
 
+## Đối chiếu kết quả TP / SL / trailing theo Combo
+
+The dashboard independently reads the bot's *already-persisted* V2
+`public.processed_targets` order IDs, TP/SL targets and signal times.
+It cross-references those records with the existing daily BingX read-only
+archive. No new REST calls are added to the live trading service.
+
+- `ORDER_ID`: exact recorded TP, SL or trailing order ID matched to an
+  executed BingX fill. This is a confirmed classification.
+- `PRICE_TIME_CANDIDATE`: order ID missing, but unique symbol, side,
+  position, trigger/activation price, quantity and time are compatible.
+  This is a candidate, **not proof**, and is excluded from trusted sums.
+- `AMBIGUOUS` / `CONFLICT` / `UNMAPPED`: no safe automatic Combo mapping.
+  Never silently assign a shared/multi-Combo position to one strategy.
+- `bingx_realized_pnl` is the exchange's value on the **exit fills**,
+  not a reconstruction of each Combo's independent strategy PnL.
+  BingX can use a blended entry for simultaneous Combo positions.
+  Exit fees are separate; entry fees/funding are not allocated.
+- The new exit section supplements, but does not modify, the old
+  position-level PnL statistics.
+- A canceled unfilled SL is **not** a realized exit. Only BingX execution
+  fills appear in the exit history.
+
+The existing GitHub scheduled collector remains unchanged; the dashboard
+will not show new fills until that collector synchronizes them. If the
+dashboard cannot SELECT `public.processed_targets`, exit matching degrades
+to `UNMAPPED` and the rest of the dashboard continues read-only.
+
 ## Scope & data guarantees
 
 - Fetches BingX **historical orders**, **filled executions**, **income / funding / fees**, **forced liquidation & ADL**, and **closed-position history**.
