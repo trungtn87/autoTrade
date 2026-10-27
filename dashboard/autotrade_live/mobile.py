@@ -205,7 +205,7 @@ def dashboard_payload(records, symbol=None, combo=None):
         and (not combo or x['combo'] == combo)
     ]
     # BingX exit PnL may be based on a shared average-price position.
-    confirmed_exit_events = [x for x in exit_events if x['confidence'] in ('ORDER_ID','TRIGGER_ORDER_ID')]
+    confirmed_exit_events = [x for x in exit_events if x['confidence'] in ('ORDER_ID','TRIGGER_ORDER_ID','LEGACY_SL_CLIENT_ID')]
     confirmed_by_combo = defaultdict(lambda: {'combo':'','count':0,'TP':0,'SL':0,'TRAILING':0,
                                               'realized_pnl':0.0,'exit_fees':0.0})
     for row in confirmed_exit_events:
@@ -226,6 +226,7 @@ def dashboard_payload(records, symbol=None, combo=None):
     exit_summary = {
         'matched_by_id': len(confirmed_exit_events),
         'matched_by_trigger': sum(x['confidence'] == 'TRIGGER_ORDER_ID' for x in confirmed_exit_events),
+        'matched_by_legacy_client': sum(x['confidence'] == 'LEGACY_SL_CLIENT_ID' for x in confirmed_exit_events),
         'price_time_candidates': sum(x['confidence'] == 'PRICE_TIME_CANDIDATE' for x in exit_events),
         'unmapped_or_ambiguous': sum(x['confidence'] in ('UNMAPPED','AMBIGUOUS','CONFLICT') for x in exit_events),
         'bingx_exit_realized_usdt': round(sum(x['bingx_realized_pnl'] for x in confirmed_exit_events), 6),
