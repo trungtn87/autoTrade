@@ -33,5 +33,7 @@ jobs:
           python -m pip install --disable-pip-version-check -r dashboard/requirements.txt pytest httpx
       - name: Compile dashboard Python
         run: python -m compileall -q dashboard/autotrade_live
+      - name: Validate dashboard JavaScript syntax
+        run: node --check dashboard/autotrade_live/static/app.js
       - name: Offline tests (no BingX credentials or live requests)
         run: python -m pytest dashboard/tests -q
