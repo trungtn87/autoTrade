@@ -1,0 +1,28 @@
+# Optional separate Render Blueprint (custom path: dashboard/render-archive.yaml).
+# This CREATES a billed Render Cron Job; it does not alter the trading service.
+# One cron service runs every UTC hour at :07 (= Vietnam :07).
+# The 03:07 UTC run reconciles the last three days.
+services:
+  - type: cron
+    name: autotrade-bingx-readonly-archive
+    runtime: python
+    plan: 0.5c-512mb
+    repo: https://github.com/trungtn87/autoTrade
+    branch: main
+    rootDir: dashboard
+    schedule: '7 * * * *'
+    buildCommand: pip install -r requirements-collector.txt
+    startCommand: python -m autotrade_live.render_archive
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_SCHEMA
+        value: autotrade_analytics
+      - key: BINGX_READ_API_KEY
+        sync: false
+      - key: BINGX_READ_API_SECRET
+        sync: false
+      - key: BINGX_REQUEST_DELAY
+        value: '0.6'
+      - key: BINGX_SYMBOLS
+        value: BTC-USDT,ETH-USDT
