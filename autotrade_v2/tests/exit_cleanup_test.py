@@ -378,13 +378,12 @@ def test_fullorder_no_id_match_never_authorizes_delete():
     state=trade()
     sample=rows()
     fake=FakeClient(sample)
-    try:
-        execute_check(state,fake,{"201":sample[0]},
-                      position("0.0012"),
-                      history={x["orderID"]:x for x in hist})
-        assert False,"unmatched history must not close a Combo"
-    except CleanupUncertain:
-        pass
+    result,_,alerts=execute_check(
+        state,fake,{"201":sample[0]},position("0.0012"),
+        history={x["orderID"]:x for x in hist})
+    assert result["status"]=="watching"
+    assert result["cancel_requested"]==[]
+    assert any("EXIT_HISTORY_INCOMPLETE_OPEN_POSITION" in repr(x) for x in alerts)
     assert fake.canceled==[]
 
 
