@@ -277,33 +277,70 @@ class LegacyStyleBingXClient:
             return [x for x in rows if isinstance(x,dict)]
         return []
 
-    def get_order_history(self,symbol:str,start_ms:int,end_ms:int)->list[dict]:
-        """Single bounded 7-day history batch for orphan classification.
+    def get_order_history(
+        self,symbol:str,start_ms:int,end_ms:int,required_ids:set[str]|None=None
+    )->list[dict]:
+        """Bounded BingX order history with fullOrder fallback for missing IDs.
 
-        BingX may return a different orderId from GET /trade/order even with
-        HTTP 200; match historical IDs *only* when the response contains that
-        exact ID. A truncated or malformed list must fail closed.
+        BingX may return an unrelated ID from GET /trade/order with code=0.
+        Never depend on single-order GET. Use exact-ID-matched multi-order
+        snapshots and fail closed if either history endpoint is truncated.
         """
         if not (0 < start_ms < end_ms and end_ms-start_ms < 7*86400_000):
             raise ValueError("BingX history window invalid (must be under 7 days)")
-        payload=self._signed_request(
-            "GET",self.ORDERS_HISTORY_PATH,{
-                "symbol":symbol,"startTime":str(start_ms),"endTime":str(end_ms),
-                "limit":"1000",
-            }
-        )
-        data=payload.get("data") if isinstance(payload,dict) else None
-        if isinstance(data,dict):
-            rows=data.get("orders")
-        elif isinstance(data,list):
-            rows=data
-        else:
-            rows=None
-        if not isinstance(rows,list) or len(rows)>=1000:
-            raise ValueError("BingX order history missing/truncated")
-        if any(not isinstance(x,dict) for x in rows):
-            raise ValueError("BingX historical order list malformed")
-        return rows
+        params={
+            "symbol":symbol,"startTime":str(start_ms),"endTime":str(end_ms),
+            "limit":"1000",
+        }
+
+        def extract_history(path):
+            payload=self._signed_request("GET",path,params)
+            data=payload.get("data") if isinstance(payload,dict) else None
+            rows=data.get("orders") if isinstance(data,dict) else (
+                data if isinstance(data,list) else None
+            )
+            if not isinstance(rows,list) or len(rows)>=1000:
+                raise ValueError(f"BingX history missing/truncated at {path}")
+            if any(not isinstance(x,dict) for x in rows):
+                raise ValueError(f"BingX history malformed at {path}")
+            return rows
+
+        def order_id(row):
+            value=str(row.get("orderID") or row.get("orderId") or "").strip()
+            return value if re.fullmatch(r"[1-9][0-9]*",value) else ""
+
+        primary=extract_history(self.ORDERS_HISTORY_PATH)
+        merged={}
+        for row in primary:
+            key=order_id(row)
+            if not key or key in merged or row.get("symbol")!=symbol:
+                raise ValueError("BingX allOrders has invalid/duplicate IDs")
+            merged[key]=row
+
+        needed={str(x) for x in (required_ids or set())}
+        missing=needed-merged.keys()
+        if missing:
+            # BingX's V2 allOrders can omit conditional TP/SL/trailing.
+            # fullOrder is a distinct documented history endpoint.
+            secondary=extract_history("/openApi/swap/v1/trade/fullOrder")
+            for row in secondary:
+                key=order_id(row)
+                if not key or row.get("symbol")!=symbol:
+                    raise ValueError("BingX fullOrder has invalid IDs/symbol")
+                if key not in merged:
+                    merged[key]=row
+                else:
+                    original=merged[key]
+                    for field in ("symbol","side","positionSide","type"):
+                        if original.get(field) and row.get(field) and original[field]!=row[field]:
+                            raise ValueError("BingX history endpoints disagree on order identity")
+            log.info(
+                "BINGX_EXIT_HISTORY_MATCH symbol=%s v2_count=%s v1_count=%s "
+                "required=%s matched=%s missing=%s",
+                symbol,len(primary),len(secondary),len(needed),
+                len(needed & merged.keys()),len(needed-merged.keys()),
+            )
+        return list(merged.values())
 
     def find_matching_protection(
         self,
