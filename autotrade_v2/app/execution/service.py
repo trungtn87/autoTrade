@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict
 import threading
+import time
 
 from ..config import Settings
 from ..contracts import ExecutionResult, TradeIntent
@@ -159,6 +160,37 @@ class ExecutionService:
                         if not order_id or order_id in by_id:
                             raise CleanupUncertain("ambiguous BingX open order list")
                         by_id[order_id]=row
+
+                    # Historical lookups are ONE bounded batch per symbol,
+                    # only when a known exit ID is absent from openOrders.
+                    # Do not use the single GET /trade/order endpoint: BingX
+                    # has returned unrelated IDs for historical orders.
+                    missing=set()
+                    for _,state in states:
+                        already_terminal=(state.get("exit_cleanup") or {}).get("orders") or {}
+                        for item in (state.get("protection") or {}).values():
+                            if not isinstance(item,dict):
+                                continue
+                            target=str(item.get("order_id") or "")
+                            if target and target not in by_id:
+                                previous=already_terminal.get(target) or {}
+                                if str(previous.get("status") or "").upper() not in {
+                                    "FILLED","CANCELLED","CANCELED","EXPIRED","REJECTED"
+                                }:
+                                    missing.add(target)
+                    history_by_id={}
+                    if missing:
+                        now_ms=int(time.time()*1000)
+                        history=self.executor.client.get_order_history(
+                            symbol,now_ms-6*86400_000,now_ms
+                        )
+                        for row in history:
+                            order_id=oid(row)
+                            if not order_id or order_id in history_by_id:
+                                raise CleanupUncertain("ambiguous BingX historical order list")
+                            if str(row.get("symbol") or "") != symbol:
+                                raise CleanupUncertain("historical symbol mismatch")
+                            history_by_id[order_id]=row
                 except Exception as exc:
                     error=f"{type(exc).__name__}: {exc}"
                     if self._exit_cleanup_scan_errors.get(symbol)!=error:
@@ -193,7 +225,7 @@ class ExecutionService:
                     try:
                         result=clean_one(
                             self.executor.client,state,by_id,positions,
-                            persist,alert
+                            persist,alert,historical_by_id=history_by_id
                         )
                         if result["cancel_requested"]:
                             self._emit("L3.EXEC.EXIT_ORPHAN_CANCEL_REQUESTED","WARNING",
