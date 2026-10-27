@@ -1,4 +1,4 @@
-:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color-scheme:dark;color:#ebf3fb;background:#09121f}
+:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans",Arial,sans-serif;color-scheme:dark;color:#ebf3fb;background:#09121f}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;background:radial-gradient(circle at 93% 2%,#123341 0,transparent 29%),#09121f}
 button,select{font:inherit}
@@ -149,3 +149,27 @@ footer strong{color:#adc3d3}
 /* Mobile: only filter controls, no manual refresh button. */
 .filters{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:700px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.filters label:nth-child(3){grid-column:1/-1}}
+
+/* V3 mobile typography: platform font with Vietnamese glyph support.
+   Avoid iOS text auto-zoom and eliminate accidental clipping on small screens. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{overflow-wrap:break-word;-webkit-font-smoothing:antialiased}
+button,select,input{font-family:inherit}
+.app{width:100%;min-width:0;padding-bottom:calc(70px + env(safe-area-inset-bottom,0px))}
+.topbar,.brand,.hero-top,.section-head,.reliability-hero{min-width:0}
+.brand>div:last-child{min-width:0}
+.eyebrow{letter-spacing:1px}
+.kpi,.strategy-card,.reliability-grid>div,.details-grid>div{min-width:0}
+.kpi strong,.strategy-roi,.reliability-grid strong,.details-grid strong{overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.strategy-stats small,.reliability-grid small,.strategy-foot{font-size:12px}
+.filters label{font-size:12px}
+.scope-hint,.period-note,.section-note{font-size:12px}
+@media(max-width:390px){
+ .app{padding-left:12px;padding-right:12px}
+ .strategy-stats{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:10px}
+ .strategy-stats strong{font-size:14px}
+ .strategy-head{flex-wrap:wrap}
+ .reliability-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .kpi strong{font-size:clamp(20px,6vw,26px)}
+ .eyebrow{font-size:10px}
+}
