@@ -31,7 +31,7 @@ function drawExits(items,summary){
   if(!safe.length){let tr=document.createElement('tr');let td=document.createElement('td');
     td.colSpan=6;td.textContent='Chưa có lệnh TP/SL/trailing đã khớp trong lần đồng bộ BingX.';tr.append(td);body.append(tr);
   }else{
-    const confidence={ORDER_ID:'ID gốc khớp',TRIGGER_ORDER_ID:'Trigger ID khớp',PRICE_TIME_CANDIDATE:'Ứng viên giờ/giá',
+    const confidence={ORDER_ID:'ID gốc khớp',TRIGGER_ORDER_ID:'Trigger ID khớp',LEGACY_SL_CLIENT_ID:'ID thay SL cũ khớp',PRICE_TIME_CANDIDATE:'Ứng viên giờ/giá',
       AMBIGUOUS:'Trùng điều kiện',CONFLICT:'Sai thông tin',UNMAPPED:'Chưa xác định'};
     safe.slice(0,60).forEach(x=>{
       const tr=document.createElement('tr');
@@ -44,7 +44,7 @@ function drawExits(items,summary){
   }
   const confirmed=Number(summary.matched_by_id||0),candidates=Number(summary.price_time_candidates||0);
   const missing=Number(summary.unmapped_or_ambiguous||0);
-  set('exitstatus','Đối chiếu: '+confirmed+' lệnh khớp ID (gồm '+Number(summary.matched_by_trigger||0)+' trigger ID) · '+candidates+
+  set('exitstatus','Đối chiếu: '+confirmed+' lệnh khớp ID ('+Number(summary.matched_by_trigger||0)+' trigger ID, '+Number(summary.matched_by_legacy_client||0)+' ID thay SL cũ) · '+candidates+
     ' ứng viên theo giờ/giá · '+missing+' chưa xác định. PnL chỉ là realizedPNL của các lệnh thoát BingX, không phải ROI riêng của Combo.');
 }
 function drawCleanupRisks(items){
