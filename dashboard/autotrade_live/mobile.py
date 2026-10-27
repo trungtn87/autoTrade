@@ -28,8 +28,8 @@ from .web_scheduler import archive_enabled, archive_scheduler_loop
 
 @asynccontextmanager
 async def dashboard_lifespan(_app):
-    # Disabled unless explicitly enabled on the dashboard Render service.
-    # The wake-up script only needs to keep hitting the existing /health route.
+    # Always on for this read-only dashboard; no extra enable flag needed.
+    # Existing wake-up script only needs the /health route.
     worker = asyncio.create_task(archive_scheduler_loop()) if archive_enabled() else None
     try:
         yield
