@@ -22,17 +22,19 @@ def repair_legacy_fills(engine):
     return repaired
 
 
-def collect(days=2):
+def collect(days=2, hours=None):
     engine = get_engine()
     init_db(engine)
     mapped = refresh_signal_links(engine)
     repaired = repair_legacy_fills(engine)
-    bingx = sync(days=days)
+    bingx = sync(hours=hours) if hours is not None else sync(days=days)
     return {'combo_links': mapped, 'repaired_historical_fills': repaired, 'bingx': bingx}
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--days', type=int, default=2)
+    window = parser.add_mutually_exclusive_group()
+    window.add_argument('--days', type=int, default=2)
+    window.add_argument('--hours', type=int, help='hourly overlap window (1..24)')
     args = parser.parse_args()
-    print(json.dumps(collect(args.days), ensure_ascii=False))
+    print(json.dumps(collect(days=args.days, hours=args.hours), ensure_ascii=False))

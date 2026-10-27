@@ -105,21 +105,29 @@ def as_position(a):
                 timestamp_ms=int_ms(a, 'closeTime', 'updateTime', 'time'), raw=a)
 
 
-def sync(days=1, symbols=None, now_ms=None):
-    if days <= 0 or days > 90:
-        raise ValueError('days must be 1..90 (income availability is limited)')
+def sync(days=1, symbols=None, now_ms=None, hours=None):
+    if hours is None:
+        if days <= 0 or days > 90:
+            raise ValueError('days must be 1..90 (income availability is limited)')
+        lookback_ms = int(days * DAY_MS)
+        lookback_label = f'days={days}'
+    else:
+        if not isinstance(hours, int) or not 1 <= hours <= 24:
+            raise ValueError('hours must be 1..24 for hourly incremental sync')
+        lookback_ms = hours * 60 * 60 * 1000
+        lookback_label = f'hours={hours}'
     symbols = symbols or [x.strip().upper() for x in os.getenv('BINGX_SYMBOLS', 'BTC-USDT,ETH-USDT').split(',') if x.strip()]
     if not symbols or any('-' not in x for x in symbols):
         raise ValueError('BINGX_SYMBOLS must be comma-separated, e.g. BTC-USDT,ETH-USDT')
     end = now_ms or int(time.time() * 1000)
-    begin = end - int(days * DAY_MS)
+    begin = end - lookback_ms
     engine = get_engine()
     init_db(engine)
     Session = get_sessionmaker(engine)
     client = BingXReadClient()
-    totals = dict(orders=0, fills=0, income=0, forced=0, positions=0)
+    totals = dict(lookback=lookback_label, orders=0, fills=0, income=0, forced=0, positions=0)
     with Session() as db:
-        run = SyncRun(status='running', details=f'symbols={symbols}; days={days}')
+        run = SyncRun(status='running', details=f'symbols={symbols}; {lookback_label}')
         db.add(run)
         db.commit()
         run_id = run.id
@@ -182,6 +190,8 @@ def sync(days=1, symbols=None, now_ms=None):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser(description='Read-only BingX history collector')
-    p.add_argument('--days', type=int, default=1, help='backfill window; maximum 90')
+    window = p.add_mutually_exclusive_group()
+    window.add_argument('--days', type=int, default=1, help='backfill window; maximum 90')
+    window.add_argument('--hours', type=int, help='incremental window; 1..24 hours')
     args = p.parse_args()
-    print(json.dumps(sync(days=args.days), indent=2))
+    print(json.dumps(sync(days=args.days, hours=args.hours), indent=2))
