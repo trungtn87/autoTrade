@@ -20,6 +20,7 @@ from sqlalchemy import select
 
 from .analytics import build_trades, margin_roi, summarize
 from .exits import load_exit_specs, build_exit_events
+from .theory import load_states, build_theory
 from .db import (Fill, ForceOrder, Income, Order, PositionHistory,
                  SignalLink, SyncRun, get_engine, get_sessionmaker, init_db)
 from .ingest import app as ingest_app
@@ -183,6 +184,7 @@ def _db_records():
         )
     # Read only already-persisted trade IDs, never call BingX from dashboard.
     records['exit_specs'] = load_exit_specs(engine)
+    records['v2_states'] = load_states(engine)
     return records
 
 
@@ -314,7 +316,11 @@ def dashboard_payload(records, symbol=None, combo=None):
     fill_net = sum(float(f.realized_pnl) + float(f.fee)
                    for f in records['fills'] if f.timestamp_ms >= start_ms and
                    (not symbol or f.symbol == symbol))
+    theory = build_theory(records.get('v2_states'), records.get('exit_specs', []),
+                          records['orders'], exit_events, start_ms=start_ms,
+                          symbol=symbol or '', combo=combo or '')
     return {
+        'theory': theory,
         'summary': {
             'pnl_usdt': total,
             'pnl_pct': roi_pct,
