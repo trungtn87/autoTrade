@@ -231,6 +231,27 @@ def dashboard_payload(records, symbol=None, combo=None):
         'bingx_exit_realized_usdt': round(sum(x['bingx_realized_pnl'] for x in confirmed_exit_events), 6),
         'bingx_exit_fees_usdt': round(sum(x['exit_fees'] for x in confirmed_exit_events), 6),
     }
+    # Persisted execution warnings only: dashboard never reads BingX directly.
+    # Keep unresolved legacy SL replacements visible even when old cleanup
+    # state was marked "done" under an earlier implementation.
+    cleanup_risks = []
+    for spec in records.get('exit_specs', []):
+        if (spec['signal_time_ms'] < start_ms or
+                (symbol and spec['symbol'] != symbol) or
+                (combo and spec['combo'] != combo)):
+            continue
+        flags = list(spec.get('cleanup_warnings') or [])
+        if spec.get('legacy_sl_pending') and 'LEGACY_SL_REPLACEMENT_UNVERIFIED' not in flags:
+            flags.append('LEGACY_SL_REPLACEMENT_UNVERIFIED')
+        for flag in flags:
+            if flag == 'LEGACY_SL_REPLACEMENT_UNVERIFIED' or spec.get('cleanup_status') != 'done':
+                cleanup_risks.append({
+                    'combo': spec['combo'],
+                    'symbol': spec['symbol'],
+                    'reason': flag,
+                    'cleanup_status': spec.get('cleanup_status') or 'not_checked',
+                })
+    cleanup_risks = cleanup_risks[:30]
     fill_net = sum(float(f.realized_pnl) + float(f.fee)
                    for f in records['fills'] if f.timestamp_ms >= start_ms and
                    (not symbol or f.symbol == symbol))
@@ -252,6 +273,7 @@ def dashboard_payload(records, symbol=None, combo=None):
         'exit_events': exit_events[:100],
         'exit_summary': exit_summary,
         'combo_exits': combo_exits,
+        'cleanup_risks': cleanup_risks,
         'equity': chart,
         'filters': {'combos': all_combos, 'symbols': all_symbols},
         'start_at': datetime.fromtimestamp(start_ms/1000, timezone.utc).isoformat() if start_ms else None,
