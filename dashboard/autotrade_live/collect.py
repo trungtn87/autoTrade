@@ -24,8 +24,7 @@ def repair_legacy_fills(engine):
 
 # Advisory lock coordinates are reserved for the analytics collector only.
 # Both GitHub Actions and Render Cron use this same lock during cutover.
-LOCK_SQL = 'SELECT pg_try_advisory_lock(2707, 20261027)'
-UNLOCK_SQL = 'SELECT pg_advisory_unlock(2707, 20261027)'
+LOCK_SQL = 'SELECT pg_try_advisory_xact_lock(2707, 20261027)'
 
 
 def collect(days=2, hours=None):
@@ -39,14 +38,12 @@ def collect(days=2, hours=None):
             if not locked:
                 # Another collector is already reading BingX. No duplicate REST load.
                 return {'skipped': True, 'reason': 'archive_locked'}
-            try:
-                mapped = refresh_signal_links(engine)
-                repaired = repair_legacy_fills(engine)
-                bingx = sync(hours=hours) if hours is not None else sync(days=days)
-                return {'combo_links': mapped, 'repaired_historical_fills': repaired, 'bingx': bingx}
-            finally:
-                if engine.dialect.name == 'postgresql':
-                    conn.execute(text(UNLOCK_SQL))
+            # The transaction-scoped lock is held until this connection
+            # closes; safe with both Supabase session and transaction poolers.
+            mapped = refresh_signal_links(engine)
+            repaired = repair_legacy_fills(engine)
+            bingx = sync(hours=hours) if hours is not None else sync(days=days)
+            return {'combo_links': mapped, 'repaired_historical_fills': repaired, 'bingx': bingx}
     finally:
         engine.dispose()
 
