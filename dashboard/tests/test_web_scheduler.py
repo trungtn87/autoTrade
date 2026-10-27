@@ -4,10 +4,10 @@ from datetime import datetime, timezone
 from autotrade_live.web_scheduler import archive_enabled, ready_slot
 
 
-def test_scheduler_off_by_default_even_with_credentials():
-    assert not archive_enabled({"BINGX_READ_API_KEY": "read", "BINGX_READ_API_SECRET": "secret"})
-    assert archive_enabled({"DASHBOARD_ARCHIVE_ENABLED": "true"})
-    assert not archive_enabled({"DASHBOARD_ARCHIVE_ENABLED": "false"})
+def test_scheduler_always_enabled_without_extra_environment_toggle():
+    assert archive_enabled({})
+    assert archive_enabled({"DASHBOARD_ARCHIVE_ENABLED": "false"})
+    assert archive_enabled({"BINGX_READ_API_KEY": "read", "BINGX_READ_API_SECRET": "secret"})
 
 
 def test_runs_only_after_minute_07_in_utc_and_vietnam():
