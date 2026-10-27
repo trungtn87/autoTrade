@@ -1,0 +1,73 @@
+"""Background archive scheduler for the existing Render dashboard web service.
+
+Wake-up pings to /health keep Render Free online; if it sleeps, the archive
+catches up on the next wake-up. No route triggers synchronous BingX calls.
+Requires a SEPARATE read-only BingX key on the dashboard service.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+from datetime import datetime, timedelta, timezone
+
+from .render_archive import run_once
+
+LOGGER = logging.getLogger("autotrade.dashboard.archive")
+TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
+POLL_SECONDS = 30
+FAILURE_BACKOFF = timedelta(minutes=15)
+BUSY_BACKOFF = timedelta(minutes=5)
+
+
+def archive_enabled(environ=None) -> bool:
+    env = os.environ if environ is None else environ
+    return str(env.get("DASHBOARD_ARCHIVE_ENABLED", "")).strip().lower() in TRUE_VALUES
+
+
+def ready_slot(now: datetime) -> datetime | None:
+    """Current :07 UTC slot, or None before this hour's :07.
+
+    Vietnam is UTC+7, so every UTC :07 is also VN :07.
+    Skip the first 7 minutes after candle close by design.
+    """
+    if now.tzinfo is None:
+        raise ValueError("now must be timezone-aware")
+    now = now.astimezone(timezone.utc)
+    slot = now.replace(minute=7, second=0, microsecond=0)
+    return slot if now >= slot else None
+
+
+async def archive_scheduler_loop():
+    """Run GET-only archive in a thread so the dashboard stays responsive.
+
+    On Render Free a sleeping web instance cannot execute Python code.
+    The next wake-up restarts this loop and processes the missed window.
+    A failed sync is retried at most once per 15 minutes, never tight-looped.
+    """
+    last_completed_slot = None
+    next_attempt_at = datetime.min.replace(tzinfo=timezone.utc)
+    LOGGER.info("Read-only BingX archive scheduler enabled")
+    while True:
+        now = datetime.now(timezone.utc)
+        slot = ready_slot(now)
+        if slot is not None and slot != last_completed_slot and now >= next_attempt_at:
+            try:
+                result = await asyncio.to_thread(run_once, now)
+                if result.get("skipped") and result.get("reason") == "archive_locked":
+                    next_attempt_at = datetime.now(timezone.utc) + BUSY_BACKOFF
+                    LOGGER.info("Archive already running; next check in 5 minutes")
+                else:
+                    # A successful run or an already-fresh Supabase sync.
+                    last_completed_slot = slot
+                    next_attempt_at = slot + timedelta(hours=1)
+                    LOGGER.info("Archive check completed for UTC slot %s", slot.isoformat())
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                # Never include BingX API responses, credentials or account
+                # details in web-service logs.
+                next_attempt_at = datetime.now(timezone.utc) + FAILURE_BACKOFF
+                LOGGER.warning("Archive sync failed: %s; retry in 15m",
+                               type(exc).__name__)
+        await asyncio.sleep(POLL_SECONDS)
