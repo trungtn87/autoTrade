@@ -180,7 +180,8 @@ def _start_ms():
 def dashboard_payload(records, symbol=None, combo=None):
     start_ms = _start_ms()
     completed, pending, unresolved = build_trades(records['fills'], records['orders'], records['links'], records['forces'])
-    all_combos = sorted({x.combo for x in records['links']})
+    all_combos = sorted({x.combo for x in records['links']} |
+                        {x['combo'] for x in records.get('exit_specs', [])})
     all_symbols = sorted({getattr(x,'symbol','') for x in records['orders'] + records['fills'] if getattr(x,'symbol','')})
     # Count only whole positions whose first ENTRY is at/after the baseline.
     # An old position closed today never becomes a new-period profit.
@@ -218,10 +219,47 @@ def dashboard_payload(records, symbol=None, combo=None):
             item[row['type']] += 1
         item['realized_pnl'] += row['bingx_realized_pnl']
         item['exit_fees'] += row['exit_fees']
+    combo_results = defaultdict(lambda: {'wins': 0, 'losses': 0, 'net': 0.0})
+    running_exit_net = 0.0
+    exit_curve = []
+    wins = losses = breakeven = 0
+    gross_winners = gross_losers = 0.0
+    for event in sorted(confirmed_exit_events, key=lambda x: (x['time_ms'], x['order_id'])):
+        # This is ONLY realizedPnL from a BingX exit and its associated
+        # exit-order fee. Entry fees and funding are not attributed here.
+        value = event['bingx_realized_pnl'] + event['exit_fees']
+        if value > 1e-9:
+            wins += 1
+            gross_winners += value
+        elif value < -1e-9:
+            losses += 1
+            gross_losers += abs(value)
+        else:
+            breakeven += 1
+        row = combo_results[event['combo']]
+        row['net'] += value
+        row['wins'] += int(value > 1e-9)
+        row['losses'] += int(value < -1e-9)
+        running_exit_net += value
+        exit_curve.append({'t': event['time_ms'], 'v': round(running_exit_net, 6)})
+    exit_performance = {
+        'count': len(confirmed_exit_events),
+        'wins': wins,
+        'losses': losses,
+        'breakeven': breakeven,
+        'win_rate': round(100 * wins / len(confirmed_exit_events), 2) if confirmed_exit_events else None,
+        'pnl_usdt': round(running_exit_net, 6),
+        # Null instead of infinite when there are no confirmed losing exits.
+        'profit_factor': round(gross_winners / gross_losers, 2) if gross_losers > 1e-9 else None,
+        'curve': exit_curve,
+    }
     combo_exits = []
-    for item in sorted(confirmed_by_combo.values(),key=lambda x:x['combo']):
+    for item in sorted(confirmed_by_combo.values(), key=lambda x: (
+            -combo_results[x['combo']]['net'], x['combo'])):
         item['realized_pnl'] = round(item['realized_pnl'], 6)
         item['exit_fees'] = round(item['exit_fees'], 6)
+        item['net_after_exit_fee'] = round(combo_results[item['combo']]['net'], 6)
+        item['win_rate'] = round(100 * combo_results[item['combo']]['wins'] / item['count'], 2)
         combo_exits.append(item)
     exit_summary = {
         'matched_by_id': len(confirmed_exit_events),
@@ -274,6 +312,7 @@ def dashboard_payload(records, symbol=None, combo=None):
         'exit_events': exit_events[:100],
         'exit_summary': exit_summary,
         'combo_exits': combo_exits,
+        'exit_performance': exit_performance,
         'cleanup_risks': cleanup_risks,
         'equity': chart,
         'filters': {'combos': all_combos, 'symbols': all_symbols},
