@@ -34,8 +34,12 @@ execution is still exchange-native. Since BingX may leave conditional exits
 open after a full trade closure, an **independent 60-second cleaner** checks
 *only* strategies with a durable entry `positionId`, their exact stored SL,
 TP, trailing IDs and actual exchange executedQty. It reads one openOrders and
-one positions snapshot per active symbol on each cycle; it queries individual
-missing order IDs only as needed (using the same shared BingX rate guard).
+one positions snapshot per active symbol each cycle. If stored exit IDs are
+missing, it obtains one bounded 6-day `allOrders` history per symbol, and
+matches the exact string/integer IDs. It never trusts an unrelated order
+returned from `GET /trade/order`, and it never sends DELETE for an order not
+visible in the current openOrders snapshot. All requests share the existing
+BingX rate guard.
 
 An orphan is deleted ONLY after (a) this combo's own filled exit quantities
 sum exactly to its actual entry fill, or (b) the exact positionId is flat in
