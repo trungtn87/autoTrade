@@ -95,6 +95,13 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
             a = _pct(entry,tp['exit_price'],intent.get('side'))
             b = _pct(entry,sl['exit_price'],intent.get('side'))
             if a is not None and b is not None: roi = (a+b)/2
+        elif trail and sl and sl['time_ms'] >= trail['time_ms'] and not tp:
+            # The trailing exit closed the first theoretical half; the
+            # remaining half later exited at SL. Treat as one complete
+            # signal, not two independent trades.
+            a = _pct(entry,trail['exit_price'],intent.get('side'))
+            b = _pct(entry,sl['exit_price'],intent.get('side'))
+            if a is not None and b is not None: roi = (a+b)/2
         if roi is None:
             s['unresolved'] += 1
             continue
