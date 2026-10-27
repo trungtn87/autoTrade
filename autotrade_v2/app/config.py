@@ -86,6 +86,7 @@ def enable_runtime_trailing(settings: Settings) -> Settings:
         settings,
         tp_trailing_split_enabled=_bool("TP_TRAILING_SPLIT_ENABLED", True),
         position_lifecycle_enabled=False,
+        exit_cleanup_enabled=_bool("EXIT_CLEANUP_ENABLED",settings.exit_cleanup_enabled),
         tp_trailing_activation_pct=float(
             os.getenv("TP_TRAILING_ACTIVATION_PCT",str(settings.tp_trailing_activation_pct))
         ),
