@@ -126,7 +126,7 @@ def _order_view(row):
     }
 
 
-def inspect_one(client, state, open_by_id, positions, *, now_ms=None):
+def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical_by_id=None):
     """Inspect one trade without mutation. Return (new monitor state, cancel IDs, alerts)."""
     old = state.get("exit_cleanup") or {}
     if old.get("status") == "done":
@@ -161,20 +161,25 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None):
             if previous and previous["status"] in TERMINAL:
                 view = previous
             else:
-                payload = client.get_order_detail(state["intent"]["symbol"], order_id=order_id)
-                row = client.extract_order(payload)
-                if oid(row) != order_id:
-                    data = payload.get("data") if isinstance(payload,dict) else None
-                    LOG.warning(
-                        "EXIT_ORDER_LOOKUP_MISMATCH requested=%s extracted=%s "
-                        "raw_orderID=%s raw_orderId=%s data_type=%s data_keys=%s "
-                        "order_keys=%s",
-                        order_id,oid(row),row.get("orderID"),row.get("orderId"),
-                        type(data).__name__,
-                        list(data.keys())[:12] if isinstance(data,dict) else [],
-                        list(row.keys())[:20],
+                # The BingX single-order GET was observed returning an
+                # unrelated orderId with HTTP 200. Never use it in live
+                # cleanup. A symbol-wide historical snapshot provides
+                # cross-checkable exact IDs; absence means no mutation.
+                if historical_by_id is not None:
+                    row = historical_by_id.get(order_id)
+                    if row is None:
+                        raise CleanupUncertain(
+                            "owned order absent from open and historical snapshots"
+                        )
+                else:
+                    # Offline legacy tests only: live service always passes
+                    # a historical_by_id snapshot.
+                    payload = client.get_order_detail(
+                        state["intent"]["symbol"],order_id=order_id
                     )
-                    raise CleanupUncertain("exchange returned wrong orderId")
+                    row = client.extract_order(payload)
+                if oid(row) != order_id:
+                    raise CleanupUncertain("historical orderId mismatch")
                 validate_order(state, kind, row)
                 view = _order_view(row)
         else:
@@ -236,9 +241,12 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None):
     return monitor, safe, alerts
 
 
-def clean_one(client, state, open_by_id, positions, persist, alert, *, now_ms=None):
+def clean_one(client, state, open_by_id, positions, persist, alert, *, now_ms=None, historical_by_id=None):
     """Write-ahead cleanup; cancel only IDs previously verified as belonging to this combo."""
-    monitor, candidates, warnings = inspect_one(client, state, open_by_id, positions, now_ms=now_ms)
+    monitor, candidates, warnings = inspect_one(
+        client,state,open_by_id,positions,
+        now_ms=now_ms,historical_by_id=historical_by_id,
+    )
     for warning in warnings:
         alert("L3.EXEC.EXIT_CLEANUP_RISK", "CRITICAL", warning)
     if state.get("exit_cleanup") != monitor:
@@ -247,16 +255,10 @@ def clean_one(client, state, open_by_id, positions, persist, alert, *, now_ms=No
     completed = []
     now_ms = int(now_ms if now_ms is not None else time.time()*1000)
     for order_id in candidates:
-        # Never DELETE based on a stale cache. If the openOrders endpoint
-        # omits conditional stops, reconfirm via an exact-ID GET before DELETE.
+        # Never DELETE an order unseen in BingX's *current openOrders*
+        # snapshot. Historical NEW status alone is insufficient to cancel.
         if order_id not in open_by_id:
-            payload = client.get_order_detail(state["intent"]["symbol"],order_id=order_id)
-            fresh = client.extract_order(payload)
-            if oid(fresh) != order_id:
-                raise CleanupUncertain("cannot confirm orphan by exact ID")
-            validate_order(state,own_orders(state)[order_id],fresh)
-            if str(fresh.get("status") or "").upper() not in ACTIVE:
-                continue
+            continue
         monitor["cancel_attempts"][order_id] = int(monitor["cancel_attempts"].get(order_id,0))+1
         monitor["last_cancel_at_ms"][order_id] = now_ms
         state["exit_cleanup"] = monitor
