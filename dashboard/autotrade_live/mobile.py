@@ -1,5 +1,6 @@
 """HTTPS/PWA read-only dashboard and optional Combo receiver, separate from trading bot."""
 from __future__ import annotations
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -7,6 +8,7 @@ import os
 import secrets
 import time
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlencode
@@ -21,9 +23,25 @@ from .exits import load_exit_specs, build_exit_events
 from .db import (Fill, ForceOrder, Income, Order, PositionHistory,
                  SignalLink, SyncRun, get_engine, get_sessionmaker, init_db)
 from .ingest import app as ingest_app
+from .web_scheduler import archive_enabled, archive_scheduler_loop
+
+
+@asynccontextmanager
+async def dashboard_lifespan(_app):
+    # Disabled unless explicitly enabled on the dashboard Render service.
+    # The wake-up script only needs to keep hitting the existing /health route.
+    worker = asyncio.create_task(archive_scheduler_loop()) if archive_enabled() else None
+    try:
+        yield
+    finally:
+        if worker is not None:
+            worker.cancel()
+            await asyncio.gather(worker, return_exceptions=True)
+
 
 STATIC = Path(__file__).resolve().parent / 'static'
-app = FastAPI(title='Autotrade Live Dashboard PWA', docs_url=None, redoc_url=None)
+app = FastAPI(title='Autotrade Live Dashboard PWA', docs_url=None, redoc_url=None,
+              lifespan=dashboard_lifespan)
 app.mount('/static', StaticFiles(directory=str(STATIC)), name='static')
 app.mount('/collector', ingest_app)
 ATTEMPTS: dict[str, list[float]] = defaultdict(list)
