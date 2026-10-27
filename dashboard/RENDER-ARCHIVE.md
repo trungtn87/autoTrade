@@ -7,7 +7,7 @@ A separate paid Render Cron Job is **not required**.
 ## What runs where
 
 - GitHub: source code + optional emergency manual backfill only, once cutover is verified.
-- Render **dashboard**: FastAPI lifespan starts the optional
+- Render **dashboard**: FastAPI lifespan always starts the read-only
   `autotrade_live.web_scheduler.archive_scheduler_loop()`.
 - Render **trading bot**: **unchanged** — no additional GET/POST BingX traffic.
 - BingX: GET-only read-history client, storing orders, fills, fees and Combo mappings.
@@ -17,11 +17,10 @@ The backend scheduler never blocks `GET /health` or the mobile UI:
 its BingX collector runs on a separate worker thread.
 The existing `/health` endpoint is still valid and continues returning HTTP 200.
 
-## Enable on the EXISTING dashboard Render web service
+## Existing environment variables on the dashboard Render service
 
 Render Dashboard > `autotrade-live-dashboard` > Environment:
 ```
-DASHBOARD_ARCHIVE_ENABLED=true
 BINGX_READ_API_KEY=(read-only key, set in Render UI)
 BINGX_READ_API_SECRET=(read-only secret, set in Render UI)
 BINGX_REQUEST_DELAY=0.6
@@ -73,7 +72,8 @@ BingX values in the script.
 ## Verify before disabling GitHub schedule
 
 1. Wake the **dashboard** `/health` endpoint and confirm the Render dashboard
-   service deployed `main` with `DASHBOARD_ARCHIVE_ENABLED=true`.
+   service deployed `main` with `archive_scheduler_enabled: true`.
+   No `DASHBOARD_ARCHIVE_ENABLED` environment variable is required.
 2. Check a new completed Supabase row with this read-only query:
 ```sql
 SELECT started_at AT TIME ZONE 'Asia/Ho_Chi_Minh' AS started_vn,
