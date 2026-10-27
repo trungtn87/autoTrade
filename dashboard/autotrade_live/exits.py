@@ -55,6 +55,10 @@ def extract_exit_spec(payload, event_id=""):
             oid = _id(value.get("order_id"))
             if oid:
                 ids[kind] = oid
+        pending_sl = (data.get("lifecycle") or {}).get("pending_sl_replace") or {}
+        client_id = str(pending_sl.get("client_order_id") or "").strip()
+        if not re.fullmatch(r"atv2sl-[a-zA-Z0-9-]{12,80}", client_id):
+            client_id = ""
         return {
             "event_id": str(event_id),
             "entry_order_id": entry_id,
@@ -72,6 +76,9 @@ def extract_exit_spec(payload, event_id=""):
             "cleanup_status": str((data.get("exit_cleanup") or {}).get("status") or ""),
             "cleanup_warnings": list((data.get("exit_cleanup") or {}).get("warnings") or []),
             "legacy_sl_pending": bool((data.get("lifecycle") or {}).get("pending_sl_replace")),
+            "legacy_sl_client_order_id": client_id,
+            "legacy_sl_qty": number(pending_sl.get("quantity")),
+            "legacy_sl_old_order_id": _id(pending_sl.get("old_order_id")),
         }
     except (ValueError, TypeError, OverflowError, KeyError, AttributeError):
         return None
@@ -166,6 +173,33 @@ def identify_exit(order_id,order,specs):
         if order and (not _compatible(order,spec) or (kind and kind!=k)):
             return None,"CONFLICT",kind
         return spec,("ORDER_ID" if exact else "TRIGGER_ORDER_ID"),k
+    # Legacy SL cancelReplace: BingX's final execution order can carry the
+    # bot's exact deterministic clientOrderId even when its parent triggerOrderId
+    # was never persisted in the old lifecycle state. This is a real order
+    # identity proof, NOT a price/time/position-side guess.
+    client_id = str(raw.get("clientOrderId") or raw.get("clientOrderID") or "").strip()
+    if kind == "SL" and client_id:
+        legacy = [spec for spec in specs
+                  if spec.get("legacy_sl_client_order_id")
+                  and spec["legacy_sl_client_order_id"] == client_id]
+        if len(legacy) > 1:
+            return None,"AMBIGUOUS",kind
+        if legacy:
+            spec=legacy[0]
+            position_id=str(raw.get("positionID") or raw.get("positionId") or "")
+            qty=number(getattr(order,"quantity",0))
+            expected=spec.get("legacy_sl_qty",0)
+            age=int(getattr(order,"created_ms",0) or 0)-spec["signal_time_ms"]
+            if not (
+                spec.get("legacy_sl_old_order_id")==spec["exit_ids"].get("SL")
+                and spec["position_id"] and position_id==spec["position_id"]
+                and 0<=age<=MAX_FALLBACK_DELAY_MS
+                and qty>0 and expected>0 and abs(qty-expected)<=1e-9
+                and _compatible(order,spec)
+                and _target_matches(order,spec,"SL")
+            ):
+                return None,"CONFLICT",kind
+            return spec,"LEGACY_SL_CLIENT_ID",kind
     # An explicit trigger ID that is not in our state must NOT be attributed
     # by coincidentally equal stop prices or shared exchange positions.
     if trigger_raw not in (None,"",0,"0"):
