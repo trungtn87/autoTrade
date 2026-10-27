@@ -1,71 +1,97 @@
-# Move BingX read-only archive from GitHub Actions to Render Cron
+# BingX archive on the existing Render Free dashboard (wake-up script)
 
-## What changes
+The **recommended free setup** uses the already-running dashboard web service and
+your existing Google Apps Script/monitor that wakes that **dashboard** URL.
+A separate paid Render Cron Job is **not required**.
 
-The collector already lives in `dashboard/autotrade_live/collect.py`. Render runs the
-same GET-only code with `python -m autotrade_live.render_archive`. The bot's live
-BingX order pipeline (`autotrade-v2-shadow`) is **not** touched. The existing
-dashboard web service can remain on Render Free and sleep normally; the separate
-Render Cron Job does not need the dashboard to be awake.
+## What runs where
 
-**A Render Cron Job is paid** (minimum USD 1/month per cron service, plus usage).
-Adding the Blueprint file to GitHub **does not create the paid service**.
-Provision it in your Render workspace only after approving billing.
+- GitHub: source code + optional emergency manual backfill only, once cutover is verified.
+- Render **dashboard**: FastAPI lifespan starts the optional
+  `autotrade_live.web_scheduler.archive_scheduler_loop()`.
+- Render **trading bot**: **unchanged** — no additional GET/POST BingX traffic.
+- BingX: GET-only read-history client, storing orders, fills, fees and Combo mappings.
+- Supabase: existing `autotrade_analytics` tables and `sync_runs`; no new schema.
 
-## Installation
+The backend scheduler never blocks `GET /health` or the mobile UI:
+its BingX collector runs on a separate worker thread.
+The existing `/health` endpoint is still valid and continues returning HTTP 200.
 
-1. In Render choose **New > Blueprint**, link repository
-   `trungtn87/autoTrade`, branch `main`. Set Blueprint path to
-   `dashboard/render-archive.yaml` (not the repository-root `render.yaml`,
-   which belongs to another service).
-2. Review the single service `autotrade-bingx-readonly-archive` before
-   creating it. This is a **Cron Job**, not a new trading web service.
-3. Set secrets **on this Cron service only**, never in GitHub, chat or source:
-   - `DATABASE_URL`: existing Supabase Postgres session-pooler URL (5432)
-   - `BINGX_READ_API_KEY`, `BINGX_READ_API_SECRET`: separate read-only BingX key
-     **without trading/withdrawal permission**
-   - `DB_SCHEMA=autotrade_analytics` is already set by Blueprint
-4. Use **Trigger Run** once. Check the Cron run succeeded and Supabase
-   `autotrade_analytics.sync_runs` has a new `status=success` row.
-   Check `bingx_fills` and dashboard exit counts against the exchange.
-5. Only **after** Render shows a successful sync, disable the `schedule:`
-   section of `.github/workflows/daily-bingx-analytics.yml` (keep
-   `workflow_dispatch:` if you want an emergency/manual backfill).
-   This avoids unnecessary parallel BingX API requests.
+## Enable on the EXISTING dashboard Render web service
 
-## Schedule and safety
+Render Dashboard > `autotrade-live-dashboard` > Environment:
+```
+DASHBOARD_ARCHIVE_ENABLED=true
+BINGX_READ_API_KEY=(read-only key, set in Render UI)
+BINGX_READ_API_SECRET=(read-only secret, set in Render UI)
+BINGX_REQUEST_DELAY=0.6
+BINGX_SYMBOLS=BTC-USDT,ETH-USDT
+DB_SCHEMA=autotrade_analytics
+DATABASE_URL=(existing Supabase Postgres pooler URL)
+```
 
-- Schedule: `7 * * * *` UTC, equivalent to **:07 every hour in Vietnam**.
-- Normally fetches a 3-hour overlap; if the last successful sync was delayed,
-  it extends the overlap up to 24 hours; for >24-hour downtime it does a
-  bounded 3-day catch-up.
-- Once a day, around **10:07 Vietnam time**, the same Cron Job fetches 3 days
-  of history to reconcile delayed settlements (previous GitHub schedule used
-  10:17). Only one paid Cron service is needed.
-- Completed sync metadata lives in Supabase, not on Render ephemeral disk.
-- Collector uses a Postgres advisory transaction lock to avoid overlap with
-  updated GitHub collector. Render also guarantees only one active run per
-  Cron service.
-- Collector has **no order placement/cancellation methods** and does not alter
-  the trading bot's TP/SL/trailing or cleanup loops.
-- If the archive has not run for over 3 days, use a controlled manual
-  backfill to restore older history. BingX's own retention limits still apply.
+**Do not copy a trading-enabled BingX key into the dashboard.** Create a
+separate key with only historical read permission and no trade/withdraw access.
+Never commit or paste these secrets into chat.
 
-## Verification SQL (read-only)
+The Render service must deploy the updated `main` branch and launch:
+```
+uvicorn autotrade_live.mobile:app --host 0.0.0.0 --port $PORT
+```
+from the `dashboard/` root directory. If the dashboard service follows another
+branch, update *that dashboard service only*, not the live trading bot.
 
+## Wake-up URL and cadence
+
+The existing Google Apps Script must ping the **dashboard** endpoint:
+```text
+https://<actual-dashboard-render-host>.onrender.com/health
+```
+The actual hostname comes from Render's dashboard web service settings.
+The trading-bot `autotrade-v2-shadow.onrender.com/health` is a *different* app.
+The wake-up script can ping every 5-10 minutes (or at least hourly after
+:07), which keeps Render awake or wakes it promptly. Do not include secret
+BingX values in the script.
+
+- Scheduled slot is **HH:07 UTC = HH:07 Vietnam time**. A process awake at
+  that moment starts an archive check.
+- If Render is asleep at :07, it cannot run. On next wake-up after :07,
+  the worker checks Supabase and **runs catch-up for missed records**.
+- Normal lookback is 3 hours. A delayed run extends to at most 24 hours;
+  a gap over 24 hours performs a bounded 3-day reconciliation.
+- At/after 10:07 Vietnam time, the first check of the day also runs a
+  3-day reconciliation for late fills and funding.
+- Failed run retries wait at least 15 minutes (no tight BingX polling).
+- Successful hourly checks are recognized via `sync_runs` and not repeated
+  in the same hour. PostgreSQL advisory locking prevents simultaneous
+  archive collectors from running concurrently.
+- If both Render and GitHub collectors run, they share the same advisory lock,
+  but sequential runs can still duplicate BingX GET work. After one verified
+  Render sync, **disable GitHub's schedule**, retaining its manual workflow
+  only if needed for emergency backfill.
+
+## Verify before disabling GitHub schedule
+
+1. Wake the **dashboard** `/health` endpoint and confirm the Render dashboard
+   service deployed `main` with `DASHBOARD_ARCHIVE_ENABLED=true`.
+2. Check a new completed Supabase row with this read-only query:
 ```sql
 SELECT started_at AT TIME ZONE 'Asia/Ho_Chi_Minh' AS started_vn,
        finished_at AT TIME ZONE 'Asia/Ho_Chi_Minh' AS finished_vn,
        status, details
 FROM autotrade_analytics.sync_runs
-ORDER BY id DESC
-LIMIT 10;
+ORDER BY id DESC LIMIT 10;
 ```
+3. Compare the latest BingX exit and dashboard result.
+4. Then remove the GitHub schedule from
+   `.github/workflows/daily-bingx-analytics.yml` — manual dispatch can remain.
 
-## Why not a background timer inside Render Free?
+## Important limits
 
-Render Free web instances sleep after 15 minutes without inbound traffic.
-A Python timer / APScheduler running inside a sleeping instance **does not run**,
-even if the source code is correct. An external Google Apps Script ping can
-wake the website for viewing, but should not be a prerequisite for collecting
-trade history. A dedicated Render Cron Job is the independent solution.
+Render Free sleeps after inactivity. A background Python timer is not a
+guaranteed independent schedule when the web service is asleep. The wake-up
+script is therefore **a required external trigger** for this free solution.
+It is independent of GitHub Actions, but **not** independent of the wake-up
+script. If you later need a hard 24/7 schedule with no external wake script,
+a separate Render Cron Job is the paid alternative available in
+`dashboard/render-archive.yaml` (not active by virtue of that file).
