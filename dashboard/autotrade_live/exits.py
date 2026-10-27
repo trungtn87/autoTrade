@@ -142,11 +142,31 @@ def identify_exit(order_id,order,specs):
     exact = [(spec, k) for spec in specs for k,oid in spec["exit_ids"].items() if oid==str(order_id)]
     if len(exact)>1:
         return None,"AMBIGUOUS",None
-    if exact:
-        spec,k=exact[0]
+
+    # BingX uses a NEW orderId for a triggered conditional exit. The filled
+    # order carries the original conditional orderId in triggerOrderId.
+    # This is an exact linkage, unlike stopPrice/creation-time heuristics.
+    raw = getattr(order,"raw",{}) if order else {}
+    raw = raw if isinstance(raw,dict) else {}
+    trigger_raw = raw.get("triggerOrderId") or raw.get("triggerOrderID")
+    trigger_id = _id(trigger_raw)
+    linked = [(spec,k) for spec in specs for k,oid in spec["exit_ids"].items()
+              if trigger_id and oid==trigger_id]
+    if len(linked)>1:
+        return None,"AMBIGUOUS",kind
+    if exact and linked and (exact[0][0]["entry_order_id"],exact[0][1]) != (
+        linked[0][0]["entry_order_id"],linked[0][1]):
+        return None,"CONFLICT",kind
+    matches = exact or linked
+    if matches:
+        spec,k = matches[0]
         if order and (not _compatible(order,spec) or (kind and kind!=k)):
-            return None,"CONFLICT",None
-        return spec,"ORDER_ID",k
+            return None,"CONFLICT",kind
+        return spec,("ORDER_ID" if exact else "TRIGGER_ORDER_ID"),k
+    # An explicit trigger ID that is not in our state must NOT be attributed
+    # by coincidentally equal stop prices or shared exchange positions.
+    if trigger_raw not in (None,"",0,"0"):
+        return None,"UNMAPPED",kind
     if not order or kind is None:
         return None,"UNMAPPED",kind
     order_time = int(getattr(order,"created_ms",0) or 0)
