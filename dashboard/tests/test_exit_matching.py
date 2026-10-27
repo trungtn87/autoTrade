@@ -157,3 +157,17 @@ def test_trigger_mapping_counts_as_confirmed_bingx_exit_and_combo():
     assert result["combo_exits"][0]["combo"]=="C14"
     assert result["combo_exits"][0]["TRAILING"]==1
     assert result["combo_exits"][0]["realized_pnl"]==.15
+
+
+def test_dashboard_shows_unverified_legacy_stop_even_if_cleanup_marked_done():
+    spec=extract_exit_spec({
+        **state(104,"111","222","333","444"),
+        "exit_cleanup":{"status":"done","warnings":["LEGACY_SL_REPLACEMENT_UNVERIFIED"]},
+        "lifecycle":{"pending_sl_replace":{"old_order_id":"222","client_order_id":"legacy"}},
+    })
+    result=dashboard_payload({"orders":[],"fills":[],"links":[],"forces":[],
+                              "incomes":[],"runs":[],"positions":[],"exit_specs":[spec]})
+    assert result["cleanup_risks"] == [
+        {"combo":"C14","symbol":"BTC-USDT",
+         "reason":"LEGACY_SL_REPLACEMENT_UNVERIFIED","cleanup_status":"done"}
+    ]

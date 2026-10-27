@@ -47,12 +47,30 @@ function drawExits(items,summary){
   set('exitstatus','Đối chiếu: '+confirmed+' lệnh khớp ID (gồm '+Number(summary.matched_by_trigger||0)+' trigger ID) · '+candidates+
     ' ứng viên theo giờ/giá · '+missing+' chưa xác định. PnL chỉ là realizedPNL của các lệnh thoát BingX, không phải ROI riêng của Combo.');
 }
+function drawCleanupRisks(items){
+  const el=$('cleanuprisks');if(!el)return;
+  const labels={
+    LEGACY_SL_REPLACEMENT_UNVERIFIED:'SL thay thế cũ chưa xác minh Order ID; kiểm tra trên BingX',
+    EXIT_HISTORY_INCOMPLETE_OPEN_POSITION:'Thiếu lịch sử lệnh điều kiện khi vị thế vẫn mở',
+    NO_TRACKED_ACTIVE_SL:'Chưa xác nhận được SL đang hoạt động',
+    SL_OVER_REMAINING:'SL lớn hơn khối lượng còn lại',
+    CANCEL_RETRY_EXHAUSTED:'Đã hết số lần thử hủy giới hạn',
+  };
+  if(!items||!items.length){el.textContent='Không có cảnh báo cleanup chưa giải quyết trong dữ liệu đã lưu.';return;}
+  el.replaceChildren();
+  items.forEach(item=>{
+    const p=document.createElement('p');
+    p.textContent=item.combo+' / '+item.symbol+': '+(labels[item.reason]||item.reason)+
+      ' (trạng thái: '+item.cleanup_status+')';
+    el.append(p);
+  });
+}
 function drawTrades(items){const root=$('trades');root.replaceChildren();if(!items.length){root.innerHTML='<div class="empty">Chưa có vị thế đã đóng</div>';return;}
 items.slice(0,30).forEach(x=>{let card=document.createElement('div');card.className='trade';let coin=document.createElement('div');coin.className='coin';coin.textContent=(x.symbol||'').split('-')[0];card.append(coin);let body=document.createElement('div');body.className='trade-body';let title=document.createElement('div');title.className='trade-title';title.textContent=(x.combo||'UNMAPPED')+' · '+x.side+(x.liquidated?' · ⚠ Thanh lý':'');let sub=document.createElement('div');sub.className='trade-sub';sub.textContent=(x.exit_ms?new Date(x.exit_ms).toLocaleString('vi-VN'):'')+' · '+(x.exit_types||'KHÔNG RÕ');body.append(title,sub);card.append(body);let pnl=document.createElement('div');pnl.className='trade-pnl '+shade(x.pnl);pnl.textContent=signed(x.pnl);let pct=document.createElement('div');pct.className='trade-pct';pct.textContent=signedPct(x.pnl_pct);pnl.append(pct);card.append(pnl);root.append(card)})}
 async function refresh(){set('updated','Đang tải...');try{let params=new URLSearchParams();if($('symbol').value)params.set('symbol',$('symbol').value);if($('combo').value)params.set('combo',$('combo').value);
 const r=await fetch('/api/dashboard?'+params.toString(),{credentials:'same-origin',cache:'no-store'});if(r.status===401){location.href='/login';return}if(!r.ok)throw Error('API HTTP '+r.status);const d=await r.json();
 fillSelect('symbol',d.filters.symbols);fillSelect('combo',d.filters.combos);
-set('pnl',signed(d.summary.pnl_usdt),shade(d.summary.pnl_usdt));set('pnlpct',signedPct(d.summary.pnl_pct),shade(d.summary.pnl_pct));set('margin',d.summary.margin_used_usdt==null?'—':fmt(d.summary.margin_used_usdt));set('win',fmt(d.summary.win_rate)+'%');set('closed',String(d.summary.closed));set('unmapped',String(d.summary.unmapped));set('liqs',String(d.summary.liquidations));set('open',String(d.summary.open_positions));buildChart(d.equity);drawCombos(d.combos);drawTrades(d.trades);drawExits(d.exit_events,d.exit_summary);drawComboExits(d.combo_exits);
+set('pnl',signed(d.summary.pnl_usdt),shade(d.summary.pnl_usdt));set('pnlpct',signedPct(d.summary.pnl_pct),shade(d.summary.pnl_pct));set('margin',d.summary.margin_used_usdt==null?'—':fmt(d.summary.margin_used_usdt));set('win',fmt(d.summary.win_rate)+'%');set('closed',String(d.summary.closed));set('unmapped',String(d.summary.unmapped));set('liqs',String(d.summary.liquidations));set('open',String(d.summary.open_positions));buildChart(d.equity);drawCombos(d.combos);drawTrades(d.trades);drawExits(d.exit_events,d.exit_summary);drawComboExits(d.combo_exits);drawCleanupRisks(d.cleanup_risks);
 if($('pnlpct'))set('pnlpct',d.summary.pnl_pct==null?'—':fmt(d.summary.pnl_pct)+'%');
 if($('margin'))set('margin',d.summary.margin_used_usdt==null?'—':fmt(d.summary.margin_used_usdt));
 if($('baseline'))set('baseline',d.start_at?'Mốc thống kê: '+new Date(d.start_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'Đang hiển thị toàn bộ lịch sử đã thu thập');
