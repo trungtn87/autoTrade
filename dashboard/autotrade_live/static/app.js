@@ -58,7 +58,7 @@ function advanced(d){
 }
 let busy=false;
 async function refresh(){
- if(busy)return;busy=true;$('reload').disabled=true;
+ if(busy)return;busy=true;
  try{
    const p=new URLSearchParams();
    if($('symbol').value)p.set('symbol',$('symbol').value);
@@ -87,11 +87,8 @@ async function refresh(){
    set('updated',new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}));
    set('baseline','ROI biến động giá, không tính phí/funding/đòn bẩy · Từ '+(d.theory_since||'đầu kỳ dữ liệu'));
  }catch(e){$('sync-alert').hidden=false;$('sync-alert').textContent='Không đọc được báo cáo: dữ liệu đang tạm thời không khả dụng.';set('updated','Lỗi');}
- finally{busy=false;$('reload').disabled=false}
+ finally{busy=false}
 }
 for(const id of ['symbol','period','combo'])$(id).addEventListener('change',refresh);
-$('reload').addEventListener('click',refresh);
 refresh();
-// On the phone, poll only at HH:07; opening the page and manual reload are immediate.
-setInterval(()=>{const d=new Date();if(d.getMinutes()===7 && d.getSeconds()<30)refresh()},30000);
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/static/sw.js').catch(()=>{});
