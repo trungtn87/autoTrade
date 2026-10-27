@@ -296,12 +296,12 @@ def test_history_missing_exact_id_fails_closed_even_when_other_ids_exist():
     first=rows()
     client=FakeClient(first)
     other=order("999","TRAILING_STOP_MARKET",status="FILLED")
-    try:
-        execute_check(state,client,{"201":first[0]},
-                      position("0.0012"),history={"202":first[1],"999":other})
-        assert False, "must not infer state from a different BingX orderId"
-    except CleanupUncertain as exc:
-        assert "owned exits missing history while position remains open" in str(exc)
+    result,_,alerts=execute_check(
+        state,client,{"201":first[0]},position("0.0012"),
+        history={"202":first[1],"999":other})
+    assert result["status"]=="watching"
+    assert result["cancel_requested"]==[]
+    assert any("EXIT_HISTORY_INCOMPLETE_OPEN_POSITION" in repr(x) for x in alerts)
     assert client.canceled==[]
     assert client.lookups==[]
 
@@ -417,13 +417,75 @@ def test_missing_history_never_cancels_when_shared_position_still_open():
     state=trade()
     own=rows()
     client=FakeClient(own)
+    all_alerts=[]
     for i in range(2):
-        try:
-            execute_check(state,client,{"201":own[0]},position("0.0013"),
-                          now=1000000+i*60000,history={})
-            assert False,"no closure proof for non-flat shared position"
-        except CleanupUncertain as exc:
-            assert "position remains open" in str(exc)
+        result,_,alerts=execute_check(
+            state,client,{"201":own[0]},position("0.0013"),
+            now=1000000+i*60000,history={})
+        assert result["status"]=="watching"
+        assert result["cancel_requested"]==[]
+        all_alerts.extend(alerts)
+    assert sum("EXIT_HISTORY_INCOMPLETE_OPEN_POSITION" in repr(x) for x in all_alerts)==1
+    assert client.canceled==[]
+
+
+
+def test_trigger_execution_parent_id_proves_combo_flat_and_cancels_only_owned_sl():
+    state=trade(qty="0.0012")
+    own=rows()
+    peer=rows(pids=("301","302","303"))
+    client=FakeClient(own+peer)
+    sl=own[0]
+    child_tp=order("902","TAKE_PROFIT_MARKET",filled="0.0006",
+                   status="FILLED",qty="0.0006")
+    child_tp["triggerOrderId"]="202"
+    child_trail=order("903","TRAILING_STOP_MARKET",filled="0.0006",
+                      status="FILLED",qty="0.0006")
+    child_trail["triggerOrderId"]=203
+    hist={x["orderID"]:x for x in [sl,child_tp,child_trail]}
+    open_map={x["orderID"]:x for x in [sl]+peer}
+    result,_,alerts=execute_check(
+        state,client,open_map,position("0.0012"),history=hist)
+    assert result["cancel_requested"]==["201"]
+    assert state["exit_cleanup"]["orders"]["202"]["status"]=="FILLED"
+    assert state["exit_cleanup"]["orders"]["203"]["status"]=="FILLED"
+    assert client.canceled==["201"]
+    assert not alerts
+    assert set(client.canceled).isdisjoint({"301","302","303"})
+
+
+def test_trigger_execution_wrong_position_id_never_authorizes_cancel():
+    state=trade()
+    own=rows()
+    client=FakeClient(own)
+    child=order("902","TAKE_PROFIT_MARKET",filled="0.0006",
+                status="FILLED",qty="0.0006",position_id="not-ours")
+    child["triggerOrderId"]="202"
+    try:
+        execute_check(state,client,{"201":own[0]},position("0.0012"),
+                      history={"201":own[0],"902":child})
+        assert False, "must reject wrong-position trigger"
+    except CleanupUncertain as exc:
+        assert "positionId mismatch" in str(exc)
+    assert client.canceled==[]
+
+
+def test_trigger_execution_ambiguous_child_orders_fails_closed():
+    state=trade()
+    own=rows()
+    client=FakeClient(own)
+    children=[]
+    for value in ("902","903"):
+        child=order(value,"TAKE_PROFIT_MARKET",filled="0.0003",
+                    status="FILLED",qty="0.0003")
+        child["triggerOrderId"]="202"
+        children.append(child)
+    try:
+        execute_check(state,client,{"201":own[0]},position("0.0012"),
+                      history={x["orderID"]:x for x in [own[0]]+children})
+        assert False,"ambiguous trigger must block"
+    except CleanupUncertain as exc:
+        assert "multiple executions" in str(exc)
     assert client.canceled==[]
 
 
@@ -463,6 +525,9 @@ def main():
         test_fullorder_no_id_match_never_authorizes_delete,
         test_missing_history_flat_twice_can_cancel_exact_orphan_only,
         test_missing_history_never_cancels_when_shared_position_still_open,
+        test_trigger_execution_parent_id_proves_combo_flat_and_cancels_only_owned_sl,
+        test_trigger_execution_wrong_position_id_never_authorizes_cancel,
+        test_trigger_execution_ambiguous_child_orders_fails_closed,
     ]
     for test in tests:
         test()
