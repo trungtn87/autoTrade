@@ -136,3 +136,12 @@ footer strong{color:#adc3d3}
  .panel{padding:16px 14px}
 }
 @media(min-width:701px){.app{max-width:980px}.combo-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* V3b: one compact full-width row for each combo on phones and desktop. */
+.combo-list{display:grid;grid-template-columns:minmax(0,1fr)!important;gap:7px}
+.strategy-card{padding:11px 12px;border-radius:12px}
+.strategy-head{font-size:13px}
+.strategy-roi{font-size:18px}
+.strategy-stats{margin-top:8px;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.strategy-stats strong{font-size:12px;margin-top:3px}
+.strategy-foot{margin-top:7px;font-size:10px}
