@@ -182,7 +182,7 @@ class ExecutionService:
                     if missing:
                         now_ms=int(time.time()*1000)
                         history=self.executor.client.get_order_history(
-                            symbol,now_ms-6*86400_000,now_ms
+                            symbol,now_ms-6*86400_000,now_ms,required_ids=missing
                         )
                         for row in history:
                             order_id=oid(row)
