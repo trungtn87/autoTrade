@@ -1,12 +1,8 @@
 name: BingX dashboard archive - hourly and daily
 
+# Historical archive is now scheduled inside Render dashboard backend.
+# This GitHub workflow remains available for emergency MANUAL backfill only.
 on:
-  schedule:
-    # Every :07 UTC is also every :07 in Vietnam (UTC+7), e.g. 00:07, 01:07...
-    # Incremental 3-hour overlap; avoid hourly full-history BingX API requests.
-    - cron: '7 * * * *'
-    # Deep 3-day recheck at 10:17 Vietnam time (03:17 UTC).
-    - cron: '17 3 * * *'
   workflow_dispatch:
     inputs:
       days:
