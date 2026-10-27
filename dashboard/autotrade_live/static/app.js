@@ -28,23 +28,13 @@ function combos(rows){
 }
 const reasons={ENTRY_FAILED:'Entry thất bại',ENTRY_UNKNOWN:'Entry chưa xác định',PROTECTION_UNVERIFIED:'Thiếu ID TP/SL/Trailing'};
 function reliability(d){
- const root=$('incident-list');root.replaceChildren();
  if(!d.available){set('entryrate','—');set('botstatus','Không có dữ liệu');set('coverage',d.reason||'Chưa có dữ liệu V2');return}
  const s=d.summary||{};set('entryrate',s.entry_rate==null?'—':fmt(s.entry_rate,1)+'%');
  $('entrybar').style.width=(s.entry_rate||0)+'%';
  for(let key of ['signals','confirmed','failed','pending','unprotected'])set(key,s[key]??'—');
  set('coverage',d.coverage);
  const bad=n(s.failed)+n(s.pending)+n(s.unprotected);
- set('botstatus',bad?bad+' mục cần kiểm tra':'Không phát hiện lỗi đã ghi');
- for(const item of (d.incidents||[]).slice(0,12)){
-   root.append(element('div','incident',timeVN(item.time_ms)+' · '+item.symbol.replace('-USDT','')+' '+item.combo+' · '+(reasons[item.reason]||item.reason)))
- }
- if(!d.incidents?.length)root.append(element('div','empty','Không có cảnh báo trong dữ liệu đã ghi.'));
-}
-function showRisk(items){
- let root=$('riskPanel'),list=$('riskItems');list.replaceChildren();root.hidden=!(items||[]).length;
- if(root.hidden)return;set('riskCount',items.length+' cảnh báo cần kiểm tra');
- (items||[]).forEach(x=>list.append(element('div','risk-item',x.symbol+' · '+x.combo+' · '+x.reason)))
+ set('botstatus',bad?bad+' vấn đề đã ghi':'Không phát hiện lỗi đã ghi');
 }
 function advanced(d){
  const s=d.summary||{},x=d.exit_summary||{};
@@ -78,7 +68,7 @@ async function refresh(){
    set('pf',s.rr==null?'—':fmt(s.rr));
    set('count',s.closed??'—');set('roiavg',s.roi_avg==null?'—':sign(s.roi_avg));
    set('unknown',(s.unresolved||0)+' tín hiệu chưa đủ dữ liệu thoát');
-   combos(t.combos||[]);reliability(t);showRisk(d.cleanup_risks);advanced(d);
+   combos(t.combos||[]);reliability(t);advanced(d);
    const sync=d.last_sync?.time?Date.parse(d.last_sync.time):0;
    const stale=!sync||Date.now()-sync>2.5*3600000||d.last_sync?.status!=='success';
    set('sync',sync?'Đồng bộ BingX '+timeVN(sync):'Chưa xác định lần đồng bộ');
