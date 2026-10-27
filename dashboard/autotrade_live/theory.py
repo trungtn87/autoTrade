@@ -105,6 +105,8 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
         if roi > 1e-9: s['win'] += 1; s['wins_sum'] += roi
         elif roi < -1e-9: s['loss'] += 1; s['loss_sum'] += abs(roi)
         else: s['flat'] += 1
+    total_win_sum = sum(s['wins_sum'] for s in stat.values())
+    total_loss_sum = sum(s['loss_sum'] for s in stat.values())
     rows = []
     for s in stat.values():
         n = s['closed']; w=s['win']; l=s['loss']
@@ -121,6 +123,7 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
     totals['win_rate'] = round(100*totals['win']/totals['closed'],2) if totals['closed'] else None
     totals['entry_rate'] = round(100*totals['confirmed']/totals['signals'],2) if totals['signals'] else None
     totals['roi_avg'] = round(totals['roi_total']/totals['closed'],4) if totals['closed'] else None
-    totals['rr'] = None # Weighted RR cannot be derived from rounded combo statistics.
+    totals['rr'] = (round((total_win_sum/totals['win']) / (total_loss_sum/totals['loss']),2)
+                    if totals['win'] and totals['loss'] else None)
     return {'available':True,'coverage':'Các tín hiệu đã được V2 ghi vào processed_targets; chưa chứng minh tín hiệu bị mất trước khi ghi',
             'summary':totals,'combos':rows,'incidents':sorted(incidents,key=lambda e:e['time_ms'],reverse=True)[:40]}
