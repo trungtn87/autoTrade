@@ -1,83 +1,204 @@
+// Read-only execution report. Never infer an independent strategy PnL from
+// a shared BingX position. All headline results use confirmed exit order IDs.
 const $ = id => document.getElementById(id);
-const fmt = (x,d=2) => Number(x||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
-const signed = n => (n>0?'+':'')+fmt(n);
-const signedPct = n => n == null || !Number.isFinite(Number(n)) ? '—' : (Number(n)>0?'+':'')+fmt(n)+'%';
-const shade = n => n>0?'positive':n<0?'negative':'';
-function set(id,value,cls=''){const e=$(id);e.textContent=value;e.className=cls;}
-function fillSelect(id,items){const s=$(id),old=s.value;while(s.options.length>1)s.remove(1);items.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;s.append(o)});s.value=items.includes(old)?old:'';}
-function cell(row,val,cls=''){let el=document.createElement('td');el.textContent=val;el.className=cls;row.append(el);}
-function buildChart(points){const root=$('chart');root.replaceChildren();if(!points.length){root.innerHTML='<div class="empty">Chưa có lịch sử đóng lệnh gắn Combo</div>';return;}
- const values=[0,...points.map(x=>Number(x.v))],min=Math.min(...values),max=Math.max(...values),span=Math.max(1,max-min),n=points.length;
- const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 720 230');svg.setAttribute('preserveAspectRatio','none');
- for(let k=0;k<4;k++){let y=30+k*53;let line=document.createElementNS(svg.namespaceURI,'line');[['x1',45],['x2',706],['y1',y],['y2',y],['stroke','#2a4559'],['stroke-width',1]].forEach(([a,v])=>line.setAttribute(a,v));svg.append(line);}
- const path=document.createElementNS(svg.namespaceURI,'path');const xy=points.map((p,i)=>[45+(i/(Math.max(n-1,1)))*661,190-(p.v-min)/span*160]);path.setAttribute('d',xy.map(([x,y],i)=>(i?'L':'M')+x.toFixed(2)+','+y.toFixed(2)).join(' '));path.setAttribute('fill','none');path.setAttribute('stroke','#55ddba');path.setAttribute('stroke-width','3');path.setAttribute('vector-effect','non-scaling-stroke');svg.append(path);
- for(let i=0;i<2;i++){let tx=document.createElementNS(svg.namespaceURI,'text');tx.setAttribute('x','4');tx.setAttribute('y',i?189:30);tx.textContent=fmt(i?min:max);svg.append(tx)}root.append(svg);
+const num = x => Number(x || 0);
+const fmt = (x,d=2) => num(x).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const signed = n => (num(n)>0?'+':'')+fmt(n);
+const cls = n => num(n)>0?'positive':num(n)<0?'negative':'';
+const dateVN = ms => new Date(ms).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+const set = (id,value,color='') => {
+  const el=$(id);
+  if(!el)return;
+  el.textContent=value;
+  el.classList.remove('positive','negative');
+  if(color)el.classList.add(color);
+};
+function fillSelect(id,items){
+  const el=$(id),old=el.value;
+  while(el.options.length>1)el.remove(1);
+  (items||[]).forEach(v=>{
+    const o=document.createElement('option');o.value=v;o.textContent=v;
+    el.append(o);
+  });
+  el.value=items.includes(old)?old:'';
 }
-function drawCombos(items){const tbody=$('combos').querySelector('tbody');tbody.replaceChildren();if(!items.length){let r=document.createElement('tr');let c=document.createElement('td');c.colSpan=5;c.textContent='Chưa có dữ liệu Combo';r.append(c);tbody.append(r)}items.sort((a,b)=>b['PnL ròng USDT']-a['PnL ròng USDT']).forEach(x=>{let r=document.createElement('tr');cell(r,x.Combo);cell(r,String(x['Số lệnh']));cell(r,fmt(x['Win rate %'])+'%');cell(r,signed(x['PnL ròng USDT']),shade(x['PnL ròng USDT']));cell(r,signedPct(x['PnL %']),shade(x['PnL %']));tbody.append(r)})}
-function drawComboExits(items){
-  const table=$('comboexits');if(!table)return;
-  const tbody=table.querySelector('tbody');tbody.replaceChildren();
-  for(const item of (items||[])){
-    const tr=document.createElement('tr');
-    cell(tr,item.combo);cell(tr,String(item.TP));cell(tr,String(item.SL));
-    cell(tr,String(item.TRAILING));cell(tr,signed(item.realized_pnl),shade(item.realized_pnl));
-    cell(tr,signed(item.exit_fees),shade(item.exit_fees));tbody.append(tr);
+function node(tag,css,text){
+  const el=document.createElement(tag);
+  if(css)el.className=css;
+  if(text!==undefined)el.textContent=text;
+  return el;
+}
+function chart(points){
+  const target=$('chart');target.replaceChildren();
+  if(!points||!points.length){
+    target.append(node('div','empty','Chưa có lệnh thoát xác nhận để vẽ đường PnL.'));
+    return;
   }
-  if(!items||!items.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=6;td.textContent='Chưa có lệnh thoát xác nhận bằng ID';tr.append(td);tbody.append(tr)}
-}
-function drawExits(items,summary){
-  const body=$('exitfills').querySelector('tbody');body.replaceChildren();
-  const safe=Array.isArray(items)?items:[];
-  if(!safe.length){let tr=document.createElement('tr');let td=document.createElement('td');
-    td.colSpan=6;td.textContent='Chưa có lệnh TP/SL/trailing đã khớp trong lần đồng bộ BingX.';tr.append(td);body.append(tr);
-  }else{
-    const confidence={ORDER_ID:'ID gốc khớp',TRIGGER_ORDER_ID:'Trigger ID khớp',LEGACY_SL_CLIENT_ID:'ID thay SL cũ khớp',PRICE_TIME_CANDIDATE:'Ứng viên giờ/giá',
-      AMBIGUOUS:'Trùng điều kiện',CONFLICT:'Sai thông tin',UNMAPPED:'Chưa xác định'};
-    safe.slice(0,60).forEach(x=>{
-      const tr=document.createElement('tr');
-      cell(tr,x.time_ms?new Date(x.time_ms).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'—');
-      cell(tr,(x.combo||'Chưa xác định')+' / '+(x.symbol||''));
-      cell(tr,x.type||'—');cell(tr,fmt(x.exit_price,2));
-      cell(tr,signed(x.bingx_realized_pnl),shade(x.bingx_realized_pnl));
-      cell(tr,confidence[x.confidence]||'Chưa xác định');body.append(tr);
-    });
+  const svgNS='http://www.w3.org/2000/svg';
+  const svg=document.createElementNS(svgNS,'svg');
+  svg.setAttribute('viewBox','0 0 720 210');
+  svg.setAttribute('role','img');
+  svg.setAttribute('aria-label','PnL cộng dồn theo từng lệnh thoát đã khớp ID');
+  svg.setAttribute('preserveAspectRatio','none');
+  // Include a real initial zero point; avoid depicting a single result as a
+  // full trading trend and handle negative-only PnL.
+  const values=[0,...points.map(p=>num(p.v))];
+  const lo=Math.min(...values), hi=Math.max(...values);
+  const spread=Math.max(0.01,hi-lo);
+  const low=lo-spread*.12,high=hi+spread*.12;
+  const height=high-low;
+  const xx=i=>42+i/Math.max(1,values.length-1)*660;
+  const yy=v=>178-(v-low)/height*153;
+  for(let i=0;i<4;i++){
+    const v=low+i/3*(high-low);
+    const y=yy(v);
+    const line=document.createElementNS(svgNS,'line');
+    [['x1',42],['x2',704],['y1',y],['y2',y],['stroke','#2a4559'],['stroke-width',1]].forEach(p=>line.setAttribute(p[0],p[1]));
+    svg.append(line);
   }
-  const confirmed=Number(summary.matched_by_id||0),candidates=Number(summary.price_time_candidates||0);
-  const missing=Number(summary.unmapped_or_ambiguous||0);
-  set('exitstatus','Đối chiếu: '+confirmed+' lệnh khớp ID ('+Number(summary.matched_by_trigger||0)+' trigger ID, '+Number(summary.matched_by_legacy_client||0)+' ID thay SL cũ) · '+candidates+
-    ' ứng viên theo giờ/giá · '+missing+' chưa xác định. PnL chỉ là realizedPNL của các lệnh thoát BingX, không phải ROI riêng của Combo.');
+  const zero=document.createElementNS(svgNS,'line');
+  [['x1',42],['x2',704],['y1',yy(0)],['y2',yy(0)],['stroke','#7497a1'],['stroke-dasharray','5 5'],['stroke-width','1.1']].forEach(p=>zero.setAttribute(p[0],p[1]));
+  svg.append(zero);
+  const path=document.createElementNS(svgNS,'path');
+  path.setAttribute('d',values.map((v,i)=>(i?'L':'M')+xx(i).toFixed(2)+','+yy(v).toFixed(2)).join(' '));
+  path.setAttribute('fill','none');
+  const color=values[values.length-1]>=0?'#5de5b9':'#ff8d98';
+  path.setAttribute('stroke',color);
+  path.setAttribute('stroke-width','3');
+  path.setAttribute('stroke-linecap','round');
+  path.setAttribute('stroke-linejoin','round');
+  path.setAttribute('vector-effect','non-scaling-stroke');
+  svg.append(path);
+  for(const [label,value,y] of [['max',high,27],['min',low,183]]){
+    const tx=document.createElementNS(svgNS,'text');
+    tx.setAttribute('x','2');tx.setAttribute('y',y);tx.textContent=fmt(value,2);
+    svg.append(tx);
+  }
+  const tip=document.createElementNS(svgNS,'circle');
+  tip.setAttribute('cx',xx(values.length-1));tip.setAttribute('cy',yy(values[values.length-1]));
+  tip.setAttribute('r','4');tip.setAttribute('fill',color);svg.append(tip);
+  target.append(svg);
 }
-function drawCleanupRisks(items){
-  const el=$('cleanuprisks');if(!el)return;
-  const labels={
-    LEGACY_SL_REPLACEMENT_UNVERIFIED:'SL thay thế cũ chưa xác minh Order ID; kiểm tra trên BingX',
-    EXIT_HISTORY_INCOMPLETE_OPEN_POSITION:'Thiếu lịch sử lệnh điều kiện khi vị thế vẫn mở',
-    NO_TRACKED_ACTIVE_SL:'Chưa xác nhận được SL đang hoạt động',
-    SL_OVER_REMAINING:'SL lớn hơn khối lượng còn lại',
-    CANCEL_RETRY_EXHAUSTED:'Đã hết số lần thử hủy giới hạn',
-  };
-  if(!items||!items.length){el.textContent='Không có cảnh báo cleanup chưa giải quyết trong dữ liệu đã lưu.';return;}
-  el.replaceChildren();
-  items.forEach(item=>{
-    const p=document.createElement('p');
-    p.textContent=item.combo+' / '+item.symbol+': '+(labels[item.reason]||item.reason)+
-      ' (trạng thái: '+item.cleanup_status+')';
-    el.append(p);
+function showCombos(items){
+  const root=$('combo-list');root.replaceChildren();
+  const rows=Array.isArray(items)?items:[];
+  set('combo-count',rows.length+' Combo');
+  if(!rows.length){
+    root.append(node('div','empty','Chưa có Combo có lệnh thoát được xác nhận.'));
+    return;
+  }
+  rows.forEach(item=>{
+    const row=node('div','combo-row');
+    row.append(node('div','combo-title',item.combo||'—'));
+    const mid=node('div','combo-mid');
+    mid.append(node('div','combo-meta',item.count+' lệnh thoát · thắng '+fmt(item.win_rate,0)+'%'));
+    const kinds=[];
+    if(num(item.TP))kinds.push('TP '+item.TP);
+    if(num(item.SL))kinds.push('SL '+item.SL);
+    if(num(item.TRAILING))kinds.push('Trailing '+item.TRAILING);
+    mid.append(node('div','combo-sub',kinds.join(' · ')||'Không có loại thoát'));
+    row.append(mid);
+    row.append(node('div','combo-pnl '+cls(item.net_after_exit_fee),signed(item.net_after_exit_fee)));
+    root.append(row);
   });
 }
-function drawTrades(items){const root=$('trades');root.replaceChildren();if(!items.length){root.innerHTML='<div class="empty">Chưa có vị thế đã đóng</div>';return;}
-items.slice(0,30).forEach(x=>{let card=document.createElement('div');card.className='trade';let coin=document.createElement('div');coin.className='coin';coin.textContent=(x.symbol||'').split('-')[0];card.append(coin);let body=document.createElement('div');body.className='trade-body';let title=document.createElement('div');title.className='trade-title';title.textContent=(x.combo||'UNMAPPED')+' · '+x.side+(x.liquidated?' · ⚠ Thanh lý':'');let sub=document.createElement('div');sub.className='trade-sub';sub.textContent=(x.exit_ms?new Date(x.exit_ms).toLocaleString('vi-VN'):'')+' · '+(x.exit_types||'KHÔNG RÕ');body.append(title,sub);card.append(body);let pnl=document.createElement('div');pnl.className='trade-pnl '+shade(x.pnl);pnl.textContent=signed(x.pnl);let pct=document.createElement('div');pct.className='trade-pct';pct.textContent=signedPct(x.pnl_pct);pnl.append(pct);card.append(pnl);root.append(card)})}
-async function refresh(){set('updated','Đang tải...');try{let params=new URLSearchParams();if($('symbol').value)params.set('symbol',$('symbol').value);if($('combo').value)params.set('combo',$('combo').value);
-const r=await fetch('/api/dashboard?'+params.toString(),{credentials:'same-origin',cache:'no-store'});if(r.status===401){location.href='/login';return}if(!r.ok)throw Error('API HTTP '+r.status);const d=await r.json();
-fillSelect('symbol',d.filters.symbols);fillSelect('combo',d.filters.combos);
-set('pnl',signed(d.summary.pnl_usdt),shade(d.summary.pnl_usdt));set('pnlpct',signedPct(d.summary.pnl_pct),shade(d.summary.pnl_pct));set('margin',d.summary.margin_used_usdt==null?'—':fmt(d.summary.margin_used_usdt));set('win',fmt(d.summary.win_rate)+'%');set('closed',String(d.summary.closed));set('unmapped',String(d.summary.unmapped));set('liqs',String(d.summary.liquidations));set('open',String(d.summary.open_positions));buildChart(d.equity);drawCombos(d.combos);drawTrades(d.trades);drawExits(d.exit_events,d.exit_summary);drawComboExits(d.combo_exits);drawCleanupRisks(d.cleanup_risks);
-if($('pnlpct'))set('pnlpct',d.summary.pnl_pct==null?'—':fmt(d.summary.pnl_pct)+'%');
-if($('margin'))set('margin',d.summary.margin_used_usdt==null?'—':fmt(d.summary.margin_used_usdt));
-if($('baseline'))set('baseline',d.start_at?'Mốc thống kê: '+new Date(d.start_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'Đang hiển thị toàn bộ lịch sử đã thu thập');
-set('baseline',d.start_at?'Thống kê chỉ tính vị thế MỞ MỚI từ '+new Date(d.start_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})+' · Dữ liệu cũ vẫn lưu để tra cứu.':'Tính các lệnh có thể đối soát từ lịch sử.');const synced=d.last_sync&&d.last_sync.time?new Date(d.last_sync.time).getTime():0;
-const stale=!synced||(Date.now()-synced)>2.5*3600000;
-set('sync',(d.last_sync?'Đồng bộ: '+d.last_sync.status+' · '+(d.last_sync.time?new Date(d.last_sync.time).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'đang chạy'):'Chưa có lần đồng bộ')+(stale?' · ⚠ Dữ liệu quá hạn 2h30':''));
-set('updated',new Date().toLocaleTimeString('vi-VN'));
-}catch(e){set('updated','Lỗi tải dữ liệu');set('sync','Không kết nối được cơ sở dữ liệu. Kiểm tra Render/Supabase.')}}
-$('reload').addEventListener('click',refresh);$('symbol').addEventListener('change',refresh);$('combo').addEventListener('change',refresh);refresh();setInterval(refresh,60000);
+function showHistory(items,summary){
+  const root=$('exit-list');root.replaceChildren();
+  const rows=Array.isArray(items)?items:[];
+  const count=num(summary?.matched_by_id),missing=num(summary?.unmapped_or_ambiguous);
+  set('exitstatus',missing?count+' xác nhận · '+missing+' cần kiểm tra':count+' đã xác nhận');
+  if(!rows.length){root.append(node('div','empty','Chưa có lệnh thoát trong kỳ báo cáo.'));return;}
+  const names={SL:'SL',TP:'TP',TRAILING:'Trailing',LIQUIDATION:'Thanh lý'};
+  rows.slice(0,30).forEach(item=>{
+    const row=node('div','exit-row');
+    const left=node('div','exit-main');
+    const heading=node('div','exit-heading');
+    const kind=item.type||'UNKNOWN';
+    heading.append(node('span','',item.combo||'Chưa xác định'));
+    heading.append(node('span','',item.symbol?.replace('-USDT','')||''));
+    heading.append(node('span','outcome '+(kind==='SL'?'sl':kind==='TP'?'tp':kind==='TRAILING'?'trailing':'unknown'),names[kind]||kind));
+    left.append(heading);
+    left.append(node('div','exit-time',dateVN(item.time_ms)+(item.combo?'':' · chưa khớp Combo')));
+    row.append(left);
+    const right=node('div','exit-result');
+    const value=num(item.bingx_realized_pnl)+num(item.exit_fees);
+    right.append(node('div','exit-pnl '+cls(value),(value>0?'+':'')+fmt(value)+' USDT'));
+    right.append(node('div','exit-fee',item.confidence==='PRICE_TIME_CANDIDATE'?'Ứng viên, chưa xác nhận':item.combo?'Sau phí thoát':'Chưa xác nhận Combo'));
+    row.append(right);
+    root.append(row);
+  });
+}
+function showRisk(items){
+  const root=$('riskPanel'),container=$('riskItems');
+  const rows=Array.isArray(items)?items:[];
+  root.hidden=!rows.length;container.replaceChildren();
+  if(!rows.length)return;
+  set('riskCount',rows.length+' cảnh báo cần kiểm tra');
+  const labels={
+    LEGACY_SL_REPLACEMENT_UNVERIFIED:'ID thay SL cũ chưa được hệ thống cleanup xác minh hoàn toàn',
+    EXIT_HISTORY_INCOMPLETE_OPEN_POSITION:'Lịch sử lệnh bảo vệ chưa đầy đủ',
+    NO_TRACKED_ACTIVE_SL:'Chưa xác nhận được SL đang hoạt động',
+    SL_OVER_REMAINING:'Khối lượng SL vượt phần vị thế còn lại',
+    CANCEL_RETRY_EXHAUSTED:'Đã hết giới hạn thử hủy lệnh'
+  };
+  rows.forEach(row=>container.append(node('div','risk-item',(row.combo||'—')+' · '+(row.symbol||'')+': '+(labels[row.reason]||row.reason))));
+}
+function fillAdvanced(d){
+  const s=d.summary||{},e=d.exit_summary||{};
+  set('pnl',signed(s.pnl_usdt),cls(s.pnl_usdt));
+  set('pnlpct',s.pnl_pct==null?'—':fmt(s.pnl_pct)+'%',cls(s.pnl_pct));
+  set('closed',String(s.closed||0));
+  set('unmapped',String(s.unmapped||0));
+  set('open',String(s.open_positions||0));
+  set('margin',s.margin_used_usdt==null?'—':fmt(s.margin_used_usdt));
+  set('matchdetail','Khớp '+num(e.matched_by_id)+' lệnh thoát theo ID · '+num(e.matched_by_trigger)+
+    ' qua triggerOrderId · '+num(e.matched_by_legacy_client)+' qua ID thay SL cũ · '+
+    num(e.unmapped_or_ambiguous)+' chưa xác định. Không phân bổ lại PnL của vị thế chung.');
+}
+let fetching=false;
+async function refresh(){
+  if(fetching)return;
+  fetching=true;
+  const button=$('reload');button.disabled=true;
+  try{
+    const params=new URLSearchParams();
+    if($('symbol').value)params.set('symbol',$('symbol').value);
+    if($('combo').value)params.set('combo',$('combo').value);
+    const response=await fetch('/api/dashboard?'+params,{credentials:'same-origin',cache:'no-store'});
+    if(response.status===401){location.href='/login';return;}
+    if(!response.ok)throw Error('API HTTP '+response.status);
+    const d=await response.json();
+    fillSelect('symbol',d.filters.symbols);
+    fillSelect('combo',d.filters.combos);
+    const p=d.exit_performance||{};
+    set('net',p.count?signed(p.pnl_usdt):'—',cls(p.pnl_usdt));
+    set('count',String(p.count||0));
+    set('winrate',p.win_rate==null?'—':fmt(p.win_rate,1)+'%');
+    set('wins',num(p.wins)+' thắng · '+num(p.losses)+' thua'+(num(p.breakeven)?' · '+p.breakeven+' hòa vốn':''));
+    set('pf',p.profit_factor==null?'—':fmt(p.profit_factor,2));
+    chart(p.curve);
+    showCombos(d.combo_exits);
+    showHistory(d.exit_events,d.exit_summary);
+    showRisk(d.cleanup_risks);
+    fillAdvanced(d);
+    set('baseline',d.start_at?'Lệnh thoát từ '+dateVN(new Date(d.start_at).getTime())+' · Dữ liệu BingX đã lưu':'Dữ liệu thoát lệnh BingX đã lưu');
+    const syncTime=d.last_sync?.time?new Date(d.last_sync.time).getTime():0;
+    const stale=!syncTime||Date.now()-syncTime>2.5*3600000||d.last_sync?.status!=='success';
+    set('sync',syncTime?'Đồng bộ '+dateVN(syncTime):'Chưa đồng bộ');
+    const alert=$('sync-alert');alert.hidden=!stale;
+    if(stale)alert.textContent='Dữ liệu BingX có thể đã cũ. Kết quả chỉ cập nhật sau lần đồng bộ thành công.';
+    set('updated',new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}));
+  }catch(error){
+    const alert=$('sync-alert');alert.hidden=false;
+    alert.textContent='Không tải được dữ liệu Dashboard. Vui lòng thử cập nhật.';
+    set('updated','Lỗi dữ liệu');
+  }finally{
+    fetching=false;button.disabled=false;
+  }
+}
+$('reload').addEventListener('click',refresh);
+$('symbol').addEventListener('change',refresh);
+$('combo').addEventListener('change',refresh);
+refresh();
+setInterval(refresh,60000);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js').catch(()=>{});
