@@ -14,13 +14,24 @@ function buildChart(points){const root=$('chart');root.replaceChildren();if(!poi
  for(let i=0;i<2;i++){let tx=document.createElementNS(svg.namespaceURI,'text');tx.setAttribute('x','4');tx.setAttribute('y',i?189:30);tx.textContent=fmt(i?min:max);svg.append(tx)}root.append(svg);
 }
 function drawCombos(items){const tbody=$('combos').querySelector('tbody');tbody.replaceChildren();if(!items.length){let r=document.createElement('tr');let c=document.createElement('td');c.colSpan=5;c.textContent='Chưa có dữ liệu Combo';r.append(c);tbody.append(r)}items.sort((a,b)=>b['PnL ròng USDT']-a['PnL ròng USDT']).forEach(x=>{let r=document.createElement('tr');cell(r,x.Combo);cell(r,String(x['Số lệnh']));cell(r,fmt(x['Win rate %'])+'%');cell(r,signed(x['PnL ròng USDT']),shade(x['PnL ròng USDT']));cell(r,signedPct(x['PnL %']),shade(x['PnL %']));tbody.append(r)})}
+function drawComboExits(items){
+  const table=$('comboexits');if(!table)return;
+  const tbody=table.querySelector('tbody');tbody.replaceChildren();
+  for(const item of (items||[])){
+    const tr=document.createElement('tr');
+    cell(tr,item.combo);cell(tr,String(item.TP));cell(tr,String(item.SL));
+    cell(tr,String(item.TRAILING));cell(tr,signed(item.realized_pnl),shade(item.realized_pnl));
+    cell(tr,signed(item.exit_fees),shade(item.exit_fees));tbody.append(tr);
+  }
+  if(!items||!items.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=6;td.textContent='Chưa có lệnh thoát xác nhận bằng ID';tr.append(td);tbody.append(tr)}
+}
 function drawExits(items,summary){
   const body=$('exitfills').querySelector('tbody');body.replaceChildren();
   const safe=Array.isArray(items)?items:[];
   if(!safe.length){let tr=document.createElement('tr');let td=document.createElement('td');
     td.colSpan=6;td.textContent='Chưa có lệnh TP/SL/trailing đã khớp trong lần đồng bộ BingX.';tr.append(td);body.append(tr);
   }else{
-    const confidence={ORDER_ID:'ID khớp',PRICE_TIME_CANDIDATE:'Ứng viên giờ/giá',
+    const confidence={ORDER_ID:'ID gốc khớp',TRIGGER_ORDER_ID:'Trigger ID khớp',PRICE_TIME_CANDIDATE:'Ứng viên giờ/giá',
       AMBIGUOUS:'Trùng điều kiện',CONFLICT:'Sai thông tin',UNMAPPED:'Chưa xác định'};
     safe.slice(0,60).forEach(x=>{
       const tr=document.createElement('tr');
@@ -33,7 +44,7 @@ function drawExits(items,summary){
   }
   const confirmed=Number(summary.matched_by_id||0),candidates=Number(summary.price_time_candidates||0);
   const missing=Number(summary.unmapped_or_ambiguous||0);
-  set('exitstatus','Đối chiếu: '+confirmed+' lệnh theo ID · '+candidates+
+  set('exitstatus','Đối chiếu: '+confirmed+' lệnh khớp ID (gồm '+Number(summary.matched_by_trigger||0)+' trigger ID) · '+candidates+
     ' ứng viên theo giờ/giá · '+missing+' chưa xác định. PnL chỉ là realizedPNL của các lệnh thoát BingX, không phải ROI riêng của Combo.');
 }
 function drawTrades(items){const root=$('trades');root.replaceChildren();if(!items.length){root.innerHTML='<div class="empty">Chưa có vị thế đã đóng</div>';return;}
@@ -41,11 +52,14 @@ items.slice(0,30).forEach(x=>{let card=document.createElement('div');card.classN
 async function refresh(){set('updated','Đang tải...');try{let params=new URLSearchParams();if($('symbol').value)params.set('symbol',$('symbol').value);if($('combo').value)params.set('combo',$('combo').value);
 const r=await fetch('/api/dashboard?'+params.toString(),{credentials:'same-origin',cache:'no-store'});if(r.status===401){location.href='/login';return}if(!r.ok)throw Error('API HTTP '+r.status);const d=await r.json();
 fillSelect('symbol',d.filters.symbols);fillSelect('combo',d.filters.combos);
-set('pnl',signed(d.summary.pnl_usdt),shade(d.summary.pnl_usdt));set('pnlpct',signedPct(d.summary.pnl_pct),shade(d.summary.pnl_pct));set('margin',d.summary.margin_used_usdt==null?'—':fmt(d.summary.margin_used_usdt));set('win',fmt(d.summary.win_rate)+'%');set('closed',String(d.summary.closed));set('unmapped',String(d.summary.unmapped));set('liqs',String(d.summary.liquidations));set('open',String(d.summary.open_positions));buildChart(d.equity);drawCombos(d.combos);drawTrades(d.trades);drawExits(d.exit_events,d.exit_summary);
+set('pnl',signed(d.summary.pnl_usdt),shade(d.summary.pnl_usdt));set('pnlpct',signedPct(d.summary.pnl_pct),shade(d.summary.pnl_pct));set('margin',d.summary.margin_used_usdt==null?'—':fmt(d.summary.margin_used_usdt));set('win',fmt(d.summary.win_rate)+'%');set('closed',String(d.summary.closed));set('unmapped',String(d.summary.unmapped));set('liqs',String(d.summary.liquidations));set('open',String(d.summary.open_positions));buildChart(d.equity);drawCombos(d.combos);drawTrades(d.trades);drawExits(d.exit_events,d.exit_summary);drawComboExits(d.combo_exits);
 if($('pnlpct'))set('pnlpct',d.summary.pnl_pct==null?'—':fmt(d.summary.pnl_pct)+'%');
 if($('margin'))set('margin',d.summary.margin_used_usdt==null?'—':fmt(d.summary.margin_used_usdt));
 if($('baseline'))set('baseline',d.start_at?'Mốc thống kê: '+new Date(d.start_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'Đang hiển thị toàn bộ lịch sử đã thu thập');
-set('baseline',d.start_at?'Thống kê chỉ tính vị thế MỞ MỚI từ '+new Date(d.start_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})+' · Dữ liệu cũ vẫn lưu để tra cứu.':'Tính các lệnh có thể đối soát từ lịch sử.');set('sync',d.last_sync?'Đồng bộ: '+d.last_sync.status+' · '+(d.last_sync.time||'đang chạy'):'Chưa có lần đồng bộ');set('updated',new Date().toLocaleTimeString('vi-VN'));
+set('baseline',d.start_at?'Thống kê chỉ tính vị thế MỞ MỚI từ '+new Date(d.start_at).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})+' · Dữ liệu cũ vẫn lưu để tra cứu.':'Tính các lệnh có thể đối soát từ lịch sử.');const synced=d.last_sync&&d.last_sync.time?new Date(d.last_sync.time).getTime():0;
+const stale=!synced||(Date.now()-synced)>2.5*3600000;
+set('sync',(d.last_sync?'Đồng bộ: '+d.last_sync.status+' · '+(d.last_sync.time?new Date(d.last_sync.time).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'}):'đang chạy'):'Chưa có lần đồng bộ')+(stale?' · ⚠ Dữ liệu quá hạn 2h30':''));
+set('updated',new Date().toLocaleTimeString('vi-VN'));
 }catch(e){set('updated','Lỗi tải dữ liệu');set('sync','Không kết nối được cơ sở dữ liệu. Kiểm tra Render/Supabase.')}}
 $('reload').addEventListener('click',refresh);$('symbol').addEventListener('change',refresh);$('combo').addEventListener('change',refresh);refresh();setInterval(refresh,60000);
 if('serviceWorker' in navigator)navigator.serviceWorker.register('/static/sw.js').catch(()=>{});

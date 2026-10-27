@@ -205,9 +205,27 @@ def dashboard_payload(records, symbol=None, combo=None):
         and (not combo or x['combo'] == combo)
     ]
     # BingX exit PnL may be based on a shared average-price position.
-    confirmed_exit_events = [x for x in exit_events if x['confidence'] == 'ORDER_ID']
+    confirmed_exit_events = [x for x in exit_events if x['confidence'] in ('ORDER_ID','TRIGGER_ORDER_ID')]
+    confirmed_by_combo = defaultdict(lambda: {'combo':'','count':0,'TP':0,'SL':0,'TRAILING':0,
+                                              'realized_pnl':0.0,'exit_fees':0.0})
+    for row in confirmed_exit_events:
+        if not row['combo']:
+            continue
+        item = confirmed_by_combo[row['combo']]
+        item['combo'] = row['combo']
+        item['count'] += 1
+        if row['type'] in ('TP','SL','TRAILING'):
+            item[row['type']] += 1
+        item['realized_pnl'] += row['bingx_realized_pnl']
+        item['exit_fees'] += row['exit_fees']
+    combo_exits = []
+    for item in sorted(confirmed_by_combo.values(),key=lambda x:x['combo']):
+        item['realized_pnl'] = round(item['realized_pnl'], 6)
+        item['exit_fees'] = round(item['exit_fees'], 6)
+        combo_exits.append(item)
     exit_summary = {
         'matched_by_id': len(confirmed_exit_events),
+        'matched_by_trigger': sum(x['confidence'] == 'TRIGGER_ORDER_ID' for x in confirmed_exit_events),
         'price_time_candidates': sum(x['confidence'] == 'PRICE_TIME_CANDIDATE' for x in exit_events),
         'unmapped_or_ambiguous': sum(x['confidence'] in ('UNMAPPED','AMBIGUOUS','CONFLICT') for x in exit_events),
         'bingx_exit_realized_usdt': round(sum(x['bingx_realized_pnl'] for x in confirmed_exit_events), 6),
@@ -233,6 +251,7 @@ def dashboard_payload(records, symbol=None, combo=None):
         'trades': sorted(visible, key=lambda x:x['exit_ms'] or 0, reverse=True)[:100],
         'exit_events': exit_events[:100],
         'exit_summary': exit_summary,
+        'combo_exits': combo_exits,
         'equity': chart,
         'filters': {'combos': all_combos, 'symbols': all_symbols},
         'start_at': datetime.fromtimestamp(start_ms/1000, timezone.utc).isoformat() if start_ms else None,
