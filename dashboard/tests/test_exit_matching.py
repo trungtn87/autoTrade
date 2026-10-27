@@ -232,9 +232,77 @@ def test_sw_versioned_js_and_css_no_long_lived_cache_first():
     folder=Path(__file__).parents[1]/"autotrade_live"/"static"
     html=(folder/"index.html").read_text()
     sw=(folder/"sw.js").read_text()
-    assert 'app.js?v=20261027-cache3' in html
-    assert 'app.css?v=20261027-cache3' in html
-    assert "autotrade-pwa-shell-v3" in sw
+    assert 'app.js?v=20261027-review4' in html
+    assert 'app.css?v=20261027-review4' in html
+    assert "autotrade-pwa-shell-v4" in sw
     assert "fetch(event.request, {cache:'no-store'})" in sw
     assert 'self.skipWaiting()' in sw
     assert 'self.clients.claim()' in sw
+
+
+def test_confirmed_exit_performance_matches_trading_report_metrics():
+    # One win and one loss, based only on the exact BingX exit order ID.
+    a=extract_exit_spec(state(104,"111","222","333","444"))
+    b=extract_exit_spec(state(7,"555","666","777","888"))
+    first=order("222","STOP_MARKET",a["signal_time_ms"]+1000,80652.32)
+    second=order("888","TRAILING_STOP_MARKET",b["signal_time_ms"]+1200,79692.93)
+    f1=fill("222","a",.0006,80652,-2.0,-.10,a["signal_time_ms"]+5000)
+    f2=fill("888","b",.0006,79692,1.0,-.10,b["signal_time_ms"]+7000)
+    result=dashboard_payload({"orders":[first,second],"fills":[f1,f2],
+        "links":[],"forces":[],"incomes":[],"runs":[],"positions":[],
+        "exit_specs":[a,b]})
+    performance=result["exit_performance"]
+    assert performance["count"]==2
+    assert performance["wins"]==1
+    assert performance["losses"]==1
+    assert performance["win_rate"]==50.0
+    assert performance["pnl_usdt"]==-1.2
+    assert performance["profit_factor"]==0.43  # 0.90 / 2.10
+    assert len(performance["curve"])==2
+    assert round(performance["curve"][-1]["v"],6)==-1.2
+    # No invented position statistics from exits without mapped entries.
+    assert result["summary"]["closed"]==0
+    assert len(result["combo_exits"])==2
+    assert {x["combo"] for x in result["combo_exits"]}=={"C7","C14"}
+    assert result["filters"]["combos"]==["C14","C7"]
+
+
+def test_confirmed_exit_summary_excludes_unmapped_and_price_time_candidates():
+    spec=extract_exit_spec(state(104,"111","222","333","444"))
+    proven=order("222","STOP_MARKET",spec["signal_time_ms"]+3000,80652.32)
+    unmapped=order("998","STOP_MARKET",spec["signal_time_ms"]+3000,80652.32)
+    unmapped.raw["triggerOrderId"]="123456789"
+    records={"orders":[proven,unmapped],
+        "fills":[fill("222","a",.0006,80652,-.5,-.01,spec["signal_time_ms"]+5000),
+                 fill("998","b",.0006,80652,10.0,-.01,spec["signal_time_ms"]+6000)],
+        "links":[],"forces":[],"incomes":[],"runs":[],"positions":[],
+        "exit_specs":[spec]}
+    report=dashboard_payload(records)
+    assert report["exit_performance"]["count"]==1
+    assert report["exit_performance"]["pnl_usdt"]==-.51
+    assert report["exit_performance"]["win_rate"]==0
+    assert report["exit_performance"]["profit_factor"]==0
+    assert report["exit_summary"]["unmapped_or_ambiguous"]==1
+    assert report["exit_events"][0]["combo"] is None
+
+
+def test_no_wins_or_losses_has_no_invented_profit_factor():
+    r=dashboard_payload({"orders":[],"fills":[],"links":[],"forces":[],
+        "incomes":[],"runs":[],"positions":[],"exit_specs":[]})
+    assert r["exit_performance"]["count"]==0
+    assert r["exit_performance"]["profit_factor"] is None
+    assert r["exit_performance"]["win_rate"] is None
+
+
+def test_mobile_report_has_compact_kpis_and_no_double_counting():
+    from pathlib import Path
+    folder=Path(__file__).parents[1]/"autotrade_live"/"static"
+    html=(folder/"index.html").read_text()
+    script=(folder/"app.js").read_text()
+    for name in ('net','count','winrate','pf','chart','combo-list','exit-list'):
+        assert 'id="'+name+'"' in html
+    assert 'Thông tin kỹ thuật & đối soát' in html
+    assert '<details' in html
+    assert "p.pnl_usdt" in script
+    assert "chart(p.curve)" in script
+    assert "exit_summary" in script
