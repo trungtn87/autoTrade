@@ -1,100 +1,21 @@
 <!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <meta name="theme-color" content="#0b1220"/>
-  <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <title>Autotrade · Kết quả giao dịch</title>
-  <link rel="apple-touch-icon" href="/static/icon-192.png"/>
-  <link rel="manifest" href="/static/manifest.webmanifest"/>
-  <link rel="icon" href="/static/icon.svg"/>
-  <link rel="stylesheet" href="/static/app.css?v=20261027-review4"/>
-  <script defer src="/static/app.js?v=20261027-review4"></script>
-</head>
-<body>
-<main class="app">
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark" aria-hidden="true">◈</div>
-      <div><div class="eyebrow">AUTOTRADE / BINGX</div><h1>Kết quả giao dịch</h1></div>
-    </div>
-    <form method="post" action="/logout"><button class="quiet">Đăng xuất</button></form>
-  </header>
-
-  <div class="statusline">
-    <span class="signal-dot" aria-hidden="true"></span>
-    <span id="sync">Đang kiểm tra lần đồng bộ…</span>
-    <span id="updated" class="updated">—</span>
-  </div>
-  <div id="sync-alert" class="sync-alert" role="status" hidden></div>
-
-  <section class="filters" aria-label="Lọc báo cáo">
-    <label>Cặp giao dịch<select id="symbol"><option value="">Tất cả cặp</option></select></label>
-    <label>Combo<select id="combo"><option value="">Tất cả Combo</option></select></label>
-    <button id="reload" type="button" aria-label="Làm mới dữ liệu">↻ Cập nhật</button>
-  </section>
-  <p id="baseline" class="period-note">Đang xác định kỳ báo cáo…</p>
-
-  <section class="hero" aria-labelledby="hero-title">
-    <div class="hero-top"><span class="section-kicker" id="hero-title">KẾT QUẢ LỆNH THOÁT</span><span class="scope-pill">Đã xác nhận ID</span></div>
-    <div class="hero-value" id="net" aria-live="polite">—</div>
-    <div class="hero-caption">USDT · Realized PnL trừ phí thoát</div>
-    <p class="scope-hint">Chưa trừ phí vào lệnh và funding. Đây không phải lợi nhuận tài khoản hay backtest chiến lược độc lập.</p>
-  </section>
-
-  <section class="kpis" aria-label="Bốn chỉ số chính">
-    <article class="kpi"><span>Lệnh thoát</span><strong id="count">—</strong><small>TP, SL hoặc Trailing đã khớp</small></article>
-    <article class="kpi"><span>Tỷ lệ thắng</span><strong id="winrate">—</strong><small id="wins">Theo PnL sau phí thoát</small></article>
-    <article class="kpi"><span>Profit Factor</span><strong id="pf">—</strong><small>Lãi các lệnh thắng / lỗ các lệnh thua</small></article>
-  </section>
-
-  <section class="panel" aria-labelledby="curve-title">
-    <div class="section-head"><h2 id="curve-title">Đường PnL tích lũy</h2><span>USDT</span></div>
-    <div id="chart" class="chart"><div class="empty">Đang tải biểu đồ…</div></div>
-    <div class="chart-foot"><span>Bắt đầu từ 0</span><span>Tính từng lệnh thoát đã khớp ID</span></div>
-  </section>
-
-  <section class="panel" aria-labelledby="combo-title">
-    <div class="section-head"><h2 id="combo-title">Hiệu quả từng Combo</h2><span id="combo-count">—</span></div>
-    <div id="combo-list" class="combo-list"><div class="empty">Đang tải các Combo…</div></div>
-    <p class="section-note">PnL theo lệnh thoát BingX; nếu nhiều Combo chung vị thế, giá vốn BingX là giá vốn chung.</p>
-  </section>
-
-  <section class="panel" aria-labelledby="history-title">
-    <div class="section-head"><h2 id="history-title">Lệnh thoát gần đây</h2><span id="exitstatus">—</span></div>
-    <div id="exit-list" class="exit-list"><div class="empty">Đang tải lịch sử…</div></div>
-  </section>
-
-  <section id="riskPanel" class="risk-panel" hidden>
-    <details>
-      <summary><span>⚠ <strong id="riskCount">Cảnh báo cần kiểm tra</strong></span><span class="chevron">Xem</span></summary>
-      <div id="riskItems" class="risk-items"></div>
-      <p class="section-note">Trạng thái bot đã lưu; không khẳng định lệnh hiện còn mở trên BingX.</p>
-    </details>
-  </section>
-
-  <details class="more-panel" id="more">
-    <summary><span>Thông tin kỹ thuật & đối soát</span><span class="chevron">Mở chi tiết</span></summary>
-    <div class="more-content">
-      <p>Phần này chỉ dành cho đối chiếu. PnL vị thế khác PnL lệnh thoát và <strong>không cộng hai số với nhau</strong>.</p>
-      <div class="details-grid">
-        <div><small>PnL vị thế chỉ có 1 Combo</small><strong id="pnl">—</strong></div>
-        <div><small>ROI trên ký quỹ ước tính</small><strong id="pnlpct">—</strong></div>
-        <div><small>Vị thế đóng gắn Combo</small><strong id="closed">—</strong></div>
-        <div><small>Vị thế chung / chưa phân bổ</small><strong id="unmapped">—</strong></div>
-        <div><small>Vị thế còn dư theo lịch sử</small><strong id="open">—</strong></div>
-        <div><small>Ký quỹ ước tính (USDT)</small><strong id="margin">—</strong></div>
-      </div>
-      <p id="matchdetail" class="section-note">Chưa có dữ liệu đối soát.</p>
-    </div>
-  </details>
-
-  <footer>
-    <p><strong>BingX là nơi quản lý lệnh.</strong> Dashboard chỉ đọc dữ liệu đã lưu, không đặt/hủy TP, SL hay Trailing.</p>
-    <p>Lệnh thoát ở đây là một lần khớp thoát (có thể chỉ đóng một phần), không nhất thiết tương đương một giao dịch TradingView. Profit Factor và tỷ lệ thắng dựa trên PnL sau <em>phí thoát</em>, không tính phí vào lệnh hoặc funding.</p>
-  </footer>
-</main>
-</body>
-</html>
+<html lang="vi"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#09121f"><meta name="apple-mobile-web-app-capable" content="yes">
+<title>Autotrade · Strategy Monitor</title>
+<link rel="manifest" href="/static/manifest.webmanifest"><link rel="icon" href="/static/icon.svg">
+<link rel="stylesheet" href="/static/app.css?v=20261027-v3"><script defer src="/static/app.js?v=20261027-v3"></script>
+</head><body><main class="app">
+<header class="topbar"><div class="brand"><div class="brand-mark">◈</div><div><div class="eyebrow">AUTOTRADE · STRATEGY MONITOR</div><h1>Hiệu quả chiến lược</h1></div></div><form method="post" action="/logout"><button class="quiet">Đăng xuất</button></form></header>
+<div class="statusline"><span class="signal-dot"></span><span id="sync">Đang tải dữ liệu…</span><span id="updated" class="updated">—</span></div>
+<div id="sync-alert" class="sync-alert" role="status" hidden></div>
+<section class="filters" aria-label="Bộ lọc"><label>Cặp giao dịch<select id="symbol"><option value="">BTC + ETH</option><option value="BTC-USDT">BTC</option><option value="ETH-USDT">ETH</option></select></label><label>Thời gian<select id="period"><option value="all">Tất cả</option><option value="1">24 giờ</option><option value="7">7 ngày</option><option value="30" selected>30 ngày</option><option value="90">90 ngày</option></select></label><label>Combo<select id="combo"><option value="">Tất cả Combo</option></select></label><button id="reload" type="button">↻ Cập nhật</button></section>
+<div class="period-note" id="baseline">ROI lý thuyết · 50% TP + 50% Trailing · không tính phí, funding, đòn bẩy</div>
+<section class="hero"><div class="hero-top"><span class="section-kicker">TỔNG ROI LÝ THUYẾT</span><span class="scope-pill">Chỉ lệnh xác định</span></div><div id="net" class="hero-value">—</div><div class="hero-caption" id="roi-note">Cộng ROI của các tín hiệu đã hoàn tất</div><p class="scope-hint">Không phải PNL hoặc ROI tài khoản BingX. Các trường hợp chưa đủ dữ liệu thoát lệnh không được tự suy đoán.</p></section>
+<section class="kpis kpis-v3"><article class="kpi"><span>Win Rate</span><strong id="winrate">—</strong><small id="wins">Theo ROI lý thuyết</small></article><article class="kpi"><span>RR thắng / thua</span><strong id="pf">—</strong><small>Trung bình lãi / lỗ</small></article><article class="kpi"><span>Lệnh hoàn tất</span><strong id="count">—</strong><small id="unknown">Không tính lệnh chưa xác định</small></article><article class="kpi"><span>ROI / lệnh</span><strong id="roiavg">—</strong><small>Trung bình lý thuyết</small></article></section>
+<section class="panel reliability"><div class="section-head"><h2>Độ ổn định bot</h2><span id="botstatus">Đang đối soát</span></div><div class="reliability-hero"><strong id="entryrate">—</strong><span>Tỷ lệ xác nhận Entry</span></div><div class="reliability-track"><div id="entrybar"></div></div><div class="reliability-grid"><div><small>Tín hiệu đã ghi</small><strong id="signals">—</strong></div><div><small>Entry đã xác nhận</small><strong id="confirmed">—</strong></div><div><small>Thất bại</small><strong id="failed">—</strong></div><div><small>Chưa xác định</small><strong id="pending">—</strong></div><div><small>Thiếu ID bảo vệ</small><strong id="unprotected">—</strong></div></div><p class="section-note" id="coverage">Chỉ kiểm tra tín hiệu được V2 lưu; không giả định mọi tín hiệu đã được ghi đầy đủ.</p><div id="incident-list" class="incident-list"></div></section>
+<section class="panel"><div class="section-head"><h2>Hiệu quả từng Combo</h2><span id="combo-count">—</span></div><div id="combo-list" class="combo-list"><div class="empty">Đang tải…</div></div><p class="section-note">Mỗi tín hiệu tính một lần. SL trước TP = SL toàn bộ; TP + Trailing hoặc TP + SL = trung bình 50/50 theo ROI giá đóng. Không suy luận kết quả khi thiếu fill xác nhận.</p></section>
+<section id="riskPanel" class="risk-panel" hidden><details><summary><span>⚠ <strong id="riskCount">Cảnh báo TP/SL</strong></span><span class="chevron">Xem</span></summary><div id="riskItems" class="risk-items"></div></details></section>
+<details class="more-panel"><summary><span>Dữ liệu BingX & kỹ thuật (tham khảo)</span><span class="chevron">Mở</span></summary><div class="more-content"><div class="details-grid"><div><small>PnL BingX ước tính</small><strong id="pnl">—</strong></div><div><small>ROI ký quỹ ước tính</small><strong id="pnlpct">—</strong></div><div><small>Vị thế đóng</small><strong id="closed">—</strong></div><div><small>Chưa phân bổ</small><strong id="unmapped">—</strong></div><div><small>Vị thế mở</small><strong id="open">—</strong></div><div><small>Ký quỹ USDT</small><strong id="margin">—</strong></div></div><p id="matchdetail" class="section-note"></p><div class="section-head"><h2>Thoát lệnh BingX</h2><span id="exitstatus">—</span></div><div id="exit-list" class="exit-list"></div></div></details>
+<footer>Dashboard chỉ đọc dữ liệu đã lưu; không gửi, sửa hay hủy lệnh BingX. Kết quả lý thuyết không thay thế PNL thực tế trên sàn.</footer>
+</main></body></html>
