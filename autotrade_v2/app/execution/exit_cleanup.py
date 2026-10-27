@@ -135,6 +135,7 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
         "status": old.get("status") if old.get("status") in {"watching", "cleanup"} else "watching",
         "orders": dict(old.get("orders") or {}),
         "flat_observations": int(old.get("flat_observations") or 0),
+        "last_flat_seen_ms": int(old.get("last_flat_seen_ms") or 0),
         "cancel_attempts": dict(old.get("cancel_attempts") or {}),
         "last_cancel_at_ms": dict(old.get("last_cancel_at_ms") or {}),
         "warnings": list(old.get("warnings") or []),
@@ -148,6 +149,7 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
     if legacy_pending and "LEGACY_SL_REPLACEMENT_UNVERIFIED" not in monitor["warnings"]:
         monitor["warnings"].append("LEGACY_SL_REPLACEMENT_UNVERIFIED")
     outstanding = []
+    unknown_exit_ids = []
     total_filled = Decimal(0)
     alerts = (
         ["LEGACY_SL_REPLACEMENT_UNVERIFIED"] if legacy_pending
@@ -168,9 +170,12 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
                 if historical_by_id is not None:
                     row = historical_by_id.get(order_id)
                     if row is None:
-                        raise CleanupUncertain(
-                            "owned order absent from open and historical snapshots"
-                        )
+                        # Do not fabricate a fill. When BingX omits legacy
+                        # conditional orders from BOTH historical endpoints,
+                        # the only independent closure proof allowed is two
+                        # time-separated zero-position snapshots.
+                        unknown_exit_ids.append(order_id)
+                        continue
                 else:
                     # Offline legacy tests only: live service always passes
                     # a historical_by_id snapshot.
@@ -202,12 +207,33 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
     if initial == 0 or total_filled > initial:
         raise CleanupUncertain("invalid entry/exit fill accounting")
     flat = snapshot_position(positions, state)
-    monitor["flat_observations"] = min(2,monitor["flat_observations"]+1) if flat else 0
+    if flat:
+        if now_ms - monitor["last_flat_seen_ms"] >= 30_000:
+            monitor["flat_observations"] = min(
+                2,monitor["flat_observations"]+1
+            )
+            monitor["last_flat_seen_ms"] = now_ms
+    else:
+        monitor["flat_observations"] = 0
+        monitor["last_flat_seen_ms"] = 0
 
     remaining = initial-total_filled
-    # Exact own fills = strongest closure proof, independent of other BTC combos.
-    # PositionId flat twice handles manual close/liquidation.
-    confirmed_closed = remaining == 0 or monitor["flat_observations"] >= 2
+    # Missing exchange order history can never prove a Combo's closure by
+    # fills. If its *exact* positionId remains live, refuse every mutation.
+    # If it disappeared, require two readings separated by >=30 seconds.
+    if unknown_exit_ids and monitor["flat_observations"] < 2:
+        if not flat:
+            raise CleanupUncertain(
+                "owned exits missing history while position remains open"
+            )
+        return monitor, [], alerts
+
+    # Exact known fills prove closure, or twice-verified flat positionId.
+    # With unknown exit statuses, ONLY positionId-flat proof is accepted.
+    confirmed_closed = (
+        (not unknown_exit_ids and remaining == 0)
+        or monitor["flat_observations"] >= 2
+    )
     if not confirmed_closed:
         active_sl = [
             positive(monitor["orders"][oid_]["orig_qty"],"SL qty")
