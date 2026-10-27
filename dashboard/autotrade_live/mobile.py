@@ -102,7 +102,9 @@ def _no_cache(response):
 
 @app.get('/health')
 def health():
-    return {'ok': True, 'service': 'autotrade-dashboard', 'trade_api': False}
+    # Configuration flag only; no credentials, BingX data, or order APIs.
+    return {'ok': True, 'service': 'autotrade-dashboard', 'trade_api': False,
+            'archive_scheduler_enabled': archive_enabled()}
 
 
 @app.get('/')
