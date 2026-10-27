@@ -145,3 +145,7 @@ footer strong{color:#adc3d3}
 .strategy-stats{margin-top:8px;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
 .strategy-stats strong{font-size:12px;margin-top:3px}
 .strategy-foot{margin-top:7px;font-size:10px}
+
+/* Mobile: only filter controls, no manual refresh button. */
+.filters{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:700px){.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.filters label:nth-child(3){grid-column:1/-1}}
