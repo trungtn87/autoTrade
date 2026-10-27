@@ -13,7 +13,7 @@ def test_normal_hourly_three_hour_overlap():
 
 
 def test_manual_sync_is_not_repeated():
-    assert plan_archive(utc(15), utc(15, 1), utc(3, 18)) == ('skip', 0)
+    assert plan_archive(utc(15, 45), utc(15, 43), utc(3, 18)) == ('skip', 0)
 
 
 def test_stale_hours_expand_bounded_window():
