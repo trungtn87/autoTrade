@@ -14,6 +14,7 @@ from app.execution.exit_cleanup import (
     eligible,inspect_one,clean_one,CleanupUncertain,
 )
 from app.execution.service import ExecutionService
+from app.execution.executor import LegacyStyleBingXClient
 
 
 def trade(combo=14,entry="100",pids=("201","202","203"),
@@ -77,7 +78,7 @@ class FakeClient:
         self.get_positions_calls+=1
         return self.position_rows
 
-    def get_order_history(self,symbol,start_ms,end_ms):
+    def get_order_history(self,symbol,start_ms,end_ms,required_ids=None):
         self.history_calls+=1
         return list(self.orders.values())
 
@@ -333,6 +334,59 @@ def test_render_explicit_opt_in_preserves_disabled_legacy_sl_lifecycle():
         validate_settings(settings)
 
 
+def test_fullorder_fallback_recovers_exact_missing_stop_ids():
+    first=rows(tp="0.0006",trailing="0.0006",
+               tp_status="FILLED",trailing_status="FILLED")
+    client=object.__new__(LegacyStyleBingXClient)
+    requested=[]
+    def fake_request(method,path,params):
+        requested.append((method,path,params))
+        if path.endswith("/allOrders"):
+            return {"code":0,"data":[]}
+        if path.endswith("/fullOrder"):
+            return {"code":0,"data":{"orders":first}}
+        raise AssertionError("unexpected BingX endpoint")
+    client._signed_request=fake_request
+    res=client.get_order_history("BTC-USDT",1000000,1100000,
+                                 required_ids={"201","202","203"})
+    assert len(res)==3
+    assert len(requested)==2
+    assert requested[0][1].endswith("/allOrders")
+    assert requested[1][1].endswith("/fullOrder")
+    assert all(x["symbol"]=="BTC-USDT" for x in res)
+    assert all(x[2]["limit"]=="1000" for x in requested)
+    # End-to-end: one Combo closed, only its exact orphan SL cancelled.
+    state=trade()
+    fake=FakeClient(first)
+    result,_,_=execute_check(state,fake,{"201":first[0]},
+                             position("0.0013"),
+                             history={x["orderID"]:x for x in res})
+    assert result["cancel_requested"]==["201"]
+    assert fake.canceled==["201"]
+
+
+def test_fullorder_no_id_match_never_authorizes_delete():
+    client=object.__new__(LegacyStyleBingXClient)
+    def fake_request(method,path,params):
+        if path.endswith("/allOrders"):
+            return {"code":0,"data":[]}
+        return {"code":0,"data":{"orders":[order("999","STOP_MARKET")]}}
+    client._signed_request=fake_request
+    hist=client.get_order_history("BTC-USDT",1000000,1100000,
+                                  required_ids={"201"})
+    assert len(hist)==1 and hist[0]["orderID"]=="999"
+    state=trade()
+    sample=rows()
+    fake=FakeClient(sample)
+    try:
+        execute_check(state,fake,{"201":sample[0]},[],
+                      history={x["orderID"]:x for x in hist})
+        assert False,"unmatched history must not close a Combo"
+    except CleanupUncertain:
+        pass
+    assert fake.canceled==[]
+
+
 def test_runtime_cleanup_is_bounded_but_setup_recovery_remains_15s():
     path=(Path(__file__).parents[1]/"app"/"main.py").read_text("utf-8")
     assert "EXIT_CLEANUP_POLL_SEC=60.0" in path
@@ -365,6 +419,8 @@ def main():
         test_history_missing_exact_id_fails_closed_even_when_other_ids_exist,
         test_history_never_authorizes_cancel_of_order_not_in_open_snapshot,
         test_render_explicit_opt_in_preserves_disabled_legacy_sl_lifecycle,
+        test_fullorder_fallback_recovers_exact_missing_stop_ids,
+        test_fullorder_no_id_match_never_authorizes_delete,
     ]
     for test in tests:
         test()
