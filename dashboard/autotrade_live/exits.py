@@ -69,6 +69,9 @@ def extract_exit_spec(payload, event_id=""):
             "entry_qty": number(data.get("executed_qty")),
             "position_id": str(data.get("position_id") or ""),
             "exit_ids": ids,
+            "cleanup_status": str((data.get("exit_cleanup") or {}).get("status") or ""),
+            "cleanup_warnings": list((data.get("exit_cleanup") or {}).get("warnings") or []),
+            "legacy_sl_pending": bool((data.get("lifecycle") or {}).get("pending_sl_replace")),
         }
     except (ValueError, TypeError, OverflowError, KeyError, AttributeError):
         return None
