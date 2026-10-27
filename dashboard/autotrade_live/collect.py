@@ -2,7 +2,7 @@
 import argparse
 import json
 from .bridge import refresh_signal_links
-from sqlalchemy import select
+from sqlalchemy import select, text
 from .db import Fill, get_engine, get_sessionmaker, init_db
 from .sync import as_fill, sync
 
@@ -22,13 +22,33 @@ def repair_legacy_fills(engine):
     return repaired
 
 
+# Advisory lock coordinates are reserved for the analytics collector only.
+# Both GitHub Actions and Render Cron use this same lock during cutover.
+LOCK_SQL = 'SELECT pg_try_advisory_lock(2707, 20261027)'
+UNLOCK_SQL = 'SELECT pg_advisory_unlock(2707, 20261027)'
+
+
 def collect(days=2, hours=None):
     engine = get_engine()
-    init_db(engine)
-    mapped = refresh_signal_links(engine)
-    repaired = repair_legacy_fills(engine)
-    bingx = sync(hours=hours) if hours is not None else sync(days=days)
-    return {'combo_links': mapped, 'repaired_historical_fills': repaired, 'bingx': bingx}
+    try:
+        init_db(engine)
+        with engine.connect() as conn:
+            locked = True
+            if engine.dialect.name == 'postgresql':
+                locked = bool(conn.execute(text(LOCK_SQL)).scalar())
+            if not locked:
+                # Another collector is already reading BingX. No duplicate REST load.
+                return {'skipped': True, 'reason': 'archive_locked'}
+            try:
+                mapped = refresh_signal_links(engine)
+                repaired = repair_legacy_fills(engine)
+                bingx = sync(hours=hours) if hours is not None else sync(days=days)
+                return {'combo_links': mapped, 'repaired_historical_fills': repaired, 'bingx': bingx}
+            finally:
+                if engine.dialect.name == 'postgresql':
+                    conn.execute(text(UNLOCK_SQL))
+    finally:
+        engine.dispose()
 
 
 if __name__ == '__main__':
