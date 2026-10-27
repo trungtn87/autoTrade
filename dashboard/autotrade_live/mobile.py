@@ -199,7 +199,7 @@ def _start_ms():
     return int(dt.timestamp() * 1000)
 
 
-def dashboard_payload(records, symbol=None, combo=None):
+def dashboard_payload(records, symbol=None, combo=None, days='all'):
     start_ms = _start_ms()
     completed, pending, unresolved = build_trades(records['fills'], records['orders'], records['links'], records['forces'])
     all_combos = sorted({x.combo for x in records['links']} |
@@ -316,11 +316,18 @@ def dashboard_payload(records, symbol=None, combo=None):
     fill_net = sum(float(f.realized_pnl) + float(f.fee)
                    for f in records['fills'] if f.timestamp_ms >= start_ms and
                    (not symbol or f.symbol == symbol))
+    try:
+        period_days = int(days) if days != 'all' else 0
+    except (ValueError, TypeError):
+        period_days = 0
+    period_days = period_days if period_days in (1, 7, 30, 90) else 0
+    since_ms = int(time.time() * 1000) - period_days * 86400000 if period_days else 0
     theory = build_theory(records.get('v2_states'), records.get('exit_specs', []),
                           records['orders'], exit_events, start_ms=start_ms,
-                          symbol=symbol or '', combo=combo or '')
+                          symbol=symbol or '', combo=combo or '', since_ms=since_ms)
     return {
         'theory': theory,
+        'theory_since': datetime.fromtimestamp(max(start_ms, since_ms)/1000, timezone.utc).strftime('%d/%m/%Y') if max(start_ms, since_ms) else 'đầu dữ liệu',
         'summary': {
             'pnl_usdt': total,
             'pnl_pct': roi_pct,
@@ -351,11 +358,11 @@ def dashboard_payload(records, symbol=None, combo=None):
 
 
 @app.get('/api/dashboard')
-def api_dashboard(request: Request, symbol: str = '', combo: str = ''):
+def api_dashboard(request: Request, symbol: str = '', combo: str = '', days: str = '30'):
     _require_auth(request)
     try:
         records = _db_records()
-        data = dashboard_payload(records, symbol=symbol, combo=combo)
+        data = dashboard_payload(records, symbol=symbol, combo=combo, days=days)
         if _public_readonly():
             # Public summaries do not expose exchange order IDs, raw fills or
             # collector error details (which can contain internal infrastructure).
