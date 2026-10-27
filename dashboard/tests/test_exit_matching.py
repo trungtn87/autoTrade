@@ -111,3 +111,49 @@ def test_dashboard_exposes_exit_even_when_position_ledger_is_mixed():
     assert result["exit_summary"]["matched_by_id"]==1
     assert result["exit_summary"]["bingx_exit_realized_usdt"]==1.5
     assert result["exit_summary"]["bingx_exit_fees_usdt"]==-0.02
+
+
+def test_bingx_trigger_order_id_is_exact_even_for_large_json_integer():
+    s1=extract_exit_spec(state(104,"111","222","333","444"))
+    s2=extract_exit_spec(state(7,"555","666","777","888"))
+    # The exchange creates a separate execution order; its triggerOrderId
+    # points to the ORIGINAL conditional protection order.
+    child=order("999","TRAILING_STOP_MARKET",s1["signal_time_ms"]+7200000,0)
+    child.raw={"positionId":"shared-pid","triggerOrderId":444}
+    matched,method,kind=identify_exit(child.order_id,child,[s1,s2])
+    assert (matched["combo"],method,kind)==("C14","TRIGGER_ORDER_ID","TRAILING")
+
+
+def test_trigger_id_prevents_wrong_price_time_attribution():
+    s1=extract_exit_spec(state(104,"111","222","333","444"))
+    child=order("999","STOP_MARKET",s1["signal_time_ms"]+10000,80652.32)
+    child.raw["triggerOrderId"]="1234567"
+    spec,confidence,kind=identify_exit(child.order_id,child,[s1])
+    assert (spec,confidence,kind)==(None,"UNMAPPED","SL")
+
+
+def test_trigger_id_conflicts_with_wrong_kind_and_exact_id():
+    s1=extract_exit_spec(state(104,"111","222","333","444"))
+    s2=extract_exit_spec(state(7,"555","666","777","888"))
+    child=order("999","STOP_MARKET",s1["signal_time_ms"]+10000,80652.32)
+    child.raw["triggerOrderId"]="444"
+    assert identify_exit("999",child,[s1])[1]=="CONFLICT"
+    child.raw["triggerOrderId"]="666"
+    assert identify_exit("222",child,[s1,s2])[1]=="CONFLICT"
+
+
+def test_trigger_mapping_counts_as_confirmed_bingx_exit_and_combo():
+    spec=extract_exit_spec(state(104,"111","222","333","444"))
+    child=order("999","TRAILING_STOP_MARKET",spec["signal_time_ms"]+3000,0)
+    child.raw={"positionId":"shared-pid","triggerOrderId":"444"}
+    when=spec["signal_time_ms"]+20000
+    records={"orders":[child],
+             "fills":[fill("999","f1",.0006,79000,.15,-.02,when)],
+             "links":[],"forces":[],"incomes":[],"runs":[],"positions":[],
+             "exit_specs":[spec]}
+    result=dashboard_payload(records)
+    assert result["exit_summary"]["matched_by_id"]==1
+    assert result["exit_summary"]["matched_by_trigger"]==1
+    assert result["combo_exits"][0]["combo"]=="C14"
+    assert result["combo_exits"][0]["TRAILING"]==1
+    assert result["combo_exits"][0]["realized_pnl"]==.15
