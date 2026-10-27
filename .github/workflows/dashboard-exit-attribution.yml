@@ -2,7 +2,7 @@ name: Dashboard exit attribution checks
 
 on:
   push:
-    branches: [feature/dashboard-bingx-exit-matching-20261026]
+    branches: [feature/dashboard-bingx-exit-matching-20261026, main]
     paths:
       - 'dashboard/**'
       - '.github/workflows/dashboard-exit-attribution.yml'
