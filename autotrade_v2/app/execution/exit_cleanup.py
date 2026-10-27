@@ -126,6 +126,34 @@ def _order_view(row):
     }
 
 
+def triggered_execution(historical_by_id, parent_id, state, kind):
+    """Prove an original conditional exit filled via BingX triggerOrderId.
+
+    Trigger execution orderId differs from the parent's orderId. Accept only
+    ONE exact child with a validated identity and an actual FILLED quantity;
+    never infer this linkage from price, position only, or timestamps.
+    """
+    matches = [
+        row for row in historical_by_id.values()
+        if str(row.get("triggerOrderId") or row.get("triggerOrderID") or "") == parent_id
+    ]
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise CleanupUncertain("multiple executions for one trigger order; manual reconcile required")
+    child = matches[0]
+    if not oid(child) or oid(child) == parent_id:
+        raise CleanupUncertain("invalid triggered execution ID")
+    validate_order(state, kind, child)
+    if str(child.get("status") or "").upper() != "FILLED":
+        raise CleanupUncertain("triggered execution not confirmed FILLED")
+    executed = positive(child.get("executedQty"), "triggered executedQty")
+    if executed <= 0:
+        raise CleanupUncertain("triggered execution without filled quantity")
+    return {"status": "FILLED", "executed_qty": str(executed),
+            "orig_qty": str(executed)}
+
+
 def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical_by_id=None):
     """Inspect one trade without mutation. Return (new monitor state, cancel IDs, alerts)."""
     old = state.get("exit_cleanup") or {}
@@ -170,12 +198,18 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
                 if historical_by_id is not None:
                     row = historical_by_id.get(order_id)
                     if row is None:
-                        # Do not fabricate a fill. When BingX omits legacy
-                        # conditional orders from BOTH historical endpoints,
-                        # the only independent closure proof allowed is two
-                        # time-separated zero-position snapshots.
-                        unknown_exit_ids.append(order_id)
-                        continue
+                        # BingX often creates a different execution orderId
+                        # for filled TP/SL/trailing. Its exact triggerOrderId
+                        # identifies the ORIGINAL owned protection ID.
+                        view = triggered_execution(
+                            historical_by_id, order_id, state, kind
+                        )
+                        if view is None:
+                            # No verified exit; only two independent flat
+                            # positionId reads can prove closure.
+                            unknown_exit_ids.append(order_id)
+                            continue
+                        row = None  # synthetic, exact-linked FILLED view
                 else:
                     # Offline legacy tests only: live service always passes
                     # a historical_by_id snapshot.
@@ -183,10 +217,11 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
                         state["intent"]["symbol"],order_id=order_id
                     )
                     row = client.extract_order(payload)
-                if oid(row) != order_id:
-                    raise CleanupUncertain("historical orderId mismatch")
-                validate_order(state, kind, row)
-                view = _order_view(row)
+                if row is not None:
+                    if oid(row) != order_id:
+                        raise CleanupUncertain("historical orderId mismatch")
+                    validate_order(state, kind, row)
+                    view = _order_view(row)
         else:
             validate_order(state, kind, row)
             view = _order_view(row)
@@ -223,9 +258,21 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
     # If it disappeared, require two readings separated by >=30 seconds.
     if unknown_exit_ids and monitor["flat_observations"] < 2:
         if not flat:
-            raise CleanupUncertain(
-                "owned exits missing history while position remains open"
-            )
+            # Missing historical conditional IDs is not itself evidence of
+            # a bad order. Fail closed and emit bounded, persisted warnings
+            # rather than repeated exception alerts on every poll.
+            for warning in ("EXIT_HISTORY_INCOMPLETE_OPEN_POSITION",
+                            "NO_TRACKED_ACTIVE_SL"):
+                if warning == "NO_TRACKED_ACTIVE_SL":
+                    sl_id = next((oid_ for oid_, k in own.items() if k == "sl"), "")
+                    if sl_id in open_by_id or (
+                        sl_id in monitor["orders"]
+                        and monitor["orders"][sl_id]["status"] in ACTIVE
+                    ):
+                        continue
+                if warning not in monitor["warnings"]:
+                    monitor["warnings"].append(warning)
+                    alerts.append(warning)
         return monitor, [], alerts
 
     # Exact known fills prove closure, or twice-verified flat positionId.
