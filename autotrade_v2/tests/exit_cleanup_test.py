@@ -298,10 +298,10 @@ def test_history_missing_exact_id_fails_closed_even_when_other_ids_exist():
     other=order("999","TRAILING_STOP_MARKET",status="FILLED")
     try:
         execute_check(state,client,{"201":first[0]},
-                      position("0"),history={"202":first[1],"999":other})
+                      position("0.0012"),history={"202":first[1],"999":other})
         assert False, "must not infer state from a different BingX orderId"
     except CleanupUncertain as exc:
-        assert "absent from open and historical" in str(exc)
+        assert "owned exits missing history while position remains open" in str(exc)
     assert client.canceled==[]
     assert client.lookups==[]
 
@@ -379,12 +379,52 @@ def test_fullorder_no_id_match_never_authorizes_delete():
     sample=rows()
     fake=FakeClient(sample)
     try:
-        execute_check(state,fake,{"201":sample[0]},[],
+        execute_check(state,fake,{"201":sample[0]},
+                      position("0.0012"),
                       history={x["orderID"]:x for x in hist})
         assert False,"unmatched history must not close a Combo"
     except CleanupUncertain:
         pass
     assert fake.canceled==[]
+
+
+def test_missing_history_flat_twice_can_cancel_exact_orphan_only():
+    closed=trade()
+    own=rows()
+    peer=rows(pids=("301","302","303"))
+    client=FakeClient(own+peer)
+    open_map={"201":own[0],"301":peer[0],"302":peer[1],"303":peer[2]}
+    first,_,_=execute_check(closed,client,open_map,[],
+                            now=1000000,history={})
+    assert first["status"]=="watching"
+    assert closed["exit_cleanup"]["flat_observations"]==1
+    assert client.canceled==[]
+    # Separate cycle too close in time does not count as new flat evidence.
+    second,_,_=execute_check(closed,client,open_map,[],
+                             now=1010000,history={})
+    assert second["status"]=="watching"
+    assert client.canceled==[]
+    # Second time-separated exchange flat proof authorizes ONLY owned ID 201.
+    third,_,_=execute_check(closed,client,open_map,[],
+                            now=1060000,history={})
+    assert third["cancel_requested"]==["201"]
+    assert client.canceled==["201"]
+    assert set(client.canceled).isdisjoint({"301","302","303"})
+    assert client.lookups==[]
+
+
+def test_missing_history_never_cancels_when_shared_position_still_open():
+    state=trade()
+    own=rows()
+    client=FakeClient(own)
+    for i in range(2):
+        try:
+            execute_check(state,client,{"201":own[0]},position("0.0013"),
+                          now=1000000+i*60000,history={})
+            assert False,"no closure proof for non-flat shared position"
+        except CleanupUncertain as exc:
+            assert "position remains open" in str(exc)
+    assert client.canceled==[]
 
 
 def test_runtime_cleanup_is_bounded_but_setup_recovery_remains_15s():
@@ -421,6 +461,8 @@ def main():
         test_render_explicit_opt_in_preserves_disabled_legacy_sl_lifecycle,
         test_fullorder_fallback_recovers_exact_missing_stop_ids,
         test_fullorder_no_id_match_never_authorizes_delete,
+        test_missing_history_flat_twice_can_cancel_exact_orphan_only,
+        test_missing_history_never_cancels_when_shared_position_still_open,
     ]
     for test in tests:
         test()
