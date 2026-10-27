@@ -265,3 +265,45 @@ def test_repair_old_archived_fills_from_raw(tmp_path, monkeypatch):
         obj = db.scalars(select(Fill)).one()
         assert obj.timestamp_ms > 1_700_000_000_000
         assert obj.realized_pnl == 12.25
+
+
+def test_hourly_sync_three_hour_window_and_read_only(tmp_path, monkeypatch):
+    """An hourly run requests only a small overlapping time range, not 3 days."""
+    import autotrade_live.sync as module
+    from autotrade_live.db import SyncRun, get_engine, get_sessionmaker
+    from sqlalchemy import select
+
+    monkeypatch.setenv('DATABASE_URL', 'sqlite:///' + str(tmp_path / 'hourly.db'))
+    monkeypatch.setenv('DB_SCHEMA', '')
+    calls = []
+
+    class FakeClient:
+        def __init__(self):
+            self.null_data_counts = {}
+
+        def get(self, path, params):
+            calls.append((path, params.copy()))
+            return []
+
+    monkeypatch.setattr(module, 'BingXReadClient', FakeClient)
+    now = 1_793_012_820_000
+    stats = module.sync(hours=3, symbols=['BTC-USDT'], now_ms=now)
+    order_requests = [p for path, p in calls if path.endswith('/allOrders')]
+    assert len(order_requests) == 1
+    assert order_requests[0]['startTime'] == now - 3 * 60 * 60 * 1000
+    assert order_requests[0]['endTime'] == now
+    assert len(calls) == 6  # 1 order, 1 fill, 1 income, 2 forced, 1 position history
+    assert stats['orders'] == stats['fills'] == 0
+
+    with get_sessionmaker(get_engine())() as db:
+        row = db.scalars(select(SyncRun)).one()
+        assert row.status == 'success'
+        assert 'hours=3' in row.details
+
+
+def test_hourly_window_validation_rejects_unbounded_requests():
+    import pytest
+    from autotrade_live.sync import sync
+    for hours in (0, -1, 25, 72):
+        with pytest.raises(ValueError, match='hours must be 1..24'):
+            sync(hours=hours)
