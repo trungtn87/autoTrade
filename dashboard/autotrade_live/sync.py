@@ -125,7 +125,7 @@ def sync(days=1, symbols=None, now_ms=None, hours=None):
     init_db(engine)
     Session = get_sessionmaker(engine)
     client = BingXReadClient()
-    totals = dict(orders=0, fills=0, income=0, forced=0, positions=0)
+    totals = dict(lookback=lookback_label, orders=0, fills=0, income=0, forced=0, positions=0)
     with Session() as db:
         run = SyncRun(status='running', details=f'symbols={symbols}; {lookback_label}')
         db.add(run)
