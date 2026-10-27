@@ -171,3 +171,70 @@ def test_dashboard_shows_unverified_legacy_stop_even_if_cleanup_marked_done():
         {"combo":"C14","symbol":"BTC-USDT",
          "reason":"LEGACY_SL_REPLACEMENT_UNVERIFIED","cleanup_status":"done"}
     ]
+
+
+def test_legacy_replaced_sl_exact_client_order_maps_c14_not_c7():
+    # Real BingX 26/10 scenario: child triggerId was not saved, but the
+    # executed child retained deterministic clientOrderId from the bot journal.
+    c14=state(104,"2114507408344829952",
+              "2114507429634478080","2114507456343805952",
+              "2114507472525430784")
+    c14["position_id"]="2114507408374190082"
+    c14["lifecycle"]={"pending_sl_replace":{
+        "old_order_id":"2114507429634478080",
+        "client_order_id":"atv2sl-59e17321903490ce9181c5ddd1",
+        "quantity":"0.0006"}}
+    c7=state(7,"2114533815368241152","2114533834497822720",
+             "2114533858506018816","2114533872947007488")
+    c7["position_id"]="2114507408374190082"
+    spec14=extract_exit_spec(c14)
+    spec7=extract_exit_spec(c7)
+    child=order("2114739087663648768","STOP_MARKET",
+                1793028063000,80652.3,qty=.0006)
+    child.raw={"positionID":"2114507408374190082",
+               "triggerOrderId":"2114536413692792832",
+               "stopPrice":"80652.3",
+               "clientOrderId":"atv2sl-59e17321903490ce9181c5ddd1"}
+    spec,confidence,kind=identify_exit(child.order_id,child,[spec14,spec7])
+    assert (spec["combo"],confidence,kind)==("C14","LEGACY_SL_CLIENT_ID","SL")
+    records={"orders":[child],"fills":[fill(child.order_id,"historical-fill",.0006,
+              80655,-.57108,-.02,1793028063000)],"links":[],"forces":[],
+              "incomes":[],"runs":[],"positions":[],"exit_specs":[spec14,spec7]}
+    data=dashboard_payload(records)
+    assert data["exit_summary"]["matched_by_id"]==1
+    assert data["exit_summary"]["matched_by_legacy_client"]==1
+    assert data["combo_exits"][0]["combo"]=="C14"
+    assert data["combo_exits"][0]["SL"]==1
+    assert data["cleanup_risks"]==[{"combo":"C14","symbol":"BTC-USDT",
+        "reason":"LEGACY_SL_REPLACEMENT_UNVERIFIED","cleanup_status":"not_checked"}]
+
+
+def test_legacy_sl_client_id_conflicting_position_qty_or_price_fail_closed():
+    payload=state(104,"111","222","333","444")
+    payload["position_id"]="9001"
+    payload["lifecycle"]={"pending_sl_replace":{
+        "old_order_id":"222","client_order_id":"atv2sl-0123456789abcdef",
+        "quantity":.0006}}
+    spec=extract_exit_spec(payload)
+    for bad in ("position","quantity","price"):
+        child=order("999","STOP_MARKET",spec["signal_time_ms"]+20000,80652.32)
+        child.raw={"positionID":"9001","stopPrice":"80652.32",
+                   "clientOrderId":"atv2sl-0123456789abcdef",
+                   "triggerOrderId":"991"}
+        if bad=="position": child.raw["positionID"]="9002"
+        if bad=="quantity": child.quantity=.001
+        if bad=="price": child.raw["stopPrice"]="70000"
+        assert identify_exit(child.order_id,child,[spec])[1]=="CONFLICT"
+
+
+def test_sw_versioned_js_and_css_no_long_lived_cache_first():
+    from pathlib import Path
+    folder=Path(__file__).parents[1]/"autotrade_live"/"static"
+    html=(folder/"index.html").read_text()
+    sw=(folder/"sw.js").read_text()
+    assert 'app.js?v=20261027-cache3' in html
+    assert 'app.css?v=20261027-cache3' in html
+    assert "autotrade-pwa-shell-v3" in sw
+    assert "fetch(event.request, {cache:'no-store'})" in sw
+    assert 'self.skipWaiting()' in sw
+    assert 'self.clients.claim()' in sw
