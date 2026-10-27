@@ -106,3 +106,33 @@ footer strong{color:#adc3d3}
  .scope-pill{font-size:9px}
  .section-head h2{font-size:16px}
 }
+
+/* V3 phone-first theoretical report */
+.kpis-v3{grid-template-columns:repeat(2,minmax(0,1fr))}
+.kpis-v3 .kpi strong{font-size:clamp(21px,5vw,30px)}
+.reliability-hero{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
+.reliability-hero strong{font-size:34px;color:#5de5b9}
+.reliability-hero span{font-size:12px;color:#abc0d0}
+.reliability-track{height:9px;background:#2b3e53;border-radius:99px;overflow:hidden;margin-bottom:16px}
+.reliability-track>div{height:100%;width:0;background:#51d9ad;border-radius:99px;transition:width .2s}
+.reliability-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.reliability-grid>div{padding:11px 8px;background:#102033;border-radius:12px;min-width:0}
+.reliability-grid small,.strategy-stats small{display:block;color:#91a9b9;font-size:10px;line-height:1.4}
+.reliability-grid strong{display:block;margin-top:5px;font-size:20px}
+.incident-list{margin-top:13px}
+.incident{border-top:1px solid #304153;padding:10px 1px;color:#ffc18c;font-size:12px}
+.strategy-card{border:1px solid #294157;background:#102033;border-radius:15px;padding:14px;min-width:0}
+.strategy-head{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:15px}
+.strategy-roi{font-size:20px;font-variant-numeric:tabular-nums}
+.strategy-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:13px}
+.strategy-stats>div{min-width:0}
+.strategy-stats strong{display:block;font-size:13px;font-variant-numeric:tabular-nums;margin-top:5px;overflow-wrap:anywhere}
+.strategy-foot{font-size:11px;color:#91a9b9;margin-top:12px;line-height:1.5}
+@media(max-width:700px){
+ .filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .filters button{grid-column:1/-1}
+ .kpis-v3 .kpi{min-height:120px}
+ .app{max-width:480px}
+ .panel{padding:16px 14px}
+}
+@media(min-width:701px){.app{max-width:980px}.combo-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
