@@ -8,21 +8,23 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 
 from .render_archive import run_once
 
 LOGGER = logging.getLogger("autotrade.dashboard.archive")
-TRUE_VALUES = frozenset({"1", "true", "yes", "on"})
 POLL_SECONDS = 30
 FAILURE_BACKOFF = timedelta(minutes=15)
 BUSY_BACKOFF = timedelta(minutes=5)
 
 
 def archive_enabled(environ=None) -> bool:
-    env = os.environ if environ is None else environ
-    return str(env.get("DASHBOARD_ARCHIVE_ENABLED", "")).strip().lower() in TRUE_VALUES
+    """Always run read-only analytics on the dashboard service.
+
+    No extra Render environment toggle is required. The BingX read-only
+    credentials are still read securely by render_archive.run_once().
+    """
+    return True
 
 
 def ready_slot(now: datetime) -> datetime | None:
