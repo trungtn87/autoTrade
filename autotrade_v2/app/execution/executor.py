@@ -25,6 +25,7 @@ class LegacyStyleBingXClient:
 
     ORDER_PATH="/openApi/swap/v2/trade/order"
     OPEN_ORDERS_PATH="/openApi/swap/v2/trade/openOrders"
+    ORDERS_HISTORY_PATH="/openApi/swap/v2/trade/allOrders"
     BALANCE_PATH="/openApi/swap/v3/user/balance"
     POSITIONS_PATH="/openApi/swap/v2/user/positions"
     CONTRACTS_PATH="/openApi/swap/v2/quote/contracts"
@@ -275,6 +276,34 @@ class LegacyStyleBingXClient:
             rows=data.get("orders") or []
             return [x for x in rows if isinstance(x,dict)]
         return []
+
+    def get_order_history(self,symbol:str,start_ms:int,end_ms:int)->list[dict]:
+        """Single bounded 7-day history batch for orphan classification.
+
+        BingX may return a different orderId from GET /trade/order even with
+        HTTP 200; match historical IDs *only* when the response contains that
+        exact ID. A truncated or malformed list must fail closed.
+        """
+        if not (0 < start_ms < end_ms and end_ms-start_ms < 7*86400_000):
+            raise ValueError("BingX history window invalid (must be under 7 days)")
+        payload=self._signed_request(
+            "GET",self.ORDERS_HISTORY_PATH,{
+                "symbol":symbol,"startTime":str(start_ms),"endTime":str(end_ms),
+                "limit":"1000",
+            }
+        )
+        data=payload.get("data") if isinstance(payload,dict) else None
+        if isinstance(data,dict):
+            rows=data.get("orders")
+        elif isinstance(data,list):
+            rows=data
+        else:
+            rows=None
+        if not isinstance(rows,list) or len(rows)>=1000:
+            raise ValueError("BingX order history missing/truncated")
+        if any(not isinstance(x,dict) for x in rows):
+            raise ValueError("BingX historical order list malformed")
+        return rows
 
     def find_matching_protection(
         self,

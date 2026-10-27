@@ -67,6 +67,7 @@ class FakeClient:
         self.position_rows=position()
         self.open_orders_calls=0
         self.get_positions_calls=0
+        self.history_calls=0
 
     def get_open_orders(self,symbol):
         self.open_orders_calls+=1
@@ -75,6 +76,10 @@ class FakeClient:
     def get_positions(self,symbol):
         self.get_positions_calls+=1
         return self.position_rows
+
+    def get_order_history(self,symbol,start_ms,end_ms):
+        self.history_calls+=1
+        return list(self.orders.values())
 
     @staticmethod
     def extract_order(data):
@@ -93,13 +98,13 @@ class FakeClient:
         return {"code":0}
 
 
-def execute_check(state,client,open_orders,positions,now=1000000):
+def execute_check(state,client,open_orders,positions,now=1000000,history=None):
     written=[]
     alerts=[]
     result=clean_one(client,state,open_orders,positions,
                      lambda s:written.append(deepcopy(s)),
                      lambda *a:alerts.append(a),
-                     now_ms=now)
+                     now_ms=now,historical_by_id=history)
     return result,written,alerts
 
 
@@ -251,6 +256,7 @@ def test_service_batches_symbol_reads_once_and_never_touches_peer():
     out=service.cleanup_closed_exits()
     assert client.get_positions_calls==1
     assert client.open_orders_calls==1
+    assert client.history_calls==1
     assert client.canceled==["201"]
     assert len(out)==1 and out[0]["event_id"]==combo1["intent"]["event_id"]
     assert service.store.rows[combo2["intent"]["event_id"]].get("exit_cleanup",{}).get("status")=="watching"
@@ -269,6 +275,62 @@ def test_legacy_pending_sl_replacement_warns_without_resizing():
     assert out["status"]=="watching"
     assert any("LEGACY_SL_REPLACEMENT_UNVERIFIED" in repr(a) for a in alerts)
     assert not client.canceled
+
+
+def test_live_history_matching_closed_combo_and_no_single_get():
+    closed=trade()
+    first=rows(tp="0.0006",trailing="0.0006",
+               tp_status="FILLED",trailing_status="FILLED")
+    client=FakeClient(first)
+    hist={x["orderID"]:x for x in first}
+    out,_,_=execute_check(closed,client,{"201":first[0]},
+                         position("0.0013"),history=hist)
+    assert out["cancel_requested"]==["201"]
+    assert client.canceled==["201"]
+    assert client.lookups==[]  # no unreliable GET /trade/order
+
+
+def test_history_missing_exact_id_fails_closed_even_when_other_ids_exist():
+    state=trade()
+    first=rows()
+    client=FakeClient(first)
+    other=order("999","TRAILING_STOP_MARKET",status="FILLED")
+    try:
+        execute_check(state,client,{"201":first[0]},
+                      position("0"),history={"202":first[1],"999":other})
+        assert False, "must not infer state from a different BingX orderId"
+    except CleanupUncertain as exc:
+        assert "absent from open and historical" in str(exc)
+    assert client.canceled==[]
+    assert client.lookups==[]
+
+
+def test_history_never_authorizes_cancel_of_order_not_in_open_snapshot():
+    state=trade()
+    first=rows()
+    client=FakeClient(first)
+    hist={x["orderID"]:x for x in first}
+    first_result,_,_=execute_check(state,client,{},[],
+                                    now=1000000,history=hist)
+    assert first_result["status"]=="watching"
+    second_result,_,_=execute_check(state,client,{},[],
+                                    now=1060000,history=hist)
+    assert second_result["status"]=="cleanup"
+    assert second_result["cancel_requested"]==[]
+    assert client.canceled==[]
+
+
+def test_render_explicit_opt_in_preserves_disabled_legacy_sl_lifecycle():
+    with patch.dict("os.environ",{
+        "EXIT_CLEANUP_ENABLED":"true",
+        "POSITION_LIFECYCLE_ENABLED":"true",
+    },clear=True):
+        settings=enable_runtime_trailing(Settings())
+        assert settings.exit_cleanup_enabled is True
+        assert settings.position_lifecycle_enabled is False
+        assert settings.tp_trailing_activation_pct==0.005
+        assert settings.tp_trailing_callback_rate==0.005
+        validate_settings(settings)
 
 
 def test_runtime_cleanup_is_bounded_but_setup_recovery_remains_15s():
@@ -299,6 +361,10 @@ def main():
         test_runtime_cleanup_is_bounded_but_setup_recovery_remains_15s,
         test_service_batches_symbol_reads_once_and_never_touches_peer,
         test_legacy_pending_sl_replacement_warns_without_resizing,
+        test_live_history_matching_closed_combo_and_no_single_get,
+        test_history_missing_exact_id_fails_closed_even_when_other_ids_exist,
+        test_history_never_authorizes_cancel_of_order_not_in_open_snapshot,
+        test_render_explicit_opt_in_preserves_disabled_legacy_sl_lifecycle,
     ]
     for test in tests:
         test()
