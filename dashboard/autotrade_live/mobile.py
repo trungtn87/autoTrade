@@ -324,7 +324,8 @@ def dashboard_payload(records, symbol=None, combo=None, days='all'):
     since_ms = int(time.time() * 1000) - period_days * 86400000 if period_days else 0
     theory = build_theory(records.get('v2_states'), records.get('exit_specs', []),
                           records['orders'], exit_events, start_ms=start_ms,
-                          symbol=symbol or '', combo=combo or '', since_ms=since_ms)
+                          symbol=symbol or '', combo=combo or '', since_ms=since_ms,
+                          fills=records['fills'])
     return {
         'theory': theory,
         'theory_since': datetime.fromtimestamp(max(start_ms, since_ms)/1000, timezone.utc).strftime('%d/%m/%Y') if max(start_ms, since_ms) else 'đầu dữ liệu',
@@ -366,7 +367,7 @@ def api_dashboard(request: Request, symbol: str = '', combo: str = '', days: str
         if _public_readonly():
             # Public summaries do not expose exchange order IDs, raw fills or
             # collector error details (which can contain internal infrastructure).
-            public_fields = ('symbol', 'combo', 'side', 'exit_ms', 'exit_types', 'pnl', 'pnl_pct', 'liquidated')
+            public_fields = ('symbol', 'combo', 'side', 'entry_ms', 'exit_ms', 'exit_types', 'pnl', 'pnl_pct', 'liquidated')
             data['trades'] = [{k: trade.get(k) for k in public_fields} for trade in data['trades']]
             exit_public_fields = ('symbol','combo','type','confidence','time_ms','qty',
                                   'exit_price','bingx_realized_pnl','exit_fees')
