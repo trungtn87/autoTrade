@@ -232,9 +232,12 @@ def test_sw_versioned_js_and_css_no_long_lived_cache_first():
     folder=Path(__file__).parents[1]/"autotrade_live"/"static"
     html=(folder/"index.html").read_text()
     sw=(folder/"sw.js").read_text()
-    assert 'app.js?v=20261027-review4' in html
-    assert 'app.css?v=20261027-review4' in html
-    assert "autotrade-pwa-shell-v4" in sw
+    import re
+    js_ver=re.search(r'app.js\\?v=([a-zA-Z0-9-]+)',html)
+    css_ver=re.search(r'app.css\\?v=([a-zA-Z0-9-]+)',html)
+    assert js_ver and css_ver and js_ver.group(1)==css_ver.group(1)
+    assert "const VERSION = '"+js_ver.group(1)+"'" in sw
+    assert "autotrade-pwa-shell-v8" in sw
     assert "fetch(event.request, {cache:'no-store'})" in sw
     assert 'self.skipWaiting()' in sw
     assert 'self.clients.claim()' in sw
@@ -299,10 +302,14 @@ def test_mobile_report_has_compact_kpis_and_no_double_counting():
     folder=Path(__file__).parents[1]/"autotrade_live"/"static"
     html=(folder/"index.html").read_text()
     script=(folder/"app.js").read_text()
-    for name in ('net','count','winrate','pf','chart','combo-list','exit-list'):
+    for name in ('net','count','winrate','pf','equity-chart','combo-list',
+                 'history-list','history-from','history-to','bingx-trade-list','exit-list'):
         assert 'id="'+name+'"' in html
-    assert 'Thông tin kỹ thuật & đối soát' in html
+    assert 'BingX &amp; dữ liệu đối soát' in html
     assert '<details' in html
-    assert "p.pnl_usdt" in script
-    assert "chart(p.curve)" in script
-    assert "exit_summary" in script
+    assert "renderCurve(theory.history || [])" in script
+    assert "status === 'closed'" in script
+    assert "data.exit_summary" in script
+    assert "ROI biến động giá" in html
+    assert 'id="history-more"' in html
+    assert 'id="refresh"' not in html
