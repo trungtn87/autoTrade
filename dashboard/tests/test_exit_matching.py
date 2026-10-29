@@ -232,11 +232,10 @@ def test_sw_versioned_js_and_css_no_long_lived_cache_first():
     folder=Path(__file__).parents[1]/"autotrade_live"/"static"
     html=(folder/"index.html").read_text()
     sw=(folder/"sw.js").read_text()
-    import re
-    js_ver=re.search(r'app.js\\?v=([a-zA-Z0-9-]+)',html)
-    css_ver=re.search(r'app.css\\?v=([a-zA-Z0-9-]+)',html)
-    assert js_ver and css_ver and js_ver.group(1)==css_ver.group(1)
-    assert "const VERSION = '"+js_ver.group(1)+"'" in sw
+    js_ver=html.split('app.js?v=',1)[1].split('"',1)[0]
+    css_ver=html.split('app.css?v=',1)[1].split('"',1)[0]
+    assert js_ver and css_ver and js_ver==css_ver
+    assert "const VERSION = '"+js_ver+"'" in sw
     assert "autotrade-pwa-shell-v8" in sw
     assert "fetch(event.request, {cache:'no-store'})" in sw
     assert 'self.skipWaiting()' in sw
