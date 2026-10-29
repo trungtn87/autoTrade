@@ -236,8 +236,10 @@ function renderBingX(data) {
     heading.append(element('strong', '', (trade.symbol || '—') + ' · ' + (trade.combo || 'Chưa gắn Combo')));
     heading.append(element('strong', 'bingx-pnl ' + classFor(trade.pnl), cash(trade.pnl)));
     card.append(heading);
+    const exitTypes = Array.isArray(trade.exit_types) ?
+      trade.exit_types.join(' + ') : String(trade.exit_types || '');
     card.append(element('div', 'bingx-meta',
-      (trade.side || '—') + ' · ' + (trade.liquidated ? 'Thanh lý' : (trade.exit_types || []).join(' + ') || 'Đã đóng')));
+      (trade.side || '—') + ' · ' + (trade.liquidated ? 'Thanh lý' : exitTypes || 'Đã đóng')));
     const dates = element('div', 'bingx-times');
     dates.append(dateCell('Mở thực tế', trade.entry_ms, 'Chưa lưu giờ mở'));
     dates.append(dateCell('Đóng thực tế', trade.exit_ms, 'Chưa lưu giờ đóng'));
