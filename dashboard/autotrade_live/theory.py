@@ -35,10 +35,19 @@ def load_states(engine):
             continue
     return result
 
-def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', combo='', since_ms=0):
+def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', combo='', since_ms=0, fills=()):
     if states is None:
         return {'available': False, 'reason': 'Chưa truy cập được nhật ký tín hiệu V2'}
     order_map = {str(o.order_id): o for o in orders}
+    # Entry timestamp is an actual BingX fill; order creation is a separate fallback
+    # field, never passed off as a verified fill time.
+    entry_fill_times = {}
+    for fill in fills:
+        oid = str(getattr(fill, 'order_id', '') or '')
+        when = int(getattr(fill, 'timestamp_ms', 0) or 0)
+        if oid and when > 0:
+            entry_fill_times[oid] = min(when, entry_fill_times.get(oid, when))
+    history = []
     events = defaultdict(list)
     for e in exit_events:
         if e.get('confidence') in CONFIRMED and e.get('entry_order_id'):
@@ -59,6 +68,17 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
         s['combo'], s['symbol'] = name,sym
         s['signals'] += 1
         entry_id = str(state.get('order_id') or '')
+        entry_order = order_map.get(entry_id)
+        created = int(getattr(entry_order, 'created_ms', 0) or 0)
+        record = {
+            'symbol': sym, 'combo': name, 'side': str(intent.get('side') or '').upper(),
+            'signal_ms': ts or None,
+            'entry_ms': entry_fill_times.get(entry_id),
+            'entry_created_ms': created if created > 0 else None,
+            'exit_ms': None, 'roi_pct': None,
+            'status': 'unresolved', 'result': 'UNRESOLVED',
+        }
+        history.append(record)
         filled = bool(state.get('entry_filled')) and bool(entry_id)
         if filled: s['confirmed'] += 1
         elif state.get('terminal') and not state.get('entry_accepted'):
@@ -67,7 +87,10 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
         else:
             s['pending'] += 1
             incidents.append({'time_ms':ts,'combo':name,'symbol':sym,'reason':'ENTRY_UNKNOWN'})
-        if not filled: continue
+        if not filled:
+            record['status'] = 'entry_failed' if state.get('terminal') and not state.get('entry_accepted') else 'entry_unknown'
+            record['result'] = 'ENTRY_FAILED' if record['status'] == 'entry_failed' else 'ENTRY_UNKNOWN'
+            continue
         protection = state.get('protection') or {}
         expected = ('sl', 'tp', 'trailing') if state.get('exit_mode') == 'split_trailing' else ('sl','tp')
         if any(not (protection.get(k) or {}).get('order_id') for k in expected):
@@ -104,7 +127,21 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
             if a is not None and b is not None: roi = (a+b)/2
         if roi is None:
             s['unresolved'] += 1
+            record['result'] = (
+                'TP_PARTIAL' if tp and not trail and not sl else
+                'TRAILING_PARTIAL' if trail and not tp and not sl else 'UNRESOLVED'
+            )
             continue
+        if sl and not tp and not trail:
+            result, used = 'SL', [sl]
+        elif tp and trail:
+            result, used = 'TP_TRAILING', [tp, trail]
+        elif tp and sl:
+            result, used = 'TP_SL', [tp, sl]
+        else:
+            result, used = 'TRAILING_SL', [trail, sl]
+        record.update(status='closed', result=result, roi_pct=round(roi, 4),
+                      exit_ms=max(int(x['time_ms']) for x in used))
         s['closed'] += 1
         s['roi_total'] += roi
         s['tp_hits'] += int(bool(tp))
@@ -132,5 +169,7 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
     totals['roi_avg'] = round(totals['roi_total']/totals['closed'],4) if totals['closed'] else None
     totals['rr'] = (round((total_win_sum/totals['win']) / (total_loss_sum/totals['loss']),2)
                     if totals['win'] and totals['loss'] else None)
+    history.sort(key=lambda r: (r['exit_ms'] or r['entry_ms'] or r['signal_ms'] or 0), reverse=True)
     return {'available':True,'coverage':'Các tín hiệu đã được V2 ghi vào processed_targets; chưa chứng minh tín hiệu bị mất trước khi ghi',
-            'summary':totals,'combos':rows,'incidents':sorted(incidents,key=lambda e:e['time_ms'],reverse=True)[:40]}
+            'summary':totals,'combos':rows,'history':history,
+            'incidents':sorted(incidents,key=lambda e:e['time_ms'],reverse=True)[:40]}
