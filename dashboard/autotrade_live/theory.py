@@ -166,9 +166,23 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
         tp = outcomes.get('TP')
         sl = outcomes.get('SL')
         trail = outcomes.get('TRAILING')
+        entry_qty = _number(getattr(entry_order, 'filled_qty', None)) or _number(state.get('executed_qty'))
+        def full_exit(ev):
+            # Only a proven fully executed solo exit closes a split position.
+            if entry_qty > 0:
+                qty = _number(ev.get('qty')) if ev else 0
+                return qty > 0 and abs(qty - entry_qty) <= max(1e-9, entry_qty * 1e-6)
+            # Legacy SL test states without quantity retain their prior behavior;
+            # a TP/trailing without quantity is never assumed to be complete.
+            return bool(ev and ev.get('type') == 'SL')
+
         roi = None
-        if sl and not tp and not trail:
+        if sl and not tp and not trail and full_exit(sl):
             roi = _pct(entry, sl['exit_price'], intent.get('side'))
+        elif tp and not sl and not trail and full_exit(tp):
+            roi = _pct(entry, tp['exit_price'], intent.get('side'))
+        elif trail and not tp and not sl and full_exit(trail):
+            roi = _pct(entry, trail['exit_price'], intent.get('side'))
         elif tp and trail:
             a = _pct(entry,tp['exit_price'],intent.get('side'))
             b = _pct(entry,trail['exit_price'],intent.get('side'))
@@ -234,6 +248,10 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
             continue
         if sl and not tp and not trail:
             result, used = 'SL', [sl]
+        elif tp and not sl and not trail:
+            result, used = 'TP', [tp]
+        elif trail and not sl and not tp:
+            result, used = 'TRAILING', [trail]
         elif tp and trail:
             result, used = 'TP_TRAILING', [tp, trail]
         elif tp and sl:
