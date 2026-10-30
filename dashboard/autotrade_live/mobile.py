@@ -204,14 +204,15 @@ def _db_records():
 
 
 def _start_ms():
-    """Count only positions opened on/after this fixed, timezone-aware date."""
+    """Dashboard never includes entries before 30 Oct 2026, midnight Vietnam."""
+    floor_ms = int(datetime.fromisoformat('2026-10-30T00:00:00+07:00').timestamp() * 1000)
     start_at = os.getenv('DASHBOARD_START_AT', '').strip()
     if not start_at:
-        return 0
+        return floor_ms
     dt = datetime.fromisoformat(start_at.replace('Z', '+00:00'))
     if dt.tzinfo is None:
         raise ValueError('DASHBOARD_START_AT must include a UTC offset')
-    return int(dt.timestamp() * 1000)
+    return max(floor_ms, int(dt.timestamp() * 1000))
 
 
 def dashboard_payload(records, symbol=None, combo=None, days='all'):
