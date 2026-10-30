@@ -426,6 +426,29 @@ def startup()->None:
         ),
         bool(settings.database_url),
     )
+    # Discord is part of the required operational behavior. Never silently
+    # treat missing notification destinations as a healthy configuration.
+    missing_discord = [
+        name
+        for name, value in (
+            ("DISCORD_WEBHOOK_BTC", settings.discord_webhook_btc),
+            ("DISCORD_WEBHOOK_ETH", settings.discord_webhook_eth),
+            ("DISCORD_WEBHOOK_ERROR", settings.discord_webhook_error),
+        )
+        if not value
+    ]
+    if not settings.discord_enabled:
+        missing_discord.insert(0, "DISCORD_ENABLED")
+    if missing_discord:
+        log.error(
+            "DISCORD_CONFIG_INCOMPLETE missing=%s notifications_not_guaranteed=true",
+            ",".join(missing_discord),
+        )
+        event_reporter.emit(
+            "L4.DISCORD.CONFIG_INCOMPLETE", "ERROR",
+            "Discord notification configuration is incomplete",
+            details={"missing": missing_discord},
+        )
     preflight=execution_service.preflight()
     with _state_lock:
         runtime["execution_preflight"]=preflight
@@ -552,6 +575,7 @@ def health():
         "ws":stream.status() if stream is not None else None,
         "rest_gap_recovery":data_service.recovery_rest_status(),
         "layer4":event_reporter.status(),
+        "discord_config_ok": bool(settings.discord_enabled and settings.discord_webhook_btc and settings.discord_webhook_eth and settings.discord_webhook_error),
     }
     return JSONResponse(status_code=200 if data_ok else 503,content=body)
 
