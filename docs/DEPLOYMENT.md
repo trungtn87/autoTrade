@@ -1,105 +1,103 @@
-# Autotrade one-service deployment (Engine V2 + Live Dashboard)
+# Production deployment — ONE application
 
-## One VPS/hosting application, same GitHub main
+This is the current deployment contract for AutoTrade. **Do not deploy a
+second engine, create a second dashboard service or bring back Render configs.**
 
-The *default* now requires only **one hosting application**. The separate
-service directories remain supported but are optional.
+## Hosting settings (Nhân Hòa Vibe / Docker)
 
-| Setting | Correct value |
+| Setting | Value |
 | --- | --- |
-| Repository / branch | `trungtn87/autoTrade` / `main` |
-| Project / root path | `/` (NOT `/autotrade_v2` or `/dashboard`) |
-| Builder | Root `Dockerfile` preferred; root `railpack.json` also supported |
-| Command | `python -m uvicorn unified_app:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1` |
-| Public port | `8000`, or the host-provided `PORT` |
-| Dashboard | `/`, `/mobile`, `/api/dashboard` (direct access, no login) |
-| Dashboard health | `/health` |
-| Engine status / health | `/engine/status`, `/engine/health` |
+| GitHub | `trungtn87/autoTrade` |
+| Branch | `main` |
+| Root / Docker context | `/` (or `.` for context path) |
+| Builder | `Dockerfile` |
+| Dockerfile path | `Dockerfile` |
+| Container port | `8000` |
+| Workers / instances | `1` / `1` |
+| Start | Docker CMD runs `uvicorn unified_app:app` |
+| Dashboard | `/`, `/mobile` |
+| Status | `/health` (Dashboard), `/engine/health` (V2), `/engine/status` (V2) |
 
-**Old incorrect build log:** If dependencies are only `flask` and
-`requests` from the legacy root `requirements.txt`, this is not the combined
-deployment. The unified root requirements must also install FastAPI, pandas,
-SQLAlchemy, etc. Successful build alone does not prove the unified startup.
+Railpack is supported by the **root** `railpack.json`, but Dockerfile is the
+recommended default. No manual command override. Configure the host HTTPS
+certificate or an upstream TLS terminator correctly; a Certificate Provider
+value of `None` alone does not establish that TLS is valid.
 
-Do not configure two separate services on a hosting plan that allows only one.
-Do not use the legacy `bingx_server.py` or `python bingx_server.py` to start
-the new service.
+## Required Environment — complete functional setup
 
-## Environment for all required functionality
+Set these **eight entries** on the **single** hosting application before live
+cutover. Use existing values from prior hosting where available. Never place
+real values in source, GitHub issues or build arguments.
 
-**These values belong in the hosting Environment, not in GitHub.** The single
-service shares one Supabase database and needs the following secrets:
-
-| Variable | Where to get the value | Feature lost if missing |
-| --- | --- | --- |
-| `DATABASE_URL` | Current Supabase project → Connect → PostgreSQL connection string | Persistent candles/history/state |
-| `BINGX_API_KEY`, `BINGX_API_SECRET` | Existing BingX **trading** API credentials | Real order execution |
-| `DISCORD_WEBHOOK_BTC` | Existing BTC Discord channel → Integrations → Webhooks | BTC trade reports |
-| `DISCORD_WEBHOOK_ETH` | Existing ETH Discord channel → Integrations → Webhooks | ETH trade reports |
-| `DISCORD_WEBHOOK_ERROR` | Existing error Discord channel → Integrations → Webhooks | Error notifications |
-| `BINGX_READ_API_KEY`, `BINGX_READ_API_SECRET` | BingX API Management, **separate read-only key** | Dashboard historical archive updates |
-
-**A total of 8 secret/value entries:** the shared `DATABASE_URL` is set once.
-**Dashboard opens without authentication by default in unified mode.**
-Anyone knowing its public URL can view redacted trade summaries including
-strategy/Combo performance and PnL. Raw fills/order IDs and diagnostics are
-filtered in this mode. If private login is ever explicitly required, set
-`DASHBOARD_PUBLIC_READONLY=false` plus `DASHBOARD_PASSWORD` (12+ chars) and
-`APP_SESSION_SECRET` (32+ chars). No login variables are needed for the
-previous direct-access behavior.
-
-`DB_SCHEMA=autotrade_analytics` is automatically provided by the unified
-entrypoint for Supabase; no manual schema variable is required. The app defaults
-`PORT` to 8000 and HTTPS `COOKIE_SECURE=true`. The following extra variables
-are needed only if that feature was in use on the previous host:
-
-| Keep if enabled previously | Why |
+| Variable | Purpose / obtain from |
 | --- | --- |
-| `DISCORD_RELAY_URL` + `DISCORD_RELAY_TOKEN` | Existing relay for outbound Discord traffic |
-| `EXIT_CLEANUP_ENABLED=true` | Preserve safe orphan-order cleanup; code defaults false |
-| `DASHBOARD_START_AT` | Preserve fixed historical reporting start |
-| `COLLECTOR_TOKEN` | Optional webhook Combo tag receiver |
-| `EMAIL_ALERTS_ENABLED` + `SMTP_PASSWORD` + corresponding SMTP settings | Optional email error alerts |
+| `DATABASE_URL` | Existing **Supabase PostgreSQL** connection string from Connect (TLS) |
+| `BINGX_API_KEY` | Existing trade-enabled BingX API key for the V2 engine |
+| `BINGX_API_SECRET` | Corresponding BingX trade API secret |
+| `DISCORD_WEBHOOK_BTC` | Existing Discord BTC channel → Integrations → Webhooks |
+| `DISCORD_WEBHOOK_ETH` | Existing Discord ETH channel → Integrations → Webhooks |
+| `DISCORD_WEBHOOK_ERROR` | Existing Discord error channel → Integrations → Webhooks |
+| `BINGX_READ_API_KEY` | A **separate BingX read-only** key for history collection |
+| `BINGX_READ_API_SECRET` | Matching read-only secret |
 
-Do **not** add `EXECUTION_ENABLED`, `DRY_RUN`, `WEBSOCKET_ENABLED`,
-`BINGX_SYMBOLS`, `BINGX_REQUEST_DELAY` or `DB_SCHEMA` manually for this
-unified deployment. Live execution is automatically enabled with complete
-Supabase + BingX trading credentials on the revised engine; missing credentials
-leave execution disabled. The existing BingX credential preflight, candle
-validation, order journaling and duplicate-event checks remain.
+The following are **only conditional** on an already-used feature:
+- `DISCORD_RELAY_URL` and `DISCORD_RELAY_TOKEN`: **keep both** if the
+  previous hosting sends Discord through a relay.
+- `DASHBOARD_START_AT`: keep if you intentionally lock an existing historical
+  reporting cutoff.
+- `COLLECTOR_TOKEN`: only if an external Combo-link webhook receiver is in use.
+- Email/SMTP variables: only when email alerting is in use (Discord is the
+  primary configured notification path).
+- `EXIT_CLEANUP_ENABLED=false`: **emergency opt-out only**; safe orphan cleanup
+  is now **enabled by default**. If an old host still carries the value
+  `false`, remove it after confirming the cleanup mechanism is approved.
+  No extra variable is needed on a clean install.
 
-## Mandatory cutover and acceptance
+**Do not add** `EXECUTION_ENABLED`, `DRY_RUN`, `WEBSOCKET_ENABLED`,
+`POSITION_LIFECYCLE_ENABLED`, `TP_TRAILING_SPLIT_ENABLED`, `DB_SCHEMA`,
+`DASHBOARD_PASSWORD`, `APP_SESSION_SECRET`, `DASHBOARD_PUBLIC_READONLY`,
+`BINGX_REQUEST_DELAY` or `BINGX_SYMBOLS` for the normal deployment.
+The unified process provides the desired defaults:
+- Live execution only with complete Supabase + trade credentials, plus BingX
+  private preflight and candle readiness. **No live/dry-run switch.**
+- WebSocket BTC-USDT/ETH-USDT on closed 15m candles, 3400-candle validation.
+- Full native SL, fixed TP on 50% and exchange-native trailing on 50%;
+  trailing activation **+0.5%**, callback **0.5%**.
+- Legacy post-entry SL cancel/replace lifecycle stays **disabled**.
+- **Conservative 60s cleanup ON**: only known owned orphan orders after an
+  exchange-confirmed flat position; no SL resizing or guessed cancellation.
+- Dashboard opens directly without login, with public read-only redacted data.
+  Archive checks run in-app hourly; no Render or extra hosted collector needed.
 
-1. Before entering trading keys into the new service, shut down and disable
-   **all old BingX writers**, including sleeping hosts that may resume. A single
-   Docker service is not a distributed single-writer lease; do not let rolling
-   deployments run two live workers with the same account.
-2. Deploy **one instance, one worker**, root build directory. Keep a record of
-   the exact deployed SHA.
-3. Open `/health`: Dashboard must return HTTP 200, `trade_api=false`.
-   Open `/mobile` directly without login and verify `/api/dashboard` data.
-4. Open `/engine/status`: V2 runtime must be present. Open
-   `/engine/health`: verify `execution_credentials_verified=true`,
-   WebSocket/data freshness and `layer4` configuration. A 503 from V2
-   denotes stale candles; it does **not** by itself mean the HTTP server crashed.
-5. Verify all three `layer4.discord_*_configured` flags and a **received test
-   message** for BTC/ETH/error. No webhook = incomplete functionality, even
-   when trading works.
-6. Verify active Dashboard archive times and TP/SL/trailing history in Supabase.
-   Confirm existing `EXIT_CLEANUP_ENABLED` and optional relay behavior still
-   match old production. Do not trigger manual GitHub backfill just to test
-   deployment, because it writes analytics data.
+## Required cutover checks
 
-Combined hosting means both applications run in one Python process and share
-the hosting Environment. This is less isolated than two services, although
-the Dashboard route handlers remain read-only against BingX. The Dashboard uses public read-only redaction by default in unified mode;
-optional private login is still supported when explicitly enabled. The
-separate GET-only BingX API client is retained.
+1. **Before starting this new writer:** stop and disable every older BingX
+   trading writer (including suspended Render services that might restart).
+   Take care with host rolling deployments: two overlapping engine processes
+   on the same account can place duplicate trades. No distributed fencing
+   exists in this version.
+2. Deploy one instance/worker and check exact deployed `main` SHA. `/health`
+   should return `autotrade-dashboard`, `/mobile` should load without login.
+3. `/engine/health`: confirm `ok=true`, both symbols have 3400 valid candles,
+   `websocket_enabled=true`, `ws.connected=true`, `ws.data_healthy=true`,
+   `execution_enabled=true`, `execution_credentials_verified=true`,
+   `dry_run=false`, `exit_cleanup_enabled=true`,
+   `position_lifecycle_enabled=false`, `tp_trailing_split_enabled=true` and
+   `bingx_trade_guard.blocked=false`. A stale-candle 503 is distinct from a
+   crashed server.
+4. Confirm all three `layer4.discord_*_configured` flags are true AND that
+   actual BTC/ETH/error **test notifications arrive**. Configured is not
+   equivalent to delivered; Discord cannot block exchange order protection.
+5. Confirm the Dashboard archive has recent `sync_runs` and actual BingX
+   history/Combo attribution. Validate TP, SL and trailing from a **real**
+   exchange order before declaring end-to-end execution accepted.
+6. Verify no orphan protections remain after verified closed positions.
+   Lack of evidence must fail closed (do not cancel another position's order).
+7. Keep secrets private; rotate the old webhook that had been committed in
+   the removed legacy Flask file, if it remains usable. Removing the file
+   does not erase historical commits.
 
-## Optional standalone service deployment
-
-Original service roots are still available for other hosting plans:
-`/autotrade_v2` with `app.main:app` and `/dashboard` with
-`autotrade_live.mobile:app`. Standalone Dashboard still requires
-`DB_SCHEMA=autotrade_analytics` on Supabase. Do not start both these
-applications in addition to the unified service.
+**Existing runtime data is not deleted or migrated by this repository
+cleanup.** The owner is responsible for removing Render services after safe
+writer cutover. CI never sends real orders, and green CI does not certify a
+completed trade or live Discord delivery.
