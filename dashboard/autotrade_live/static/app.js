@@ -41,33 +41,30 @@ function selectCombos(items) {
 function renderCombos(rows) {
   const root = $('combo-list'); root.replaceChildren();
   set('combo-count', rows.length + ' Combo');
-  if (!rows.length) { root.append(element('div', 'empty', 'Chưa có Combo trong khoảng đã chọn.')); return; }
+  if (!rows.length) {
+    root.append(element('div', 'empty', 'Chưa có Combo trong khoảng đã chọn.'));
+    return;
+  }
   for (const row of rows) {
     const card = element('article', 'strategy-card');
     const head = element('div', 'strategy-head');
     const pair = (row.symbol || '').replace('-USDT', '');
     const name = element('div', 'strategy-name');
     name.append(element('span', 'pair-label', pair), element('strong', '', row.combo || '—'));
-    head.append(name, element('strong', 'strategy-roi ' + classFor(row.roi_total), row.closed ? roi(row.roi_total) : '—'));
+    head.append(name);
     card.append(head);
-    const line = element('div', 'strategy-line');
-    const percent = valid(row.win_rate) ? Math.max(0, Math.min(100, number(row.win_rate))) : 0;
-    const track = element('div', 'strategy-track'), fill = element('div');
-    fill.style.width = percent + '%'; track.append(fill);
-    line.append(track, element('span', 'strategy-win', row.closed ? fmt(row.win_rate, 1) + '% win' : 'Chưa có kết quả'));
-    card.append(line);
-    const stats = element('div', 'strategy-stats');
+    const stats = element('div', 'strategy-stats strategy-stats-compact');
     for (const [label, value] of [
-      ['Hoàn tất', number(row.closed) + '/' + number(row.signals)],
-      ['RR', valid(row.rr) ? fmt(row.rr) : '—'],
-      ['ROI / lệnh', valid(row.roi_avg) ? roi(row.roi_avg) : '—'],
-      ['Thắng', number(row.win)]
+      ['Số lệnh', number(row.closed)],
+      ['TP', number(row.tp_count ?? row.win)],
+      ['SL', number(row.sl_count ?? row.loss)],
+      ['ROI thực tế', valid(row.real_roi_total) ? roi(row.real_roi_total) : '—']
     ]) {
-      const node = element('div'); node.append(element('small', '', label), element('strong', '', value));
+      const node = element('div');
+      node.append(element('small', '', label), element('strong', '', value));
       stats.append(node);
     }
-    card.append(stats, element('div', 'strategy-foot',
-      'TP ' + number(row.tp_hits) + ' · Trailing ' + number(row.trailing) + ' · Thua ' + number(row.loss)));
+    card.append(stats);
     root.append(card);
   }
 }
