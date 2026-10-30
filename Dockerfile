@@ -2,9 +2,8 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 
+# Identical self-contained dependency manifest for Docker and Railpack.
 COPY requirements.txt /app/requirements.txt
-COPY autotrade_v2/requirements.txt /app/autotrade_v2/requirements.txt
-COPY dashboard/requirements-web.txt /app/dashboard/requirements-web.txt
 RUN python -m pip install --disable-pip-version-check -r /app/requirements.txt
 
 COPY unified_app.py /app/unified_app.py
