@@ -1,0 +1,2 @@
+STATIC-VIBE-20261030-A: OK
+This container serves plain static files on port 8000.
