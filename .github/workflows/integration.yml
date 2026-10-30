@@ -1,0 +1,56 @@
+name: Independent V2 and Dashboard builds
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, integrate/v2-live-dashboard-20261030]
+permissions:
+  contents: read
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [autotrade_v2, dashboard]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated application and test dependencies
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: |
+          python -m pip install -r "$SERVICE/requirements.txt" pytest httpx socksio
+      - name: Full offline suite (no credentials or external sockets)
+        run: python scripts/check-offline.py ${{ matrix.service }}
+      - name: Compile
+        run: python -m compileall -q ${{ matrix.service }}
+      - name: Validate PWA JavaScript
+        if: matrix.service == 'dashboard'
+        run: |
+          node --check dashboard/autotrade_live/static/app.js
+          node --check dashboard/autotrade_live/static/sw.js
+      - name: Build only this service from its own context
+        run: docker build -t app-test ${{ matrix.service }}
+      - name: Start default image entrypoint without network or live settings
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: |
+          set -euo pipefail
+          docker run -d --name app-test --network none -e DISCORD_ENABLED=false -e EXECUTION_ENABLED=false -e DRY_RUN=true -e BOOTSTRAP_ENABLED=false -e WEBSOCKET_ENABLED=false app-test
+          trap 'docker logs app-test; docker rm -f app-test' EXIT
+          if [ "$SERVICE" = dashboard ]; then
+            route=health
+          else
+            route=status
+          fi
+          for attempt in $(seq 1 30); do
+            if docker exec app-test python -c "import json,urllib.request; x=json.load(urllib.request.urlopen('http://127.0.0.1:8000/$route')); print(x)"; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
