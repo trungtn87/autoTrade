@@ -1,100 +1,98 @@
-# Independent deployment from main
+# Autotrade one-service deployment (Engine V2 + Live Dashboard)
 
-No deployment, production environment change, migration or bot cutover is
-performed by the integration PR. Keep Supabase; do not provision a replacement
-Nhân Hòa database. Never put real secrets in this repository or build arguments.
+## One VPS/hosting application, same GitHub main
 
-## Set environment before the first startup
+The *default* now requires only **one hosting application**. The separate
+service directories remain supported but are optional.
 
-Create **two separate services**, both repository `trungtn87/autoTrade`, branch
-`main` after acceptance. Use exactly one instance and one worker for each.
+| Setting | Correct value |
+| --- | --- |
+| Repository / branch | `trungtn87/autoTrade` / `main` |
+| Project / root path | `/` (NOT `/autotrade_v2` or `/dashboard`) |
+| Builder | Root `Dockerfile` preferred; root `railpack.json` also supported |
+| Command | `python -m uvicorn unified_app:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1` |
+| Public port | `8000`, or the host-provided `PORT` |
+| Dashboard | `/`, `/login`, `/mobile`, `/api/dashboard` |
+| Dashboard health | `/health` |
+| Engine status / health | `/engine/status`, `/engine/health` |
 
-| Setting | Engine | Dashboard |
+**Old incorrect build log:** If dependencies are only `flask` and
+`requests` from the legacy root `requirements.txt`, this is not the combined
+deployment. The unified root requirements must also install FastAPI, pandas,
+SQLAlchemy, etc. Successful build alone does not prove the unified startup.
+
+Do not configure two separate services on a hosting plan that allows only one.
+Do not use the legacy `bingx_server.py` or `python bingx_server.py` to start
+the new service.
+
+## Environment for all required functionality
+
+**These values belong in the hosting Environment, not in GitHub.** The single
+service shares one Supabase database and needs the following secrets:
+
+| Variable | Where to get the value | Feature lost if missing |
 | --- | --- | --- |
-| Root/build path | `/autotrade_v2` | `/dashboard` |
-| Dockerfile | `Dockerfile` inside selected root | `Dockerfile` inside selected root |
-| Docker context | `autotrade_v2` | `dashboard` |
-| Railpack config | `autotrade_v2/railpack.json` | `dashboard/railpack.json` |
-| Startup | `python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1` | `python -m uvicorn autotrade_live.mobile:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1` |
-| Container/domain port | `PORT`, default `8000` | `PORT`, default `8000` |
-| Status | `/status`; `/health` can be 503 if candles are stale | `/health`, `/login`, `/mobile`, `/api/dashboard` |
+| `DATABASE_URL` | Current Supabase project → Connect → PostgreSQL connection string | Persistent candles/history/state |
+| `BINGX_API_KEY`, `BINGX_API_SECRET` | Existing BingX **trading** API credentials | Real order execution |
+| `DISCORD_WEBHOOK_BTC` | Existing BTC Discord channel → Integrations → Webhooks | BTC trade reports |
+| `DISCORD_WEBHOOK_ETH` | Existing ETH Discord channel → Integrations → Webhooks | ETH trade reports |
+| `DISCORD_WEBHOOK_ERROR` | Existing error Discord channel → Integrations → Webhooks | Error notifications |
+| `BINGX_READ_API_KEY`, `BINGX_READ_API_SECRET` | BingX API Management, **separate read-only key** | Dashboard historical archive updates |
+| `DASHBOARD_PASSWORD` | Owner-selected private password of at least 12 characters | Dashboard private login |
+| `APP_SESSION_SECRET` | Random 32+ character secret, e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"` | Signed Dashboard sessions |
 
-On Nhân Hòa Vibe Hosting, select GitHub, branch and the root above, then Dockerfile
-(preferred, reproducible minimal Dashboard dependencies) or Railpack. Set all
-runtime Environment variables below **before deploy**. Railpack's default Python
-install uses that root's `requirements.txt`; Dashboard includes legacy Streamlit
-tools there, while Docker installs only `requirements-web.txt`. Neither root
-imports or launches the other application. Do not override the startup with the
-other service's command. Confirm domain target port matches `PORT`. Successful
-build logs alone do not demonstrate successful startup: inspect runtime logs.
+**A total of 10 secret/value entries:** the shared `DATABASE_URL` is set once.
+`DB_SCHEMA=autotrade_analytics` is automatically provided by the unified
+entrypoint for Supabase; no manual schema variable is required. The app defaults
+`PORT` to 8000 and HTTPS `COOKIE_SECURE=true`. The following extra variables
+are needed only if that feature was in use on the previous host:
 
-## Engine environment
-
-Keep the existing production values unchanged; these names describe configuration,
-not permission to enable live trading in this task.
-
-| Variable | Value/purpose |
+| Keep if enabled previously | Why |
 | --- | --- |
-| `DATABASE_URL` | Existing Supabase PostgreSQL URL, TLS `sslmode=require` |
-| `PORT` | `8000`, or match domain mapping |
-| `BOOTSTRAP_ENABLED` | Existing setting; `false` for offline acceptance |
-| `WEBSOCKET_ENABLED` | Existing setting; live stream normally `true`; `false` for offline checks |
-| `EXECUTION_ENABLED` | `false` for acceptance; live only on the approved unique writer |
-| `DRY_RUN` | `true` for acceptance; preserve approved live value during later cutover |
-| `BINGX_API_KEY`, `BINGX_API_SECRET` | Engine-only secrets required for live execution |
-| `SYMBOLS` | Existing universe, default `BTC-USDT,ETH-USDT` |
-| `BINGX_WS_URL` | Existing override if any; default `wss://open-api-swap.bingx.com/swap-market` |
-| `TP_TRAILING_SPLIT_ENABLED` | Preserve live value, runtime default `true` |
-| `TP_TRAILING_ACTIVATION_PCT` | `0.005` (0.5%) |
-| `TP_TRAILING_CALLBACK_RATE` | `0.005` (0.5%) |
-| `EXIT_CLEANUP_ENABLED` | Preserve existing approved opt-in; default `false` |
-| `STATE_DB` | Default `autotrade_v2.db`; Supabase is the production state source |
-| `DISCORD_ENABLED`, `DISCORD_WEBHOOK_BTC`, `DISCORD_WEBHOOK_ETH`, `DISCORD_WEBHOOK_ERROR` | Existing reporting settings; disable for offline checks |
-| `DISCORD_RELAY_URL`, `DISCORD_RELAY_TOKEN` | Preserve if configured |
-| `EMAIL_ALERTS_ENABLED`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_STARTTLS`, `EMAIL_FROM`, `EMAIL_TO`, `EMAIL_TEST_ON_STARTUP` | Preserve existing optional alert configuration |
-| `LOG_LEVEL`, `BINGX_BASE_URL` | Preserve overrides if configured |
+| `DISCORD_RELAY_URL` + `DISCORD_RELAY_TOKEN` | Existing relay for outbound Discord traffic |
+| `EXIT_CLEANUP_ENABLED=true` | Preserve safe orphan-order cleanup; code defaults false |
+| `DASHBOARD_START_AT` | Preserve fixed historical reporting start |
+| `COLLECTOR_TOKEN` | Optional webhook Combo tag receiver |
+| `EMAIL_ALERTS_ENABLED` + `SMTP_PASSWORD` + corresponding SMTP settings | Optional email error alerts |
 
-The code still ignores the retired `POSITION_LIFECYCLE_ENABLED` flag. Do not change
-strategy or exit behavior during deployment. Import can connect to Supabase and
-initialize existing store tables, so never smoke-test with production credentials
-in CI. Offline acceptance uses temporary SQLite only. Before a later live cutover,
-stop/disable every old execution writer, including suspended hosts that may resume;
-this document does not authorize that cutover.
+Do **not** add `EXECUTION_ENABLED`, `DRY_RUN`, `WEBSOCKET_ENABLED`,
+`BINGX_SYMBOLS`, `BINGX_REQUEST_DELAY` or `DB_SCHEMA` manually for this
+unified deployment. Live execution is automatically enabled with complete
+Supabase + BingX trading credentials on the revised engine; missing credentials
+leave execution disabled. The existing BingX credential preflight, candle
+validation, order journaling and duplicate-event checks remain.
 
-## Dashboard environment
+## Mandatory cutover and acceptance
 
-| Variable | Value/purpose |
-| --- | --- |
-| `DATABASE_URL` | Existing Supabase PostgreSQL URL, TLS `sslmode=require` |
-| `DB_SCHEMA` | `autotrade_analytics` |
-| `PORT` | `8000`, or match domain mapping |
-| `DASHBOARD_PUBLIC_READONLY` | Preserve current access mode; `false` requires login, `true` exposes metrics publicly |
-| `DASHBOARD_PASSWORD` | Private secret, at least 12 characters, required for private mode |
-| `APP_SESSION_SECRET` | Private random secret, at least 32 characters, required for private mode |
-| `COOKIE_SECURE` | `true` with production HTTPS |
-| `DASHBOARD_START_AT` | Copy existing value exactly if configured; retains reporting window |
-| `BINGX_READ_API_KEY`, `BINGX_READ_API_SECRET` | Separate exchange key restricted to read-only permission |
-| `BINGX_SYMBOLS` | Existing setting, normally `BTC-USDT,ETH-USDT` |
-| `BINGX_REQUEST_DELAY` | Existing pacing, normally `0.6` seconds |
-| `COLLECTOR_TOKEN` | Preserve if used by the existing optional signal receiver |
+1. Before entering trading keys into the new service, shut down and disable
+   **all old BingX writers**, including sleeping hosts that may resume. A single
+   Docker service is not a distributed single-writer lease; do not let rolling
+   deployments run two live workers with the same account.
+2. Deploy **one instance, one worker**, root build directory. Keep a record of
+   the exact deployed SHA.
+3. Open `/health`: Dashboard must return HTTP 200, `trade_api=false`.
+   Open `/login`, log in, and verify `/mobile` / `/api/dashboard` data.
+4. Open `/engine/status`: V2 runtime must be present. Open
+   `/engine/health`: verify `execution_credentials_verified=true`,
+   WebSocket/data freshness and `layer4` configuration. A 503 from V2
+   denotes stale candles; it does **not** by itself mean the HTTP server crashed.
+5. Verify all three `layer4.discord_*_configured` flags and a **received test
+   message** for BTC/ETH/error. No webhook = incomplete functionality, even
+   when trading works.
+6. Verify active Dashboard archive times and TP/SL/trailing history in Supabase.
+   Confirm existing `EXIT_CLEANUP_ENABLED` and optional relay behavior still
+   match old production. Do not trigger manual GitHub backfill just to test
+   deployment, because it writes analytics data.
 
-Never inject engine `BINGX_API_KEY`/`BINGX_API_SECRET` into Dashboard. Its client
-uses GET only; it has no trading engine imports or exchange order mutations. The
-archive scheduler writes the existing analytics mirror, not exchange orders, and
-uses a PostgreSQL advisory lock. Keep one Dashboard instance. Do not run the manual
-GitHub backfill workflow as an integration test: it writes analytics production.
+Combined hosting means both applications run in one Python process and share
+the hosting Environment. This is less isolated than two services, although
+the Dashboard route handlers remain read-only against BingX. Private login
+and the separate GET-only BingX API client are retained.
 
-## Build and checks (without deploying)
+## Optional standalone service deployment
 
-```sh
-docker build -t autotrade-v2 autotrade_v2
-docker build -t autotrade-dashboard dashboard
-```
-
-The CI smoke test starts each image without external networking or production
-credentials, execution off. On a later separately authorized deployment, verify
-runtime status, Supabase reads and recent records, WebSocket freshness for engine,
-and authenticated Dashboard history/Combo/PnL/TP/SL/trailing on a mobile browser.
-PWA requires HTTPS outside localhost. Do not equate `/health` alone with verified
-Supabase data or successful exchange preflight. A stale engine candle store can
-return 503 without process failure; do not repeatedly restart it to bypass backoff.
+Original service roots are still available for other hosting plans:
+`/autotrade_v2` with `app.main:app` and `/dashboard` with
+`autotrade_live.mobile:app`. Standalone Dashboard still requires
+`DB_SCHEMA=autotrade_analytics` on Supabase. Do not start both these
+applications in addition to the unified service.

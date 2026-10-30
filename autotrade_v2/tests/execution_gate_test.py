@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 import tempfile
 
 from app.config import Settings
@@ -10,6 +12,37 @@ from app.execution.store import ExecutionStore
 
 
 def main() -> None:
+    # Old hosting switches cannot enable trading without real secrets, or
+    # disable it once an explicitly provisioned engine has complete credentials.
+    env = dict(os.environ)
+    for name in ("DATABASE_URL", "BINGX_API_KEY", "BINGX_API_SECRET"):
+        env.pop(name, None)
+    env.update(EXECUTION_ENABLED="true", DRY_RUN="false", WEBSOCKET_ENABLED="true")
+    probe = (
+        "from app.config import Settings; "
+        "s=Settings(); "
+        "print(int(s.execution_enabled), int(s.dry_run), int(s.websocket_enabled))"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe], env=env,
+        capture_output=True, text=True, check=True,
+    )
+    assert result.stdout.strip() == "0 0 0", result.stdout
+
+    env.update(
+        DATABASE_URL="postgresql://user:password@db.supabase.co:5432/postgres",
+        BINGX_API_KEY="FAKE_KEY",
+        BINGX_API_SECRET="FAKE_SECRET",
+        EXECUTION_ENABLED="false",
+        DRY_RUN="true",
+        WEBSOCKET_ENABLED="false",
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe], env=env,
+        capture_output=True, text=True, check=True,
+    )
+    assert result.stdout.strip() == "1 0 1", result.stdout
+
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
     try:

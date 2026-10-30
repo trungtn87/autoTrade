@@ -1,2 +1,6 @@
-flask
-requests
+# One-root/one-port hosting: install both independent FastAPI applications.
+# Keep legacy Flask available for backward-compatible manual tooling, but
+# never start bingx_server.py as the production entrypoint.
+-r autotrade_v2/requirements.txt
+-r dashboard/requirements-web.txt
+flask==3.1.3

@@ -31,14 +31,21 @@ class Settings:
     historical_min_interval_ms: int = 1100
 
     bootstrap_enabled: bool = _bool("BOOTSTRAP_ENABLED", False)
-    websocket_enabled: bool = _bool("WEBSOCKET_ENABLED", False)
+    # Production starts the market stream automatically with its Supabase connection.
+    websocket_enabled: bool = bool(os.getenv("DATABASE_URL"))
     bingx_ws_url: str = os.getenv(
         "BINGX_WS_URL",
         "wss://open-api-swap.bingx.com/swap-market",
     )
 
-    execution_enabled: bool = _bool("EXECUTION_ENABLED", False)
-    dry_run: bool = _bool("DRY_RUN", True)
+    # No hosting execution/dry-run toggles: live mode derives from complete
+    # database + exchange credentials; absent secrets remain fail-closed.
+    execution_enabled: bool = bool(
+        os.getenv("DATABASE_URL")
+        and os.getenv("BINGX_API_KEY")
+        and os.getenv("BINGX_API_SECRET")
+    )
+    dry_run: bool = False
 
     # 50% fixed TP + 50% exchange-native trailing with full SL.
     # BingX owns order lifecycle after exchange confirmation.

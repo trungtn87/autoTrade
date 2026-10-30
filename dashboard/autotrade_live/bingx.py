@@ -27,7 +27,7 @@ class BingXReadClient:
             raise ValueError('Set BINGX_READ_API_KEY and BINGX_READ_API_SECRET (read-only).')
         self.http = requests.Session()
         self.http.headers.update({'X-BX-APIKEY': self.key})
-        self.min_delay = float(os.getenv('BINGX_REQUEST_DELAY', '0.5'))
+        self.min_delay = float(os.getenv('BINGX_REQUEST_DELAY', '0.6'))
         self.last_request = 0.0
         self.null_data_counts = {}
 
