@@ -66,5 +66,9 @@ with TestClient(app, follow_redirects=False) as client:
 
     static = client.get("/static/manifest.webmanifest")
     assert static.status_code == 200, static.text
+    worker = client.get("/sw.js")
+    assert worker.status_code == 200, worker.text
+    assert worker.headers["service-worker-allowed"] == "/"
+    assert "serviceWorker" not in worker.text or "fetch" in worker.text
 
 print("PASS: one public port, direct PWA Dashboard, redacted read-only API, Engine lifespan/status")

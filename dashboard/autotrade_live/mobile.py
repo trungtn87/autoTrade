@@ -14,7 +14,7 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import FastAPI, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
@@ -45,6 +45,21 @@ app = FastAPI(title='Autotrade Live Dashboard PWA', docs_url=None, redoc_url=Non
               lifespan=dashboard_lifespan)
 app.mount('/static', StaticFiles(directory=str(STATIC)), name='static')
 app.mount('/collector', ingest_app)
+
+@app.get('/sw.js', include_in_schema=False)
+def service_worker():
+    # A PWA installed at /mobile needs a worker whose scope covers /mobile.
+    # Serving from /static/sw.js would only control /static/ and leave
+    # navigator.serviceWorker.ready unresolved on the main Dashboard page.
+    return FileResponse(
+        STATIC / 'sw.js',
+        media_type='application/javascript',
+        headers={
+            'Service-Worker-Allowed': '/',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+    )
+
 ATTEMPTS: dict[str, list[float]] = defaultdict(list)
 COOKIE = 'autotrade_dashboard_session'
 

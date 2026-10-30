@@ -48,7 +48,8 @@ post-deployment evidence. Do not label them PASS from CI alone.
   recovery, SL/TP/trailing, rate guard, 60s orphan safety and Discord.
 - Unified process startup and route tests, Docker image startup, no-network
   smoke tests and Railpack dependency smoke test.
-- Mobile Chromium/PWA and JavaScript syntax validation.
+- Mobile Chromium/PWA with a root-scope `/sw.js` worker, bounded registration
+  checks, and JavaScript syntax validation.
 - Locked FULL-HISTORY strategy parity workflow (preserve dataset provenance).
 - A real-host runtime checklist per [DEPLOYMENT.md](DEPLOYMENT.md).
 

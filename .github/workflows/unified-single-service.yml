@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: autotrade-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   offline-and-container:
     runs-on: ubuntu-latest
