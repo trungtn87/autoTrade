@@ -3,12 +3,14 @@
 No exchange calls, no trading mutations. Unmatched exits remain unknown.
 """
 import json
+import logging
 from collections import defaultdict
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from .bridge import case_name
 
 CONFIRMED = {'ORDER_ID', 'TRIGGER_ORDER_ID', 'LEGACY_SL_CLIENT_ID'}
+LOG = logging.getLogger(__name__)
 
 def _number(x):
     try: return float(x)
@@ -35,10 +37,32 @@ def load_states(engine):
             continue
     return result
 
-def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', combo='', since_ms=0, fills=()):
+def load_manual_results(engine):
+    """Read only reconciled, fully closed BingX positions with an Excel outcome.
+
+    The private SQL view verifies exact BingX entry ID, position closure, and
+    unique source mapping. These outcomes are never represented as BingX fills
+    or per-combo USDT PnL.
+    """
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT entry_order_id, symbol, combo, side, entry_time_ms, exit_ms, "
+                "roi_pct, roi_source, outcome, outcome_source "
+                "FROM autotrade_analytics.manual_dashboard_trade_results "
+                "WHERE status = 'CLOSED'"
+            )).mappings().all()
+    except SQLAlchemyError as exc:
+        LOG.warning("Manual dashboard reconciliation unavailable: %s", type(exc).__name__)
+        return []
+    return [dict(row) for row in rows]
+
+
+def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', combo='', since_ms=0, fills=(), manual_results=()):
     if states is None:
         return {'available': False, 'reason': 'Chưa truy cập được nhật ký tín hiệu V2'}
     order_map = {str(o.order_id): o for o in orders}
+    manual_by_entry = {str(r['entry_order_id']): r for r in (manual_results or []) if r.get('entry_order_id')}
     # Entry timestamp is an actual BingX fill; order creation is a separate fallback
     # field, never passed off as a verified fill time.
     entry_fill_times = {}
@@ -77,6 +101,9 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
             'entry_created_ms': created if created > 0 else None,
             'exit_ms': None, 'roi_pct': None,
             'status': 'unresolved', 'result': 'UNRESOLVED',
+            'broker_entry_verified': bool(entry_order is not None and
+                str(getattr(entry_order, 'status', 'FILLED')).upper() == 'FILLED' and
+                str(getattr(entry_order, 'symbol', sym)).upper() == sym),
         }
         history.append(record)
         filled = bool(state.get('entry_filled')) and bool(entry_id)
@@ -126,6 +153,41 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
             b = _pct(entry,sl['exit_price'],intent.get('side'))
             if a is not None and b is not None: roi = (a+b)/2
         if roi is None:
+            # The Excel supplement is allowed only for this exact, exchange-
+            # FILLED entry and a fully closed BingX position. No price/time
+            # guessing, no duplicate trade, and no fabricated exchange PnL.
+            manual = manual_by_entry.get(entry_id)
+            manual_roi = _number(manual.get('roi_pct')) if manual else 0.0
+            manual_outcome = manual.get('outcome') if manual else None
+            manual_exit_ms = int(manual.get('exit_ms') or 0) if manual else 0
+            if (manual and entry_order is not None
+                and str(getattr(entry_order, 'status', '')).upper() == 'FILLED'
+                and str(getattr(entry_order, 'symbol', '')).upper() == sym
+                and str(getattr(entry_order, 'side', '')).upper() == str(intent.get('side') or '').upper()
+                and str(manual.get('symbol')) == sym
+                and str(manual.get('combo')) == name
+                and str(manual.get('side')) == str(intent.get('side') or '').upper()
+                and int(manual.get('entry_time_ms') or 0) >= max(start_ms, since_ms)
+                and manual_exit_ms >= int(manual.get('entry_time_ms') or 0) > 0
+                and ((manual_outcome == 'W' and manual_roi > 0) or
+                     (manual_outcome == 'L' and manual_roi < 0))):
+                s['closed'] += 1
+                s['roi_total'] += manual_roi
+                if manual_roi > 0:
+                    s['win'] += 1; s['wins_sum'] += manual_roi
+                else:
+                    s['loss'] += 1; s['loss_sum'] += abs(manual_roi)
+                record.update(
+                    status='closed',
+                    result=('BINGX_WIN' if manual_outcome == 'W' else 'BINGX_LOSS')
+                           if manual.get('outcome_source') == 'BINGX'
+                           else ('EXCEL_WIN' if manual_outcome == 'W' else 'EXCEL_LOSS'),
+                    roi_pct=round(manual_roi, 4), exit_ms=manual_exit_ms,
+                    outcome_source=str(manual.get('outcome_source') or 'EXCEL'),
+                    roi_source=str(manual.get('roi_source') or 'EXCEL_ESTIMATE'),
+                    exit_time_source='BINGX_POSITION'
+                )
+                continue
             s['unresolved'] += 1
             record['result'] = (
                 'TP_PARTIAL' if tp and not trail and not sl else

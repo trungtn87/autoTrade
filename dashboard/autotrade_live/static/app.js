@@ -61,7 +61,7 @@ function renderCombos(rows) {
       ['Hoàn tất', number(row.closed) + '/' + number(row.signals)],
       ['RR', valid(row.rr) ? fmt(row.rr) : '—'],
       ['ROI / lệnh', valid(row.roi_avg) ? roi(row.roi_avg) : '—'],
-      ['Chưa đủ dữ liệu', number(row.unresolved)]
+      ['Thắng', number(row.win)]
     ]) {
       const node = element('div'); node.append(element('small', '', label), element('strong', '', value));
       stats.append(node);
@@ -123,7 +123,8 @@ function renderCurve(items) {
   set('chart-end', dateParts(closed[closed.length-1].exit_ms)?.date || '—');
 }
 const resultLabels = {
-  SL: 'STOP LOSS', TP_TRAILING: 'TP + TRAILING', TP_SL: 'TP + SL',
+  SL: 'STOP LOSS', EXCEL_WIN: 'THẮNG', EXCEL_LOSS: 'THUA',
+  BINGX_WIN: 'THẮNG', BINGX_LOSS: 'THUA', TP_TRAILING: 'TP + TRAILING', TP_SL: 'TP + SL',
   TRAILING_SL: 'TRAILING + SL', TP_PARTIAL: 'TP · CHƯA ĐỦ',
   TRAILING_PARTIAL: 'TRAILING · CHƯA ĐỦ',
   UNRESOLVED: 'CHƯA ĐỦ DỮ LIỆU', ENTRY_FAILED: 'ENTRY THẤT BẠI',
@@ -160,10 +161,10 @@ function createHistoryCard(row) {
   const entryTime = row.entry_ms || row.entry_created_ms;
   times.append(dateCell(row.entry_ms ? 'Khớp Entry' : row.entry_created_ms ? 'Tạo Entry (chưa rõ giờ khớp)' : 'Mở lệnh', entryTime,
     'Chưa có giờ Entry'));
-  times.append(dateCell('Đóng lệnh', row.exit_ms, row.status === 'closed' ? 'Thiếu giờ thoát' : 'Chưa xác nhận đóng'));
+  times.append(dateCell(row.exit_time_source === 'BINGX_POSITION' ? 'Đóng vị thế BingX' : 'Đóng lệnh', row.exit_ms, 'Chưa có giờ đóng'));
   card.append(times);
-  card.append(element('div', 'trade-foot', 'Tín hiệu: ' + timeVN(row.signal_ms) +
-    ' · ROI giá lý thuyết' + (row.status === 'closed' ? '' : ' chưa xác định')));
+  card.append(element('div', 'trade-foot',
+    'Tín hiệu: ' + timeVN(row.signal_ms) + ' · ROI biến động giá, không phải PnL USDT'));
   return card;
 }
 let currentData = null;
@@ -188,7 +189,7 @@ function renderHistory(reset = false) {
     }
     return true;
   });
-  set('history-count', filtered.length + ' / ' + all.length + ' tín hiệu');
+  set('history-count', filtered.length + ' / ' + all.length + ' lệnh đã đóng');
   const list = $('history-list'); list.replaceChildren();
   if (!currentData?.theory?.available) {
     list.append(element('div', 'empty', currentData?.theory?.reason || 'Chưa có nhật ký tín hiệu V2.'));
@@ -285,11 +286,11 @@ async function refresh() {
       ' thua · ' + number(summary.flat) + ' hòa');
     set('pf', valid(summary.rr) ? fmt(summary.rr) : '—');
     set('count', summary.closed ?? '—');
-    set('unknown', 'Chưa đủ dữ liệu: ' + number(summary.unresolved));
+    set('unknown', 'Chỉ tính lệnh đã đóng có dữ liệu');
     set('roiavg', valid(summary.roi_avg) ? roi(summary.roi_avg) : '—');
     set('baseline', 'ROI biến động giá, không tính phí / funding / đòn bẩy · Từ ' +
       (data.theory_since || 'đầu dữ liệu') + '. Không phải PnL tài khoản BingX.');
-    renderCombos(theory.combos || []);
+    renderCombos((theory.combos || []).filter(row => number(row.closed) > 0));
     renderCurve(theory.history || []);
     renderHistory(true);
     renderReliability(theory);

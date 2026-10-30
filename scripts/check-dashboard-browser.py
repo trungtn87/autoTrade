@@ -86,7 +86,7 @@ def check():
                 page.locator('input[name=password]').fill('local-fixture-password')
                 page.locator('button').click()
                 page.wait_for_selector('#history-list > *')
-                page.wait_for_function("document.querySelector('#history-count').textContent.includes('24')")
+                page.wait_for_function("document.querySelector('#history-count').textContent.includes('2 / 2')")
                 # Never await navigator.serviceWorker.ready indefinitely:
                 # a broken scope otherwise leaves this CI job hanging.
                 page.wait_for_function('navigator.serviceWorker.controller !== null', timeout=10000)
@@ -94,21 +94,24 @@ def check():
                 assert page.request.get(BASE+'/sw.js').headers['service-worker-allowed'] == '/'
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'horizontal overflow'
                 cards = page.locator('#history-list > *').count()
-                assert cards == 16
+                assert cards == 2
+                assert page.locator('#history-more').is_hidden()
                 assert page.locator('#combo option').count() == 3
-                page.locator('#history-more').click()
-                assert page.locator('#history-list > *').count() == 24
                 payload = page.request.get(BASE+'/api/dashboard').json()
                 assert payload['theory']['summary']['closed'] == 2
                 assert payload['theory']['summary']['failed'] == 22
+                assert len(payload['theory']['history']) == 2
+                assert all(row['status'] == 'closed' and row['broker_entry_verified']
+                           for row in payload['theory']['history'])
+                assert 'Chưa đủ dữ liệu' not in page.locator('#history-list').inner_text()
                 page.locator('#combo').select_option('C1')
-                page.wait_for_function("document.querySelector('#history-count').textContent.includes('12')")
-                assert page.locator('#history-list > *').count() == 12
+                page.wait_for_function("document.querySelector('#history-count').textContent.includes('1 / 1')")
+                assert page.locator('#history-list > *').count() == 1
                 manifest = page.request.get(BASE+'/static/manifest.webmanifest').json()
                 assert manifest['display'] == 'standalone'
                 assert not errors, errors
                 page.screenshot(path=str(output/f'mobile-{width}.png'), full_page=True)
-                results.append(dict(width=width, height=height, history=24, pagination=True,
+                results.append(dict(width=width, height=height, history=2, pagination=False,
                                     combo_filter=True, service_worker=True, javascript_errors=errors))
                 context.close()
             browser.close()

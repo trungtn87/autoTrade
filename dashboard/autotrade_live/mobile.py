@@ -20,7 +20,7 @@ from sqlalchemy import select
 
 from .analytics import build_trades, margin_roi, summarize
 from .exits import load_exit_specs, build_exit_events
-from .theory import load_states, build_theory
+from .theory import load_states, load_manual_results, build_theory
 from .db import (Fill, ForceOrder, Income, Order, PositionHistory,
                  SignalLink, SyncRun, get_engine, get_sessionmaker, init_db)
 from .ingest import app as ingest_app
@@ -200,6 +200,7 @@ def _db_records():
     # Read only already-persisted trade IDs, never call BingX from dashboard.
     records['exit_specs'] = load_exit_specs(engine)
     records['v2_states'] = load_states(engine)
+    records['manual_results'] = load_manual_results(engine)
     return records
 
 
@@ -340,7 +341,17 @@ def dashboard_payload(records, symbol=None, combo=None, days='all'):
     theory = build_theory(records.get('v2_states'), records.get('exit_specs', []),
                           records['orders'], exit_events, start_ms=start_ms,
                           symbol=symbol or '', combo=combo or '', since_ms=since_ms,
-                          fills=records['fills'])
+                          fills=records['fills'],
+                          manual_results=records.get('manual_results', []))
+    # Display only completed trades backed by a real BingX FILLED entry.
+    # Unresolved legacy signals are not trade history, and are not shown.
+    if theory.get('available'):
+        theory['history'] = [
+            row for row in theory['history']
+            if row['status'] == 'closed' and row.get('broker_entry_verified')
+            and row.get('exit_ms') and row.get('roi_pct') is not None
+        ]
+        theory['combos'] = [row for row in theory['combos'] if row['closed'] > 0]
     return {
         'theory': theory,
         'theory_since': datetime.fromtimestamp(max(start_ms, since_ms)/1000, timezone.utc).strftime('%d/%m/%Y') if max(start_ms, since_ms) else 'đầu dữ liệu',

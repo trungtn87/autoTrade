@@ -9,8 +9,8 @@
 <title>Autotrade V2 · Live Terminal</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
-<link rel="stylesheet" href="/static/app.css?v=20261030-baseline-v1">
-<script defer src="/static/app.js?v=20261030-baseline-v1"></script>
+<link rel="stylesheet" href="/static/app.css?v=20261030-excel-reconciled-v2">
+<script defer src="/static/app.js?v=20261030-excel-reconciled-v2"></script>
 </head>
 <body>
 <main class="app">
@@ -52,14 +52,14 @@
     <div class="kpis">
       <article class="kpi"><span>WIN RATE</span><strong id="winrate">—</strong><small id="wins">Theo tín hiệu hoàn tất</small></article>
       <article class="kpi"><span>RR THẮNG / THUA</span><strong id="pf">—</strong><small>Lãi / lỗ trung bình</small></article>
-      <article class="kpi"><span>LỆNH HOÀN TẤT</span><strong id="count">—</strong><small id="unknown">Chưa đủ dữ liệu: —</small></article>
+      <article class="kpi"><span>LỆNH HOÀN TẤT</span><strong id="count">—</strong><small id="unknown">Chỉ tính lệnh đã đóng có dữ liệu</small></article>
       <article class="kpi"><span>ROI / LỆNH</span><strong id="roiavg">—</strong><small>Trung bình lý thuyết</small></article>
     </div>
   </section>
   <section class="panel" id="combos">
     <div class="section-head"><div><div class="section-kicker">PERFORMANCE</div><h2>Hiệu quả từng Combo</h2></div><span id="combo-count">—</span></div>
     <div id="combo-list" class="combo-list"><div class="empty">Đang đọc dữ liệu…</div></div>
-    <p class="section-note">Một tín hiệu tính một lần. ROI giá theo TP, SL và Trailing được xác nhận; không tự đoán kết quả khi thiếu fill.</p>
+    <p class="section-note">Mỗi lệnh chỉ tính một lần. Dữ liệu cũ được bổ sung từ lịch sử đã lưu; giao dịch mới tiếp tục lấy từ bộ đồng bộ hiện tại.</p>
   </section>
   <section class="panel chart-panel">
     <div class="section-head"><div><div class="section-kicker">PERFORMANCE CURVE</div><h2>ROI tích lũy</h2></div><span>Đã xác nhận</span></div>
@@ -75,18 +75,15 @@
           <option value="win">Thắng</option>
           <option value="loss">Thua</option>
           <option value="flat">Hòa</option>
-          <option value="unresolved">Chưa đủ dữ liệu</option>
-          <option value="entry_failed">Entry thất bại</option>
-          <option value="entry_unknown">Entry chưa xác định</option>
         </select>
       </label>
       <label>Từ ngày <input type="date" id="history-from" aria-label="Lọc lịch sử từ ngày"></label>
       <label>Đến ngày <input type="date" id="history-to" aria-label="Lọc lịch sử đến ngày"></label>
     </div>
-    <p class="history-hint">Mới nhất trước · Giờ Việt Nam (UTC+7). Lọc ngày theo thời điểm đóng, hoặc giờ tín hiệu nếu chưa hoàn tất.</p>
+    <p class="history-hint">Mới nhất trước · Giờ Việt Nam (UTC+7). Chỉ hiện lệnh đã đóng và có kết quả; lọc theo ngày đóng vị thế.</p>
     <div id="history-list" class="history-list"><div class="empty">Đang đọc lịch sử…</div></div>
     <button type="button" class="load-more" id="history-more" hidden>Xem thêm lệnh</button>
-    <p class="section-note">ROI là mức biến động giá lý thuyết theo logic chiến lược, không gồm phí, funding và đòn bẩy. Thời điểm Entry lấy từ fill BingX khi có, không suy đoán giờ khớp.</p>
+    <p class="section-note">ROI thể hiện biến động giá, không bao gồm phí, funding hoặc đòn bẩy và không phải PnL USDT của tài khoản.</p>
   </section>
   <section class="panel reliability">
     <div class="section-head"><div><div class="section-kicker">SYSTEM HEALTH</div><h2>Độ ổn định bot</h2></div><span id="botstatus">Đang đối soát</span></div>
