@@ -16,7 +16,7 @@ standalone app packages are kept intact.
 
 | Path | Service |
 | --- | --- |
-| `/`, `/login`, `/mobile` | Live Dashboard + login/PWA |
+| `/`, `/mobile` | Live Dashboard (direct PWA access, no login) |
 | `/health` | Dashboard process health |
 | `/api/dashboard` | Authenticated Dashboard data |
 | `/engine/status` | Autotrade V2 runtime state |
@@ -31,6 +31,11 @@ Read [the Environment requirements and cutover checklist](docs/DEPLOYMENT.md)
 before adding BingX trading credentials. Do not run this new Engine alongside
 an old Engine with the same account credentials. Combined service and rolling
 releases can overlap during deploy; take the old writer offline before cutover.
+Unified Dashboard defaults to public read-only access, redacting raw order IDs,
+fills and diagnostic details. Anyone with its URL can read summaries and PnL.
+Private login remains available only if expressly configured, but is not
+required for the original Dashboard behavior.
+
 A single process means there is no strong runtime secret isolation between
 Engine and Dashboard: the Dashboard's BingX client still uses separate GET-only
 keys, and its endpoints do not provide order-writing functionality.
