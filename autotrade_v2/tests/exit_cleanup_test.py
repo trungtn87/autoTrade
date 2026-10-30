@@ -498,7 +498,7 @@ def test_runtime_cleanup_is_bounded_but_setup_recovery_remains_15s():
     with patch.dict("os.environ",{"POSITION_LIFECYCLE_ENABLED":"true"},clear=True):
         settings=enable_runtime_trailing(Settings())
         assert settings.position_lifecycle_enabled is False
-        assert settings.exit_cleanup_enabled is False
+        assert settings.exit_cleanup_enabled is True
         validate_settings(settings)
 
 

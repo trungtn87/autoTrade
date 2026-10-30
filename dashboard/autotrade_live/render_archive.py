@@ -48,9 +48,9 @@ def plan_archive(now: datetime, last_success: datetime | None,
 
 def run_once(now: datetime | None = None):
     if not (os.getenv('BINGX_READ_API_KEY') and os.getenv('BINGX_READ_API_SECRET')):
-        raise RuntimeError('Render Cron requires a separate read-only BingX API key/secret')
+        raise RuntimeError('History archive requires a separate read-only BingX API key/secret')
     if not os.getenv('DATABASE_URL', '').startswith(('postgres://', 'postgresql://')):
-        raise RuntimeError('Render Cron requires persistent Supabase PostgreSQL DATABASE_URL')
+        raise RuntimeError('History archive requires persistent Supabase PostgreSQL DATABASE_URL')
     if os.getenv('DB_SCHEMA') != 'autotrade_analytics':
         raise RuntimeError('Set DB_SCHEMA=autotrade_analytics')
 

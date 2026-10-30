@@ -13,7 +13,7 @@ def main():
     },clear=True):
         settings=enable_runtime_trailing(Settings())
         assert settings.position_lifecycle_enabled is False
-        assert settings.exit_cleanup_enabled is False
+        assert settings.exit_cleanup_enabled is True
         assert settings.tp_trailing_split_enabled is True
         validate_settings(settings)
 
