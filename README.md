@@ -1,37 +1,57 @@
-# AutoTrade — V2 engine + Live Dashboard
+# AutoTrade — one service from main
 
-Two independent Python/FastAPI applications share this repository and the existing
-Supabase PostgreSQL database. Building or starting one does not start the other.
+The default deployment runs **Autotrade V2 and Live Dashboard together** in one
+hosting application, one Python/Uvicorn worker and one public port. The existing
+standalone app packages are kept intact.
 
-| Service | Build root/context | ASGI application | Port | Runtime credentials |
-| --- | --- | --- | --- | --- |
-| V2 trading engine | `autotrade_v2` | `app.main:app` | `PORT`, fallback 8000 | Existing engine settings only |
-| Live Terminal / PWA | `dashboard` | `autotrade_live.mobile:app` | `PORT`, fallback 8000 | Dashboard login and separate BingX GET-only key |
+## Deploy on a host that allows only ONE application
 
-See [deployment settings, environment and startup commands](docs/DEPLOYMENT.md)
-before creating either service. Environment must be configured **before the first
-start**. No production deployment or database migration is part of this integration.
+- Git repository: `trungtn87/autoTrade`, branch `main`
+- Build/root directory: `/` (repository root)
+- Builder: root `Dockerfile` (recommended), or `Railpack` using root
+  `railpack.json`
+- Start (automatically configured):
+  `python -m uvicorn unified_app:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1`
+- Container/domain port: `8000` unless host explicitly supplies `PORT`
 
-- [V2 architecture and strategy](autotrade_v2/README.md)
-- [Dashboard tools and reporting](dashboard/README.md)
-- [Integration evidence and source preservation](docs/INTEGRATION.md)
+| Path | Service |
+| --- | --- |
+| `/`, `/login`, `/mobile` | Live Dashboard + login/PWA |
+| `/health` | Dashboard process health |
+| `/api/dashboard` | Authenticated Dashboard data |
+| `/engine/status` | Autotrade V2 runtime state |
+| `/engine/health` | Engine candle/WS readiness (503 when candles stale) |
 
-## Local offline verification
+The old root `bingx_server.py` is retained for history, but is **not** the
+default start command. The root `requirements.txt` now installs both apps; the
+root `railpack.json` selects the combined entrypoint explicitly. Do not select
+`bingx_server.py` as startup.
 
-Use separate virtual environments. Install `autotrade_v2/requirements.txt` or
-`dashboard/requirements.txt`, plus `pytest httpx socksio`, then run respectively:
+Read [the Environment requirements and cutover checklist](docs/DEPLOYMENT.md)
+before adding BingX trading credentials. Do not run this new Engine alongside
+an old Engine with the same account credentials. Combined service and rolling
+releases can overlap during deploy; take the old writer offline before cutover.
+A single process means there is no strong runtime secret isolation between
+Engine and Dashboard: the Dashboard's BingX client still uses separate GET-only
+keys, and its endpoints do not provide order-writing functionality.
+
+## Independently deployed services (optional)
+
+If hosting supports two separate services, the original layouts still work:
+`/autotrade_v2` runs `app.main:app`; `/dashboard` runs
+`autotrade_live.mobile:app`. **These are alternatives**, not additional
+deployments required by the unified approach.
+
+## Offline verification
 
 ```sh
+python -m pip install -r requirements.txt httpx socksio pytest
+python scripts/check-unified.py
 python scripts/check-offline.py autotrade_v2
 python scripts/check-offline.py dashboard
+docker build -t autotrade-unified .
 ```
 
-Tests sanitize production settings and block external sockets. The independent
-build workflow also builds both Docker contexts and starts each image with no
-network and execution disabled. Full-history signal parity has its own workflow
-and requires the original RUN17 dataset artifact; it must not be replaced with an
-old passing run or a synthetic dataset.
-
-Root `bingx_server.py`, `requirements.txt` and `render.yaml` are retained legacy
-files from main for compatibility, **not** the entrypoint of either new service.
-Do not point a new service at the repository root or this legacy Render manifest.
+All live exchange requests must be disabled by absence of production credentials
+in local/CI tests. The GitHub CI also checks both original services independently.
+No merge, production deploy or credential change follows from these docs alone.
