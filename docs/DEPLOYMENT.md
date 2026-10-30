@@ -50,13 +50,30 @@ these credentials to a new service. Do not configure credentials on two engines.
 WebSocket starts automatically with `DATABASE_URL`. The code keeps existing
 BTC/ETH symbols, native 50/50 TP/trailing, 0.5% activation and 0.5% callback.
 Host PORT defaults to 8000; service path/Dockerfile settings are not Environment
-variables. Keep all three Discord webhooks configured to preserve current trade and error
-notifications. Missing Discord webhooks will not crash the bot, but their respective
-notifications will not be delivered. Preserve `DISCORD_RELAY_URL` and
-`DISCORD_RELAY_TOKEN` too if the existing host uses the relay to reach Discord.
-Other legacy environment overrides may remain for compatibility, but are not
-needed for the normal deployment. Keep production settings and data unchanged; no production
-cutover is authorized by this documentation update.
+variables.
+
+**Required to preserve existing optional features, if in use:**
+
+| Variable | When it is functionally required |
+| --- | --- |
+| `DISCORD_RELAY_URL`, `DISCORD_RELAY_TOKEN` | Keep BOTH if the current host routes notifications through Discord Relay |
+| `EXIT_CLEANUP_ENABLED=true` | Keep if safe closed-position orphan-order cleanup was enabled on the previous engine. Code currently defaults to false. Do not silently disable this existing protection |
+| `EMAIL_ALERTS_ENABLED`, `SMTP_PASSWORD`, and applicable `SMTP_USER`/`EMAIL_FROM`/`EMAIL_TO` | Keep if email failure alerts are in use; other SMTP defaults may be retained |
+| `DASHBOARD_START_AT` | Only on Dashboard, if the current reporting window has a fixed start |
+
+**Check before deployment:** Engine `/health` reports `discord_config_ok=true`
+AND `layer4.discord_btc_configured=true`,
+`layer4.discord_eth_configured=true` and
+`layer4.discord_error_configured=true`. A missing webhook is an
+**operational failure** even if trading/health-check requests still work.
+Startup also writes `DISCORD_CONFIG_INCOMPLETE` to logs. Verify a real
+test notification is received for BTC, ETH and errors; a configured URL alone
+does not guarantee delivery. Also confirm `exit_cleanup_enabled` has not
+changed from the production-approved value.
+
+Do not enable a new live Engine while another host (including a suspended
+service that might restart) holds the same BingX trading credentials.
+No production cutover is performed by this PR.
 
 ## Dashboard environment
 
