@@ -53,11 +53,12 @@ function renderCombos(rows) {
     name.append(element('span', 'pair-label', pair), element('strong', '', row.combo || '—'));
     head.append(name);
     card.append(head);
-    const stats = element('div', 'strategy-stats strategy-stats-compact');
+    const stats = element('div', 'strategy-stats strategy-stats-compact strategy-stats-five');
     for (const [label, value] of [
       ['Số lệnh', number(row.closed)],
       ['TP', number(row.tp_count ?? row.win)],
       ['SL', number(row.sl_count ?? row.loss)],
+      ['Tỉ lệ thắng', valid(row.win_rate) ? fmt(row.win_rate, 1) + '%' : '—'],
       ['ROI thực tế', valid(row.real_roi_total) ? roi(row.real_roi_total) : '—']
     ]) {
       const node = element('div');
