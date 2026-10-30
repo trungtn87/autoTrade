@@ -123,8 +123,8 @@ function renderCurve(items) {
   set('chart-end', dateParts(closed[closed.length-1].exit_ms)?.date || '—');
 }
 const resultLabels = {
-  SL: 'STOP LOSS', EXCEL_WIN: 'THẮNG · EXCEL', EXCEL_LOSS: 'THUA · EXCEL',
-  BINGX_WIN: 'THẮNG · BINGX', BINGX_LOSS: 'THUA · BINGX', TP_TRAILING: 'TP + TRAILING', TP_SL: 'TP + SL',
+  SL: 'STOP LOSS', EXCEL_WIN: 'THẮNG', EXCEL_LOSS: 'THUA',
+  BINGX_WIN: 'THẮNG', BINGX_LOSS: 'THUA', TP_TRAILING: 'TP + TRAILING', TP_SL: 'TP + SL',
   TRAILING_SL: 'TRAILING + SL', TP_PARTIAL: 'TP · CHƯA ĐỦ',
   TRAILING_PARTIAL: 'TRAILING · CHƯA ĐỦ',
   UNRESOLVED: 'CHƯA ĐỦ DỮ LIỆU', ENTRY_FAILED: 'ENTRY THẤT BẠI',
@@ -163,12 +163,8 @@ function createHistoryCard(row) {
     'Chưa có giờ Entry'));
   times.append(dateCell(row.exit_time_source === 'BINGX_POSITION' ? 'Đóng vị thế BingX' : 'Đóng lệnh', row.exit_ms, 'Chưa có giờ đóng'));
   card.append(times);
-  const provenance = row.outcome_source === 'EXCEL'
-    ? 'Kết quả Excel · ROI ước tính theo Entry/TP/SL, không phải PnL BingX'
-    : row.outcome_source === 'BINGX'
-      ? 'Kết quả BingX · ROI theo giá đóng vị thế'
-      : 'ROI giá lý thuyết';
-  card.append(element('div', 'trade-foot', 'Tín hiệu: ' + timeVN(row.signal_ms) + ' · ' + provenance));
+  card.append(element('div', 'trade-foot',
+    'Tín hiệu: ' + timeVN(row.signal_ms) + ' · ROI biến động giá, không phải PnL USDT'));
   return card;
 }
 let currentData = null;
