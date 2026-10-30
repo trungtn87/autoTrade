@@ -1,0 +1,8 @@
+# FastAPI dashboard/PWA and GET-only BingX archive.
+# No Streamlit dependency: this is the mobile FastAPI service.
+fastapi==0.116.1
+uvicorn==0.35.0
+python-multipart==0.0.20
+requests==2.34.2
+SQLAlchemy==2.1.6
+psycopg[binary]==3.3.6
