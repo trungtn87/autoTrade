@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoTrade — Vibe Hosting static test</title>
+  <style>
+    :root{color-scheme:dark}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#0b1220;color:#e9f1fa;font:16px/1.6 system-ui,-apple-system,Segoe UI,sans-serif}
+    main{width:min(100%,560px);border:1px solid #33465e;border-radius:20px;background:#172339;padding:32px;box-shadow:0 18px 50px #0005}
+    .tag{display:inline-block;border:1px solid #3e8b7d;border-radius:99px;padding:4px 12px;color:#7ce5c1;font-size:13px;font-weight:700}
+    h1{font-size:clamp(26px,7vw,38px);line-height:1.2;margin:20px 0 16px}
+    p{color:#b3c5d9;margin:10px 0}
+    code{display:block;overflow-wrap:anywhere;border-radius:10px;background:#0b1220;padding:12px;margin:18px 0;font-size:14px;color:#cce2fc}
+    strong{color:#eafff7}
+    footer{border-top:1px solid #33465e;padding-top:18px;margin-top:22px;color:#a9bbd0;font-size:13px}
+  </style>
+</head>
+<body>
+  <main>
+    <span class="tag">● STATIC TEST OK</span>
+    <h1>Nhân Hòa Vibe Hosting đã phục vụ HTML thành công.</h1>
+    <p>Đây là trang HTML thuần, <strong>không sử dụng FastAPI, BingX, Supabase hoặc Discord.</strong></p>
+    <p>Nếu thấy màn hình này, domain và cổng 8000 đã chuyển request vào đúng container đang chạy nhánh kiểm tra.</p>
+    <code>GitHub: trungtn87/autoTrade<br>Branch: test/vibe-static-html-20261030<br>Port: 8000<br>Marker: STATIC-VIBE-20261030-A</code>
+    <p>Nếu trang này vẫn không hiện, vấn đề không xuất phát từ các route Dashboard hay Engine V2.</p>
+    <footer>Chỉ dùng để chẩn đoán hosting. Nhánh <strong>main</strong> và toàn bộ logic giao dịch giữ nguyên.</footer>
+  </main>
+</body>
+</html>
