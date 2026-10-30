@@ -227,7 +227,7 @@ footer p{margin:6px 0 0}
 .table-scroll:focus-visible{outline:2px solid #5abde8;outline-offset:2px}
 .performance-table,.history-table{width:100%;border-collapse:collapse;text-align:center;font-variant-numeric:tabular-nums}
 .performance-table{min-width:330px;table-layout:fixed}
-.history-table{min-width:310px;table-layout:fixed}
+.history-table{min-width:370px;table-layout:fixed}
 .performance-table th,.history-table th{font-weight:650;color:#acc2db;font-size:11px;background:#1a2a40;padding:12px 4px;line-height:1.3}
 .performance-table td,.history-table td,.performance-table tbody th{font-weight:600;color:#eaf2ff;font-size:12px;padding:12px 4px;border-top:1px solid #24394e;white-space:nowrap}
 .performance-table thead th:first-child,.performance-table .combo-cell,.history-table thead th:first-child,.history-table tbody td:first-child{text-align:left;padding-left:10px}
@@ -265,7 +265,9 @@ footer p{margin:6px 0 0}
 .daily-summary>div+div{border-left:1px solid #344961}
 .daily-summary small{display:block;font-size:11px;color:#9bb3c9;margin-bottom:6px}
 .daily-summary strong{font-size:20px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.history-table td:nth-child(2){font-weight:800}
+.history-table td:nth-child(3){font-weight:800}
+.history-table td.coin-btc{color:#ffbe69;font-weight:850}
+.history-table td.coin-eth{color:#9bb1ff;font-weight:850}
 .calendar-panel .section-note{font-size:10px;color:#819eb6;line-height:1.5;margin:12px 0 0}
 @media(max-width:480px){
   .app{padding:17px 12px calc(65px + env(safe-area-inset-bottom,0px))}
