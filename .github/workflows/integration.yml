@@ -40,7 +40,7 @@ jobs:
           SERVICE: ${{ matrix.service }}
         run: |
           set -euo pipefail
-          docker run -d --name app-test --network none -e DISCORD_ENABLED=false -e EXECUTION_ENABLED=false -e DRY_RUN=true -e BOOTSTRAP_ENABLED=false -e WEBSOCKET_ENABLED=false app-test
+          docker run -d --name app-test --network none -e DISCORD_ENABLED=false -e BOOTSTRAP_ENABLED=false app-test
           trap 'docker logs app-test; docker rm -f app-test' EXIT
           if [ "$SERVICE" = dashboard ]; then
             route=health
