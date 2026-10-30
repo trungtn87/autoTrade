@@ -12,7 +12,7 @@ service directories remain supported but are optional.
 | Builder | Root `Dockerfile` preferred; root `railpack.json` also supported |
 | Command | `python -m uvicorn unified_app:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1` |
 | Public port | `8000`, or the host-provided `PORT` |
-| Dashboard | `/`, `/login`, `/mobile`, `/api/dashboard` |
+| Dashboard | `/`, `/mobile`, `/api/dashboard` (direct access, no login) |
 | Dashboard health | `/health` |
 | Engine status / health | `/engine/status`, `/engine/health` |
 
@@ -38,10 +38,16 @@ service shares one Supabase database and needs the following secrets:
 | `DISCORD_WEBHOOK_ETH` | Existing ETH Discord channel → Integrations → Webhooks | ETH trade reports |
 | `DISCORD_WEBHOOK_ERROR` | Existing error Discord channel → Integrations → Webhooks | Error notifications |
 | `BINGX_READ_API_KEY`, `BINGX_READ_API_SECRET` | BingX API Management, **separate read-only key** | Dashboard historical archive updates |
-| `DASHBOARD_PASSWORD` | Owner-selected private password of at least 12 characters | Dashboard private login |
-| `APP_SESSION_SECRET` | Random 32+ character secret, e.g. `python -c "import secrets; print(secrets.token_urlsafe(48))"` | Signed Dashboard sessions |
 
-**A total of 10 secret/value entries:** the shared `DATABASE_URL` is set once.
+**A total of 8 secret/value entries:** the shared `DATABASE_URL` is set once.
+**Dashboard opens without authentication by default in unified mode.**
+Anyone knowing its public URL can view redacted trade summaries including
+strategy/Combo performance and PnL. Raw fills/order IDs and diagnostics are
+filtered in this mode. If private login is ever explicitly required, set
+`DASHBOARD_PUBLIC_READONLY=false` plus `DASHBOARD_PASSWORD` (12+ chars) and
+`APP_SESSION_SECRET` (32+ chars). No login variables are needed for the
+previous direct-access behavior.
+
 `DB_SCHEMA=autotrade_analytics` is automatically provided by the unified
 entrypoint for Supabase; no manual schema variable is required. The app defaults
 `PORT` to 8000 and HTTPS `COOKIE_SECURE=true`. The following extra variables
@@ -71,7 +77,7 @@ validation, order journaling and duplicate-event checks remain.
 2. Deploy **one instance, one worker**, root build directory. Keep a record of
    the exact deployed SHA.
 3. Open `/health`: Dashboard must return HTTP 200, `trade_api=false`.
-   Open `/login`, log in, and verify `/mobile` / `/api/dashboard` data.
+   Open `/mobile` directly without login and verify `/api/dashboard` data.
 4. Open `/engine/status`: V2 runtime must be present. Open
    `/engine/health`: verify `execution_credentials_verified=true`,
    WebSocket/data freshness and `layer4` configuration. A 503 from V2
@@ -86,8 +92,9 @@ validation, order journaling and duplicate-event checks remain.
 
 Combined hosting means both applications run in one Python process and share
 the hosting Environment. This is less isolated than two services, although
-the Dashboard route handlers remain read-only against BingX. Private login
-and the separate GET-only BingX API client are retained.
+the Dashboard route handlers remain read-only against BingX. The Dashboard uses public read-only redaction by default in unified mode;
+optional private login is still supported when explicitly enabled. The
+separate GET-only BingX API client is retained.
 
 ## Optional standalone service deployment
 

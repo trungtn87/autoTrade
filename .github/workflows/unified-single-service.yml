@@ -47,7 +47,7 @@ jobs:
           engine=json.load(urllib.request.urlopen("http://127.0.0.1:8000/engine/status"))
           assert root["service"] == "autotrade-dashboard" and root["trade_api"] is False
           assert engine["runtime"]["execution_enabled"] is False
-          assert urllib.request.urlopen("http://127.0.0.1:8000/login").status == 200
+          assert urllib.request.urlopen("http://127.0.0.1:8000/mobile").status == 200
           print("Unified root startup PASS")
           '; then
               exit 0

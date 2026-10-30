@@ -15,6 +15,12 @@ from contextlib import asynccontextmanager
 if os.getenv("DATABASE_URL", "").startswith(("postgres://", "postgresql://")):
     os.environ.setdefault("DB_SCHEMA", "autotrade_analytics")
 
+# The original Live Terminal opens directly. Preserve that behavior in the
+# single-service deployment without requiring another hosting Environment key.
+# Public mode redacts raw order IDs, raw fills and collector diagnostics.
+# Explicit DASHBOARD_PUBLIC_READONLY=false keeps the optional private login.
+os.environ.setdefault("DASHBOARD_PUBLIC_READONLY", "true")
+
 from fastapi import FastAPI
 
 from autotrade_v2.app.main import app as engine_app
