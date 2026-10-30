@@ -24,20 +24,34 @@ with TestClient(app, follow_redirects=False) as client:
     assert dash.json()["service"] == "autotrade-dashboard"
     assert dash.json()["trade_api"] is False
 
+    # Restore original direct-open Live Terminal; no private login values.
+    assert os.getenv("DASHBOARD_PUBLIC_READONLY") == "true"
     login = client.get("/login")
-    assert login.status_code == 200, login.text
-    assert "AUTOTRADE" in login.text
+    assert login.status_code == 303, login.text
+    assert login.headers["location"] == "/mobile"
 
     home = client.get("/")
     assert home.status_code == 303
-    assert home.headers["location"] == "/login"
+    assert home.headers["location"] == "/mobile"
 
     mobile = client.get("/mobile")
-    assert mobile.status_code == 303
-    assert mobile.headers["location"] == "/login"
+    assert mobile.status_code == 200, mobile.text
+    assert "Đăng xuất" not in mobile.text
+    assert "LIVE TERMINAL" in mobile.text
 
-    protected = client.get("/api/dashboard")
-    assert protected.status_code == 401, protected.text
+    # The public JSON remains redacted and never requests trade privileges.
+    from dashboard.autotrade_live import mobile as web
+    previous_records = web._db_records
+    web._db_records = lambda: {
+        "orders": [], "fills": [], "links": [], "forces": [],
+        "incomes": [], "runs": [], "positions": [],
+    }
+    try:
+        summary = client.get("/api/dashboard")
+        assert summary.status_code == 200, summary.text
+        assert "trades" in summary.json()
+    finally:
+        web._db_records = previous_records
 
     engine = client.get("/engine/status")
     assert engine.status_code == 200, engine.text
@@ -50,4 +64,4 @@ with TestClient(app, follow_redirects=False) as client:
     static = client.get("/static/manifest.webmanifest")
     assert static.status_code == 200, static.text
 
-print("PASS: one public port, login/PWA, protected Dashboard API, live Engine lifespan/status")
+print("PASS: one public port, direct PWA Dashboard, redacted read-only API, Engine lifespan/status")
