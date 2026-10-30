@@ -1,0 +1,29 @@
+[Unit]
+Description=Autotrade read-only live dashboard
+After=network-online.target
+Wants=network-online.target
+OnFailure=autotrade-alert@%n.service
+
+[Service]
+Type=simple
+User=autotrade
+Group=autotrade
+WorkingDirectory=/opt/autotrade/current-dashboard/dashboard
+EnvironmentFile=/etc/autotrade/dashboard.env
+ExecStart=/opt/autotrade/current-dashboard/.venv/bin/uvicorn autotrade_live.mobile:app --host 127.0.0.1 --port 8102 --workers 1
+Restart=always
+RestartSec=10
+TimeoutStopSec=45
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=autotrade-dashboard
+
+[Install]
+WantedBy=multi-user.target
+

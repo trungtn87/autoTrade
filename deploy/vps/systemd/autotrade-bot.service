@@ -1,0 +1,30 @@
+[Unit]
+Description=Autotrade v2 (pinned production bot)
+After=network-online.target
+Wants=network-online.target
+OnFailure=autotrade-alert@%n.service
+
+[Service]
+Type=simple
+User=autotrade
+Group=autotrade
+WorkingDirectory=/opt/autotrade/current-bot/autotrade_v2
+EnvironmentFile=/etc/autotrade/bot.env
+ExecStart=/opt/autotrade/current-bot/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8101 --workers 1
+Restart=always
+RestartSec=10
+TimeoutStopSec=45
+KillSignal=SIGTERM
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/autotrade/bot
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=autotrade-bot
+
+[Install]
+WantedBy=multi-user.target
+

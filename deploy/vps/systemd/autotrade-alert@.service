@@ -1,0 +1,12 @@
+[Unit]
+Description=Send a non-blocking Autotrade failure alert for %i
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/autotrade/bot.env
+ExecStart=/usr/local/lib/autotrade/alert.sh %i
+User=autotrade
+Group=autotrade
+NoNewPrivileges=true
+PrivateTmp=true
+

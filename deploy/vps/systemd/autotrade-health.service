@@ -1,0 +1,12 @@
+[Unit]
+Description=Check local Autotrade service health
+After=autotrade-bot.service autotrade-dashboard.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/autotrade/bot.env
+ExecStart=/usr/local/lib/autotrade/healthcheck.sh
+User=root
+Group=root
+NoNewPrivileges=true
+PrivateTmp=true
