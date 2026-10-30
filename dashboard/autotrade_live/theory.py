@@ -101,6 +101,9 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
             'entry_created_ms': created if created > 0 else None,
             'exit_ms': None, 'roi_pct': None,
             'status': 'unresolved', 'result': 'UNRESOLVED',
+            'broker_entry_verified': bool(entry_order is not None and
+                str(getattr(entry_order, 'status', 'FILLED')).upper() == 'FILLED' and
+                str(getattr(entry_order, 'symbol', sym)).upper() == sym),
         }
         history.append(record)
         filled = bool(state.get('entry_filled')) and bool(entry_id)
