@@ -9,8 +9,8 @@
 <title>Autotrade · Hiệu quả giao dịch</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
-<link rel="stylesheet" href="/static/app.css?v=20261030-calendar-v1">
-<script defer src="/static/app.js?v=20261030-calendar-v1"></script>
+<link rel="stylesheet" href="/static/app.css?v=20261030-calendar-v2">
+<script defer src="/static/app.js?v=20261030-calendar-v2"></script>
 </head>
 <body>
 <main class="app">
@@ -48,7 +48,7 @@
   </section>
   <section class="panel calendar-panel" id="history" aria-labelledby="history-heading">
     <div class="section-head">
-      <div><div class="section-kicker">TRADE JOURNAL</div><h2 id="history-heading">Lịch sử lệnh theo ngày</h2></div>
+      <div><div class="section-kicker">TRADE JOURNAL · BTC + ETH</div><h2 id="history-heading">Lịch sử lệnh theo ngày</h2></div>
       <span id="history-count" class="panel-count">—</span>
     </div>
     <div class="month-nav">
@@ -58,7 +58,7 @@
     </div>
     <div class="calendar-weekdays" aria-hidden="true"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
     <div id="calendar-grid" class="calendar-grid" role="group" aria-label="Chọn ngày giao dịch"></div>
-    <p class="calendar-hint">Chọn ngày để xem các lệnh đóng trong ngày (giờ Việt Nam).</p>
+    <p class="calendar-hint">Lịch chung BTC + ETH, độc lập với tab Combo. Chọn ngày để xem lệnh đóng theo giờ Việt Nam.</p>
     <h3 id="selected-date" class="selected-date">—</h3>
     <div class="daily-summary" aria-live="polite">
       <div><small>Thắng</small><strong id="day-wins" class="positive">0</strong></div>
@@ -67,8 +67,8 @@
     </div>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Danh sách giao dịch theo ngày, có thể cuộn ngang">
       <table class="history-table">
-        <thead><tr><th scope="col">Thời gian</th><th scope="col">Combo</th><th scope="col">Hướng</th><th scope="col">Kết quả</th><th scope="col">ROI</th></tr></thead>
-        <tbody id="history-list"><tr><td colspan="5" class="empty">Chọn một ngày trên lịch.</td></tr></tbody>
+        <thead><tr><th scope="col">Thời gian</th><th scope="col">Coin</th><th scope="col">Combo</th><th scope="col">Hướng</th><th scope="col">Kết quả</th><th scope="col">ROI</th></tr></thead>
+        <tbody id="history-list"><tr><td colspan="6" class="empty">Chọn một ngày trên lịch.</td></tr></tbody>
       </table>
     </div>
     <p id="roi-note" class="section-note">ROI lịch sử dùng kết quả đã ghi nhận; ROI mới tính từ PnL BingX trên ký quỹ ước tính. Thiếu số liệu sẽ hiện —, không thay bằng ROI biến động giá.</p>
