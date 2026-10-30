@@ -17,6 +17,15 @@ jobs:
           python-version: '3.12'
       - name: Install combined Python requirements for offline tests
         run: python -m pip install --disable-pip-version-check -r requirements.txt httpx socksio
+      - name: Reproduce Railpack pip stage with ONLY root requirements copied
+        shell: bash
+        run: |
+          set -euo pipefail
+          isolated_dir="$(mktemp -d)"
+          cp requirements.txt "$isolated_dir/requirements.txt"
+          # Railpack builds the pip layer before copying app subdirectories.
+          # Check package resolution in that exact limited filesystem layout.
+          python -m pip install --disable-pip-version-check --dry-run -r "$isolated_dir/requirements.txt"
       - name: Compile combined entrypoint
         run: python -m compileall -q unified_app.py
       - name: Test both application lifespans and route isolation

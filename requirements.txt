@@ -1,6 +1,14 @@
-# One-root/one-port hosting: install both independent FastAPI applications.
-# Keep legacy Flask available for backward-compatible manual tooling, but
-# never start bingx_server.py as the production entrypoint.
--r autotrade_v2/requirements.txt
--r dashboard/requirements-web.txt
+# Self-contained root requirements: Railpack copies only this file before pip.
+# Both V2 trading engine and Live Dashboard run from the single root entrypoint.
+# Never reference -r subdirectory requirements here (not yet present in /app).
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+httpx==0.28.1
+websockets==17.1
+pandas==2.3.2
+numpy==2.3.3
+psycopg[binary]==3.2.10
+requests==2.32.5
+python-multipart==0.0.20
+SQLAlchemy==2.0.43
 flask==3.1.3
