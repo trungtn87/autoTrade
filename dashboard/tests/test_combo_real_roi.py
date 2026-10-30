@@ -42,6 +42,7 @@ def test_fully_closed_tp_counts_one_winner_and_realized_roi():
     s = report['combos'][0]
     assert s['closed'] == s['tp_count'] == 1
     assert s['sl_count'] == 0
+    assert s['win_rate'] == 100.0
     assert s['real_roi_total'] == 92.5  # (2 - 0.1 - 0.05) / (100 / 50)
     assert report['history'][0]['result'] == 'TP'
 
@@ -64,6 +65,7 @@ def test_sl_counts_loss_and_fees_in_actual_return():
     s = report['combos'][0]
     assert s['closed'] == s['sl_count'] == 1
     assert s['tp_count'] == 0
+    assert s['win_rate'] == 0.0
     assert s['real_roi_total'] == -55.0
 
 
@@ -75,6 +77,7 @@ def test_manual_observed_roi_not_confused_with_price_change():
     report = result(manual=[manual])
     s = report['combos'][0]
     assert s['closed'] == s['tp_count'] == 1
+    assert s['win_rate'] == 100.0
     assert s['real_roi_total'] == 206.9
     assert report['history'][0]['roi_pct'] == 2.069
 
