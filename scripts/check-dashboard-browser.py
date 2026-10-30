@@ -22,27 +22,28 @@ def serve():
     for i in range(24):
         ts = int(time.time()*1000) - 86400000 + i * 100000
         combo = i % 2 + 1
+        coin = 'ETH-USDT' if i == 2 else 'BTC-USDT'
         entry, sl, tp, trail = [str(1000 + i*10 + j) for j in range(4)]
-        state = dict(intent=dict(symbol='BTC-USDT', combo=combo, side='BUY',
+        state = dict(intent=dict(symbol=coin, combo=combo, side='BUY',
                                  close_time=ts, entry=100, tp=101, sl=99),
-                     entry_filled=i < 2, entry_accepted=i < 2, terminal=True,
-                     order_id=entry if i < 2 else '', avg_price=100,
+                     entry_filled=i < 3, entry_accepted=i < 3, terminal=True,
+                     order_id=entry if i < 3 else '', avg_price=100,
                      exit_mode='split_trailing', executed_qty=1,
                      protection={'sl': {'order_id': sl}, 'tp': {'order_id': tp},
                                  'trailing': {'order_id': trail}})
         states.append((f'fixture-{i}', state))
-        if i >= 2:
+        if i >= 3:
             continue
         for j, (oid, kind, price, qty, side) in enumerate([
             (entry, 'MARKET', 100, 1, 'BUY'),
             (tp, 'TAKE_PROFIT_MARKET', 101, .5, 'SELL'),
             (trail, 'TRAILING_STOP_MARKET', 102, .5, 'SELL'),
         ]):
-            records['orders'].append(Row(order_id=oid, symbol='BTC-USDT', side=side,
+            records['orders'].append(Row(order_id=oid, symbol=coin, side=side,
                 position_side='LONG', type=kind, status='FILLED', price=price,
                 avg_price=price, quantity=qty, filled_qty=qty, created_ms=ts+j*1000,
                 updated_ms=ts+j*1000, raw={}))
-            records['fills'].append(Row(order_id=oid, trade_id=f'f-{oid}', symbol='BTC-USDT',
+            records['fills'].append(Row(order_id=oid, trade_id=f'f-{oid}', symbol=coin,
                 side=side, position_side='LONG', qty=qty, price=price,
                 realized_pnl=(price-100)*qty, fee=-.01, timestamp_ms=ts+j*1000, raw={}))
     records['v2_states'] = states
@@ -85,34 +86,56 @@ def check():
                 assert '/login' in page.url
                 page.locator('input[name=password]').fill('local-fixture-password')
                 page.locator('button').click()
-                page.wait_for_selector('#history-list > *')
-                page.wait_for_function("document.querySelector('#history-count').textContent.includes('2 / 2')")
-                # Never await navigator.serviceWorker.ready indefinitely:
-                # a broken scope otherwise leaves this CI job hanging.
+                page.wait_for_function("document.querySelector('#history-count').textContent.includes('3 lệnh')")
+                # Never await navigator.serviceWorker.ready indefinitely.
                 page.wait_for_function('navigator.serviceWorker.controller !== null', timeout=10000)
                 assert page.evaluate('navigator.serviceWorker.controller.scriptURL.endsWith("/sw.js")')
                 assert page.request.get(BASE+'/sw.js').headers['service-worker-allowed'] == '/'
-                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'horizontal overflow'
-                cards = page.locator('#history-list > *').count()
-                assert cards == 2
-                assert page.locator('#history-more').is_hidden()
-                assert page.locator('#combo option').count() == 3
-                payload = page.request.get(BASE+'/api/dashboard').json()
-                assert payload['theory']['summary']['closed'] == 2
-                assert payload['theory']['summary']['failed'] == 22
-                assert len(payload['theory']['history']) == 2
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'horizontal page overflow'
+                # Fixture: BTC x2 + ETH x1, with three confirmed closes on one date.
+                payload = page.request.get(BASE+'/api/dashboard?days=all').json()
+                assert payload['theory']['summary']['closed'] == 3
+                assert payload['theory']['summary']['failed'] == 21
+                assert len(payload['theory']['history']) == 3
+                assert {row['symbol'] for row in payload['theory']['history']} == {'BTC-USDT','ETH-USDT'}
                 assert all(row['status'] == 'closed' and row['broker_entry_verified']
                            for row in payload['theory']['history'])
-                assert 'Chưa đủ dữ liệu' not in page.locator('#history-list').inner_text()
-                page.locator('#combo').select_option('C1')
-                page.wait_for_function("document.querySelector('#history-count').textContent.includes('1 / 1')")
-                assert page.locator('#history-list > *').count() == 1
+                assert page.locator('#history-list tr').count() == 3
+                assert page.locator('#history-list td.coin-btc').count() == 2
+                assert page.locator('#history-list td.coin-eth').count() == 1
+                assert page.locator('#combo-list tr').count() == 2  # BTC only
+                assert page.locator('#calendar-grid .has-trades').count() >= 1
+                assert page.locator('#day-wins').inner_text() == '3'
+                assert page.locator('#day-losses').inner_text() == '0'
+
+                # BTC/ETH toggle affects only the Combo table, never the shared calendar.
+                date_before = page.locator('#selected-date').inner_text()
+                page.locator('#tab-eth').click()
+                assert page.locator('#combo-list tr').count() == 1
+                assert page.locator('#history-list tr').count() == 3
+                assert page.locator('#selected-date').inner_text() == date_before
+                assert page.locator('#history-count').inner_text() == '3 lệnh'
+                page.locator('#tab-btc').click()
+                assert page.locator('#combo-list tr').count() == 2
+                assert page.locator('#history-list tr').count() == 3
+
+                # Selecting any empty date filters rows to zero for both coins.
+                empty = page.locator('#calendar-grid .calendar-day:not(.has-trades):not([disabled])')
+                assert empty.count() > 0
+                empty.first.click()
+                assert page.locator('#history-count').inner_text() == '0 lệnh'
+                assert page.locator('#day-wins').inner_text() == '0'
+                assert page.locator('#day-losses').inner_text() == '0'
+                page.locator('#calendar-grid .has-trades').first.click()
+                assert page.locator('#history-list tr').count() == 3
                 manifest = page.request.get(BASE+'/static/manifest.webmanifest').json()
                 assert manifest['display'] == 'standalone'
                 assert not errors, errors
                 page.screenshot(path=str(output/f'mobile-{width}.png'), full_page=True)
-                results.append(dict(width=width, height=height, history=2, pagination=False,
-                                    combo_filter=True, service_worker=True, javascript_errors=errors))
+                results.append(dict(width=width, height=height, history=3,
+                                    coins=['BTC','ETH'], shared_calendar=True,
+                                    combo_filter=True, service_worker=True,
+                                    javascript_errors=errors))
                 context.close()
             browser.close()
         (output/'result.json').write_text(json.dumps(results, indent=2))

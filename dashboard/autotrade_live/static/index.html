@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1120">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="description" content="Autotrade V2 · Read-only strategy terminal">
-<title>Autotrade V2 · Live Terminal</title>
+<meta name="description" content="Autotrade · Hiệu quả Combo và lịch sử theo ngày">
+<title>Autotrade · Hiệu quả giao dịch</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
-<link rel="stylesheet" href="/static/app.css?v=20261030-excel-reconciled-v2">
-<script defer src="/static/app.js?v=20261030-excel-reconciled-v2"></script>
+<link rel="stylesheet" href="/static/app.css?v=20261030-calendar-v2">
+<script defer src="/static/app.js?v=20261030-calendar-v2"></script>
 </head>
 <body>
 <main class="app">
@@ -18,9 +18,9 @@
     <div class="brand">
       <div class="brand-mark" aria-hidden="true">◈</div>
       <div class="brand-copy">
-        <div class="eyebrow">AUTOTRADE V2 <span class="eyebrow-separator">/</span> 20FINAL</div>
-        <h1>LIVE TERMINAL</h1>
-        <div class="subtitle">BingX Futures · Strategy Monitor</div>
+        <div class="eyebrow">AUTOTRADE V2 · LIVE TERMINAL</div>
+        <h1>Hiệu quả giao dịch</h1>
+        <div class="subtitle">Từ 01/10/2026 · Giờ Việt Nam (UTC+7)</div>
       </div>
     </div>
     <form method="post" action="/logout"><button class="quiet">Đăng xuất</button></form>
@@ -30,97 +30,51 @@
     <span id="sync">Đang đọc dữ liệu…</span>
     <span id="updated" class="updated">—</span>
   </div>
-  <section class="filters" aria-label="Bộ lọc báo cáo">
-    <label>Cặp giao dịch
-      <select id="symbol"><option value="">BTC + ETH</option><option value="BTC-USDT">BTC</option><option value="ETH-USDT">ETH</option></select>
-    </label>
-    <label>Thời gian
-      <select id="period"><option value="all">Tất cả</option><option value="1">24 giờ</option><option value="7">7 ngày</option><option value="30" selected>30 ngày</option><option value="90">90 ngày</option></select>
-    </label>
-    <label>Combo
-      <select id="combo"><option value="">Tất cả Combo</option></select>
-    </label>
-  </section>
-  <section class="overview" aria-label="Tổng quan hiệu quả">
-    <div class="hero">
-      <div class="hero-top"><span class="section-kicker">TỔNG ROI LÝ THUYẾT</span><span class="scope-pill">Dữ liệu xác nhận</span></div>
-      <div class="hero-value" id="net">—</div>
-      <div id="roi-note" class="hero-caption">Theo các tín hiệu đã hoàn tất</div>
-      <div class="hero-separator"></div>
-      <p id="baseline" class="scope-hint">ROI biến động giá của chiến lược, không phải lợi nhuận tài khoản BingX.</p>
+  <div class="symbol-tabs" role="group" aria-label="Chọn cặp giao dịch">
+    <button id="tab-btc" type="button" class="symbol-tab active" aria-pressed="true">BTC</button>
+    <button id="tab-eth" type="button" class="symbol-tab" aria-pressed="false">ETH</button>
+  </div>
+  <section class="panel" id="combos" aria-labelledby="combos-heading">
+    <div class="section-head">
+      <div><div class="section-kicker">PERFORMANCE</div><h2 id="combos-heading">Hiệu quả từng Combo · <span id="active-symbol">BTC</span></h2></div>
+      <span id="combo-count" class="panel-count">—</span>
     </div>
-    <div class="kpis">
-      <article class="kpi"><span>WIN RATE</span><strong id="winrate">—</strong><small id="wins">Theo tín hiệu hoàn tất</small></article>
-      <article class="kpi"><span>RR THẮNG / THUA</span><strong id="pf">—</strong><small>Lãi / lỗ trung bình</small></article>
-      <article class="kpi"><span>LỆNH HOÀN TẤT</span><strong id="count">—</strong><small id="unknown">Chỉ tính lệnh đã đóng có dữ liệu</small></article>
-      <article class="kpi"><span>ROI / LỆNH</span><strong id="roiavg">—</strong><small>Trung bình lý thuyết</small></article>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Bảng hiệu quả theo Combo, có thể cuộn ngang">
+      <table class="performance-table">
+        <thead><tr><th scope="col">Combo</th><th scope="col">Số lệnh</th><th scope="col">TP</th><th scope="col">SL</th><th scope="col">Tỉ lệ thắng</th><th scope="col">ROI thực tế</th></tr></thead>
+        <tbody id="combo-list"><tr><td colspan="6" class="empty">Đang đọc dữ liệu…</td></tr></tbody>
+      </table>
     </div>
   </section>
-  <section class="panel" id="combos">
-    <div class="section-head"><div><div class="section-kicker">PERFORMANCE</div><h2>Hiệu quả từng Combo</h2></div><span id="combo-count">—</span></div>
-    <div id="combo-list" class="combo-list"><div class="empty">Đang đọc dữ liệu…</div></div>
-    <p class="section-note">Mỗi lệnh chỉ tính một lần. Dữ liệu cũ được bổ sung từ lịch sử đã lưu; giao dịch mới tiếp tục lấy từ bộ đồng bộ hiện tại.</p>
-  </section>
-  <section class="panel chart-panel">
-    <div class="section-head"><div><div class="section-kicker">PERFORMANCE CURVE</div><h2>ROI tích lũy</h2></div><span>Đã xác nhận</span></div>
-    <div id="equity-chart" class="chart" role="img" aria-label="Biểu đồ ROI tích lũy theo lệnh hoàn tất"><div class="empty">Đang tải biểu đồ…</div></div>
-    <div class="chart-foot"><span id="chart-start">—</span><span>Đơn vị % biến động giá</span><span id="chart-end">—</span></div>
-  </section>
-  <section class="panel history-panel" id="history">
-    <div class="section-head"><div><div class="section-kicker">TRADE JOURNAL</div><h2>Lịch sử giao dịch</h2></div><span id="history-count">—</span></div>
-    <div class="history-toolbar">
-      <label>Kết quả
-        <select id="history-result">
-          <option value="">Tất cả</option>
-          <option value="win">Thắng</option>
-          <option value="loss">Thua</option>
-          <option value="flat">Hòa</option>
-        </select>
-      </label>
-      <label>Từ ngày <input type="date" id="history-from" aria-label="Lọc lịch sử từ ngày"></label>
-      <label>Đến ngày <input type="date" id="history-to" aria-label="Lọc lịch sử đến ngày"></label>
+  <section class="panel calendar-panel" id="history" aria-labelledby="history-heading">
+    <div class="section-head">
+      <div><div class="section-kicker">TRADE JOURNAL · BTC + ETH</div><h2 id="history-heading">Lịch sử lệnh theo ngày</h2></div>
+      <span id="history-count" class="panel-count">—</span>
     </div>
-    <p class="history-hint">Mới nhất trước · Giờ Việt Nam (UTC+7). Chỉ hiện lệnh đã đóng và có kết quả; lọc theo ngày đóng vị thế.</p>
-    <div id="history-list" class="history-list"><div class="empty">Đang đọc lịch sử…</div></div>
-    <button type="button" class="load-more" id="history-more" hidden>Xem thêm lệnh</button>
-    <p class="section-note">ROI thể hiện biến động giá, không bao gồm phí, funding hoặc đòn bẩy và không phải PnL USDT của tài khoản.</p>
-  </section>
-  <section class="panel reliability">
-    <div class="section-head"><div><div class="section-kicker">SYSTEM HEALTH</div><h2>Độ ổn định bot</h2></div><span id="botstatus">Đang đối soát</span></div>
-    <div class="reliability-hero"><strong id="entryrate">—</strong><span>Tỷ lệ xác nhận Entry</span></div>
-    <div class="reliability-track"><div id="entrybar"></div></div>
-    <div class="reliability-grid">
-      <div><small>Tín hiệu đã ghi</small><strong id="signals">—</strong></div>
-      <div><small>Entry xác nhận</small><strong id="confirmed">—</strong></div>
-      <div><small>Thất bại</small><strong id="failed">—</strong></div>
-      <div><small>Chưa xác định</small><strong id="pending">—</strong></div>
-      <div><small>Thiếu ID bảo vệ</small><strong id="unprotected">—</strong></div>
+    <div class="month-nav">
+      <button id="prev-month" type="button" aria-label="Tháng trước">‹</button>
+      <strong id="calendar-month" aria-live="polite">—</strong>
+      <button id="next-month" type="button" aria-label="Tháng sau">›</button>
     </div>
-    <p class="section-note" id="coverage">Chỉ đối chiếu tín hiệu được V2 lưu.</p>
-  </section>
-  <details class="more-panel">
-    <summary><span>BingX &amp; dữ liệu đối soát</span><span class="chevron">Mở ▾</span></summary>
-    <div class="more-content">
-      <p class="section-note technical-note">Các số liệu dưới đây dựa vào lịch sử vị thế / fill BingX, có thể khác ROI lý thuyết theo Combo phía trên.</p>
-      <div class="details-grid">
-        <div><small>PnL BingX ước tính</small><strong id="pnl">—</strong></div>
-        <div><small>ROI ký quỹ ước tính</small><strong id="pnlpct">—</strong></div>
-        <div><small>Vị thế đóng, có Combo</small><strong id="closed">—</strong></div>
-        <div><small>Chưa phân bổ</small><strong id="unmapped">—</strong></div>
-        <div><small>Vị thế chưa đóng</small><strong id="open">—</strong></div>
-        <div><small>Ký quỹ ước tính</small><strong id="margin">—</strong></div>
-      </div>
-      <p id="matchdetail" class="section-note"></p>
-      <div class="section-head nested-title"><h2>Vị thế BingX đã đóng</h2><span>Giờ Việt Nam</span></div>
-      <div id="bingx-trade-list" class="bingx-trade-list"></div>
-      <div class="section-head nested-title"><h2>Thoát lệnh khớp ID</h2><span id="exitstatus">—</span></div>
-      <div id="exit-list" class="exit-list"></div>
+    <div class="calendar-weekdays" aria-hidden="true"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
+    <div id="calendar-grid" class="calendar-grid" role="group" aria-label="Chọn ngày giao dịch"></div>
+    <p class="calendar-hint">Lịch chung BTC + ETH, độc lập với tab Combo. Chọn ngày để xem lệnh đóng theo giờ Việt Nam.</p>
+    <h3 id="selected-date" class="selected-date">—</h3>
+    <div class="daily-summary" aria-live="polite">
+      <div><small>Thắng</small><strong id="day-wins" class="positive">0</strong></div>
+      <div><small>Thua</small><strong id="day-losses" class="negative">0</strong></div>
+      <div><small>ROI thực tế</small><strong id="day-roi">—</strong></div>
     </div>
-  </details>
-  <footer>
-    <span class="footer-brand">◈ AUTOTRADE LIVE TERMINAL</span>
-    <p>Dashboard chỉ đọc dữ liệu đã lưu, không gửi hoặc sửa lệnh BingX. Không dùng ROI lý thuyết làm PnL tài khoản.</p>
-  </footer>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Danh sách giao dịch theo ngày, có thể cuộn ngang">
+      <table class="history-table">
+        <thead><tr><th scope="col">Thời gian</th><th scope="col">Coin</th><th scope="col">Combo</th><th scope="col">Hướng</th><th scope="col">Kết quả</th><th scope="col">ROI</th></tr></thead>
+        <tbody id="history-list"><tr><td colspan="6" class="empty">Chọn một ngày trên lịch.</td></tr></tbody>
+      </table>
+    </div>
+    <p id="roi-note" class="section-note">ROI lịch sử dùng kết quả đã ghi nhận; ROI mới tính từ PnL BingX trên ký quỹ ước tính. Thiếu số liệu sẽ hiện —, không thay bằng ROI biến động giá.</p>
+  </section>
+  <footer><span class="footer-brand">◈ AUTOTRADE · READ ONLY</span>
+    <p>Dashboard chỉ đọc dữ liệu đã lưu, không gửi lệnh BingX.</p></footer>
 </main>
 </body>
 </html>

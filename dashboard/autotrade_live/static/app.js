@@ -1,323 +1,214 @@
-/* Autotrade Live Terminal v4 — read-only strategy and BingX history. */
+/* Autotrade read-only · BTC/ETH Combo table and daily close calendar. */
 'use strict';
 const $ = id => document.getElementById(id);
-const number = value => value === null || value === undefined || value === '' ? 0 : Number(value) || 0;
-const valid = value => value !== null && value !== undefined && Number.isFinite(Number(value));
 const fmt = (value, decimals = 2) => Number(value).toLocaleString('vi-VN', {
   minimumFractionDigits: decimals, maximumFractionDigits: decimals
 });
+const number = value => value === null || value === undefined || value === '' ? NaN : Number(value);
+const valid = value => Number.isFinite(number(value));
 const roi = value => valid(value) ? (number(value) > 0 ? '+' : '') + fmt(value) + '%' : '—';
-const cash = value => valid(value) ? (number(value) > 0 ? '+' : '') + fmt(value) + ' USDT' : '—';
-const classFor = value => number(value) > 0 ? 'positive' : number(value) < 0 ? 'negative' : '';
+const classFor = value => valid(value) && number(value) > 0 ? 'positive' :
+  valid(value) && number(value) < 0 ? 'negative' : '';
 const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
-  timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit',
-  year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'
+  timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit',
+  day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
 });
-const dateParts = ms => {
+function dateParts(ms) {
   if (!valid(ms) || number(ms) <= 0) return null;
-  const values = Object.fromEntries(dateFormatter.formatToParts(new Date(Number(ms)))
-    .filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
-  return { date: values.day + '/' + values.month + '/' + values.year,
-    clock: values.hour + ':' + values.minute + ':' + values.second,
-    key: values.year + '-' + values.month + '-' + values.day };
-};
-const timeVN = ms => {
-  const p = dateParts(ms);
-  return p ? p.date + ' · ' + p.clock : 'Chưa có dữ liệu';
-};
-function set(id, value) { const node = $(id); if (node) node.textContent = value; }
-function element(tag, className = '', value) {
+  const parts = Object.fromEntries(dateFormatter.formatToParts(new Date(Number(ms)))
+    .filter(x => x.type !== 'literal').map(x => [x.type, x.value]));
+  return { key: parts.year + '-' + parts.month + '-' + parts.day,
+    date: parts.day + '/' + parts.month + '/' + parts.year,
+    time: parts.hour + ':' + parts.minute };
+}
+const todayKey = () => dateParts(Date.now()).key;
+const firstMonth = '2026-10';
+const $text = (tag, name, value) => {
   const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (value !== undefined && value !== null) node.textContent = String(value);
+  if (name) node.className = name;
+  node.textContent = String(value);
   return node;
-}
-function selectCombos(items) {
-  const node = $('combo'), previous = node.value;
-  node.replaceChildren(new Option('Tất cả Combo', ''));
-  for (const item of items || []) node.add(new Option(item, item));
-  node.value = (items || []).includes(previous) ? previous : '';
-}
-function renderCombos(rows) {
-  const root = $('combo-list'); root.replaceChildren();
-  set('combo-count', rows.length + ' Combo');
-  if (!rows.length) { root.append(element('div', 'empty', 'Chưa có Combo trong khoảng đã chọn.')); return; }
-  for (const row of rows) {
-    const card = element('article', 'strategy-card');
-    const head = element('div', 'strategy-head');
-    const pair = (row.symbol || '').replace('-USDT', '');
-    const name = element('div', 'strategy-name');
-    name.append(element('span', 'pair-label', pair), element('strong', '', row.combo || '—'));
-    head.append(name, element('strong', 'strategy-roi ' + classFor(row.roi_total), row.closed ? roi(row.roi_total) : '—'));
-    card.append(head);
-    const line = element('div', 'strategy-line');
-    const percent = valid(row.win_rate) ? Math.max(0, Math.min(100, number(row.win_rate))) : 0;
-    const track = element('div', 'strategy-track'), fill = element('div');
-    fill.style.width = percent + '%'; track.append(fill);
-    line.append(track, element('span', 'strategy-win', row.closed ? fmt(row.win_rate, 1) + '% win' : 'Chưa có kết quả'));
-    card.append(line);
-    const stats = element('div', 'strategy-stats');
-    for (const [label, value] of [
-      ['Hoàn tất', number(row.closed) + '/' + number(row.signals)],
-      ['RR', valid(row.rr) ? fmt(row.rr) : '—'],
-      ['ROI / lệnh', valid(row.roi_avg) ? roi(row.roi_avg) : '—'],
-      ['Thắng', number(row.win)]
-    ]) {
-      const node = element('div'); node.append(element('small', '', label), element('strong', '', value));
-      stats.append(node);
-    }
-    card.append(stats, element('div', 'strategy-foot',
-      'TP ' + number(row.tp_hits) + ' · Trailing ' + number(row.trailing) + ' · Thua ' + number(row.loss)));
-    root.append(card);
-  }
-}
-function renderCurve(items) {
-  const root = $('equity-chart'); root.replaceChildren();
-  const closed = (items || []).filter(r => r.status === 'closed' &&
-    valid(r.roi_pct) && valid(r.exit_ms) && number(r.exit_ms) > 0)
-    .sort((a, b) => number(a.exit_ms) - number(b.exit_ms));
-  if (!closed.length) {
-    root.append(element('div', 'empty', 'Chưa có đủ tín hiệu đã xác nhận để vẽ ROI.'));
-    set('chart-start', '—'); set('chart-end', '—'); return;
-  }
-  const points = [{ t: closed[0].exit_ms, v: 0 }];
-  let total = 0;
-  for (const r of closed) { total += number(r.roi_pct); points.push({ t: r.exit_ms, v: total }); }
-  const minimum = Math.min(0, ...points.map(p => p.v));
-  const maximum = Math.max(0, ...points.map(p => p.v));
-  const padding = Math.max((maximum - minimum) * .15, .15);
-  const low = minimum - padding, high = maximum + padding;
-  const w = 700, h = 236, left = 46, right = 14, top = 12, bottom = 28;
-  const plotW = w - left - right, plotH = h - top - bottom;
-  const x = i => left + (i / Math.max(1, points.length - 1)) * plotW;
-  const y = value => top + (high - value) / (high - low) * plotH;
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-  svg.setAttribute('preserveAspectRatio', 'none');
-  svg.setAttribute('aria-hidden', 'true');
-  const mk = (tag, attrs, parent = svg) => {
-    const node = document.createElementNS(ns, tag);
-    for (const [key, val] of Object.entries(attrs)) node.setAttribute(key, String(val));
-    parent.appendChild(node); return node;
-  };
-  const defs = mk('defs', {});
-  const gradient = mk('linearGradient', { id: 'roi-fill', x1: '0', y1: '0', x2: '0', y2: '1' }, defs);
-  mk('stop', { offset: '0%', 'stop-color': total < 0 ? '#fa7286' : '#36dbb1', 'stop-opacity': '.24' }, gradient);
-  mk('stop', { offset: '100%', 'stop-color': '#36dbb1', 'stop-opacity': '0' }, gradient);
-  for (let i = 0; i < 5; i++) {
-    const v = low + (high - low) * i / 4, posY = y(v);
-    mk('line', { x1: left, x2: w-right, y1: posY, y2: posY, stroke: '#29374d', 'stroke-dasharray': '3 6' });
-    const label = mk('text', { x: left-8, y: posY+4, 'text-anchor': 'end', fill: '#8297b3', 'font-size': '11' });
-    label.textContent = fmt(v, 1);
-  }
-  const trace = points.map((p, i) => (i === 0 ? 'M' : 'L') + x(i).toFixed(2) + ' ' + y(p.v).toFixed(2)).join(' ');
-  const area = trace + ' L ' + x(points.length-1).toFixed(2) + ' ' + (h-bottom) + ' L ' + x(0) + ' ' + (h-bottom) + ' Z';
-  mk('path', { d: area, fill: 'url(#roi-fill)' });
-  mk('path', { d: trace, fill: 'none', stroke: total < 0 ? '#fb7185' : '#45e0b8',
-    'stroke-width': '2.8', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
-  mk('circle', { cx: x(points.length-1), cy: y(total), r: '5', fill: total < 0 ? '#fb7185' : '#45e0b8',
-    stroke: '#142238', 'stroke-width': '2.5' });
-  root.append(svg);
-  set('chart-start', dateParts(closed[0].exit_ms)?.date || '—');
-  set('chart-end', dateParts(closed[closed.length-1].exit_ms)?.date || '—');
-}
-const resultLabels = {
-  SL: 'STOP LOSS', EXCEL_WIN: 'THẮNG', EXCEL_LOSS: 'THUA',
-  BINGX_WIN: 'THẮNG', BINGX_LOSS: 'THUA', TP_TRAILING: 'TP + TRAILING', TP_SL: 'TP + SL',
-  TRAILING_SL: 'TRAILING + SL', TP_PARTIAL: 'TP · CHƯA ĐỦ',
-  TRAILING_PARTIAL: 'TRAILING · CHƯA ĐỦ',
-  UNRESOLVED: 'CHƯA ĐỦ DỮ LIỆU', ENTRY_FAILED: 'ENTRY THẤT BẠI',
-  ENTRY_UNKNOWN: 'ENTRY CHƯA XÁC ĐỊNH'
 };
-const statusClass = row => row.status === 'closed' ?
-  (number(row.roi_pct) >= 0 ? 'good' : 'bad') :
-  row.status === 'entry_failed' ? 'bad' : 'neutral';
-function dateCell(label, ms, missing = 'Chưa có dữ liệu') {
-  const node = element('div', 'trade-date-cell');
-  node.append(element('small', '', label));
-  const parts = dateParts(ms);
-  node.append(element('strong', '', parts ? parts.date : missing));
-  if (parts) node.append(element('span', '', parts.clock));
-  return node;
+function emptyRow(bodyId, columns, message) {
+  const body = $(bodyId); body.replaceChildren();
+  const tr = document.createElement('tr');
+  const td = $text('td', 'empty', message);
+  td.colSpan = columns;
+  tr.append(td); body.append(tr);
 }
-function createHistoryCard(row) {
-  const card = element('article', 'trade-card');
-  const head = element('div', 'trade-head');
-  const title = element('div', 'trade-title');
-  const sym = (row.symbol || '—').replace('-USDT', '');
-  title.append(element('strong', '', sym + '-USDT'));
-  const side = String(row.side || '').toUpperCase();
-  const direction = side === 'BUY' || side === 'LONG' ? 'LONG' :
-                    side === 'SELL' || side === 'SHORT' ? 'SHORT' : '—';
-  title.append(element('span', 'direction ' + (direction === 'LONG' ? 'long' : direction === 'SHORT' ? 'short' : ''), direction));
-  title.append(element('small', 'trade-combo', row.combo || 'Chưa có Combo'));
-  const outcome = element('div', 'trade-outcome');
-  outcome.append(element('strong', classFor(row.roi_pct),
-    row.status === 'closed' ? roi(row.roi_pct) : '—'));
-  outcome.append(element('span', 'result-badge ' + statusClass(row), resultLabels[row.result] || 'CHƯA XÁC ĐỊNH'));
-  head.append(title, outcome); card.append(head);
-  const times = element('div', 'trade-times');
-  const entryTime = row.entry_ms || row.entry_created_ms;
-  times.append(dateCell(row.entry_ms ? 'Khớp Entry' : row.entry_created_ms ? 'Tạo Entry (chưa rõ giờ khớp)' : 'Mở lệnh', entryTime,
-    'Chưa có giờ Entry'));
-  times.append(dateCell(row.exit_time_source === 'BINGX_POSITION' ? 'Đóng vị thế BingX' : 'Đóng lệnh', row.exit_ms, 'Chưa có giờ đóng'));
-  card.append(times);
-  card.append(element('div', 'trade-foot',
-    'Tín hiệu: ' + timeVN(row.signal_ms) + ' · ROI biến động giá, không phải PnL USDT'));
-  return card;
+function setText(id, value) { $(id).textContent = String(value); }
+let symbol = 'BTC-USDT';
+let history = [];
+let comboRows = [];
+let selectedDay = '';
+let monthKey = '';
+let requestId = 0;
+const dayRows = key => history.filter(row => dateParts(row.exit_ms)?.key === key);
+const winOrLoss = row => {
+  const value = valid(row.recorded_roi_pct) ? number(row.recorded_roi_pct) : number(row.roi_pct);
+  return value > 0 ? 'TP' : value < 0 ? 'SL' : 'HÒA';
+};
+
+function renderCombos(rows) {
+  const items = (rows || []).filter(row => row.closed > 0 && row.symbol === symbol)
+    .sort((a,b) => String(a.combo).localeCompare(String(b.combo), 'vi', {numeric:true}));
+  setText('combo-count', items.length + ' Combo');
+  if (!items.length) { emptyRow('combo-list', 6, 'Chưa có giao dịch hoàn tất.'); return; }
+  const body = $('combo-list'); body.replaceChildren();
+  for (const row of items) {
+    const tr = document.createElement('tr');
+    const pair = $text('th', 'combo-cell', row.combo || '—'); pair.scope = 'row'; tr.append(pair);
+    for (const [value, className] of [
+      [row.closed, ''], [row.tp_count ?? row.win ?? 0, 'positive'],
+      [row.sl_count ?? row.loss ?? 0, 'negative'],
+      [valid(row.win_rate) ? fmt(row.win_rate, 1) + '%' : '—', ''],
+      [roi(row.real_roi_total), classFor(row.real_roi_total)]
+    ]) tr.append($text('td', className, value));
+    body.append(tr);
+  }
 }
-let currentData = null;
-let historyLimit = 16;
-function matchResult(row, choice) {
-  if (!choice) return true;
-  if (choice === 'win') return row.status === 'closed' && number(row.roi_pct) > 0;
-  if (choice === 'loss') return row.status === 'closed' && number(row.roi_pct) < 0;
-  if (choice === 'flat') return row.status === 'closed' && number(row.roi_pct) === 0;
-  return row.status === choice;
+function monthParts(month) { const p = month.split('-').map(Number); return {year:p[0],month:p[1]}; }
+function monthShift(value, delta) {
+  const {year, month} = monthParts(value);
+  return new Date(Date.UTC(year, month - 1 + delta, 1)).toISOString().slice(0, 7);
 }
-function renderHistory(reset = false) {
-  if (reset) historyLimit = 16;
-  const all = currentData?.theory?.history || [];
-  const type = $('history-result').value;
-  const from = $('history-from').value, to = $('history-to').value;
-  const filtered = all.filter(row => {
-    if (!matchResult(row, type)) return false;
-    if (from || to) {
-      const date = dateParts(row.exit_ms || row.signal_ms)?.key;
-      if (!date || (from && date < from) || (to && date > to)) return false;
+function renderCalendar() {
+  const {year,month} = monthParts(monthKey);
+  setText('calendar-month', 'Tháng ' + month + ', ' + year);
+  const currentMonth = todayKey().slice(0,7);
+  $('prev-month').disabled = monthKey <= firstMonth;
+  $('next-month').disabled = monthKey >= currentMonth;
+  const firstWeekday = (new Date(Date.UTC(year, month-1, 1)).getUTCDay() + 6) % 7;
+  const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const root = $('calendar-grid'); root.replaceChildren();
+  const counts = new Map();
+  for (const row of history) {
+    const key = dateParts(row.exit_ms)?.key;
+    if (key) counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  for (let i=0; i<firstWeekday; i++) {
+    const blank = $text('span','calendar-blank','');blank.setAttribute('aria-hidden','true');root.append(blank);
+  }
+  for (let day=1; day<=days; day++) {
+    const key = monthKey + '-' + String(day).padStart(2,'0');
+    const count = counts.get(key) || 0;
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'calendar-day';
+    button.textContent = String(day);
+    button.setAttribute('aria-label', day + '/' + month + '/' + year +
+      (count ? ': ' + count + ' lệnh đóng' : ': không có lệnh'));
+    button.setAttribute('aria-pressed', String(key === selectedDay));
+    if (count) {
+      button.classList.add('has-trades');
+      const dot = $text('span','trade-dot','');
+      dot.setAttribute('aria-hidden','true'); button.append(dot);
     }
-    return true;
-  });
-  set('history-count', filtered.length + ' / ' + all.length + ' lệnh đã đóng');
-  const list = $('history-list'); list.replaceChildren();
-  if (!currentData?.theory?.available) {
-    list.append(element('div', 'empty', currentData?.theory?.reason || 'Chưa có nhật ký tín hiệu V2.'));
-  } else if (!filtered.length) {
-    list.append(element('div', 'empty', 'Không có giao dịch phù hợp bộ lọc.')); 
-  } else {
-    for (const row of filtered.slice(0, historyLimit)) list.append(createHistoryCard(row));
-  }
-  const more = $('history-more');
-  more.hidden = filtered.length <= historyLimit;
-  more.textContent = 'Xem thêm · ' + Math.min(16, filtered.length - historyLimit) + ' / ' +
-    Math.max(0, filtered.length - historyLimit) + ' lệnh còn lại';
-}
-function renderReliability(data) {
-  const summary = data.summary || {};
-  if (!data.available) {
-    set('entryrate', '—'); set('botstatus', 'Chưa có dữ liệu');
-    set('coverage', data.reason || 'Chưa có trạng thái V2');
-    $('entrybar').style.width = '0%';
-    for (const key of ['signals', 'confirmed', 'failed', 'pending', 'unprotected']) set(key, '—');
-    return;
-  }
-  const percent = valid(summary.entry_rate) ? Math.max(0, Math.min(100, number(summary.entry_rate))) : 0;
-  set('entryrate', valid(summary.entry_rate) ? fmt(summary.entry_rate, 1) + '%' : '—');
-  $('entrybar').style.width = percent + '%';
-  for (const key of ['signals', 'confirmed', 'failed', 'pending', 'unprotected']) set(key, summary[key] ?? '—');
-  set('botstatus', 'Theo tín hiệu đã ghi');
-  set('coverage', data.coverage || '');
-}
-function renderBingX(data) {
-  const summary = data.summary || {}, exits = data.exit_summary || {};
-  set('pnl', cash(summary.pnl_usdt));
-  set('pnlpct', valid(summary.pnl_pct) ? roi(summary.pnl_pct) : '—');
-  set('closed', summary.closed ?? '—'); set('unmapped', summary.unmapped ?? '—');
-  set('open', summary.open_positions ?? '—');
-  set('margin', valid(summary.margin_used_usdt) ? fmt(summary.margin_used_usdt) + ' USDT' : '—');
-  set('matchdetail', 'Thoát khớp ID: ' + number(exits.matched_by_id) +
-    ' · Chưa phân bổ / còn mơ hồ: ' + number(exits.unmapped_or_ambiguous));
-  const tradeRoot = $('bingx-trade-list'); tradeRoot.replaceChildren();
-  const trades = data.trades || [];
-  if (!trades.length) tradeRoot.append(element('div', 'empty', 'Chưa có vị thế BingX đã đóng.'));
-  for (const trade of trades.slice(0, 30)) {
-    const card = element('div', 'bingx-row');
-    const heading = element('div', 'bingx-heading');
-    heading.append(element('strong', '', (trade.symbol || '—') + ' · ' + (trade.combo || 'Chưa gắn Combo')));
-    heading.append(element('strong', 'bingx-pnl ' + classFor(trade.pnl), cash(trade.pnl)));
-    card.append(heading);
-    const exitTypes = Array.isArray(trade.exit_types) ?
-      trade.exit_types.join(' + ') : String(trade.exit_types || '');
-    card.append(element('div', 'bingx-meta',
-      (trade.side || '—') + ' · ' + (trade.liquidated ? 'Thanh lý' : exitTypes || 'Đã đóng')));
-    const dates = element('div', 'bingx-times');
-    dates.append(dateCell('Mở thực tế', trade.entry_ms, 'Chưa lưu giờ mở'));
-    dates.append(dateCell('Đóng thực tế', trade.exit_ms, 'Chưa lưu giờ đóng'));
-    card.append(dates); tradeRoot.append(card);
-  }
-  set('exitstatus', number(exits.matched_by_id) + ' khớp ID');
-  const exitRoot = $('exit-list'); exitRoot.replaceChildren();
-  for (const event of (data.exit_events || []).slice(0, 20)) {
-    const row = element('div', 'exit-row');
-    row.append(element('span', '', timeVN(event.time_ms) + ' · ' +
-      (event.combo || 'Không rõ Combo') + ' · ' + (event.type || '—')));
-    row.append(element('strong', classFor(number(event.bingx_realized_pnl) + number(event.exit_fees)),
-      cash(number(event.bingx_realized_pnl) + number(event.exit_fees))));
-    exitRoot.append(row);
-  }
-  if (!(data.exit_events || []).length) exitRoot.append(element('div', 'empty', 'Chưa có fill thoát lệnh.'));
-}
-let requestNumber = 0;
-async function refresh() {
-  const request = ++requestNumber;
-  const params = new URLSearchParams({ days: $('period').value });
-  if ($('symbol').value) params.set('symbol', $('symbol').value);
-  if ($('combo').value) params.set('combo', $('combo').value);
-  set('sync', 'Đang đọc dữ liệu…');
-  try {
-    const response = await fetch('/api/dashboard?' + params.toString(), {
-      credentials: 'same-origin', cache: 'no-store'
+    if (key === selectedDay) button.classList.add('selected');
+    if (key === todayKey()) button.classList.add('today');
+    if (key > todayKey() || key < firstMonth + '-01') button.disabled = true;
+    button.addEventListener('click', () => {
+      selectedDay = key;
+      renderCalendar();
+      renderDay();
     });
-    if (request !== requestNumber) return;
-    if (response.status === 401) { location.href = '/login'; return; }
-    if (!response.ok) throw Error('Không đọc được dữ liệu');
-    const data = await response.json();
-    if (request !== requestNumber) return;
-    currentData = data;
-    const theory = data.theory || {}, summary = theory.summary || {};
-    selectCombos(data.filters?.combos || []);
-    set('net', number(summary.closed) ? roi(summary.roi_total) : '—');
-    $('net').className = 'hero-value ' + classFor(summary.roi_total);
-    set('roi-note', number(summary.closed) + ' lệnh hoàn tất · Trung bình ' +
-      (valid(summary.roi_avg) ? roi(summary.roi_avg) : '—') + ' / lệnh');
-    set('winrate', valid(summary.win_rate) ? fmt(summary.win_rate, 1) + '%' : '—');
-    set('wins', number(summary.win) + ' thắng · ' + number(summary.loss) +
-      ' thua · ' + number(summary.flat) + ' hòa');
-    set('pf', valid(summary.rr) ? fmt(summary.rr) : '—');
-    set('count', summary.closed ?? '—');
-    set('unknown', 'Chỉ tính lệnh đã đóng có dữ liệu');
-    set('roiavg', valid(summary.roi_avg) ? roi(summary.roi_avg) : '—');
-    set('baseline', 'ROI biến động giá, không tính phí / funding / đòn bẩy · Từ ' +
-      (data.theory_since || 'đầu dữ liệu') + '. Không phải PnL tài khoản BingX.');
-    renderCombos((theory.combos || []).filter(row => number(row.closed) > 0));
-    renderCurve(theory.history || []);
-    renderHistory(true);
-    renderReliability(theory);
-    renderBingX(data);
-    const syncTime = data.last_sync?.time ? Date.parse(data.last_sync.time) : 0;
-    const synced = syncTime && data.last_sync?.status === 'success' &&
-      Date.now() - syncTime < 2.5 * 3600000;
-    $('status-dot').classList.toggle('status-muted', !synced);
-    set('sync', syncTime ? 'BingX đồng bộ ' + timeVN(syncTime) : 'Chưa có giờ đồng bộ BingX');
-    set('updated', 'Xem lúc ' + new Date().toLocaleTimeString('vi-VN', {
-      timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit'
-    }));
-  } catch (error) {
-    if (request !== requestNumber) return;
-    $('status-dot').classList.add('status-muted');
-    set('sync', 'Tạm thời không đọc được dữ liệu');
-    set('updated', '—');
-    if (!currentData) {
-      for (const id of ['combo-list', 'history-list', 'equity-chart']) {
-        $(id).replaceChildren(element('div', 'empty', 'Dữ liệu chưa khả dụng. Mở lại để thử lần nữa.'));
-      }
-    }
+    root.append(button);
   }
 }
-for (const id of ['symbol', 'period', 'combo']) $(id).addEventListener('change', refresh);
-for (const id of ['history-result', 'history-from', 'history-to'])
-  $(id).addEventListener('change', () => renderHistory(true));
-$('history-more').addEventListener('click', () => { historyLimit += 16; renderHistory(); });
-refresh();
+function renderDay() {
+  const rows = dayRows(selectedDay).sort((a,b) => number(b.exit_ms) - number(a.exit_ms));
+  const parts = selectedDay.split('-');
+  setText('selected-date', 'Ngày ' + parts[2] + '/' + parts[1] + '/' + parts[0]);
+  setText('history-count', rows.length + ' lệnh');
+  setText('day-wins', rows.filter(r=>winOrLoss(r)==='TP').length);
+  setText('day-losses', rows.filter(r=>winOrLoss(r)==='SL').length);
+  const actual = rows.map(row => number(row.recorded_roi_pct));
+  const full = rows.length > 0 && actual.every(Number.isFinite);
+  const total = full ? actual.reduce((a,b)=>a+b,0) : null;
+  setText('day-roi', roi(total));
+  $('day-roi').className = classFor(total);
+  if (!rows.length) { emptyRow('history-list', 6, 'Không có lệnh đóng trong ngày này.'); return; }
+  const body = $('history-list'); body.replaceChildren();
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    const side = row.side === 'BUY' ? 'Long' : row.side === 'SELL' ? 'Short' : '—';
+    const status = winOrLoss(row);
+    const columns = [
+      [dateParts(row.exit_ms)?.time || '—', ''],
+      [row.symbol === 'BTC-USDT' ? 'BTC' : 'ETH', 'coin-' + row.symbol.split('-')[0].toLowerCase()],
+      [row.combo || '—', ''],
+      [side, side === 'Long' ? 'positive' : side === 'Short' ? 'negative' : ''],
+      [status, status === 'TP' ? 'positive' : status === 'SL' ? 'negative' : ''],
+      [roi(row.recorded_roi_pct), classFor(row.recorded_roi_pct)]
+    ];
+    for (const [value,cl] of columns) tr.append($text('td', cl, value));
+    body.append(tr);
+  }
+}
+function chooseLatestDate() {
+  const current = todayKey();
+  if (selectedDay && selectedDay >= firstMonth + '-01' && selectedDay <= current) return selectedDay;
+  const dates = history.map(r=>dateParts(r.exit_ms)?.key).filter(x=>x && x<=current).sort();
+  return dates.length ? dates[dates.length - 1] : current;
+}
+function setTabs() {
+  for (const key of ['BTC','ETH']) {
+    const btn = $('tab-' + key.toLowerCase());
+    const active = symbol === key + '-USDT';
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  }
+  setText('active-symbol', symbol.split('-')[0]);
+}
+async function loadSymbol() {
+  const token = ++requestId;
+  setTabs();
+  setText('sync','Đang đọc dữ liệu BTC và ETH…');
+  $('status-dot').classList.add('status-muted');
+  try {
+    const response = await fetch('/api/dashboard?days=all', {
+      cache:'no-store', credentials:'same-origin'
+    });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+    if (token !== requestId) return;
+    comboRows = data.theory?.combos || [];
+    renderCombos(comboRows);
+    history = (data.theory?.history || []).filter(row =>
+      (row.symbol === 'BTC-USDT' || row.symbol === 'ETH-USDT') &&
+      row.status === 'closed' && valid(row.exit_ms));
+    selectedDay = chooseLatestDate();
+    monthKey = selectedDay.slice(0, 7);
+    renderCalendar();
+    renderDay();
+    const sync = data.last_sync?.time ? dateParts(Date.parse(data.last_sync.time)) : null;
+    const synced = data.last_sync?.status === 'success' && sync &&
+      Date.now() - Date.parse(data.last_sync.time) < 2.5 * 3600000;
+    $('status-dot').classList.toggle('status-muted', !synced);
+    setText('sync', sync ? 'BingX đồng bộ ' + sync.date + ' · ' + sync.time : 'Chưa có giờ đồng bộ');
+    setText('updated', 'Xem lúc ' + (dateParts(Date.now())?.time || '—'));
+  } catch (error) {
+    if (token !== requestId) return;
+    history = [];
+    comboRows = [];
+    emptyRow('combo-list', 6, 'Không đọc được dữ liệu.');
+    emptyRow('history-list', 6, 'Không đọc được dữ liệu.');
+    setText('combo-count', '—'); setText('history-count','—');
+    setText('sync', 'Lỗi kết nối dashboard · ' + error.message);
+  }
+}
+for (const name of ['BTC','ETH']) {
+  $('tab-' + name.toLowerCase()).addEventListener('click', () => {
+    if (symbol === name + '-USDT') return;
+    symbol = name + '-USDT';
+    setTabs();
+    renderCombos(comboRows);
+  });
+}
+$('prev-month').addEventListener('click', () => {
+  if (monthKey > firstMonth) { monthKey = monthShift(monthKey,-1); renderCalendar(); }
+});
+$('next-month').addEventListener('click', () => {
+  if (monthKey < todayKey().slice(0,7)) { monthKey = monthShift(monthKey,1); renderCalendar(); }
+});
+loadSymbol();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});

@@ -303,14 +303,15 @@ def test_mobile_report_has_compact_kpis_and_no_double_counting():
     folder=Path(__file__).parents[1]/"autotrade_live"/"static"
     html=(folder/"index.html").read_text()
     script=(folder/"app.js").read_text()
-    for name in ('net','count','winrate','pf','equity-chart','combo-list',
-                 'history-list','history-from','history-to','bingx-trade-list','exit-list'):
+    for name in ('combo-list', 'tab-btc', 'tab-eth', 'calendar-grid',
+                 'calendar-month', 'history-list', 'day-wins',
+                 'day-losses', 'day-roi', 'active-symbol'):
         assert 'id="'+name+'"' in html
-    assert 'BingX &amp; dữ liệu đối soát' in html
-    assert '<details' in html
-    assert "renderCurve(theory.history || [])" in script
-    assert "status === 'closed'" in script
-    assert "data.exit_summary" in script
-    assert "ROI biến động giá" in html
-    assert 'id="history-more"' in html
+    assert 'BTC + ETH' in html
+    assert "row.status === 'closed'" in script
+    assert "row.symbol === symbol" in script  # only the Combo table filters coin
+    assert "'/api/dashboard?days=all'" in script
+    assert "row.symbol === 'BTC-USDT' || row.symbol === 'ETH-USDT'" in script
+    assert "renderCalendar()" in script
+    assert "renderDay()" in script
     assert 'id="refresh"' not in html
