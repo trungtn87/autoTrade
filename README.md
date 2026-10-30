@@ -1,62 +1,54 @@
-# AutoTrade — one service from main
+# AutoTrade — production baseline
 
-The default deployment runs **Autotrade V2 and Live Dashboard together** in one
-hosting application, one Python/Uvicorn worker and one public port. The existing
-standalone app packages are kept intact.
+**One GitHub branch (`main`) → one Docker container → one port (8000)**.
+The single process runs the BingX V2 trading engine and the
+mobile Live Terminal. It uses the existing Supabase database.
 
-## Deploy on a host that allows only ONE application
+## Runtime URLs
 
-- Git repository: `trungtn87/autoTrade`, branch `main`
-- Build/root directory: `/` (repository root)
-- Builder: root `Dockerfile` (recommended), or `Railpack` using root
-  `railpack.json`
-- Start (automatically configured):
-  `python -m uvicorn unified_app:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1`
-- Container/domain port: `8000` unless host explicitly supplies `PORT`
-
-| Path | Service |
+| URL | Function |
 | --- | --- |
-| `/`, `/mobile` | Live Dashboard (direct PWA access, no login) |
-| `/health` | Dashboard process health |
-| `/api/dashboard` | Authenticated Dashboard data |
-| `/engine/status` | Autotrade V2 runtime state |
-| `/engine/health` | Engine candle/WS readiness (503 when candles stale) |
+| `/` or `/mobile` | Mobile Live Terminal, open directly (public read-only summary) |
+| `/health` | Dashboard process health only |
+| `/engine/status` | V2 runtime / last strategy execution |
+| `/engine/health` | V2 candle/WS, execution, Discord, cleanup health |
+| `/api/dashboard` | Redacted read-only Dashboard analytics |
 
-The old root `bingx_server.py` is retained for history, but is **not** the
-default start command. The root `requirements.txt` now installs both apps; the
-root `railpack.json` selects the combined entrypoint explicitly. Do not select
-`bingx_server.py` as startup.
+The Dashboard is publicly viewable to anyone with its URL. It redacts raw fill
+and order IDs; do not confuse read-only with private access. The Dashboard's
+BingX credentials must be a *separate read-only key*.
 
-Read [the Environment requirements and cutover checklist](docs/DEPLOYMENT.md)
-before adding BingX trading credentials. Do not run this new Engine alongside
-an old Engine with the same account credentials. Combined service and rolling
-releases can overlap during deploy; take the old writer offline before cutover.
-Unified Dashboard defaults to public read-only access, redacting raw order IDs,
-fills and diagnostic details. Anyone with its URL can read summaries and PnL.
-Private login remains available only if expressly configured, but is not
-required for the original Dashboard behavior.
+## Build and deploy
 
-A single process means there is no strong runtime secret isolation between
-Engine and Dashboard: the Dashboard's BingX client still uses separate GET-only
-keys, and its endpoints do not provide order-writing functionality.
-
-## Independently deployed services (optional)
-
-If hosting supports two separate services, the original layouts still work:
-`/autotrade_v2` runs `app.main:app`; `/dashboard` runs
-`autotrade_live.mobile:app`. **These are alternatives**, not additional
-deployments required by the unified approach.
-
-## Offline verification
+Use `trungtn87/autoTrade` branch `main`, repository root `/`, root
+`Dockerfile` (preferred) or root `railpack.json`, container port 8000.
+Only one worker may run the engine. Root `requirements.txt` is self-contained
+for Railpack. Both Docker and Railpack start:
 
 ```sh
-python -m pip install -r requirements.txt httpx socksio pytest
-python scripts/check-unified.py
-python scripts/check-offline.py autotrade_v2
-python scripts/check-offline.py dashboard
-docker build -t autotrade-unified .
+python -m uvicorn unified_app:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1
 ```
 
-All live exchange requests must be disabled by absence of production credentials
-in local/CI tests. The GitHub CI also checks both original services independently.
-No merge, production deploy or credential change follows from these docs alone.
+All required configuration, safety checks and cutover steps:
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Functional snapshot and release acceptance:
+[docs/BASELINE.md](docs/BASELINE.md).
+
+The old Render/Flask server, Streamlit UI and two-service build configurations
+were deliberately removed. Original commit history and relevant tests remain.
+The code may **not** be deployed on multiple exchange-writing servers
+simultaneously; there is no cross-host single-writer lease.
+
+## Tests and history
+
+- Production CI checks both engine and dashboard offline, single-container
+  startup, mobile PWA and the same strategy parity against saved history.
+- Dashboard's in-app history scheduler runs read-only BingX archival checks
+  hourly at `:07`, with retry/backoff and PostgreSQL advisory locking.
+- GitHub Actions manual history backfill is retained for exceptional use;
+  **not** a second live collector schedule.
+- Strategy files, execution journal, safe native TP/SL/trailing, conservative
+  orphan-order cleanup, Discord notifications and Supabase schema SQL stay in
+  source control.
+
+This repository contains no live API keys or webhook URLs.

@@ -1,8 +1,8 @@
-"""Background archive scheduler for the existing Render dashboard web service.
+"""Background read-only BingX history archive for the unified hosting app.
 
-Wake-up pings to /health keep Render Free online; if it sleeps, the archive
-catches up on the next wake-up. No route triggers synchronous BingX calls.
-Requires a SEPARATE read-only BingX key on the dashboard service.
+Runs only GET-based BingX analytics in a separate worker thread.
+Never sends trading requests or blocks Dashboard HTTP routes.
+A separate BingX read-only key is required for the archive.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ BUSY_BACKOFF = timedelta(minutes=5)
 def archive_enabled(environ=None) -> bool:
     """Always run read-only analytics on the dashboard service.
 
-    No extra Render environment toggle is required. The BingX read-only
+    No additional environment toggle is required. The BingX read-only
     credentials are still read securely by render_archive.run_once().
     """
     return True
@@ -43,8 +43,7 @@ def ready_slot(now: datetime) -> datetime | None:
 async def archive_scheduler_loop():
     """Run GET-only archive in a thread so the dashboard stays responsive.
 
-    On Render Free a sleeping web instance cannot execute Python code.
-    The next wake-up restarts this loop and processes the missed window.
+    If the host stops this process, the next startup resumes bounded catch-up.
     A failed sync is retried at most once per 15 minutes, never tight-looped.
     """
     last_completed_slot = None

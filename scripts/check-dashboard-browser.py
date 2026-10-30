@@ -87,8 +87,11 @@ def check():
                 page.locator('button').click()
                 page.wait_for_selector('#history-list > *')
                 page.wait_for_function("document.querySelector('#history-count').textContent.includes('24')")
-                page.evaluate('navigator.serviceWorker.ready')
-                page.wait_for_function('navigator.serviceWorker.controller !== null')
+                # Never await navigator.serviceWorker.ready indefinitely:
+                # a broken scope otherwise leaves this CI job hanging.
+                page.wait_for_function('navigator.serviceWorker.controller !== null', timeout=10000)
+                assert page.evaluate('navigator.serviceWorker.controller.scriptURL.endsWith("/sw.js")')
+                assert page.request.get(BASE+'/sw.js').headers['service-worker-allowed'] == '/'
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'horizontal overflow'
                 cards = page.locator('#history-list > *').count()
                 assert cards == 16

@@ -236,7 +236,9 @@ def test_sw_versioned_js_and_css_no_long_lived_cache_first():
     css_ver=html.split('app.css?v=',1)[1].split('"',1)[0]
     assert js_ver and css_ver and js_ver==css_ver
     assert "const VERSION = '"+js_ver+"'" in sw
-    assert "autotrade-pwa-shell-v8" in sw
+    # Cache version must advance on UI releases; don't freeze this test to v8.
+    from re import search
+    assert search(r"const CACHE = 'autotrade-pwa-shell-v[0-9]+';", sw)
     assert "fetch(event.request, {cache:'no-store'})" in sw
     assert 'self.skipWaiting()' in sw
     assert 'self.clients.claim()' in sw

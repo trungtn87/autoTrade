@@ -1,57 +1,90 @@
-name: Unified single-service deploy checks
+name: AutoTrade production baseline CI
+
 on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, simplify/autotrade-no-deploy-switch-20261030]
+    branches: [main]
+
 permissions:
   contents: read
+
+concurrency:
+  group: autotrade-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  unified:
+  offline-and-container:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install combined Python requirements for offline tests
-        run: python -m pip install --disable-pip-version-check -r requirements.txt httpx socksio
-      - name: Reproduce Railpack pip stage with ONLY root requirements copied
+      - name: Install production and offline test requirements
+        run: python -m pip install --disable-pip-version-check -r requirements.txt pytest httpx socksio
+      - name: Reproduce Railpack root-only dependency install
         shell: bash
         run: |
           set -euo pipefail
-          isolated_dir="$(mktemp -d)"
-          cp requirements.txt "$isolated_dir/requirements.txt"
-          # Railpack builds the pip layer before copying app subdirectories.
-          # Check package resolution in that exact limited filesystem layout.
-          python -m pip install --disable-pip-version-check --dry-run -r "$isolated_dir/requirements.txt"
-      - name: Compile combined entrypoint
-        run: python -m compileall -q unified_app.py
-      - name: Test both application lifespans and route isolation
+          scratch="$(mktemp -d)"
+          cp requirements.txt "$scratch/requirements.txt"
+          python -m pip install --disable-pip-version-check --dry-run -r "$scratch/requirements.txt"
+      - name: Run ALL V2 offline safety tests (no exchange network)
+        run: python scripts/check-offline.py autotrade_v2
+      - name: Run ALL Dashboard offline tests (no exchange network)
+        run: python scripts/check-offline.py dashboard
+      - name: Test single app routes, lifespans, public PWA and cleanup default
         env:
           DISCORD_ENABLED: 'false'
         run: python scripts/check-unified.py
-      - name: Build root Dockerfile
-        run: docker build -t autotrade-unified .
-      - name: Test root Docker startup without credentials or networking
+      - name: Compile Python and check browser JavaScript
+        run: |
+          python -m compileall -q unified_app.py autotrade_v2/app dashboard/autotrade_live
+          node --check dashboard/autotrade_live/static/app.js
+          node --check dashboard/autotrade_live/static/sw.js
+      - name: Build ONLY the production root Docker image
+        run: docker build -t autotrade-baseline .
+      - name: Verify production image serves Dashboard and Engine with no credentials
         shell: bash
         run: |
           set -euo pipefail
-          docker run -d --name autotrade-unified-test --network none             -e DISCORD_ENABLED=false -e DATABASE_URL=             autotrade-unified
-          trap 'docker logs autotrade-unified-test; docker rm -f autotrade-unified-test' EXIT
+          docker run -d --name autotrade-baseline-test --network none \
+            -e DISCORD_ENABLED=false -e DATABASE_URL= autotrade-baseline
+          trap 'docker logs autotrade-baseline-test; docker rm -f autotrade-baseline-test' EXIT
           for attempt in $(seq 1 30); do
-            if docker exec autotrade-unified-test python -c '
+            if docker exec autotrade-baseline-test python -c '
           import json, urllib.request
-          root=json.load(urllib.request.urlopen("http://127.0.0.1:8000/health"))
-          engine=json.load(urllib.request.urlopen("http://127.0.0.1:8000/engine/status"))
-          assert root["service"] == "autotrade-dashboard" and root["trade_api"] is False
+          root = json.load(urllib.request.urlopen("http://127.0.0.1:8000/health"))
+          engine = json.load(urllib.request.urlopen("http://127.0.0.1:8000/engine/status"))
+          assert root["service"] == "autotrade-dashboard"
+          assert root["trade_api"] is False
           assert engine["runtime"]["execution_enabled"] is False
           assert urllib.request.urlopen("http://127.0.0.1:8000/mobile").status == 200
-          print("Unified root startup PASS")
+          print("Single-host production smoke PASS")
           '; then
               exit 0
             fi
             sleep 1
           done
           exit 1
+
+  mobile-pwa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Dashboard browser test dependencies
+        run: python -m pip install -r dashboard/requirements-web.txt playwright
+      - run: python -m playwright install --with-deps chromium
+      - name: Chromium mobile PWA, history, Combo and authentication regression
+        run: python scripts/check-dashboard-browser.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dashboard-browser-evidence
+          path: browser-evidence/

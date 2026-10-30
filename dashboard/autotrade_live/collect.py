@@ -23,7 +23,7 @@ def repair_legacy_fills(engine):
 
 
 # Advisory lock coordinates are reserved for the analytics collector only.
-# Both GitHub Actions and Render Cron use this same lock during cutover.
+# The built-in archive scheduler and optional manual GitHub backfill share this lock.
 LOCK_SQL = 'SELECT pg_try_advisory_xact_lock(2707, 20261027)'
 
 

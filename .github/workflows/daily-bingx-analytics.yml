@@ -1,12 +1,12 @@
-name: BingX dashboard archive - hourly and daily
+name: Manual BingX analytics recovery backfill
 
-# Historical archive is now scheduled inside Render dashboard backend.
-# This GitHub workflow remains available for emergency MANUAL backfill only.
+# Normal read-only archive runs in the unified backend hourly.
+# This GitHub action is MANUAL emergency backfill only; never auto-runs.
 on:
   workflow_dispatch:
     inputs:
       days:
-        description: 'Initial history lookback in days (daily scheduled runs use 3)'
+        description: 'Manual history lookback in days'
         required: true
         default: '30'
         type: choice
@@ -57,10 +57,5 @@ jobs:
         working-directory: dashboard
         env:
           DAYS: ${{ github.event_name == 'workflow_dispatch' && inputs.days || '3' }}
-          HOURS: ${{ github.event_name == 'schedule' && github.event.schedule == '7 * * * *' && '3' || '' }}
         run: |
-          if [ -n "$HOURS" ]; then
-            python -m autotrade_live.collect --hours "$HOURS"
-          else
-            python -m autotrade_live.collect --days "$DAYS"
-          fi
+          python -m autotrade_live.collect --days "$DAYS"

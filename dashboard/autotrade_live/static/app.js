@@ -319,4 +319,4 @@ for (const id of ['history-result', 'history-from', 'history-to'])
   $(id).addEventListener('change', () => renderHistory(true));
 $('history-more').addEventListener('click', () => { historyLimit += 16; renderHistory(); });
 refresh();
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/sw.js').catch(() => {});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});

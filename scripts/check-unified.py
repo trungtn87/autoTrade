@@ -60,8 +60,15 @@ with TestClient(app, follow_redirects=False) as client:
     candle = client.get("/engine/health")
     assert candle.status_code in (200, 503), candle.text
     assert candle.json()["engine"] == "autotrade-v2"
+    # Cleanup is production default, while retired SL resizing remains off.
+    assert candle.json()["exit_cleanup_enabled"] is True
+    assert candle.json()["position_lifecycle_enabled"] is False
 
     static = client.get("/static/manifest.webmanifest")
     assert static.status_code == 200, static.text
+    worker = client.get("/sw.js")
+    assert worker.status_code == 200, worker.text
+    assert worker.headers["service-worker-allowed"] == "/"
+    assert "serviceWorker" not in worker.text or "fetch" in worker.text
 
 print("PASS: one public port, direct PWA Dashboard, redacted read-only API, Engine lifespan/status")
