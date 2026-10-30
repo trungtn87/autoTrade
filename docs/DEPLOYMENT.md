@@ -54,20 +54,21 @@ cutover is authorized by this documentation update.
 
 ## Dashboard environment
 
+Keep Dashboard private by default. Required values:
+
 | Variable | Value/purpose |
 | --- | --- |
-| `DATABASE_URL` | Existing Supabase PostgreSQL URL, TLS `sslmode=require` |
+| `DATABASE_URL` | Same existing Supabase URL |
 | `DB_SCHEMA` | `autotrade_analytics` |
-| `PORT` | `8000`, or match domain mapping |
-| `DASHBOARD_PUBLIC_READONLY` | Preserve current access mode; `false` requires login, `true` exposes metrics publicly |
-| `DASHBOARD_PASSWORD` | Private secret, at least 12 characters, required for private mode |
-| `APP_SESSION_SECRET` | Private random secret, at least 32 characters, required for private mode |
-| `COOKIE_SECURE` | `true` with production HTTPS |
-| `DASHBOARD_START_AT` | Copy existing value exactly if configured; retains reporting window |
-| `BINGX_READ_API_KEY`, `BINGX_READ_API_SECRET` | Separate exchange key restricted to read-only permission |
-| `BINGX_SYMBOLS` | Existing setting, normally `BTC-USDT,ETH-USDT` |
-| `BINGX_REQUEST_DELAY` | Existing pacing, normally `0.6` seconds |
-| `COLLECTOR_TOKEN` | Preserve if used by the existing optional signal receiver |
+| `DASHBOARD_PASSWORD` | Private login password, 12+ characters |
+| `APP_SESSION_SECRET` | Random secret, 32+ characters |
+| `BINGX_READ_API_KEY`, `BINGX_READ_API_SECRET` | Separate read-only BingX credentials for history sync |
+
+Do not create `PORT`, `COOKIE_SECURE`, `DASHBOARD_PUBLIC_READONLY`,
+`BINGX_SYMBOLS` or `BINGX_REQUEST_DELAY` manually: the app or host already
+has production defaults. Retain `DASHBOARD_START_AT` only if the existing
+history cutoff must be preserved. Existing optional `COLLECTOR_TOKEN` is
+needed only for an enabled signal receiver.
 
 Never inject engine `BINGX_API_KEY`/`BINGX_API_SECRET` into Dashboard. Its client
 uses GET only; it has no trading engine imports or exchange order mutations. The
