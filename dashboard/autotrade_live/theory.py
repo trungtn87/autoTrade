@@ -178,7 +178,10 @@ def build_theory(states, specs, orders, exit_events, start_ms=0, symbol='', comb
                 else:
                     s['loss'] += 1; s['loss_sum'] += abs(manual_roi)
                 record.update(
-                    status='closed', result='EXCEL_WIN' if manual_outcome == 'W' else 'EXCEL_LOSS',
+                    status='closed',
+                    result=('BINGX_WIN' if manual_outcome == 'W' else 'BINGX_LOSS')
+                           if manual.get('outcome_source') == 'BINGX'
+                           else ('EXCEL_WIN' if manual_outcome == 'W' else 'EXCEL_LOSS'),
                     roi_pct=round(manual_roi, 4), exit_ms=manual_exit_ms,
                     outcome_source=str(manual.get('outcome_source') or 'EXCEL'),
                     roi_source=str(manual.get('roi_source') or 'EXCEL_ESTIMATE'),
