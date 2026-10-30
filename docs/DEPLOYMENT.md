@@ -28,38 +28,29 @@ imports or launches the other application. Do not override the startup with the
 other service's command. Confirm domain target port matches `PORT`. Successful
 build logs alone do not demonstrate successful startup: inspect runtime logs.
 
-## Engine environment
+## Minimal Environment (no execution switch)
 
-Keep the existing production values unchanged; these names describe configuration,
-not permission to enable live trading in this task.
+The Engine does **not** read `EXECUTION_ENABLED` or `DRY_RUN`.
+It automatically activates live execution only when all three values below
+are supplied; otherwise order submission remains disabled. BingX read-only
+credential preflight, 3400-candle readiness and duplicate-event checks still apply.
+**This is not a cross-host single-writer lease:** shut down and disable the
+old BingX engine (including suspended auto-restarting hosts) **before** adding
+these credentials to a new service. Do not configure credentials on two engines.
 
-| Variable | Value/purpose |
+| Engine variable | Required value |
 | --- | --- |
-| `DATABASE_URL` | Existing Supabase PostgreSQL URL, TLS `sslmode=require` |
-| `PORT` | `8000`, or match domain mapping |
-| `BOOTSTRAP_ENABLED` | Existing setting; `false` for offline acceptance |
-| `WEBSOCKET_ENABLED` | Existing setting; live stream normally `true`; `false` for offline checks |
-| `EXECUTION_ENABLED` | `false` for acceptance; live only on the approved unique writer |
-| `DRY_RUN` | `true` for acceptance; preserve approved live value during later cutover |
-| `BINGX_API_KEY`, `BINGX_API_SECRET` | Engine-only secrets required for live execution |
-| `SYMBOLS` | Existing universe, default `BTC-USDT,ETH-USDT` |
-| `BINGX_WS_URL` | Existing override if any; default `wss://open-api-swap.bingx.com/swap-market` |
-| `TP_TRAILING_SPLIT_ENABLED` | Preserve live value, runtime default `true` |
-| `TP_TRAILING_ACTIVATION_PCT` | `0.005` (0.5%) |
-| `TP_TRAILING_CALLBACK_RATE` | `0.005` (0.5%) |
-| `EXIT_CLEANUP_ENABLED` | Preserve existing approved opt-in; default `false` |
-| `STATE_DB` | Default `autotrade_v2.db`; Supabase is the production state source |
-| `DISCORD_ENABLED`, `DISCORD_WEBHOOK_BTC`, `DISCORD_WEBHOOK_ETH`, `DISCORD_WEBHOOK_ERROR` | Existing reporting settings; disable for offline checks |
-| `DISCORD_RELAY_URL`, `DISCORD_RELAY_TOKEN` | Preserve if configured |
-| `EMAIL_ALERTS_ENABLED`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_STARTTLS`, `EMAIL_FROM`, `EMAIL_TO`, `EMAIL_TEST_ON_STARTUP` | Preserve existing optional alert configuration |
-| `LOG_LEVEL`, `BINGX_BASE_URL` | Preserve overrides if configured |
+| `DATABASE_URL` | Current Supabase PostgreSQL URL (TLS enabled) |
+| `BINGX_API_KEY` | Engine trade API key |
+| `BINGX_API_SECRET` | Engine trade API secret |
 
-The code still ignores the retired `POSITION_LIFECYCLE_ENABLED` flag. Do not change
-strategy or exit behavior during deployment. Import can connect to Supabase and
-initialize existing store tables, so never smoke-test with production credentials
-in CI. Offline acceptance uses temporary SQLite only. Before a later live cutover,
-stop/disable every old execution writer, including suspended hosts that may resume;
-this document does not authorize that cutover.
+WebSocket starts automatically with `DATABASE_URL`. The code keeps existing
+BTC/ETH symbols, native 50/50 TP/trailing, 0.5% activation and 0.5% callback.
+Host PORT defaults to 8000; service path/Dockerfile settings are not Environment
+variables. Existing Discord webhook values remain optional and unchanged. Other
+legacy environment overrides may remain for compatibility, but are not needed for
+the normal deployment. Keep production settings and data unchanged; no production
+cutover is authorized by this documentation update.
 
 ## Dashboard environment
 
