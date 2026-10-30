@@ -43,13 +43,19 @@ these credentials to a new service. Do not configure credentials on two engines.
 | `DATABASE_URL` | Current Supabase PostgreSQL URL (TLS enabled) |
 | `BINGX_API_KEY` | Engine trade API key |
 | `BINGX_API_SECRET` | Engine trade API secret |
+| `DISCORD_WEBHOOK_BTC` | Secret webhook URL for BTC order notifications |
+| `DISCORD_WEBHOOK_ETH` | Secret webhook URL for ETH order notifications |
+| `DISCORD_WEBHOOK_ERROR` | Secret webhook URL for bot/errors alerts |
 
 WebSocket starts automatically with `DATABASE_URL`. The code keeps existing
 BTC/ETH symbols, native 50/50 TP/trailing, 0.5% activation and 0.5% callback.
 Host PORT defaults to 8000; service path/Dockerfile settings are not Environment
-variables. Existing Discord webhook values remain optional and unchanged. Other
-legacy environment overrides may remain for compatibility, but are not needed for
-the normal deployment. Keep production settings and data unchanged; no production
+variables. Keep all three Discord webhooks configured to preserve current trade and error
+notifications. Missing Discord webhooks will not crash the bot, but their respective
+notifications will not be delivered. Preserve `DISCORD_RELAY_URL` and
+`DISCORD_RELAY_TOKEN` too if the existing host uses the relay to reach Discord.
+Other legacy environment overrides may remain for compatibility, but are not
+needed for the normal deployment. Keep production settings and data unchanged; no production
 cutover is authorized by this documentation update.
 
 ## Dashboard environment
