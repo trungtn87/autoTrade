@@ -39,10 +39,10 @@ function emptyRow(bodyId, columns, message) {
 function setText(id, value) { $(id).textContent = String(value); }
 let symbol = 'BTC-USDT';
 let history = [];
+let comboRows = [];
 let selectedDay = '';
 let monthKey = '';
 let requestId = 0;
-const selectedDays = new Map();
 const dayRows = key => history.filter(row => dateParts(row.exit_ms)?.key === key);
 const winOrLoss = row => {
   const value = valid(row.recorded_roi_pct) ? number(row.recorded_roi_pct) : number(row.roi_pct);
@@ -108,7 +108,6 @@ function renderCalendar() {
     if (key > todayKey() || key < firstMonth + '-01') button.disabled = true;
     button.addEventListener('click', () => {
       selectedDay = key;
-      selectedDays.set(symbol, selectedDay);
       renderCalendar();
       renderDay();
     });
@@ -127,7 +126,7 @@ function renderDay() {
   const total = full ? actual.reduce((a,b)=>a+b,0) : null;
   setText('day-roi', roi(total));
   $('day-roi').className = classFor(total);
-  if (!rows.length) { emptyRow('history-list', 5, 'Không có lệnh đóng trong ngày này.'); return; }
+  if (!rows.length) { emptyRow('history-list', 6, 'Không có lệnh đóng trong ngày này.'); return; }
   const body = $('history-list'); body.replaceChildren();
   for (const row of rows) {
     const tr = document.createElement('tr');
@@ -135,6 +134,7 @@ function renderDay() {
     const status = winOrLoss(row);
     const columns = [
       [dateParts(row.exit_ms)?.time || '—', ''],
+      [row.symbol === 'BTC-USDT' ? 'BTC' : 'ETH', 'coin-' + row.symbol.split('-')[0].toLowerCase()],
       [row.combo || '—', ''],
       [side, side === 'Long' ? 'positive' : side === 'Short' ? 'negative' : ''],
       [status, status === 'TP' ? 'positive' : status === 'SL' ? 'negative' : ''],
@@ -145,9 +145,8 @@ function renderDay() {
   }
 }
 function chooseLatestDate() {
-  const saved = selectedDays.get(symbol);
   const current = todayKey();
-  if (saved && saved >= firstMonth + '-01' && saved <= current) return saved;
+  if (selectedDay && selectedDay >= firstMonth + '-01' && selectedDay <= current) return selectedDay;
   const dates = history.map(r=>dateParts(r.exit_ms)?.key).filter(x=>x && x<=current).sort();
   return dates.length ? dates[dates.length - 1] : current;
 }
@@ -163,18 +162,20 @@ function setTabs() {
 async function loadSymbol() {
   const token = ++requestId;
   setTabs();
-  setText('sync','Đang đọc dữ liệu ' + symbol.split('-')[0] + '…');
+  setText('sync','Đang đọc dữ liệu BTC và ETH…');
   $('status-dot').classList.add('status-muted');
   try {
-    const response = await fetch('/api/dashboard?symbol=' + encodeURIComponent(symbol) + '&days=all', {
+    const response = await fetch('/api/dashboard?days=all', {
       cache:'no-store', credentials:'same-origin'
     });
     if (!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
     if (token !== requestId) return;
-    renderCombos(data.theory?.combos || []);
+    comboRows = data.theory?.combos || [];
+    renderCombos(comboRows);
     history = (data.theory?.history || []).filter(row =>
-      row.symbol === symbol && row.status === 'closed' && valid(row.exit_ms));
+      (row.symbol === 'BTC-USDT' || row.symbol === 'ETH-USDT') &&
+      row.status === 'closed' && valid(row.exit_ms));
     selectedDay = chooseLatestDate();
     monthKey = selectedDay.slice(0, 7);
     renderCalendar();
@@ -188,8 +189,9 @@ async function loadSymbol() {
   } catch (error) {
     if (token !== requestId) return;
     history = [];
+    comboRows = [];
     emptyRow('combo-list', 6, 'Không đọc được dữ liệu.');
-    emptyRow('history-list', 5, 'Không đọc được dữ liệu.');
+    emptyRow('history-list', 6, 'Không đọc được dữ liệu.');
     setText('combo-count', '—'); setText('history-count','—');
     setText('sync', 'Lỗi kết nối dashboard · ' + error.message);
   }
@@ -198,7 +200,8 @@ for (const name of ['BTC','ETH']) {
   $('tab-' + name.toLowerCase()).addEventListener('click', () => {
     if (symbol === name + '-USDT') return;
     symbol = name + '-USDT';
-    loadSymbol();
+    setTabs();
+    renderCombos(comboRows);
   });
 }
 $('prev-month').addEventListener('click', () => {
