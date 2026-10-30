@@ -16,7 +16,7 @@ from urllib.parse import urlencode
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from .analytics import build_trades, margin_roi, summarize
 from .exits import load_exit_specs, build_exit_events
@@ -184,13 +184,30 @@ def mobile(request: Request):
     return _no_cache(HTMLResponse(html))
 
 
+def _dashboard_fills(db):
+    """Merge historical backfill with live fills for dashboard reads only.
+
+    The collector continues writing original BingX fills into bingx_fills.
+    Live rows always take priority over reconstructed historical rows.
+    """
+    if os.environ.get('DB_SCHEMA', '').strip() == 'autotrade_analytics':
+        stmt = select(Fill).from_statement(text(
+            "SELECT trade_id, order_id, symbol, side, position_side, qty, price, "
+            "realized_pnl, fee, timestamp_ms, raw "
+            "FROM autotrade_analytics.bingx_fills_dashboard "
+            "ORDER BY timestamp_ms, trade_id"
+        ))
+        return db.scalars(stmt).all()
+    return db.scalars(select(Fill).order_by(Fill.timestamp_ms, Fill.trade_id)).all()
+
+
 def _db_records():
     engine = get_engine()
     Session = get_sessionmaker(engine)
     with Session() as db:
         records = dict(
             orders=db.scalars(select(Order)).all(),
-            fills=db.scalars(select(Fill).order_by(Fill.timestamp_ms, Fill.trade_id)).all(),
+            fills=_dashboard_fills(db),
             incomes=db.scalars(select(Income)).all(),
             forces=db.scalars(select(ForceOrder)).all(),
             positions=db.scalars(select(PositionHistory)).all(),
