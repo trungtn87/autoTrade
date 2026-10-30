@@ -9,9 +9,6 @@ on:
       - '.github/workflows/final14-realdata-parity.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'autotrade_v2/**'
-      - '.github/workflows/final14-realdata-parity.yml'
   workflow_dispatch:
 
 jobs:

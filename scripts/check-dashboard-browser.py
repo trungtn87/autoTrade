@@ -1,1 +1,120 @@
-IiIiUmVhbCBDaHJvbWl1bSBtb2JpbGUvUFdBIGNoZWNrcyBhZ2FpbnN0IGFuIGlzb2xhdGVkIGZpeHR1cmUgQVBJLCBuZXZlciBwcm9kdWN0aW9uLiIiIgppbXBvcnQganNvbgppbXBvcnQgb3MKZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCmltcG9ydCBzdWJwcm9jZXNzCmltcG9ydCBzeXMKaW1wb3J0IHRpbWUKaW1wb3J0IHVybGxpYi5yZXF1ZXN0CgpST09UID0gUGF0aChfX2ZpbGVfXykucmVzb2x2ZSgpLnBhcmVudHNbMV0KQkFTRSA9ICdodHRwOi8vMTI3LjAuMC4xOjg3NjUnCgoKZGVmIHNlcnZlKCk6CiAgICBmcm9tIHR5cGVzIGltcG9ydCBTaW1wbGVOYW1lc3BhY2UgYXMgUm93CiAgICBmcm9tIGF1dG90cmFkZV9saXZlIGltcG9ydCBtb2JpbGUKICAgIGZyb20gYXV0b3RyYWRlX2xpdmUuZXhpdHMgaW1wb3J0IGV4dHJhY3RfZXhpdF9zcGVjCiAgICBpbXBvcnQgdXZpY29ybgoKICAgIHJlY29yZHMgPSB7azogW10gZm9yIGsgaW4gKCdvcmRlcnMnLCAnZmlsbHMnLCAnbGlua3MnLCAnZm9yY2VzJywgJ2luY29tZXMnLCAncG9zaXRpb25zJywgJ3J1bnMnKX0KICAgIHN0YXRlcyA9IFtdCiAgICBmb3IgaSBpbiByYW5nZSgyNCk6CiAgICAgICAgdHMgPSBpbnQodGltZS50aW1lKCkqMTAwMCkgLSA4NjQwMDAwMCArIGkgKiAxMDAwMDAKICAgICAgICBjb21ibyA9IGkgJSAyICsgMQogICAgICAgIGVudHJ5LCBzbCwgdHAsIHRyYWlsID0gW3N0cigxMDAwICsgaSoxMCArIGopIGZvciBqIGluIHJhbmdlKDQpXQogICAgICAgIHN0YXRlID0gZGljdChpbnRlbnQ9ZGljdChzeW1ib2w9J0JUQy1VU0RUJywgY29tYm89Y29tYm8sIHNpZGU9J0JVWScsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNsb3NlX3RpbWU9dHMsIGVudHJ5PTEwMCwgdHA9MTAxLCBzbD05OSksCiAgICAgICAgICAgICAgICAgICAgIGVudHJ5X2ZpbGxlZD1pIDwgMiwgZW50cnlfYWNjZXB0ZWQ9aSA8IDIsIHRlcm1pbmFsPVRydWUsCiAgICAgICAgICAgICAgICAgICAgIG9yZGVyX2lkPWVudHJ5IGlmIGkgPCAyIGVsc2UgJycsIGF2Z19wcmljZT0xMDAsCiAgICAgICAgICAgICAgICAgICAgIGV4aXRfbW9kZT0nc3BsaXRfdHJhaWxpbmcnLCBleGVjdXRlZF9xdHk9MSwKICAgICAgICAgICAgICAgICAgICAgcHJvdGVjdGlvbj17J3NsJzogeydvcmRlcl9pZCc6IHNsfSwgJ3RwJzogeydvcmRlcl9pZCc6IHRwfSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgJ3RyYWlsaW5nJzogeydvcmRlcl9pZCc6IHRyYWlsfX0pCiAgICAgICAgc3RhdGVzLmFwcGVuZCgoZidmaXh0dXJlLXtpfScsIHN0YXRlKSkKICAgICAgICBpZiBpID49IDI6CiAgICAgICAgICAgIGNvbnRpbnVlCiAgICAgICAgZm9yIGosIChvaWQsIGtpbmQsIHByaWNlLCBxdHksIHNpZGUpIGluIGVudW1lcmF0ZShbCiAgICAgICAgICAgIChlbnRyeSwgJ01BUktFVCcsIDEwMCwgMSwgJ0JVWScpLAogICAgICAgICAgICAodHAsICdUQUtFX1BST0ZJVF9NQVJLRVQnLCAxMDEsIC41LCAnU0VMTCcpLAogICAgICAgICAgICAodHJhaWwsICdUUkFJTElOR19TVE9QX01BUktFVCcsIDEwMiwgLjUsICdTRUxMJyksCiAgICAgICAgXSk6CiAgICAgICAgICAgIHJlY29yZHNbJ29yZGVycyddLmFwcGVuZChSb3cob3JkZXJfaWQ9b2lkLCBzeW1ib2w9J0JUQy1VU0RUJywgc2lkZT1zaWRlLAogICAgICAgICAgICAgICAgcG9zaXRpb25fc2lkZT0nTE9ORycsIHR5cGU9a2luZCwgc3RhdHVzPSdGSUxMRUQnLCBwcmljZT1wcmljZSwKICAgICAgICAgICAgICAgIGF2Z19wcmljZT1wcmljZSwgcXVhbnRpdHk9cXR5LCBmaWxsZWRfcXR5PXF0eSwgY3JlYXRlZF9tcz10cytqKjEwMDAsCiAgICAgICAgICAgICAgICB1cGRhdGVkX21zPXRzK2oqMTAwMCwgcmF3PXt9KSkKICAgICAgICAgICAgcmVjb3Jkc1snZmlsbHMnXS5hcHBlbmQoUm93KG9yZGVyX2lkPW9pZCwgdHJhZGVfaWQ9ZidmLXtvaWR9Jywgc3ltYm9sPSdCVEMtVVNEVCcsCiAgICAgICAgICAgICAgICBzaWRlPXNpZGUsIHBvc2l0aW9uX3NpZGU9J0xPTkcnLCBxdHk9cXR5LCBwcmljZT1wcmljZSwKICAgICAgICAgICAgICAgIHJlYWxpemVkX3BubD0ocHJpY2UtMTAwKSpxdHksIGZlZT0tLjAxLCB0aW1lc3RhbXBfbXM9dHMraioxMDAwLCByYXc9e30pKQogICAgcmVjb3Jkc1sndjJfc3RhdGVzJ10gPSBzdGF0ZXMKICAgIHJlY29yZHNbJ2V4aXRfc3BlY3MnXSA9IFt4IGZvciBlaWQsIHN0YXRlIGluIHN0YXRlcyBpZiAoeCA6PSBleHRyYWN0X2V4aXRfc3BlYyhzdGF0ZSwgZWlkKSldCiAgICBtb2JpbGUuX2RiX3JlY29yZHMgPSBsYW1iZGE6IHJlY29yZHMKICAgIG1vYmlsZS5hcmNoaXZlX2VuYWJsZWQgPSBsYW1iZGE6IEZhbHNlCiAgICB1dmljb3JuLnJ1bihtb2JpbGUuYXBwLCBob3N0PScxMjcuMC4wLjEnLCBwb3J0PTg3NjUpCgoKZGVmIGNoZWNrKCk6CiAgICBmcm9tIHBsYXl3cmlnaHQuc3luY19hcGkgaW1wb3J0IHN5bmNfcGxheXdyaWdodAogICAgZW52ID0ge2s6IHYgZm9yIGssIHYgaW4gb3MuZW52aXJvbi5pdGVtcygpIGlmIG5vdCBhbnkod29yZCBpbiBrLnVwcGVyKCkgZm9yIHdvcmQgaW4KICAgICAgICAgICAoJ0JJTkdYJywgJ0RBVEFCQVNFX1VSTCcsICdEQVNIQk9BUkRfJywgJ0FQUF9TRVNTSU9OJywgJ0NPTExFQ1RPUl8nLCAnRElTQ09SRCcsICdXRUJIT09LJykpfQogICAgZW52LnVwZGF0ZShQWVRIT05QQVRIPXN0cihST09ULydkYXNoYm9hcmQnKSwgREFTSEJPQVJEX1BVQkxJQ19SRUFET05MWT0nZmFsc2UnLAogICAgICAgICAgICAgICBEQVNIQk9BUkRfUEFTU1dPUkQ9J2xvY2FsLWZpeHR1cmUtcGFzc3dvcmQnLAogICAgICAgICAgICAgICBBUFBfU0VTU0lPTl9TRUNSRVQ9J2xvY2FsLWZpeHR1cmUtc2Vzc2lvbi1zZWNyZXQtYXQtbGVhc3QtMzItY2hhcmFjdGVycycsIENPT0tJRV9TRUNVUkU9J2ZhbHNlJykKICAgIHByb2MgPSBzdWJwcm9jZXNzLlBvcGVuKFtzeXMuZXhlY3V0YWJsZSwgX19maWxlX18sICctLXNlcnZlJ10sIGN3ZD1ST09ULCBlbnY9ZW52KQogICAgb3V0cHV0ID0gUk9PVC8nYnJvd3Nlci1ldmlkZW5jZScKICAgIG91dHB1dC5ta2RpcihleGlzdF9vaz1UcnVlKQogICAgdHJ5OgogICAgICAgIGZvciBfIGluIHJhbmdlKDUwKToKICAgICAgICAgICAgdHJ5OgogICAgICAgICAgICAgICAgdXJsbGliLnJlcXVlc3QudXJsb3BlbihCQVNFKycvaGVhbHRoJywgdGltZW91dD0xKQogICAgICAgICAgICAgICAgYnJlYWsKICAgICAgICAgICAgZXhjZXB0IE9TRXJyb3I6CiAgICAgICAgICAgICAgICBpZiBwcm9jLnBvbGwoKSBpcyBub3QgTm9uZToKICAgICAgICAgICAgICAgICAgICByYWlzZSBSdW50aW1lRXJyb3IoJ0ZpeHR1cmUgc2VydmVyIGV4aXRlZCcpCiAgICAgICAgICAgICAgICB0aW1lLnNsZWVwKC4xKQogICAgICAgIHJlc3VsdHMgPSBbXQogICAgICAgIHdpdGggc3luY19wbGF5d3JpZ2h0KCkgYXMgcDoKICAgICAgICAgICAgYnJvd3NlciA9IHAuY2hyb21pdW0ubGF1bmNoKCkKICAgICAgICAgICAgZm9yIHdpZHRoLCBoZWlnaHQgaW4gWygzOTAsIDg0NCksICgzNjAsIDgwMCksICgxMjgwLCA5MDApXToKICAgICAgICAgICAgICAgIGNvbnRleHQgPSBicm93c2VyLm5ld19jb250ZXh0KHZpZXdwb3J0PXsnd2lkdGgnOiB3aWR0aCwgJ2hlaWdodCc6IGhlaWdodH0sCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGlzX21vYmlsZT13aWR0aCA8IDYwMCwgaGFzX3RvdWNoPXdpZHRoIDwgNjAwKQogICAgICAgICAgICAgICAgY29udGV4dC5yb3V0ZSgnKiovKicsIGxhbWJkYSByb3V0ZTogcm91dGUuY29udGludWVfKCkgaWYgcm91dGUucmVxdWVzdC51cmwuc3RhcnRzd2l0aChCQVNFKycvJykgZWxzZSByb3V0ZS5hYm9ydCgpKQogICAgICAgICAgICAgICAgcGFnZSA9IGNvbnRleHQubmV3X3BhZ2UoKQogICAgICAgICAgICAgICAgZXJyb3JzID0gW10KICAgICAgICAgICAgICAgIHBhZ2Uub24oJ3BhZ2VlcnJvcicsIGxhbWJkYSBlcnI6IGVycm9ycy5hcHBlbmQoc3RyKGVycikpKQogICAgICAgICAgICAgICAgcGFnZS5nb3RvKEJBU0UrJy9tb2JpbGUnKQogICAgICAgICAgICAgICAgYXNzZXJ0ICcvbG9naW4nIGluIHBhZ2UudXJsCiAgICAgICAgICAgICAgICBwYWdlLmxvY2F0b3IoJ2lucHV0W25hbWU9cGFzc3dvcmRdJykuZmlsbCgnbG9jYWwtZml4dHVyZS1wYXNzd29yZCcpCiAgICAgICAgICAgICAgICBwYWdlLmxvY2F0b3IoJ2J1dHRvbicpLmNsaWNrKCkKICAgICAgICAgICAgICAgIHBhZ2Uud2FpdF9mb3Jfc2VsZWN0b3IoJyNoaXN0b3J5LWxpc3QgPiAqJykKICAgICAgICAgICAgICAgIHBhZ2Uud2FpdF9mb3JfZnVuY3Rpb24oImRvY3VtZW50LnF1ZXJ5U2VsZWN0b3IoJyNoaXN0b3J5LWNvdW50JykudGV4dENvbnRlbnQuaW5jbHVkZXMoJzI0JykiKQogICAgICAgICAgICAgICAgcGFnZS5ldmFsdWF0ZSgnbmF2aWdhdG9yLnNlcnZpY2VXb3JrZXIucmVhZHknKQogICAgICAgICAgICAgICAgcGFnZS53YWl0X2Zvcl9mdW5jdGlvbignbmF2aWdhdG9yLnNlcnZpY2VXb3JrZXIuY29udHJvbGxlciAhPT0gbnVsbCcpCiAgICAgICAgICAgICAgICBhc3NlcnQgcGFnZS5ldmFsdWF0ZSgnZG9jdW1lbnQuZG9jdW1lbnRFbGVtZW50LnNjcm9sbFdpZHRoIDw9IGlubmVyV2lkdGgnKSwgJ2hvcml6b250YWwgb3ZlcmZsb3cnCiAgICAgICAgICAgICAgICBjYXJkcyA9IHBhZ2UubG9jYXRvcignI2hpc3RvcnktbGlzdCA+IConKS5jb3VudCgpCiAgICAgICAgICAgICAgICBhc3NlcnQgY2FyZHMgPT0gMTYKICAgICAgICAgICAgICAgIGFzc2VydCBwYWdlLmxvY2F0b3IoJyNjb21ibyBvcHRpb24nKS5jb3VudCgpID09IDMKICAgICAgICAgICAgICAgIHBhZ2UubG9jYXRvcignI2hpc3RvcnktbW9yZScpLmNsaWNrKCkKICAgICAgICAgICAgICAgIGFzc2VydCBwYWdlLmxvY2F0b3IoJyNoaXN0b3J5LWxpc3QgPiAqJykuY291bnQoKSA9PSAyNAogICAgICAgICAgICAgICAgcGF5bG9hZCA9IHBhZ2UucmVxdWVzdC5nZXQoQkFTRSsnL2FwaS9kYXNoYm9hcmQnKS5qc29uKCkKICAgICAgICAgICAgICAgIGFzc2VydCBwYXlsb2FkWyd0aGVvcnknXVsnc3VtbWFyeSddWydjbG9zZWQnXSA9PSAyCiAgICAgICAgICAgICAgICBhc3NlcnQgcGF5bG9hZFsndGhlb3J5J11bJ3N1bW1hcnknXVsnZmFpbGVkJ10gPT0gMjIKICAgICAgICAgICAgICAgIHBhZ2UubG9jYXRvcignI2NvbWJvJykuc2VsZWN0X29wdGlvbignQzEnKQogICAgICAgICAgICAgICAgcGFnZS53YWl0X2Zvcl9mdW5jdGlvbigiZG9jdW1lbnQucXVlcnlTZWxlY3RvcignI2hpc3RvcnktY291bnQnKS50ZXh0Q29udGVudC5pbmNsdWRlcygnMTInKSIpCiAgICAgICAgICAgICAgICBhc3NlcnQgcGFnZS5sb2NhdG9yKCcjaGlzdG9yeS1saXN0ID4gKicpLmNvdW50KCkgPT0gMTIKICAgICAgICAgICAgICAgIG1hbmlmZXN0ID0gcGFnZS5yZXF1ZXN0LmdldChCQVNFKycvc3RhdGljL21hbmlmZXN0LndlYm1hbmlmZXN0JykuanNvbigpCiAgICAgICAgICAgICAgICBhc3NlcnQgbWFuaWZlc3RbJ2Rpc3BsYXknXSA9PSAnc3RhbmRhbG9uZScKICAgICAgICAgICAgICAgIGFzc2VydCBub3QgZXJyb3JzLCBlcnJvcnMKICAgICAgICAgICAgICAgIHBhZ2Uuc2NyZWVuc2hvdChwYXRoPXN0cihvdXRwdXQvZidtb2JpbGUte3dpZHRofS5wbmcnKSwgZnVsbF9wYWdlPVRydWUpCiAgICAgICAgICAgICAgICByZXN1bHRzLmFwcGVuZChkaWN0KHdpZHRoPXdpZHRoLCBoZWlnaHQ9aGVpZ2h0LCBoaXN0b3J5PTI0LCBwYWdpbmF0aW9uPVRydWUsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIGNvbWJvX2ZpbHRlcj1UcnVlLCBzZXJ2aWNlX3dvcmtlcj1UcnVlLCBqYXZhc2NyaXB0X2Vycm9ycz1lcnJvcnMpKQogICAgICAgICAgICAgICAgY29udGV4dC5jbG9zZSgpCiAgICAgICAgICAgIGJyb3dzZXIuY2xvc2UoKQogICAgICAgIChvdXRwdXQvJ3Jlc3VsdC5qc29uJykud3JpdGVfdGV4dChqc29uLmR1bXBzKHJlc3VsdHMsIGluZGVudD0yKSkKICAgICAgICBwcmludChqc29uLmR1bXBzKHJlc3VsdHMpKQogICAgZmluYWxseToKICAgICAgICBwcm9jLnRlcm1pbmF0ZSgpCiAgICAgICAgcHJvYy53YWl0KHRpbWVvdXQ9MTApCgoKaWYgX19uYW1lX18gPT0gJ19fbWFpbl9fJzoKICAgIHNlcnZlKCkgaWYgJy0tc2VydmUnIGluIHN5cy5hcmd2IGVsc2UgY2hlY2soKQo=
+"""Real Chromium mobile/PWA checks against an isolated fixture API, never production."""
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+import urllib.request
+
+ROOT = Path(__file__).resolve().parents[1]
+BASE = 'http://127.0.0.1:8765'
+
+
+def serve():
+    from types import SimpleNamespace as Row
+    from autotrade_live import mobile
+    from autotrade_live.exits import extract_exit_spec
+    import uvicorn
+
+    records = {k: [] for k in ('orders', 'fills', 'links', 'forces', 'incomes', 'positions', 'runs')}
+    states = []
+    for i in range(24):
+        ts = int(time.time()*1000) - 86400000 + i * 100000
+        combo = i % 2 + 1
+        entry, sl, tp, trail = [str(1000 + i*10 + j) for j in range(4)]
+        state = dict(intent=dict(symbol='BTC-USDT', combo=combo, side='BUY',
+                                 close_time=ts, entry=100, tp=101, sl=99),
+                     entry_filled=i < 2, entry_accepted=i < 2, terminal=True,
+                     order_id=entry if i < 2 else '', avg_price=100,
+                     exit_mode='split_trailing', executed_qty=1,
+                     protection={'sl': {'order_id': sl}, 'tp': {'order_id': tp},
+                                 'trailing': {'order_id': trail}})
+        states.append((f'fixture-{i}', state))
+        if i >= 2:
+            continue
+        for j, (oid, kind, price, qty, side) in enumerate([
+            (entry, 'MARKET', 100, 1, 'BUY'),
+            (tp, 'TAKE_PROFIT_MARKET', 101, .5, 'SELL'),
+            (trail, 'TRAILING_STOP_MARKET', 102, .5, 'SELL'),
+        ]):
+            records['orders'].append(Row(order_id=oid, symbol='BTC-USDT', side=side,
+                position_side='LONG', type=kind, status='FILLED', price=price,
+                avg_price=price, quantity=qty, filled_qty=qty, created_ms=ts+j*1000,
+                updated_ms=ts+j*1000, raw={}))
+            records['fills'].append(Row(order_id=oid, trade_id=f'f-{oid}', symbol='BTC-USDT',
+                side=side, position_side='LONG', qty=qty, price=price,
+                realized_pnl=(price-100)*qty, fee=-.01, timestamp_ms=ts+j*1000, raw={}))
+    records['v2_states'] = states
+    records['exit_specs'] = [x for eid, state in states if (x := extract_exit_spec(state, eid))]
+    mobile._db_records = lambda: records
+    mobile.archive_enabled = lambda: False
+    uvicorn.run(mobile.app, host='127.0.0.1', port=8765)
+
+
+def check():
+    from playwright.sync_api import sync_playwright
+    env = {k: v for k, v in os.environ.items() if not any(word in k.upper() for word in
+           ('BINGX', 'DATABASE_URL', 'DASHBOARD_', 'APP_SESSION', 'COLLECTOR_', 'DISCORD', 'WEBHOOK'))}
+    env.update(PYTHONPATH=str(ROOT/'dashboard'), DASHBOARD_PUBLIC_READONLY='false',
+               DASHBOARD_PASSWORD='local-fixture-password',
+               APP_SESSION_SECRET='local-fixture-session-secret-at-least-32-characters', COOKIE_SECURE='false')
+    proc = subprocess.Popen([sys.executable, __file__, '--serve'], cwd=ROOT, env=env)
+    output = ROOT/'browser-evidence'
+    output.mkdir(exist_ok=True)
+    try:
+        for _ in range(50):
+            try:
+                urllib.request.urlopen(BASE+'/health', timeout=1)
+                break
+            except OSError:
+                if proc.poll() is not None:
+                    raise RuntimeError('Fixture server exited')
+                time.sleep(.1)
+        results = []
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            for width, height in [(390, 844), (360, 800), (1280, 900)]:
+                context = browser.new_context(viewport={'width': width, 'height': height},
+                                             is_mobile=width < 600, has_touch=width < 600)
+                context.route('**/*', lambda route: route.continue_() if route.request.url.startswith(BASE+'/') else route.abort())
+                page = context.new_page()
+                errors = []
+                page.on('pageerror', lambda err: errors.append(str(err)))
+                page.goto(BASE+'/mobile')
+                assert '/login' in page.url
+                page.locator('input[name=password]').fill('local-fixture-password')
+                page.locator('button').click()
+                page.wait_for_selector('#history-list > *')
+                page.wait_for_function("document.querySelector('#history-count').textContent.includes('24')")
+                page.evaluate('navigator.serviceWorker.ready')
+                page.wait_for_function('navigator.serviceWorker.controller !== null')
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'horizontal overflow'
+                cards = page.locator('#history-list > *').count()
+                assert cards == 16
+                assert page.locator('#combo option').count() == 3
+                page.locator('#history-more').click()
+                assert page.locator('#history-list > *').count() == 24
+                payload = page.request.get(BASE+'/api/dashboard').json()
+                assert payload['theory']['summary']['closed'] == 2
+                assert payload['theory']['summary']['failed'] == 22
+                page.locator('#combo').select_option('C1')
+                page.wait_for_function("document.querySelector('#history-count').textContent.includes('12')")
+                assert page.locator('#history-list > *').count() == 12
+                manifest = page.request.get(BASE+'/static/manifest.webmanifest').json()
+                assert manifest['display'] == 'standalone'
+                assert not errors, errors
+                page.screenshot(path=str(output/f'mobile-{width}.png'), full_page=True)
+                results.append(dict(width=width, height=height, history=24, pagination=True,
+                                    combo_filter=True, service_worker=True, javascript_errors=errors))
+                context.close()
+            browser.close()
+        (output/'result.json').write_text(json.dumps(results, indent=2))
+        print(json.dumps(results))
+    finally:
+        proc.terminate()
+        proc.wait(timeout=10)
+
+
+if __name__ == '__main__':
+    serve() if '--serve' in sys.argv else check()
