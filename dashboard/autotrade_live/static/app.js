@@ -211,3 +211,4 @@ $('next-month').addEventListener('click', () => {
   if (monthKey < todayKey().slice(0,7)) { monthKey = monthShift(monthKey,1); renderCalendar(); }
 });
 loadSymbol();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
