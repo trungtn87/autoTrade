@@ -2,7 +2,7 @@ name: FINAL14 Full-History Parity
 
 on:
   push:
-    branches: [main, autotrade-v2-clean]
+    branches: [main]
     paths:
       - 'autotrade_v2/app/strategy/**'
       - 'autotrade_v2/tests/backtest_realdata_parity.py'

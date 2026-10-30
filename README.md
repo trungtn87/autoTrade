@@ -1,7 +1,7 @@
 # AutoTrade — production baseline
 
 **One GitHub branch (`main`) → one Docker container → one port (8000)**.
-The single process runs the Binance? **No: BingX** V2 trading engine and the
+The single process runs the BingX V2 trading engine and the
 mobile Live Terminal. It uses the existing Supabase database.
 
 ## Runtime URLs
