@@ -35,6 +35,8 @@ jobs:
         run: python scripts/check-offline.py autotrade_v2
       - name: Run ALL Dashboard offline tests (no exchange network)
         run: python scripts/check-offline.py dashboard
+      - name: Test cgroup app metrics sampler without credentials
+        run: python scripts/check-container-metrics.py
       - name: Test single app routes, lifespans, public PWA and cleanup default
         env:
           DISCORD_ENABLED: 'false'
