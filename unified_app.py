@@ -22,6 +22,8 @@ if os.getenv("DATABASE_URL", "").startswith(("postgres://", "postgresql://")):
 os.environ.setdefault("DASHBOARD_PUBLIC_READONLY", "true")
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+from autotrade_v2.app.monitor_resources import container_resource_sampler
 
 from autotrade_v2.app.main import app as engine_app
 from dashboard.autotrade_live.mobile import app as dashboard_app
@@ -46,5 +48,12 @@ app = FastAPI(
 )
 # Mount engine first; the Dashboard consumes / including /static, /login,
 # /mobile and /api/dashboard without altering existing absolute PWA URLs.
+@app.get("/monitor/resources", include_in_schema=False)
+def monitor_resources():
+    """Read-only per-container capacity; no trade or host secrets."""
+    return JSONResponse(container_resource_sampler.snapshot(),
+                        headers={"Cache-Control": "no-store"})
+
+
 app.mount("/engine", engine_app)
 app.mount("/", dashboard_app)
