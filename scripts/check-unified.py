@@ -53,6 +53,19 @@ with TestClient(app, follow_redirects=False) as client:
     finally:
         web._db_records = previous_records
 
+    # Monitoring endpoint is read-only, cgroup-scoped, never exposes trading data.
+    res = client.get("/monitor/resources")
+    assert res.status_code == 200, res.text
+    assert res.headers["cache-control"] == "no-store"
+    data = res.json()
+    assert data["service"] == "autotrade" and data["schema"] == 1
+    assert data["sourceCpu"] in ("CGROUP_V2", "PROCESS")
+    assert data["sourceRam"] in ("CGROUP_V2", "PROCESS", "UNAVAILABLE")
+    assert data["ramUsedMb"] >= 0
+    assert not any(k in data for k in ("positions", "apiKey", "password", "orders"))
+    warmed = client.get("/monitor/resources").json()
+    assert warmed["cpuVcpu"] is None or warmed["cpuVcpu"] >= 0
+
     engine = client.get("/engine/status")
     assert engine.status_code == 200, engine.text
     assert engine.json()["runtime"]["execution_enabled"] is False
