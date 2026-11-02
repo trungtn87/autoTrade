@@ -120,7 +120,9 @@ def _no_cache(response):
 def health():
     # Configuration flag only; no credentials, BingX data, or order APIs.
     return {'ok': True, 'service': 'autotrade-dashboard', 'trade_api': False,
-            'archive_scheduler_enabled': archive_enabled()}
+            'archive_scheduler_enabled': archive_enabled(),
+            'archive_read_credentials_configured': bool(
+                os.getenv('BINGX_READ_API_KEY') and os.getenv('BINGX_READ_API_SECRET'))}
 
 
 @app.get('/')
