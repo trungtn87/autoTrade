@@ -184,7 +184,7 @@ async function loadSymbol() {
     const synced = data.last_sync?.status === 'success' && sync &&
       Date.now() - Date.parse(data.last_sync.time) < 2.5 * 3600000;
     $('status-dot').classList.toggle('status-muted', !synced);
-    setText('sync', sync ? 'BingX đồng bộ ' + sync.date + ' · ' + sync.time : 'Chưa có giờ đồng bộ');
+    setText('sync', sync ? (synced ? 'BingX đồng bộ ' : 'BingX chưa đồng bộ từ ') + sync.date + ' · ' + sync.time : 'Chưa có giờ đồng bộ');
     setText('updated', 'Xem lúc ' + (dateParts(Date.now())?.time || '—'));
   } catch (error) {
     if (token !== requestId) return;
@@ -211,4 +211,12 @@ $('next-month').addEventListener('click', () => {
   if (monthKey < todayKey().slice(0,7)) { monthKey = monthShift(monthKey,1); renderCalendar(); }
 });
 loadSymbol();
+// Poll only while the dashboard is visible: DB reads never call BingX directly.
+const DASHBOARD_REFRESH_MS = 5 * 60 * 1000;
+window.setInterval(() => {
+  if (document.visibilityState === 'visible') loadSymbol();
+}, DASHBOARD_REFRESH_MS);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') loadSymbol();
+});
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
