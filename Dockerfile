@@ -8,6 +8,7 @@ RUN python -m pip install --disable-pip-version-check -r /app/requirements.txt
 
 COPY unified_app.py /app/unified_app.py
 COPY autotrade_v2/app/ /app/autotrade_v2/app/
+COPY autotrade_v2/analytics/ /app/autotrade_v2/analytics/
 COPY dashboard/autotrade_live/ /app/dashboard/autotrade_live/
 
 RUN useradd --system --uid 10001 --create-home service && chown -R service:service /app

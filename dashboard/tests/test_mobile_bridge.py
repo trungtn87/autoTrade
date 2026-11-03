@@ -76,7 +76,7 @@ def test_public_readonly_no_password_and_redacted_api(monkeypatch):
         assert data.status_code == 200
         assert data.json()['summary']['closed'] == 0
         assert data.headers['x-robots-tag'].startswith('noindex')
-        assert c.post('/collector/v1/signals', json={'entry_order_id': '123', 'combo': 'C1'}).status_code == 401
+        assert c.post('/collector/v1/signals', json={'entry_order_id': '123', 'combo': 'C1'}).status_code == 404
         assert c.post('/logout', follow_redirects=False).headers['location'] == '/mobile'
 
 

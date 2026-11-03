@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+
+from autotrade_v2.analytics.lifecycle import CollectorRuntime
 import threading
 import time
 
@@ -69,10 +71,13 @@ orchestrator=Orchestrator(
 )
 
 app=FastAPI(title="AutoTrade V2")
+collector_runtime=CollectorRuntime(admit=lambda: _collector_admission(), notify=lambda state: _collector_report(state))
 _state_lock=threading.Lock()
 _pipeline_lock=threading.Lock()
 _watchdog_stop=threading.Event()
 _execution_reconcile_stop=threading.Event()
+_execution_recovery_busy=threading.Event()
+_exit_cleanup_busy=threading.Event()
 _processed_open:dict[str,int]={}
 _watchdog_checked_open:dict[str,int]={}
 _recovery_attempts:dict[tuple[str,int],dict]={}
@@ -86,6 +91,25 @@ runtime:dict={
     "data_health":{},
 }
 stream:BingXKlineStream|None=None
+
+
+def _collector_report(state)->None:
+    phase=str(state.get("result") or state.get("state") or "unknown")
+    severity="ERROR" if phase in {"failed","cooldown"} else "INFO"
+    event_reporter.emit("L4.ARCHIVE."+phase.upper(), severity,
+                        "V2 read-only trade archive "+phase, details=state)
+
+
+def _collector_admission()->bool:
+    # Keep archive bursts away from candle execution/recovery. This observes
+    # execution only; it never holds its guard while sending an archive GET.
+    now_ms=int(time.time()*1000)
+    phase=now_ms%STEP_15M_MS
+    if phase<120_000 or phase>STEP_15M_MS-120_000 or _pipeline_lock.locked():
+        return False
+    if _execution_recovery_busy.is_set() or _exit_cleanup_busy.is_set():
+        return False
+    return execution_service.executor.client.guard.archive_ready()
 
 
 def _expected_closed_opens(now_ms:int|None=None)->tuple[int,...]:
@@ -282,6 +306,7 @@ def _candle_watchdog()->None:
 
 def _execution_reconcile_loop()->None:
     while not _execution_reconcile_stop.wait(EXECUTION_RECONCILE_POLL_SEC):
+        _execution_recovery_busy.set()
         try:
             pending=sum(
                 1 for _,state in execution_store.list_states()
@@ -313,6 +338,8 @@ def _execution_reconcile_loop()->None:
                 "L3.EXEC.RECOVERY_LOOP_FAIL","ERROR",str(exc),
                 details={"stage":"runtime_reconciliation"},
             )
+        finally:
+            _execution_recovery_busy.clear()
 
 
 def _exit_cleanup_loop()->None:
@@ -321,6 +348,7 @@ def _exit_cleanup_loop()->None:
     while not _execution_reconcile_stop.wait(EXIT_CLEANUP_POLL_SEC):
         if not settings.exit_cleanup_enabled:
             continue
+        _exit_cleanup_busy.set()
         try:
             results=execution_service.cleanup_closed_exits()
             with _state_lock:
@@ -341,6 +369,8 @@ def _exit_cleanup_loop()->None:
                 "L3.EXEC.EXIT_CLEANUP_LOOP_FAIL","ERROR",str(exc),
                 details={"stage":"exit_cleanup"},
             )
+        finally:
+            _exit_cleanup_busy.clear()
 
 
 def _start_data_runtime()->None:
@@ -518,17 +548,21 @@ def startup()->None:
             details={"purpose":"manual email delivery test"},
         )
 
+    collector_runtime.start()
+
     if settings.bootstrap_enabled or settings.websocket_enabled:
         threading.Thread(target=_start_data_runtime,name="v2-data-runtime",daemon=True).start()
 
 
 @app.on_event("shutdown")
 def shutdown()->None:
+    collector_runtime.request_stop()
     _watchdog_stop.set()
     _execution_reconcile_stop.set()
     if stream is not None:
         stream.stop()
     event_reporter.emit("L4.SYSTEM.SHUTDOWN","INFO","AutoTrade V2 process stopping")
+    collector_runtime.stop()
     event_reporter.stop()
 
 
@@ -585,6 +619,7 @@ def status()->dict:
     with _state_lock:
         return {
             "runtime":dict(runtime),
+            "trade_collector":dict(collector_runtime.status),
             "last_run":dict(last_run),
             "processed_open":dict(_processed_open),
         }

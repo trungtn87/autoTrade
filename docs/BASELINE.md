@@ -56,3 +56,10 @@ post-deployment evidence. Do not label them PASS from CI alone.
 **Source-only changes never authorize a deploy or live trade.**
 The repository's existing Git history remains available for auditing and
 historical backtests. Unmerged experimental branches are not production.
+
+## 2026-11-03 architecture draft (NOT a new production baseline)
+
+See [analytics-v2-phase-a.md](analytics-v2-phase-a.md) for direct DB evidence,
+V2-owned archive implementation and outstanding acceptance gates. Quantity-based
+normalized results are a draft; monetary attribution and production scheduler
+verification are incomplete. This branch does not authorize a deployment.
