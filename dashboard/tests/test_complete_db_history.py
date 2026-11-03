@@ -137,3 +137,82 @@ def test_v2_state_is_visible_even_when_archive_has_not_copied_new_orders():
         assert result_payload(rows)['summary']['total']==4
     finally:
         engine.dispose()
+
+
+def _roi_engine():
+    engine = _engine()
+    with engine.begin() as db:
+        db.execute(text("""CREATE TABLE bingx_fills (
+            order_id TEXT, symbol TEXT, side TEXT, position_side TEXT,
+            qty REAL, price REAL, realized_pnl REAL, fee REAL, raw TEXT)"""))
+        db.execute(text("""INSERT INTO signal_links VALUES
+            ('entry-roi','ETH-USDT','C12','SELL',5000)"""))
+        orders = [
+            ('entry-roi','SELL','MARKET',2,100,5000,'0.0000'),
+            ('trailing-roi','BUY','TRAILING_STOP_MARKET',1,99,6000,'1.0000'),
+            ('sl-roi','BUY','STOP_MARKET',1,102,7000,'-2.0000'),
+        ]
+        for oid, side, kind, qty, price, ms, profit in orders:
+            db.execute(text("""INSERT INTO bingx_orders VALUES
+                (:oid,'ETH-USDT',:side,'SHORT',:kind,'FILLED',:qty,:created,:updated,:raw)"""),
+                dict(oid=oid,side=side,kind=kind,qty=qty,created=ms,updated=ms,
+                     raw=json.dumps({'positionID':'P-ROI','profit':profit,'leverage':'50X'})))
+        for oid, side, qty, price, gross, fee in [
+            ('entry-roi','SELL',2,100,0,-0.05),
+            ('trailing-roi','BUY',1,99,1,-0.025),
+            ('sl-roi','BUY',1,102,-2,-0.025),
+        ]:
+            db.execute(text("""INSERT INTO bingx_fills VALUES
+                (:oid,'ETH-USDT',:side,'SHORT',:qty,:price,:pnl,:fee,:raw)"""),
+                dict(oid=oid,side=side,qty=qty,price=price,pnl=gross,fee=fee,
+                     raw=json.dumps({'commissionAsset':'USDT'})))
+    return engine
+
+
+def test_trailing_plus_sl_estimates_one_trade_from_exact_fills_and_fees():
+    engine = _roi_engine()
+    try:
+        rows = load_results(engine)
+        result = next(r for r in rows if r['entry_order_id'] == 'entry-roi')
+        assert result['status'] == 'CLOSED'
+        assert result['exit_types'] == ['SL', 'TRAILING']
+        assert result['outcome'] == 'LOSS'
+        assert result['source'] == 'bingx_db_roi_estimate'
+        assert abs(result['pnl'] + 1.1) < 0.0000001
+        assert abs(result['margin'] - 4) < 0.0000001
+        assert abs(result['roi'] + 27.5) < 0.0000001
+        journal = result_payload(rows)['theory']
+        trade = next(r for r in journal['history'] if r['combo'] == 'C12')
+        assert trade['recorded_roi_pct'] == -27.5
+        combo = next(r for r in journal['combos'] if r['combo'] == 'C12')
+        assert combo['closed'] == 1 and combo['real_roi_total'] == -27.5
+        assert combo['roi_estimated'] is True
+    finally:
+        engine.dispose()
+
+
+def test_missing_exit_fill_never_invents_roi_for_closed_trade():
+    engine = _roi_engine()
+    try:
+        with engine.begin() as db:
+            db.execute(text("DELETE FROM bingx_fills WHERE order_id='sl-roi'"))
+        item = next(r for r in load_results(engine) if r['entry_order_id'] == 'entry-roi')
+        assert item['status'] == 'CLOSED'
+        assert item['roi'] is None and item['pnl'] is None and item['margin'] is None
+    finally:
+        engine.dispose()
+
+
+def test_shared_position_cannot_allocate_estimated_roi_to_multiple_combos():
+    engine = _roi_engine()
+    try:
+        with engine.begin() as db:
+            db.execute(text("""INSERT INTO signal_links VALUES
+                ('entry-other','ETH-USDT','C13','SELL',5500)"""))
+            db.execute(text("""INSERT INTO bingx_orders VALUES
+                ('entry-other','ETH-USDT','SELL','SHORT','MARKET','FILLED',1,5500,5500,:raw)"""),
+                {'raw':json.dumps({'positionID':'P-ROI','leverage':'50X'})})
+        item = next(r for r in load_results(engine) if r['entry_order_id'] == 'entry-roi')
+        assert item['status'] == 'UNRESOLVED' and item['roi'] is None
+    finally:
+        engine.dispose()
