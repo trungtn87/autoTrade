@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from collections import defaultdict
 from sqlalchemy import text, inspect
 from decimal import Decimal, InvalidOperation
+from sqlalchemy.exc import SQLAlchemyError
 
 
 
@@ -107,6 +108,68 @@ def _linked_results(engine, schema):
     return results
 
 
+def _event_time_ms(value):
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        except ValueError:
+            return None
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return int(value.timestamp() * 1000)
+
+
+def _v2_state_results(engine, inspector):
+    """Live AutoTrade V2 already persists entry proof in public.processed_targets.
+
+    This read-only fallback prevents a failed optional BingX archive from hiding
+    new V2 trades. Its states prove an entry, NOT a closed position or ROI.
+    """
+    pg = engine.dialect.name == 'postgresql'
+    prefix = 'public.' if pg else ''
+    if not inspector.has_table('processed_targets', schema='public' if pg else None):
+        return []
+    with engine.connect() as conn:
+        states = conn.execute(text(
+            'SELECT event_id,payload,processed_at FROM ' + prefix +
+            "processed_targets WHERE target='bingx_state' AND payload IS NOT NULL"
+        )).mappings().all()
+    filled_events = {}
+    if inspector.has_table('system_events', schema='public' if pg else None):
+        try:
+            with engine.connect() as conn:
+                events = conn.execute(text(
+                    'SELECT event_id, MIN(created_at) filled_at FROM ' + prefix +
+                    "system_events WHERE event_key='L3.EXEC.ORDER_FILLED' GROUP BY event_id"
+                )).mappings().all()
+            filled_events = {e['event_id']: _event_time_ms(e['filled_at']) for e in events}
+        except SQLAlchemyError:
+            # Event timestamps are optional. A missing log must not hide V2 entries.
+            pass
+
+    from autotrade_v2.analytics.bridge import extract_link
+    rows = []
+    for item in states:
+        link = extract_link(item['payload'], item['event_id'])
+        if not link:
+            continue
+        opened = (filled_events.get(item['event_id']) or link['signal_time_ms']
+                  or _event_time_ms(item['processed_at']) or 0)
+        if opened <= 0:
+            continue
+        rows.append(dict(
+            event_id='v2-state:' + item['event_id'],
+            entry_order_id=link['entry_order_id'],
+            symbol=link['symbol'], combo=link['combo'], side=link['side'],
+            opened_ms=int(opened), closed_ms=None, status='UNRESOLVED',
+            outcome=None, roi=None, pnl=None, margin=None,
+            source='v2_state_db', exit_types=[]
+        ))
+    return rows
+
+
 def load_results(engine):
     # Dashboard-only read: an unapplied migration must not hide existing history.
     schema = 'autotrade_analytics' if engine.dialect.name == 'postgresql' else None
@@ -115,7 +178,9 @@ def load_results(engine):
     has_history = 'manual_dashboard_trade_results' in inspector.get_view_names(schema=schema)
     has_links = inspector.has_table('signal_links', schema=schema)
     has_orders = inspector.has_table('bingx_orders', schema=schema)
-    if not has_normalized and not has_history and not (has_links and has_orders):
+    has_v2_states = inspector.has_table('processed_targets',
+                                         schema='public' if schema else None)
+    if not has_normalized and not has_history and not (has_links and has_orders) and not has_v2_states:
         return None
     rows = []
     if has_normalized:
@@ -158,6 +223,21 @@ def load_results(engine):
             if identity not in known:
                 rows.append(linked)
                 known.add(identity)
+    if has_v2_states:
+        # V2's durable execution state is newer than the optional BingX archive.
+        # Never replace a confirmed exchange result or double-count a matched ID.
+        known = {(r.get('symbol'), str(r.get('entry_order_id')))
+                 for r in rows if r.get('entry_order_id')}
+        try:
+            for state in _v2_state_results(engine, inspector):
+                identity = (state['symbol'], state['entry_order_id'])
+                if identity not in known:
+                    rows.append(state)
+                    known.add(identity)
+        except SQLAlchemyError:
+            if not rows:
+                raise
+            # An unavailable optional source cannot blank the retained history.
     return rows
 
 
