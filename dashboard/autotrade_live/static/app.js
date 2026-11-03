@@ -125,8 +125,11 @@ function renderDay() {
   setText('day-losses', rows.filter(r=>winOrLoss(r)==='THUA').length);
   const full = rows.length > 0 && rows.every(row => valid(row.recorded_roi_pct) &&
     valid(row.pnl) && valid(row.margin) && number(row.margin) > 0);
+  const existing = rows.length > 0 && rows.every(row =>
+    row.source === 'existing_history' && valid(row.recorded_roi_pct));
   const total = full ? 100 * rows.reduce((sum,row)=>sum+number(row.pnl),0) /
-    rows.reduce((sum,row)=>sum+number(row.margin),0) : null;
+    rows.reduce((sum,row)=>sum+number(row.margin),0) :
+    existing ? rows.reduce((sum,row)=>sum+number(row.recorded_roi_pct),0) : null;
   setText('day-roi', roi(total));
   $('day-roi').className = classFor(total);
   if (!rows.length) { emptyRow('history-list', 6, 'Không có lệnh đóng trong ngày này.'); return; }
