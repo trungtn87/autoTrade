@@ -25,7 +25,7 @@ value of `None` alone does not establish that TLS is valid.
 
 ## Required Environment — complete functional setup
 
-Set these **eight entries** on the **single** hosting application before live
+Set these **six entries** on the **single** hosting application before live
 cutover. Use existing values from prior hosting where available. Never place
 real values in source, GitHub issues or build arguments.
 
@@ -37,8 +37,13 @@ real values in source, GitHub issues or build arguments.
 | `DISCORD_WEBHOOK_BTC` | Existing Discord BTC channel → Integrations → Webhooks |
 | `DISCORD_WEBHOOK_ETH` | Existing Discord ETH channel → Integrations → Webhooks |
 | `DISCORD_WEBHOOK_ERROR` | Existing Discord error channel → Integrations → Webhooks |
-| `BINGX_READ_API_KEY` | A **separate BingX read-only** key for history collection |
-| `BINGX_READ_API_SECRET` | Matching read-only secret |
+
+The unified application's BingX archive uses the existing `BINGX_API_KEY` and
+`BINGX_API_SECRET` for GET-only history requests if no read-only pair is configured.
+A dedicated `BINGX_READ_API_KEY` + `BINGX_READ_API_SECRET` pair remains an
+optional isolation improvement; set **both** together, never just one. Archive
+requests are paced and yield to execution, but sharing one key/IP still has
+rate-limit risk. The Dashboard itself reads PostgreSQL only.
 
 The following are **only conditional** on an already-used feature:
 - `DISCORD_RELAY_URL` and `DISCORD_RELAY_TOKEN`: **keep both** if the
@@ -108,13 +113,13 @@ The draft moves the existing archive into `autotrade_v2.analytics`; retain exact
 one root Docker process, one HTTP port and one trading instance. The manual
 recovery command is now `python -m autotrade_v2.analytics.collect --days N` from
 the repository root. Do not run it against production without Owner approval.
-Read-only archive credentials remain separate from execution credentials.
+When available, dedicated read-only archive credentials remain separate from execution credentials; otherwise the unified app reuses the existing trading pair for GET-only archive requests.
 
 Do not deploy this draft until all gates in
 [analytics-v2-phase-a.md](analytics-v2-phase-a.md) are closed, including provider quota
 qualification, approved schema migration, money verification, real-host restart acceptance and
 historical Dashboard coverage. No migration is run automatically by this branch.
-Check variable presence/format and read-only key permissions privately on the VPS;
+Check credential presence/format and read permissions privately on the host;
 never dump environment values. Stop the previous container before starting the
 replacement; never overlap execution instances. Collect redacted :07 and 10:07 VN
 runtime evidence after an approved deployment.

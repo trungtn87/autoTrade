@@ -21,6 +21,13 @@ if os.getenv("DATABASE_URL", "").startswith(("postgres://", "postgresql://")):
 # Explicit DASHBOARD_PUBLIC_READONLY=false keeps the optional private login.
 os.environ.setdefault("DASHBOARD_PUBLIC_READONLY", "true")
 
+# The unified app has one configured BingX API pair. When no dedicated
+# history-read pair exists, reuse that pair for the archive's GET-only client.
+# Never combine half-configured read credentials with the trading pair.
+if not os.getenv("BINGX_READ_API_KEY") and not os.getenv("BINGX_READ_API_SECRET"):
+    os.environ["BINGX_READ_API_KEY"] = os.getenv("BINGX_API_KEY", "")
+    os.environ["BINGX_READ_API_SECRET"] = os.getenv("BINGX_API_SECRET", "")
+
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from autotrade_v2.app.monitor_resources import container_resource_sampler
