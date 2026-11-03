@@ -79,7 +79,86 @@ def _estimated_roi(entry, exits, fills):
     return float(net_pnl), float(margin), float(100 * net_pnl / margin)
 
 
-def _linked_results(engine, schema, has_fills=False):
+
+def _journal_exit_bindings(states):
+    """Bind every V2 protection parent to its unique, confirmed strategy entry.
+
+    BingX emits a *different child order ID* when a native SL/TP/trailing
+    triggers. Its raw triggerOrderId identifies the original V2 protection.
+    A shared positionID is not enough to allocate a fill between Combos.
+    """
+    from autotrade_v2.analytics.bridge import extract_link
+
+    bindings = {}
+    claims = defaultdict(set)
+    for record in states:
+        linked = extract_link(record['payload'], record['event_id'])
+        state = _raw(record['payload'])
+        if not linked or not isinstance(state, dict):
+            continue
+        position_id = str(state.get('position_id') or '')
+        protection = state.get('protection') or {}
+        if not position_id or position_id == '0' or not isinstance(protection, dict):
+            continue
+        parents = {}
+        invalid = False
+        for name, kind in (('tp', 'TAKE_PROFIT_MARKET'), ('sl', 'STOP_MARKET'),
+                           ('trailing', 'TRAILING_STOP_MARKET')):
+            item = protection.get(name)
+            if not isinstance(item, dict) or not item.get('order_id'):
+                continue
+            parent = str(item['order_id'])
+            if parent in parents:
+                invalid = True
+                break
+            parents[parent] = kind
+        if invalid or not parents:
+            continue
+        key = (linked['symbol'], linked['entry_order_id'])
+        binding = dict(position_id=position_id, combo=linked['combo'],
+                       side=linked['side'], parents=parents)
+        if key in bindings and bindings[key] != binding:
+            bindings[key] = None
+            continue
+        bindings[key] = binding
+        for parent in parents:
+            claims[(linked['symbol'], parent)].add(key)
+    # One native protection parent must not be claimed by multiple entries.
+    ambiguous = {key for parent, keys in claims.items() if len(keys) > 1 for key in keys}
+    for key in ambiguous:
+        bindings[key] = None
+    return bindings
+
+
+def _owned_exits(group, entry_side, binding):
+    """Return matching triggered child orders only, or a failed ownership proof."""
+    exits = []
+    seen_parents = set()
+    invalid = False
+    for order in group:
+        if order['side'] == entry_side:
+            continue
+        provider = _raw(order['raw'])
+        trigger_a = str(provider.get('triggerOrderId') or '')
+        trigger_b = str(provider.get('triggerOrderID') or '')
+        parent = trigger_a or trigger_b
+        if not parent and str(order['order_id']) in binding['parents']:
+            parent = str(order['order_id'])
+        if parent not in binding['parents']:
+            continue
+        expected_kind = binding['parents'][parent]
+        if ((trigger_a and trigger_b and trigger_a != trigger_b)
+                or order['type'] != expected_kind
+                or order['side'] not in ('BUY', 'SELL')
+                or parent in seen_parents):
+            invalid = True
+            continue
+        seen_parents.add(parent)
+        exits.append(order)
+    return exits, not invalid
+
+
+def _linked_results(engine, schema, has_fills=False, has_states=False):
     """Read confirmed strategy entries already in DB. Never query BingX.
 
     The exchange may aggregate several Combo entries under one positionID.
@@ -102,7 +181,13 @@ def _linked_results(engine, schema, has_fills=False):
             'SELECT order_id,symbol,side,position_side,qty,price,realized_pnl,fee,raw '
             'FROM ' + prefix + 'bingx_fills'
         )).mappings().all() if has_fills else []
+        state_prefix = 'public.' if schema else ''
+        states = conn.execute(text(
+            'SELECT event_id,payload FROM ' + state_prefix +
+            "processed_targets WHERE target='bingx_state' AND payload IS NOT NULL"
+        )).mappings().all() if has_states else []
 
+    bindings = _journal_exit_bindings(states)
     fills_by_order = defaultdict(list)
     for fill in stored_fills:
         fills_by_order[(fill['symbol'], str(fill['order_id']))].append(fill)
@@ -128,13 +213,27 @@ def _linked_results(engine, schema, has_fills=False):
         group = positions.get((symbol, pid, link['position_side']), []) if pid else []
         entries = [o for o in group if o['side'] == entry_side
                    and o['type'] in ('MARKET','LIMIT') and _decimal(o['filled_qty'])]
-        exits = [o for o in group if o['side'] != entry_side
-                 and o['type'] in exit_kinds and _decimal(o['filled_qty'])]
+        # In a shared BingX position, the first entry belongs to another
+        # Combo. Always use the exact linked entry for costs and margin.
+        linked_entry = next((o for o in entries if str(o['order_id']) == entry_id), None)
+        binding = bindings.get((symbol, entry_id))
+        use_owned_exits = bool(
+            binding and binding['position_id'] == pid
+            and binding['combo'] == link['combo']
+            and binding['side'] == entry_side)
+        if use_owned_exits:
+            exits, ownership_ok = _owned_exits(group, entry_side, binding)
+        else:
+            # Retain the old single-entry fallback only when no evidence
+            # links a shared position to an individual strategy intent.
+            exits = [o for o in group if o['side'] != entry_side
+                     and o['type'] in exit_kinds and _decimal(o['filled_qty'])]
+            ownership_ok = len(entries) == 1
         exit_quantity = sum((_decimal(o['filled_qty']) for o in exits), start=_decimal(0))
         exit_times = [int(o['updated_ms'] or 0) for o in exits]
         fully_closed = (side_matches and expected_position_side == link['position_side']
-                        and qty is not None and qty > 0 and len(entries) == 1
-                        and str(entries[0]['order_id']) == entry_id
+                        and qty is not None and qty > 0 and ownership_ok
+                        and linked_entry is not None
                         and bool(exits) and all(o['side'] in ('BUY','SELL') for o in exits)
                         and exit_quantity == qty
                         and all(t >= int(link['created_ms'] or 0) for t in exit_times))
@@ -153,7 +252,7 @@ def _linked_results(engine, schema, has_fills=False):
         total_profit = sum(gross, Decimal(0)) if len(gross) == len(exits) and gross else None
         outcome = ('WIN' if total_profit > 0 else
                    'LOSS' if total_profit < 0 else 'BREAKEVEN') if total_profit is not None else None
-        estimate = _estimated_roi(entries[0], exits, fills_by_order) if fully_closed else None
+        estimate = _estimated_roi(linked_entry, exits, fills_by_order) if fully_closed else None
         if estimate is not None:
             net_pnl = estimate[0]
             outcome = 'WIN' if net_pnl > 0 else 'LOSS' if net_pnl < 0 else 'BREAKEVEN'
@@ -284,7 +383,8 @@ def load_results(engine):
         # A closed historical snapshot has precedence over the same raw entry.
         known = {(r.get('symbol'), str(r.get('entry_order_id')))
                  for r in rows if r.get('entry_order_id')}
-        for linked in _linked_results(engine, schema, has_fills=has_fills):
+        for linked in _linked_results(engine, schema, has_fills=has_fills,
+                                      has_states=has_v2_states):
             identity = (linked['symbol'], linked['entry_order_id'])
             if identity not in known:
                 rows.append(linked)
