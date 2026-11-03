@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
-from .results import load_results, result_payload
+from .results import load_results, result_payload, sync_metadata
 from .db import SyncRun, get_engine, get_sessionmaker
 STATIC = Path(__file__).resolve().parent / 'static'
 app = FastAPI(title='Autotrade Live Dashboard PWA', docs_url=None, redoc_url=None,
@@ -165,8 +165,8 @@ def _db_records():
     try:
         Session = get_sessionmaker(engine)
         with Session() as db:
-            run = db.scalars(select(SyncRun).order_by(SyncRun.id.desc()).limit(1)).first()
-            last_sync = {'status': run.status, 'time': run.finished_at.isoformat() if run.finished_at else None} if run else None
+            run = db.scalars(select(SyncRun).where(SyncRun.status == 'success').order_by(SyncRun.id.desc()).limit(1)).first()
+            last_sync = sync_metadata(run)
         return {'normalized_results': load_results(engine), 'last_sync': last_sync}
     finally:
         engine.dispose()

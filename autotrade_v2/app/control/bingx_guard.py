@@ -56,6 +56,21 @@ class BingXRequestGuard:
             finally:
                 self._last_call = time.monotonic()
 
+    def archive_ready(self, quiet_seconds: float = 30.0) -> bool:
+        """Nonblocking observation; archive never reserves a trading slot.
+
+        Execution keeps its existing locking, spacing and cooldown behavior.
+        A new execution request may start immediately after this observation;
+        a low archive rate reserves headroom rather than delaying execution.
+        """
+        if not self._lock.acquire(blocking=False):
+            return False
+        try:
+            return (int(time.time()*1000) >= self._blocked_until_ms and
+                    time.monotonic()-self._last_call >= quiet_seconds)
+        finally:
+            self._lock.release()
+
     def status(self) -> dict:
         """Redacted, read-only health snapshot, never keys or signed URLs."""
         with self._lock:

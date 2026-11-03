@@ -6,6 +6,7 @@ import json
 import os
 import time
 from datetime import datetime, timezone
+from sqlalchemy import select
 from .bingx import BingXReadClient, fetch_window_split, paged
 from dashboard.autotrade_live.db import Fill, ForceOrder, Income, Order, PositionHistory, SyncRun, get_engine, get_sessionmaker, init_db
 
@@ -53,8 +54,21 @@ def int_ms(row, *keys):
 
 
 def upsert_rows(db, model, rows, make):
+    counts = dict(inserted=0, updated=0, unchanged=0)
     for raw in rows:
-        db.merge(model(**make(raw)))
+        data = make(raw)
+        identity = tuple(data[col.key] for col in model.__mapper__.primary_key)
+        old = db.get(model, identity)
+        if old is None:
+            db.add(model(**data))
+            counts['inserted'] += 1
+        elif all(getattr(old, key) == value for key, value in data.items()):
+            counts['unchanged'] += 1
+        else:
+            for key, value in data.items():
+                setattr(old, key, value)
+            counts['updated'] += 1
+    return counts
 
 
 def as_order(a):
@@ -105,7 +119,7 @@ def as_position(a):
                 timestamp_ms=int_ms(a, 'closeTime', 'updateTime', 'time'), raw=a)
 
 
-def sync(days=1, symbols=None, now_ms=None, hours=None, before_request=None):
+def sync(days=1, symbols=None, now_ms=None, hours=None, before_request=None, resume=True, resume_any_window=False):
     if hours is None:
         if days <= 0 or days > 90:
             raise ValueError('days must be 1..90 (income availability is limited)')
@@ -124,18 +138,52 @@ def sync(days=1, symbols=None, now_ms=None, hours=None, before_request=None):
     engine = get_engine()
     init_db(engine)
     Session = get_sessionmaker(engine)
-    client = BingXReadClient()
-    client.before_request = before_request
-    totals = dict(lookback=lookback_label, orders=0, fills=0, income=0, forced=0, positions=0)
-    with Session() as db:
-        run = SyncRun(status='running', details=f'symbols={symbols}; {lookback_label}')
+    totals = dict(stage='raw_sync', lookback=lookback_label, symbols=symbols,
+                  begin_ms=begin, end_ms=end, checkpoints={}, changes={},
+                  orders=0, fills=0, income=0, forced=0, positions=0)
+    with Session.begin() as db:
+        parent_run = None
+        if resume:
+            previous = db.scalars(select(SyncRun).where(
+                SyncRun.status.in_(['failed', 'running', 'interrupted']),
+                SyncRun.details.like('%"stage": "raw_sync"%')
+            ).order_by(SyncRun.id.desc()).limit(1000)).all()
+            for old in previous:
+                try:
+                    saved = json.loads(old.details)
+                except (TypeError, ValueError):
+                    continue
+                if (not isinstance(saved, dict) or saved.get('resumed_by') or saved.get('stage') != 'raw_sync'
+                    or (not resume_any_window and saved.get('lookback') != lookback_label) or saved.get('symbols') != symbols):
+                    continue
+                if saved['begin_ms'] < end - 90*DAY_MS:
+                    raise RuntimeError('Interrupted archive exceeds retention; manual review required')
+                totals = dict(saved)
+                totals['resumed_from'] = old.id
+                parent_run = old
+                totals.pop('error_class', None)
+                begin, end = int(saved['begin_ms']), int(saved['end_ms'])
+                if old.status == 'running':
+                    old.status = 'interrupted'
+                    old.finished_at = datetime.now(timezone.utc)
+                break
+        run = SyncRun(status='running', details=json.dumps(totals))
         db.add(run)
-        db.commit()
+        db.flush()
         run_id = run.id
+        if parent_run is not None:
+            parent_data = json.loads(parent_run.details)
+            parent_data['resumed_by'] = run_id
+            parent_run.details = json.dumps(parent_data)
     try:
+        client = BingXReadClient()
+        client.before_request = before_request
         # Windows are <=1 day, safely within order-history's 7-day maximum.
         for symbol in symbols:
-            for start in range(begin, end + 1, DAY_MS):
+            cursor = int(totals['checkpoints'].get(symbol, begin - 1))
+            if not begin - 1 <= cursor <= end:
+                raise ValueError('Invalid persisted archive cursor')
+            for start in range(cursor + 1, end + 1, DAY_MS):
                 stop = min(end, start + DAY_MS - 1)
                 if stop < start:
                     continue
@@ -162,16 +210,25 @@ def sync(days=1, symbols=None, now_ms=None, hours=None, before_request=None):
                 positions = paged(client, '/openApi/swap/v1/trade/positionHistory',
                                    {'symbol': symbol, 'startTs': start, 'endTs': stop},
                                    ('positionHistory', 'list'), 100)
+                candidate = json.loads(json.dumps(totals))
                 with Session.begin() as db:
-                    upsert_rows(db, Order, orders, as_order)
-                    upsert_rows(db, Fill, fills, as_fill)
-                    upsert_rows(db, Income, incomes, as_income)
-                    for raw, reason in forces:
-                        db.merge(ForceOrder(**as_force(raw, reason)))
-                    upsert_rows(db, PositionHistory, positions, as_position)
-                for key, values in [('orders', orders), ('fills', fills), ('income', incomes),
-                                    ('forced', forces), ('positions', positions)]:
-                    totals[key] += len(values)
+                    for key, model, values, make in (
+                        ('orders', Order, orders, as_order),
+                        ('fills', Fill, fills, as_fill),
+                        ('income', Income, incomes, as_income),
+                        ('forced', ForceOrder, forces, lambda row: as_force(*row)),
+                        ('positions', PositionHistory, positions, as_position),
+                    ):
+                        changes = upsert_rows(db, model, values, make)
+                        bucket = candidate['changes'].setdefault(key, dict(inserted=0, updated=0, unchanged=0))
+                        for kind, count in changes.items():
+                            bucket[kind] += count
+                        candidate[key] += len(values)
+                    candidate['checkpoints'][symbol] = stop
+                    # Archive writes and progress commit atomically. A crash
+                    # either replays this window safely or resumes after it.
+                    db.get(SyncRun, run_id).details = json.dumps(candidate)
+                totals = candidate
         # Explicit code=0, data=null windows are counted for reconciliation.
         totals['null_data_windows'] = dict(getattr(client, 'null_data_counts', {}))
         with Session.begin() as db:
@@ -184,8 +241,10 @@ def sync(days=1, symbols=None, now_ms=None, hours=None, before_request=None):
             run = db.get(SyncRun, run_id)
             run.finished_at = datetime.now(timezone.utc)
             run.status = 'failed'
-            run.details = f'error_class={type(exc).__name__}'
+            run.details = json.dumps({**totals, 'error_class':type(exc).__name__})
         raise
+    finally:
+        engine.dispose()
     return totals
 
 
@@ -195,4 +254,5 @@ if __name__ == '__main__':
     window.add_argument('--days', type=int, default=1, help='backfill window; maximum 90')
     window.add_argument('--hours', type=int, help='incremental window; 1..24 hours')
     args = p.parse_args()
-    print(json.dumps(sync(days=args.days, hours=args.hours), indent=2))
+    from .collect import collect
+    print(json.dumps(collect(days=args.days, hours=args.hours), indent=2))

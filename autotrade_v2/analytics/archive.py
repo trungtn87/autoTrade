@@ -7,11 +7,13 @@ Owned by the V2 lifecycle; no execution API calls.
 from __future__ import annotations
 
 import math
+import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
 from .collect import collect
+from .errors import ArchiveConfigurationError
 from dashboard.autotrade_live.db import get_engine
 
 HOUR = timedelta(hours=1)
@@ -53,26 +55,44 @@ def plan_archive(now: datetime, last_success: datetime | None,
     return 'days', 3
 
 
+def history_watermarks(history):
+    """Use exchange coverage, not completion time of a resumed old window."""
+    latest, daily = None, None
+    for finished, details in history:
+        try:
+            data = json.loads(details)
+        except (TypeError, ValueError):
+            data = {}
+        if not isinstance(data, dict) or data.get('stage') not in (None, 'raw_sync'):
+            continue
+        coverage = datetime.fromtimestamp(data['end_ms']/1000, timezone.utc) if data.get('stage') == 'raw_sync' else finished
+        if coverage is None:
+            continue
+        if coverage.tzinfo is None:
+            coverage = coverage.replace(tzinfo=timezone.utc)
+        latest = max(latest, coverage) if latest is not None else coverage
+        if data.get('lookback') == 'days=3':
+            daily = max(daily, coverage) if daily is not None else coverage
+    return latest, daily
+
+
 def _run_once(now: datetime | None = None):
     if not (os.getenv('BINGX_READ_API_KEY') and os.getenv('BINGX_READ_API_SECRET')):
-        raise RuntimeError('History archive requires a separate read-only BingX API key/secret')
+        raise ArchiveConfigurationError('missing_read_credentials')
     if not os.getenv('DATABASE_URL', '').startswith(('postgres://', 'postgresql://')):
-        raise RuntimeError('History archive requires persistent Supabase PostgreSQL DATABASE_URL')
+        raise ArchiveConfigurationError('invalid_database_url')
     if os.getenv('DB_SCHEMA') != 'autotrade_analytics':
-        raise RuntimeError('Set DB_SCHEMA=autotrade_analytics')
+        raise ArchiveConfigurationError('invalid_analytics_schema')
 
     now = now or datetime.now(timezone.utc)
     engine = get_engine()
     try:
         with engine.connect() as conn:
-            last_success = conn.execute(text("""
-                SELECT max(finished_at) FROM autotrade_analytics.sync_runs
-                WHERE status = 'success' AND details NOT LIKE '%stage=raw_only%'
-            """)).scalar()
-            last_daily = conn.execute(text("""
-                SELECT max(finished_at) FROM autotrade_analytics.sync_runs
-                WHERE status = 'success' AND details LIKE '%days=3%'
-            """)).scalar()
+            history = conn.execute(text("""
+                SELECT finished_at, details FROM autotrade_analytics.sync_runs
+                WHERE status = 'success' ORDER BY id DESC LIMIT 1000
+            """)).all()
+            last_success, last_daily = history_watermarks(history)
     finally:
         engine.dispose()
 
@@ -82,10 +102,11 @@ def _run_once(now: datetime | None = None):
         from .results_store import reconcile_database
         engine = get_engine()
         try:
-            from .collect import LOCK_SQL
+            from .collect import acquire_archive_lock, recover_interrupted_runs
             with engine.connect() as conn:
-                if not conn.execute(text(LOCK_SQL)).scalar():
+                if not acquire_archive_lock(conn, engine.dialect.name):
                     return {'skipped': True, 'reason': 'archive_locked'}
+                recover_interrupted_runs(engine)
                 if inspect(engine).has_table('trade_results', schema='autotrade_analytics'):
                     reconcile_database(engine)
         finally:
@@ -93,7 +114,7 @@ def _run_once(now: datetime | None = None):
         print('archive: skipped, Supabase already synchronized this hour', flush=True)
         return {'skipped': True}
     print(f'archive: {kind}={length}, GET-only BingX sync', flush=True)
-    return collect(hours=length) if kind == 'hours' else collect(days=length)
+    return collect(hours=length, resume_any_window=True) if kind == 'hours' else collect(days=length, resume_any_window=True)
 
 
 def run_once(now: datetime | None = None):
@@ -117,10 +138,12 @@ def run_once(now: datetime | None = None):
                 db.flush()
                 run_id = run.id
         result = _run_once(now)
-        status = 'skipped' if result.get('skipped') else 'success'
+        status = 'skipped' if result.get('skipped') else 'completed'
         details = 'stage=archive_attempt; ' + ('reason=' + str(result.get('reason', 'fresh')) if result.get('skipped') else 'completed')
     except Exception as exc:
         status, details = 'failed', 'stage=archive_attempt; error_class=' + type(exc).__name__
+        if isinstance(exc, ArchiveConfigurationError):
+            details += '; code=' + exc.code
         logging.getLogger(__name__).error('V2_ARCHIVE_ATTEMPT_FAILED error_class=%s', type(exc).__name__)
         raise
     finally:

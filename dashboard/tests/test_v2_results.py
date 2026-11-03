@@ -109,7 +109,7 @@ def test_transport_retry_is_bounded_and_never_uses_write_methods(monkeypatch, co
     client.http = Mock()
     client.http.get.return_value = response
     with pytest.raises(RuntimeError): client.get('/openApi/swap/v2/trade/allOrders', {})
-    assert client.http.get.call_count == 5
+    assert client.http.get.call_count == (1 if code == 429 else 5)
     client.http.post.assert_not_called()
     client.http.delete.assert_not_called()
 
@@ -135,3 +135,134 @@ def test_absent_result_schema_is_explicitly_unavailable():
     assert payload['theory']['available'] is False
     assert payload['theory']['history'] == []
     assert payload['theory']['combos'] == []
+
+
+def test_execution_priority_defers_without_sending_request():
+    import threading
+    from autotrade_v2.analytics.admission import archive_policy, ArchiveDeferred
+    client = BingXReadClient('test', 'test')
+    client.http = Mock()
+    stopped = threading.Event()
+    stopped.set()
+    with archive_policy(lambda:False, stopped):
+        with pytest.raises(ArchiveDeferred): client.get('/openApi/swap/v2/trade/allOrders', {})
+    client.http.get.assert_not_called()
+
+
+def test_archive_signs_after_waiting_not_before(monkeypatch):
+    from autotrade_v2.analytics import bingx
+    from urllib.parse import parse_qs
+    clock = [100.0]
+    monkeypatch.setattr(bingx.time, 'monotonic', lambda:clock[0])
+    monkeypatch.setattr(bingx.time, 'time', lambda:clock[0])
+    monkeypatch.setattr(bingx.time, 'sleep', lambda delay:clock.__setitem__(0, clock[0]+delay))
+    client = BingXReadClient('test', 'test')
+    client.last_request = clock[0]
+    client.http = Mock()
+    client.http.get.return_value = Mock(status_code=200)
+    client.http.get.return_value.json.return_value = {'code':0,'data':[]}
+    client.get('/openApi/swap/v2/trade/allOrders', {})
+    params = parse_qs(client.http.get.call_args.kwargs['params'])
+    assert int(params['timestamp'][0]) == 106000
+    assert client.min_delay >= 6
+
+
+@pytest.mark.parametrize('failure', [RuntimeError, KeyboardInterrupt])
+def test_restart_resumes_committed_window_and_uses_coverage_watermark(tmp_path, monkeypatch, failure):
+    from datetime import datetime, timezone
+    from autotrade_v2.analytics import sync as module
+    from autotrade_v2.analytics.archive import history_watermarks
+    from dashboard.autotrade_live.db import SyncRun, get_engine, get_sessionmaker
+    from sqlalchemy import select
+    monkeypatch.setenv('DATABASE_URL', 'sqlite:///' + str(tmp_path/'resume.db'))
+    seen = []
+    fail = [True]
+    day = module.DAY_MS
+    class Client:
+        null_data_counts = {}
+        def get(self, path, params):
+            if path.endswith('/allOrders'):
+                seen.append(params['startTime'])
+                if fail[0] and params['startTime'] >= 4*day:
+                    raise failure('synthetic interruption')
+            return []
+    monkeypatch.setattr(module, 'BingXReadClient', Client)
+    with pytest.raises(failure): module.sync(days=2, symbols=['BTC-USDT'], now_ms=5*day)
+    fail[0] = False
+    seen.clear()
+    totals = module.sync(days=2, symbols=['BTC-USDT'], now_ms=6*day)
+    assert seen[0] == 4*day  # First committed day is not fetched again.
+    assert totals['end_ms'] == 5*day  # Resume frozen range, don't claim newer coverage.
+    engine = get_engine()
+    Session = get_sessionmaker(engine)
+    with Session() as db:
+        runs = db.scalars(select(SyncRun).order_by(SyncRun.id)).all()
+        assert runs[-1].status == 'success'
+        assert runs[0].status == ('interrupted' if failure is KeyboardInterrupt else 'failed')
+        watermark, _ = history_watermarks([(runs[-1].finished_at, runs[-1].details)])
+        assert watermark == datetime.fromtimestamp(5*day/1000, timezone.utc)
+    engine.dispose()
+    seen.clear()
+    fresh = module.sync(days=2, symbols=['BTC-USDT'], now_ms=7*day)
+    assert fresh['end_ms'] == 7*day
+    assert seen[0] == 5*day  # Consumed failed ancestor cannot freeze future runs.
+
+
+def test_admission_waits_in_place_and_heartbeats_before_resuming():
+    from autotrade_v2.analytics.admission import archive_policy, check_admission
+    decisions = iter([False, False, True])
+    class Stop:
+        def is_set(self): return False
+        def wait(self, seconds): assert seconds == 5
+    heartbeat = Mock()
+    with archive_policy(lambda:next(decisions), Stop()):
+        check_admission(heartbeat)
+    assert heartbeat.call_count == 2
+
+
+def test_dashboard_freshness_uses_coverage_not_resume_completion():
+    from datetime import datetime, timezone
+    from dashboard.autotrade_live.results import sync_metadata
+    import json
+    completed = datetime(2026, 11, 3, tzinfo=timezone.utc)
+    old = datetime(2026, 10, 30, tzinfo=timezone.utc)
+    run = N(status='success', finished_at=completed,
+            details=json.dumps({'stage':'raw_sync','end_ms':int(old.timestamp()*1000)}))
+    meta = sync_metadata(run)
+    assert meta['time'] == old.isoformat()
+    assert meta['completed_at'] == completed.isoformat()
+
+
+
+def test_combo_roi_uses_actual_margin_and_mixed_exit_counts_one_outcome():
+    base = dict(status='CLOSED', symbol='BTC-USDT', combo='C1', side='BUY', opened_ms=1000,
+                closed_ms=2000, outcome='WIN', exit_types=['TP','SL'])
+    rows = [{**base, 'pnl':10, 'margin':100, 'roi':10},
+            {**base, 'closed_ms':3000, 'pnl':10, 'margin':1000, 'roi':1}]
+    combo = result_payload(rows)['theory']['combos'][0]
+    assert combo['closed'] == 2 and combo['tp_count'] == 2 and combo['sl_count'] == 0
+    assert combo['real_roi_total'] == round(100*20/1100, 4)
+    rows[0]['outcome'] = None
+    assert result_payload(rows)['theory']['combos'][0]['tp_count'] is None
+
+
+def test_restart_marks_old_outer_audit_interrupted_without_losing_cursor(tmp_path, monkeypatch):
+    import json
+    from datetime import timedelta
+    from autotrade_v2.analytics.collect import PROCESS_STARTED_AT, recover_interrupted_runs
+    from dashboard.autotrade_live.db import SyncRun, get_engine, get_sessionmaker, init_db
+    from sqlalchemy import select
+    monkeypatch.setenv('DATABASE_URL', 'sqlite:///' + str(tmp_path/'audit.db'))
+    engine = get_engine()
+    init_db(engine)
+    Session = get_sessionmaker(engine)
+    with Session.begin() as db:
+        db.add(SyncRun(status='running', started_at=PROCESS_STARTED_AT-timedelta(hours=1), details='stage=archive_attempt'))
+        db.add(SyncRun(status='running', started_at=PROCESS_STARTED_AT-timedelta(hours=1), details=json.dumps({'stage':'raw_sync','checkpoints':{'BTC-USDT':123}})))
+        db.add(SyncRun(status='running', started_at=PROCESS_STARTED_AT+timedelta(seconds=1), details='stage=archive_attempt'))
+    assert recover_interrupted_runs(engine) == 2
+    with Session() as db:
+        rows = db.scalars(select(SyncRun).order_by(SyncRun.id)).all()
+        assert [r.status for r in rows] == ['interrupted','interrupted','running']
+        assert json.loads(rows[1].details)['checkpoints']['BTC-USDT'] == 123
+    engine.dispose()

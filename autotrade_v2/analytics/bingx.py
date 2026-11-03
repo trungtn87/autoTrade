@@ -6,6 +6,8 @@ import os
 import time
 from urllib.parse import urlencode
 import requests
+from .errors import ArchiveRateLimited
+from .admission import check_admission
 
 BASE = 'https://open-api.bingx.com'
 
@@ -27,7 +29,7 @@ class BingXReadClient:
             raise ValueError('Set BINGX_READ_API_KEY and BINGX_READ_API_SECRET (read-only).')
         self.http = requests.Session()
         self.http.headers.update({'X-BX-APIKEY': self.key})
-        self.min_delay = max(0.6, float(os.getenv('BINGX_REQUEST_DELAY', '0.6')))
+        self.min_delay = max(6.0, min(60.0, float(os.getenv('BINGX_REQUEST_DELAY', '6.0'))))
         self.last_request = 0.0
         self.null_data_counts = {}
         self.before_request = None
@@ -37,19 +39,38 @@ class BingXReadClient:
             raise ValueError('Only BingX swap GET endpoints allowed')
         params = {k: v for k, v in params.items() if v is not None}
         for attempt in range(5):
+            delay = self.min_delay - (time.monotonic() - self.last_request)
+            if delay > 0:
+                time.sleep(delay)
+            if self.before_request is not None:
+                self.before_request()
+            check_admission(self.before_request)
+            # Sign AFTER pacing/admission: a queued request must not spend its
+            # 5s recvWindow sleeping before being sent.
             params['timestamp'] = int(time.time() * 1000)
             params['recvWindow'] = 5000
             encoded = urlencode(sorted(params.items()))
             sig = hmac.new(self.secret.encode(), encoded.encode(), hashlib.sha256).hexdigest()
-            delay = self.min_delay - (time.monotonic() - self.last_request)
-            if delay > 0:
-                time.sleep(delay)
             self.last_request = time.monotonic()
-            if self.before_request is not None:
-                self.before_request()
             try:
                 r = self.http.get(BASE + path, params=encoded + '&signature=' + sig, timeout=20)
-                if r.status_code in (429, 500, 502, 503, 504):
+                if r.status_code == 429:
+                    # Stop this burst immediately; durable cursor resumes on
+                    # a later scheduler attempt, preserving execution headroom.
+                    header = r.headers.get('Retry-After')
+                    retry = 900
+                    if isinstance(header, str):
+                        from datetime import datetime, timezone
+                        from email.utils import parsedate_to_datetime
+                        try:
+                            retry = max(retry, min(30*86400, float(header)))
+                        except (ValueError, OverflowError):
+                            try:
+                                retry = max(retry, (parsedate_to_datetime(header)-datetime.now(timezone.utc)).total_seconds())
+                            except (ValueError, TypeError, OverflowError):
+                                pass
+                    raise ArchiveRateLimited(retry)
+                if r.status_code in (500, 502, 503, 504):
                     if attempt < 4:
                         time.sleep(2 ** attempt)
                         continue

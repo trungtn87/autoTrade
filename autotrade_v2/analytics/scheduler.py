@@ -1,28 +1,16 @@
-"""Background read-only BingX history archive for the unified hosting app.
-
-Runs only GET-based BingX analytics in a separate worker thread.
-Never sends trading requests or blocks Dashboard HTTP routes.
-A separate BingX read-only key is required for the archive.
-"""
+"""Pure V2 :07 schedule helpers; no worker or Dashboard lifecycle here."""
 from __future__ import annotations
 
-import asyncio
-import logging
 from datetime import datetime, timedelta, timezone
 
 
-LOGGER = logging.getLogger("autotrade.dashboard.archive")
 POLL_SECONDS = 30
 FAILURE_BACKOFF = timedelta(minutes=15)
 BUSY_BACKOFF = timedelta(minutes=5)
 
 
 def archive_enabled(environ=None) -> bool:
-    """Always run read-only analytics on the dashboard service.
-
-    No additional environment toggle is required. The BingX read-only
-    credentials are still read securely by render_archive.run_once().
-    """
+    """Legacy compatibility flag; the Dashboard never consumes this helper."""
     return True
 
 
