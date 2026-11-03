@@ -93,6 +93,62 @@ class LifecycleTests(unittest.TestCase):
         with self.assertRaises(LifecycleEvidenceError):
             project_result('lifecycle-1',exited(opened(),'tp','3'))
 
+    def test_exit_provider_contract_requires_exact_position_side_type_and_position(self):
+        # Archived BingX order payloads contain these provider fields.
+        # A planned protection kind cannot substitute for exchange evidence.
+        for kind in ('tp', 'sl', 'trailing'):
+            base = exited(opened(), kind, '2', triggered=kind == 'trailing')
+            self.assertEqual(project_result('lifecycle-1', base)['status'], 'CLOSED')
+            parent = base['protection'][kind]['order_id']
+            for change in ('missing_position_side', 'wrong_position_side',
+                           'missing_type', 'wrong_type', 'missing_position_id',
+                           'wrong_position_id', 'missing_state_position_id',
+                           'child_without_parent_link', 'foreign_parent_as_child'):
+                state = deepcopy(base)
+                order = state['exit_cleanup']['orders'][parent]['analytics_order']
+                if change == 'missing_position_side':
+                    order.pop('positionSide')
+                elif change == 'wrong_position_side':
+                    order['positionSide'] = 'SHORT'
+                elif change == 'missing_type':
+                    order.pop('type')
+                elif change == 'wrong_type':
+                    order['type'] = ('STOP_MARKET' if kind != 'sl'
+                                     else 'TAKE_PROFIT_MARKET')
+                elif change == 'missing_position_id':
+                    order.pop('positionId')
+                elif change == 'wrong_position_id':
+                    order['positionId'] = 'other-position'
+                elif change == 'missing_state_position_id':
+                    state.pop('position_id')
+                elif change == 'child_without_parent_link':
+                    order['orderId'] = 'unlinked-child'
+                    order.pop('triggerOrderId', None)
+                elif change == 'foreign_parent_as_child':
+                    foreign = 'sl' if kind != 'sl' else 'tp'
+                    order['orderId'] = state['protection'][foreign]['order_id']
+                    order['triggerOrderId'] = parent
+                with self.subTest(kind=kind, change=change):
+                    with self.assertRaises(LifecycleEvidenceError):
+                        project_result('lifecycle-1', state)
+        short = opened()
+        short['intent']['side'] = 'SELL'
+        short['analytics_entry_evidence'][0]['order']['side'] = 'SELL'
+        short = exited(short, 'sl', '2')
+        self.assertEqual(
+            short['exit_cleanup']['orders'][short['protection']['sl']['order_id']]['analytics_order']['positionSide'],
+            'SHORT')
+        self.assertEqual(project_result('lifecycle-1', short)['status'], 'CLOSED')
+
+    def test_invalid_exit_evidence_cannot_downgrade_existing_completed_trade(self):
+        full = exited(opened(), 'tp', '2')
+        previous = project_result('lifecycle-1', full)
+        broken = deepcopy(full)
+        broken['exit_cleanup']['orders'][broken['protection']['tp']['order_id']]['analytics_order'].pop('type')
+        with self.assertRaises(LifecycleEvidenceError):
+            project_result('lifecycle-1', broken, previous)
+        self.assertEqual(previous['status'], 'CLOSED')
+
     def test_quantity_regressions_and_verified_money_never_overwrite(self):
         state = exited(opened(),'tp','1')
         previous = project_result('lifecycle-1',state)

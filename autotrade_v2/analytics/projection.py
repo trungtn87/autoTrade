@@ -145,11 +145,21 @@ def project_result(event_id, state, previous=None, *, ambiguous=False):
         pid = str(order.get('positionId') or order.get('positionID') or '')
         if order.get('positionId') and order.get('positionID') and str(order['positionId']) != str(order['positionID']):
             raise LifecycleEvidenceError('provider_position_alias_conflict')
+        expected_position_side = {'BUY':'LONG', 'SELL':'SHORT'}.get(side)
+        expected_order_type = {'tp':'TAKE_PROFIT_MARKET', 'sl':'STOP_MARKET',
+                               'trailing':'TRAILING_STOP_MARKET'}[key]
+        state_position_id = str(state.get('position_id') or '')
+        # These are BingX-confirmed exit facts, not inferred from the planned
+        # protection kind. Missing provider type/side/position must fail closed.
         if (not child or (child != parent and trigger != parent)
                 or (trigger and trigger != parent)
                 or order.get('symbol') != symbol
                 or order.get('side') != ('SELL' if side == 'BUY' else 'BUY')
-                or (state.get('position_id') and pid != str(state['position_id']))):
+                or not expected_position_side
+                or order.get('positionSide') != expected_position_side
+                or order.get('type') != expected_order_type
+                or not state_position_id or state_position_id == '0'
+                or not pid or pid == '0' or pid != state_position_id):
             raise LifecycleEvidenceError('exit_identity_unverified')
         qty = quantity(order.get('executedQty'))
         if view.get('executed_qty') is not None and quantity(view['executed_qty']) != qty:
@@ -175,6 +185,11 @@ def project_result(event_id, state, previous=None, *, ambiguous=False):
                 timestamp = old_leg['time_ms']
         legs[parent] = dict(qty=str(qty),kind=kind,execution_order_id=child,time_ms=timestamp)
         refs.append('exit:' + str(symbol) + ':' + parent + ':' + digest(order))
+    # A triggered child must not impersonate a different owned protection
+    # parent, even if it supplies a matching triggerOrderId for this leg.
+    if any(leg['execution_order_id'] in owned and leg['execution_order_id'] != parent
+           for parent, leg in legs.items()):
+        raise LifecycleEvidenceError('cross_protection_execution_identity')
     if len({leg['execution_order_id'] for leg in legs.values()}) != len(legs):
         raise LifecycleEvidenceError('duplicate_exit_execution')
     exit_types = {leg['kind'] for leg in legs.values()}

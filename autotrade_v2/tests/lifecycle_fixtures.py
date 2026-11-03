@@ -18,8 +18,13 @@ def opened(event_id='lifecycle-1', qty='2', *, terminal=True, entry_status='FILL
 def exited(state, kind, qty, *, time_ms=2000, triggered=False, status='FILLED'):
     state = deepcopy(state)
     parent = state['protection'][kind]['order_id']
+    entry_side = state['intent']['side']
     order = dict(orderId='child-' + parent if triggered else parent,
-        symbol=state['intent']['symbol'],side='SELL',positionId=state['position_id'],
+        symbol=state['intent']['symbol'],side='SELL' if entry_side == 'BUY' else 'BUY',
+        positionSide='LONG' if entry_side == 'BUY' else 'SHORT',
+        positionId=state['position_id'],
+        type={'tp':'TAKE_PROFIT_MARKET', 'sl':'STOP_MARKET',
+              'trailing':'TRAILING_STOP_MARKET'}[kind],
         executedQty=qty,origQty=qty,status=status,updateTime=time_ms)
     if triggered:
         order['triggerOrderId'] = parent
