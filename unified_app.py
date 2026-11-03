@@ -25,8 +25,8 @@ os.environ.setdefault("DASHBOARD_PUBLIC_READONLY", "true")
 # history-read pair exists, reuse that pair for the archive's GET-only client.
 # Never combine half-configured read credentials with the trading pair.
 if not os.getenv("BINGX_READ_API_KEY") and not os.getenv("BINGX_READ_API_SECRET"):
-    os.environ.setdefault("BINGX_READ_API_KEY", os.getenv("BINGX_API_KEY", ""))
-    os.environ.setdefault("BINGX_READ_API_SECRET", os.getenv("BINGX_API_SECRET", ""))
+    os.environ["BINGX_READ_API_KEY"] = os.getenv("BINGX_API_KEY", "")
+    os.environ["BINGX_READ_API_SECRET"] = os.getenv("BINGX_API_SECRET", "")
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
