@@ -3,7 +3,108 @@ import json
 from datetime import datetime, timezone
 from collections import defaultdict
 from sqlalchemy import text, inspect
-from sqlalchemy.exc import SQLAlchemyError
+from decimal import Decimal, InvalidOperation
+
+
+
+def _decimal(value):
+    """Use exact stored quantities; missing/invalid provider facts are not proof."""
+    try:
+        number = Decimal(str(value))
+        return number if number.is_finite() and number >= 0 else None
+    except (ValueError, TypeError, ArithmeticError):
+        return None
+
+
+def _raw(value):
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            result = json.loads(value)
+            return result if isinstance(result, dict) else {}
+        except ValueError:
+            pass
+    return {}
+
+
+def _linked_results(engine, schema):
+    """Read confirmed strategy entries already in DB. Never query BingX.
+
+    The exchange may aggregate several Combo entries under one positionID.
+    Such a position must not be split into invented per-Combo outcomes/ROI.
+    """
+    prefix = 'autotrade_analytics.' if schema else ''
+    with engine.connect() as conn:
+        links = conn.execute(text(
+            'SELECT l.entry_order_id,l.symbol,l.combo,l.side AS link_side,'
+            'o.side,o.position_side,o.created_ms,o.filled_qty,o.raw '
+            'FROM ' + prefix + 'signal_links l JOIN ' + prefix + 'bingx_orders o '
+            "ON o.order_id=l.entry_order_id AND o.symbol=l.symbol "
+            "WHERE o.status='FILLED' AND o.type IN ('MARKET','LIMIT') AND o.filled_qty>0"
+        )).mappings().all()
+        orders = conn.execute(text(
+            'SELECT order_id,symbol,side,position_side,type,status,filled_qty,'
+            'updated_ms,raw FROM ' + prefix + "bingx_orders WHERE status='FILLED'"
+        )).mappings().all()
+
+    positions = defaultdict(list)
+    for order in orders:
+        provider = _raw(order['raw'])
+        pid = str(provider.get('positionID') or provider.get('positionId') or '')
+        if pid:
+            positions[(order['symbol'], pid, order['position_side'])].append(order)
+
+    results = []
+    exit_kinds = {'STOP_MARKET':'SL', 'TAKE_PROFIT_MARKET':'TP',
+                  'TRAILING_STOP_MARKET':'TRAILING', 'MARKET':'MANUAL', 'LIMIT':'MANUAL'}
+    for link in links:
+        entry_id, symbol = str(link['entry_order_id']), link['symbol']
+        provider = _raw(link['raw'])
+        pid = str(provider.get('positionID') or provider.get('positionId') or '')
+        qty = _decimal(link['filled_qty'])
+        entry_side = link['side']
+        side_matches = link['link_side'] in (None, '', entry_side)
+        expected_position_side = 'LONG' if entry_side == 'BUY' else 'SHORT' if entry_side == 'SELL' else None
+        group = positions.get((symbol, pid, link['position_side']), []) if pid else []
+        entries = [o for o in group if o['side'] == entry_side
+                   and o['type'] in ('MARKET','LIMIT') and _decimal(o['filled_qty'])]
+        exits = [o for o in group if o['side'] != entry_side
+                 and o['type'] in exit_kinds and _decimal(o['filled_qty'])]
+        exit_quantity = sum((_decimal(o['filled_qty']) for o in exits), start=_decimal(0))
+        exit_times = [int(o['updated_ms'] or 0) for o in exits]
+        fully_closed = (side_matches and expected_position_side == link['position_side']
+                        and qty is not None and qty > 0 and len(entries) == 1
+                        and str(entries[0]['order_id']) == entry_id
+                        and bool(exits) and all(o['side'] in ('BUY','SELL') for o in exits)
+                        and exit_quantity == qty
+                        and all(t >= int(link['created_ms'] or 0) for t in exit_times))
+        # Gross profit proves W/L here, but never fabricates net ROI/fees.
+        gross = []
+        if fully_closed:
+            for o in exits:
+                try:
+                    value = Decimal(str(_raw(o['raw']).get('profit')))
+                    if not value.is_finite():
+                        raise InvalidOperation
+                    gross.append(value)
+                except (ValueError, TypeError, InvalidOperation):
+                    gross = []
+                    break
+        total_profit = sum(gross, Decimal(0)) if len(gross) == len(exits) and gross else None
+        outcome = ('WIN' if total_profit > 0 else
+                   'LOSS' if total_profit < 0 else 'BREAKEVEN') if total_profit is not None else None
+        results.append(dict(
+            event_id='db-entry:' + symbol + ':' + entry_id,
+            entry_order_id=entry_id, symbol=symbol, combo=link['combo'],
+            side=entry_side, status='CLOSED' if fully_closed else 'UNRESOLVED',
+            opened_ms=int(link['created_ms'] or 0),
+            closed_ms=max(exit_times) if fully_closed else None,
+            outcome=outcome, roi=None, pnl=None, margin=None,
+            source='bingx_db_verified' if fully_closed else 'bingx_db_unresolved',
+            exit_types=sorted({exit_kinds[o['type']] for o in exits}) if fully_closed else []
+        ))
+    return results
 
 
 def load_results(engine):
@@ -12,7 +113,9 @@ def load_results(engine):
     inspector = inspect(engine)
     has_normalized = inspector.has_table('trade_results', schema=schema)
     has_history = 'manual_dashboard_trade_results' in inspector.get_view_names(schema=schema)
-    if not has_normalized and not has_history:
+    has_links = inspector.has_table('signal_links', schema=schema)
+    has_orders = inspector.has_table('bingx_orders', schema=schema)
+    if not has_normalized and not has_history and not (has_links and has_orders):
         return None
     rows = []
     if has_normalized:
@@ -45,6 +148,16 @@ def load_results(engine):
                 roi=float(old['roi_pct']), pnl=None, margin=None,
                 source='existing_history', exit_types=[]
             ))
+    if has_links and has_orders:
+        # Backfill visibility from the durable DB, without a new exchange API.
+        # A closed historical snapshot has precedence over the same raw entry.
+        known = {(r.get('symbol'), str(r.get('entry_order_id')))
+                 for r in rows if r.get('entry_order_id')}
+        for linked in _linked_results(engine, schema):
+            identity = (linked['symbol'], linked['entry_order_id'])
+            if identity not in known:
+                rows.append(linked)
+                known.add(identity)
     return rows
 
 
@@ -67,36 +180,54 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
     rows = rows or []
     history = []
     groups = defaultdict(list)
+    closed_count = 0
     for row in rows:
-        if row.get('status') != 'CLOSED' or not row.get('closed_ms'):
+        opened = row.get('opened_ms') or 0
+        is_closed = row.get('status') == 'CLOSED' and bool(row.get('closed_ms'))
+        if opened < start_ms or not (opened or is_closed):
             continue
-        if (row.get('opened_ms') or 0) < start_ms:
-            continue
-        if symbol and row.get('symbol') != symbol or combo and row.get('combo') != combo:
+        if (symbol and row.get('symbol') != symbol) or (combo and row.get('combo') != combo):
             continue
         groups[(row['symbol'], row['combo'])].append(row)
+        if is_closed:
+            closed_count += 1
         history.append(dict(symbol=row['symbol'], combo=row['combo'], side=row['side'],
-                            status='closed', entry_ms=row.get('opened_ms'), exit_ms=row['closed_ms'],
-                            outcome=row.get('outcome'), result=row.get('outcome') or 'UNRESOLVED',
-                            roi_pct=row.get('roi'), recorded_roi_pct=row.get('roi'),
-                            pnl=row.get('pnl'), margin=row.get('margin'),
+                            status='closed' if is_closed else (row.get('status') or 'UNRESOLVED').lower(),
+                            entry_ms=opened or None,
+                            exit_ms=row.get('closed_ms') if is_closed else None,
+                            outcome=row.get('outcome') if is_closed else None,
+                            result=row.get('outcome') if is_closed else 'UNRESOLVED',
+                            roi_pct=row.get('roi') if is_closed else None,
+                            recorded_roi_pct=row.get('roi') if is_closed else None,
+                            pnl=row.get('pnl') if is_closed else None,
+                            margin=row.get('margin') if is_closed else None,
                             source=row.get('source'), exit_types=row.get('exit_types', [])))
     combos = []
-    for (sym, name), trades in sorted(groups.items()):
-        wins = sum(t.get('outcome') == 'WIN' for t in trades)
-        losses = sum(t.get('outcome') == 'LOSS' for t in trades)
-        complete = all(t.get('outcome') in {'WIN', 'LOSS', 'BREAKEVEN'} for t in trades)
-        money_complete = all(t.get('roi') is not None and t.get('pnl') is not None and
-                             t.get('margin') is not None and t['margin'] > 0 for t in trades)
-        actual_roi = (100*sum(t['pnl'] for t in trades)/sum(t['margin'] for t in trades)) if money_complete else None
-        # Preserve existing historical ROI figures without recalculating them.
-        if actual_roi is None and all(t.get('source') == 'existing_history' and
-                                      t.get('roi') is not None for t in trades):
-            actual_roi = sum(t['roi'] for t in trades)
-        combos.append(dict(symbol=sym, combo=name, closed=len(trades), win=wins, loss=losses,
+    for (sym, name), trades in sorted(groups.items(), key=lambda item: (item[0][0] or '', str(item[0][1] or ''))):
+        closed = [r for r in trades if r.get('status') == 'CLOSED' and r.get('closed_ms')]
+        wins = sum(t.get('outcome') == 'WIN' for t in closed)
+        losses = sum(t.get('outcome') == 'LOSS' for t in closed)
+        complete = bool(closed) and all(t.get('outcome') in {'WIN', 'LOSS', 'BREAKEVEN'} for t in closed)
+        money_complete = bool(closed) and all(
+            t.get('roi') is not None and t.get('pnl') is not None and
+            t.get('margin') is not None and t['margin'] > 0 for t in closed)
+        actual_roi = (100*sum(t['pnl'] for t in closed)/sum(t['margin'] for t in closed)) if money_complete else None
+        # Retain historical ROI for Excel-confirmed trades even when later DB
+        # entries on the same Combo remain unverified.
+        if actual_roi is None and closed and all(
+                t.get('source') == 'existing_history' and t.get('roi') is not None for t in closed):
+            actual_roi = sum(t['roi'] for t in closed)
+        combos.append(dict(symbol=sym, combo=name, total=len(trades), closed=len(closed),
+                           unresolved=len(trades)-len(closed), win=wins, loss=losses,
                            tp_count=wins if complete else None,
                            sl_count=losses if complete else None,
-                           win_rate=round(100*wins/len(trades), 2) if complete else None,
+                           win_rate=round(100*wins/len(closed), 2) if complete else None,
                            real_roi_total=round(actual_roi, 4) if actual_roi is not None else None))
-    return dict(theory=dict(available=available, reason=None if available else 'Normalized results schema requires review and migration', combos=combos, history=sorted(history, key=lambda t:t['exit_ms'], reverse=True)),
-                last_sync=last_sync, trades=[], summary={'closed':len(history)}, unresolved=sum(r.get('status')=='UNRESOLVED' for r in rows))
+    return dict(theory=dict(available=available,
+                            reason=None if available else 'Existing DB results are unavailable',
+                            combos=combos,
+                            history=sorted(history, key=lambda t: t['exit_ms'] or t['entry_ms'] or 0,
+                                           reverse=True)),
+                last_sync=last_sync, trades=[],
+                summary={'closed':closed_count, 'total':len(history)},
+                unresolved=sum(r.get('status') != 'CLOSED' for r in rows))

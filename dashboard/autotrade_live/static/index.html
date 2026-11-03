@@ -9,8 +9,8 @@
 <title>Autotrade · Hiệu quả giao dịch</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
-<link rel="stylesheet" href="/static/app.css?v=20261103-history-read">
-<script defer src="/static/app.js?v=20261103-history-read"></script>
+<link rel="stylesheet" href="/static/app.css?v=20261103-db-all">
+<script defer src="/static/app.js?v=20261103-db-all"></script>
 </head>
 <body>
 <main class="app">
@@ -20,7 +20,7 @@
       <div class="brand-copy">
         <div class="eyebrow">AUTOTRADE V2 · LIVE TERMINAL</div>
         <h1>Hiệu quả giao dịch</h1>
-        <div class="subtitle">Từ 01/10/2026 · Giờ Việt Nam (UTC+7)</div>
+        <div class="subtitle">Lịch sử có trong database · Giờ Việt Nam (UTC+7)</div>
       </div>
     </div>
     <form method="post" action="/logout"><button class="quiet">Đăng xuất</button></form>
@@ -58,7 +58,7 @@
     </div>
     <div class="calendar-weekdays" aria-hidden="true"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
     <div id="calendar-grid" class="calendar-grid" role="group" aria-label="Chọn ngày giao dịch"></div>
-    <p class="calendar-hint">Lịch chung BTC + ETH, độc lập với tab Combo. Chọn ngày để xem lệnh đóng theo giờ Việt Nam.</p>
+    <p class="calendar-hint">Lịch chung BTC + ETH. Lệnh có kết quả theo ngày đóng; lệnh chưa xác minh theo ngày mở, giờ Việt Nam.</p>
     <h3 id="selected-date" class="selected-date">—</h3>
     <div class="daily-summary" aria-live="polite">
       <div><small>Thắng</small><strong id="day-wins" class="positive">0</strong></div>
