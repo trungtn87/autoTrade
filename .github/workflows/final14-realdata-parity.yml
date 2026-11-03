@@ -8,7 +8,7 @@ on:
       - 'autotrade_v2/tests/backtest_realdata_parity.py'
       - '.github/workflows/final14-realdata-parity.yml'
   pull_request:
-    branches: [main]
+    branches: [main, feat/v2-result-storage-contract]
   workflow_dispatch:
 
 jobs:

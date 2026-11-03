@@ -2,7 +2,7 @@ name: AutoTrade production baseline CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/v2-result-storage-contract]
   push:
     branches: [main]
 
@@ -65,6 +65,7 @@ jobs:
           assert root["service"] == "autotrade-dashboard"
           assert root["trade_api"] is False
           assert engine["runtime"]["execution_enabled"] is False
+          assert engine["lifecycle_writer"] == {"state":"disabled", "reason":"collector_contract_pending"}
           assert urllib.request.urlopen("http://127.0.0.1:8000/mobile").status == 200
           print("Single-host production smoke PASS")
           '; then

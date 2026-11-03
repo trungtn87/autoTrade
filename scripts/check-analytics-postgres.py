@@ -91,6 +91,8 @@ try:
                            connect_args={'host':socket_dir.name, 'connect_timeout':3})
     try:
         verify_storage(engine)
+        from check_lifecycle_writer import verify_lifecycle
+        verify_lifecycle(engine)
     finally:
         engine.dispose()
     # Hold a transaction on one connection; another must be excluded. Closing
