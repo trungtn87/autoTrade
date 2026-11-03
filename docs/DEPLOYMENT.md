@@ -111,10 +111,18 @@ the repository root. Do not run it against production without Owner approval.
 Read-only archive credentials remain separate from execution credentials.
 
 Do not deploy this draft until all gates in
-[analytics-v2-phase-a.md](analytics-v2-phase-a.md) are closed, including quota
-priority, schema migration, money verification, interrupted-run recovery and
+[analytics-v2-phase-a.md](analytics-v2-phase-a.md) are closed, including provider quota
+qualification, approved schema migration, money verification, real-host restart acceptance and
 historical Dashboard coverage. No migration is run automatically by this branch.
 Check variable presence/format and read-only key permissions privately on the VPS;
 never dump environment values. Stop the previous container before starting the
 replacement; never overlap execution instances. Collect redacted :07 and 10:07 VN
 runtime evidence after an approved deployment.
+
+Owner confirmed GitHub deployment without SSH/runtime logs. Use only main for
+production; branch/PR pushes are development review. After approval, validate
+`/engine/status` redacted `trade_collector` state and persisted sync_runs timestamps,
+counts and coverage. Code/DB observations cannot prove the old runtime trigger.
+The additive draft migration is in `supabase/migrations`; never apply it merely
+by starting the app. Local-only verification: `python scripts/check-analytics-postgres.py`.
+Preserve new tables on rollback; revert the application image, not historical data.

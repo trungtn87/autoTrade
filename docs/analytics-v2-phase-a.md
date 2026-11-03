@@ -80,59 +80,84 @@ The draft deliberately does not manufacture ROI or allocate position-wide PnL.
 
 ## Implementation status / acceptance gates
 
-Draft branch: fix/v2-analytics-ownership. Existing archive modules were moved to
-V2 with compatibility imports, not duplicated. Dashboard application no longer
-starts a scheduler or mounts ingest. Historical report calculation is retained
-in V2 solely for old offline fixture regression; live DB reads never fall back to
-that report. Dashboard layout is retained, unknown results are labeled unknown.
+Draft PR #54, branch fix/v2-analytics-ownership. Existing archive modules moved
+to V2 with compatibility imports, not duplicated. Dashboard starts no scheduler,
+mounts no ingest, and live DB reads never fall back to theoretical reporting.
+Legacy report calculation is retained in V2 only for old offline fixtures.
 
-The proposed result store uses a separate SQLAlchemy metadata registry so legacy
-init_db cannot implicitly create trade_results. No migration has been applied,
-and no production backfill or BingX request has been performed by this session.
-When schema is absent, API reports normalized results unavailable. This is a
-rollout blocker: do not replace the live Dashboard until migration and staged
-historical reconciliation preserve its data coverage.
+Archive pacing is at least 6s, with nonblocking execution activity/guard
+observation and a 2-minute exclusion around candle boundaries. It waits in place
+while execution is busy; it never takes ExecutionStore locks or reserves a
+trading request slot. This is conservative execution headroom, not proof of
+exchange-wide/IP quota isolation. Actual provider limits still need qualification.
+HTTP 429 stops a burst and schedules cooldown, honoring Retry-After. Signing
+happens after pacing. Every HTTP retry verifies the advisory lock connection.
+A dedicated lock transaction disables its own server idle timeout; it does not
+change settings on engine connections.
 
-Independent review found and prompted fixes for hidden duplicate mappings,
-partially-filled entry finalization, missing-schema HTTP failures, stale advisory
-connection detection, reconciliation retries, CLI workflow path and container
-package inclusion. This is not final approval. Remaining blockers:
+Per-symbol completed-window cursors, exact inserted/updated/unchanged counters
+and raw UPSERTs commit atomically in sync_runs JSON. Restart resumes committed
+progress; resumed_by lineage prevents replaying consumed ancestors. Coverage uses
+end_ms rather than job completion time, including Dashboard freshness. The V2
+status endpoint exposes redacted collector state/configuration codes, allowing
+future runtime checks without SSH/log access.
 
-1. Strict execution-priority/shared-IP quota reservation is not implemented.
-2. Money verification is deliberately incomplete: PnL/fees/margin/ROI and outcome
-   remain NULL even for quantity-confirmed CLOSED results.
-3. Migration design needs final typed-column/index/grant review and local Postgres
-   verification. Existing manual provenance objects must remain untouched.
-4. A killed run can leave running audit rows; interrupted-run recovery needs an
-   explicit ownership/lease design and restart integration test.
-5. Raw sync step success and whole-attempt success are separate audit rows; raw
-   counts do not mean newly inserted counts. Backfill reporting still needs exact
-   inserted/updated/unchanged counters and completeness checkpoints.
-6. No VPS environment/log evidence, post-deploy evidence, or exchange comparison.
-7. Full-history parity/remote CI/browser acceptance remain required.
+The proposed result store has separate SQLAlchemy metadata so legacy init_db
+cannot implicitly create trade_results. Its additive draft migration was generated
+with checksum-verified Supabase CLI 2.81.3 and tested against isolated PostgreSQL
+17. Generated columns expose typed report fields from one payload; RLS/revokes
+prevent anonymous access. No production migration, archive or backfill executed.
+Existing manual provenance tables/views remain untouched. Unknown Combo/entry
+states persist as UNRESOLVED; duplicate mappings cannot count as CLOSED.
 
-Rollback before rollout: discard/revert branch; production and database have not
-changed. After an approved rollout: restore prior single-container image (never
-start a second engine), preserve all archive/result/manual tables; do not drop
-historical data. Prefer an additive forward repair after checking schema version.
+CLOSED requires a fully FILLED entry and balanced, exactly linked exit quantities.
+TP+Trailing and TP+SL remain one intent. Missing monetary evidence remains NULL;
+unknown outcomes are not counted as TP/SL wins/losses. Aggregate ROI, when data is
+verified, uses total net PnL / total actual initial margin, not a sum of percentages.
 
-## Verification completed locally
+Owner confirmed 2026-11-03: hosting pulls GitHub directly, without SSH/password
+management or runtime logs. Repository deployment contract specifies main. Only
+a separate branch has been pushed. The historical production trigger cannot be
+confirmed from the available source/DB evidence; do not invent a missing-key
+cause. Future acceptance can use redacted HTTP status and persisted DB audits.
 
-* Dashboard: 102 tests passed, including 21 new focused cases.
-* V2: all 22 commands in scripts/check-offline.py passed; external TCP blocked
-  by the suite's sitecustomize. No strategy/execution source diff.
-* Unified routes/lifespans, public PWA routes, monitoring unit check passed.
-* Python compile, JavaScript syntax and git diff whitespace checks passed.
-* Docker build passed using the production Dockerfile plus a temporary BuildKit
-  CA mount for this environment; no CA or credentials copied into layers.
-* Container smoke passed with --network none, execution/websocket/bootstrap off,
-  DRY_RUN=true, empty database credentials; Dashboard and V2 lifespans worked and
-  /collector/v1/signals was absent. Smoke uses injected DB-only fixture, not
-  production data or an applied result-table migration.
-* Independent review repeated after fixes; no final deployment approval.
+Independent reviews prompted and verified fixes for duplicate mappings, premature
+CLOSED, schema-absence HTTP failures, reconciliation lock/retries, CLI lock bypass,
+Docker packaging, execution DB-lock contention, backfill starvation, resume
+lineage, stale coverage display and SQL NULL identity checks.
 
-Remote Actions, full-history dataset parity, Chromium acceptance and a real
-Postgres collector-lock/restart test are not reported as passed. The local sandbox
-initially blocked TestClient's event-loop transport; rerunning with sandbox
-network permission while the test runner itself still blocked external sockets
-resolved the hang. No exchange requests were enabled by that rerun.
+Remaining acceptance gates; DO NOT MERGE/DEPLOY:
+
+1. Provider/IP quota isolation is not empirically established.
+2. Current archived data has no actual initial-margin or complete position/funding
+   attribution evidence. Monetary reconciliation remains deliberately incomplete:
+   PnL/fees/margin/ROI/outcome stay NULL. No claim of verified strategy performance.
+3. Draft migration is locally validated but not applied. Historical Dashboard
+   coverage must be staged and reconciled before replacing the existing view.
+4. Process-start recovery marks old running audits interrupted under the collector
+   lock while preserving raw cursors. Real-host restart acceptance remains required.
+5. No Owner-approved production backfill or exchange comparison. Added/duplicate
+   production counts are unknown, not zero. Phase E has not run.
+6. PR #54 is a draft integration checkpoint, not final phase-by-phase acceptance.
+
+Rollback before rollout: discard/revert branch; production/DB remain unchanged.
+After an approved rollout restore the prior single-container image, with no engine
+overlap. Preserve all new/raw/manual tables and data; do not drop history.
+
+## Verification
+
+* Current local Dashboard suite: 111 tests passed, including 30 focused cases.
+* All 22 V2 offline commands, unified routes/lifespans/PWA, resource sampler,
+  Python compile, JavaScript syntax and whitespace checks passed.
+* Isolated PostgreSQL 17: migration, NULL constraints, event-ID UPSERT idempotency,
+  anonymous denial, two-session advisory exclusion and disconnect release passed.
+  The container has no network or published ports and uses only synthetic data.
+* Remote baseline CI, real Chromium/PWA and full-history RUN17 parity all passed
+  at commit 7b5a547. Later hardening must pass CI again before acceptance.
+* Previous Docker build/network-none smoke passed with trading, websocket and
+  bootstrap disabled and no credentials. This does not establish production health.
+* Known credential-pattern scan passed; no credentials were fetched or printed.
+
+Local TestClient initially hung under sandbox transport restrictions. Rerunning
+with sandbox network permission while the suite still blocked external sockets
+resolved it; no exchange network was enabled by the test runner.
