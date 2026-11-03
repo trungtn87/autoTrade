@@ -84,7 +84,8 @@ def check():
                 assert page.locator('#combo-list tr').count() == 2  # BTC only
                 assert page.locator('#calendar-grid .has-trades').count() >= 1
                 assert page.locator('#day-wins').inner_text() == '1'
-                assert page.locator('#day-roi').inner_text() == '—'
+                # Summaries use known closed-trade ROI even if a peer lacks ROI.
+                assert page.locator('#day-roi').inner_text() == '+0,70%'
                 assert 'CHƯA XÁC MINH' in page.locator('#history-list').inner_text()
                 assert page.locator('#day-losses').inner_text() == '1'
 
