@@ -22,7 +22,7 @@ function dateParts(ms) {
     time: parts.hour + ':' + parts.minute };
 }
 const todayKey = () => dateParts(Date.now()).key;
-const firstMonth = '2026-10';
+let firstMonth = '2026-09';
 const $text = (tag, name, value) => {
   const node = document.createElement(tag);
   if (name) node.className = name;
@@ -43,7 +43,8 @@ let comboRows = [];
 let selectedDay = '';
 let monthKey = '';
 let requestId = 0;
-const dayRows = key => history.filter(row => dateParts(row.exit_ms)?.key === key);
+const tradeDate = row => dateParts(row.exit_ms || row.entry_ms)?.key;
+const dayRows = key => history.filter(row => tradeDate(row) === key);
 const winOrLoss = row => {
   if (row.outcome === 'WIN') return 'THẮNG';
   if (row.outcome === 'LOSS') return 'THUA';
@@ -52,16 +53,16 @@ const winOrLoss = row => {
 };
 
 function renderCombos(rows) {
-  const items = (rows || []).filter(row => row.closed > 0 && row.symbol === symbol)
+  const items = (rows || []).filter(row => (row.total || row.closed) > 0 && row.symbol === symbol)
     .sort((a,b) => String(a.combo).localeCompare(String(b.combo), 'vi', {numeric:true}));
   setText('combo-count', items.length + ' Combo');
-  if (!items.length) { emptyRow('combo-list', 6, 'Chưa có giao dịch hoàn tất.'); return; }
+  if (!items.length) { emptyRow('combo-list', 6, 'Chưa có giao dịch trong database.'); return; }
   const body = $('combo-list'); body.replaceChildren();
   for (const row of items) {
     const tr = document.createElement('tr');
     const pair = $text('th', 'combo-cell', row.combo || '—'); pair.scope = 'row'; tr.append(pair);
     for (const [value, className] of [
-      [row.closed, ''], [valid(row.tp_count) ? row.tp_count : '—', 'positive'],
+      [row.total ?? row.closed, ''], [valid(row.tp_count) ? row.tp_count : '—', 'positive'],
       [valid(row.sl_count) ? row.sl_count : '—', 'negative'],
       [valid(row.win_rate) ? fmt(row.win_rate, 1) + '%' : '—', ''],
       [roi(row.real_roi_total), classFor(row.real_roi_total)]
@@ -85,7 +86,7 @@ function renderCalendar() {
   const root = $('calendar-grid'); root.replaceChildren();
   const counts = new Map();
   for (const row of history) {
-    const key = dateParts(row.exit_ms)?.key;
+    const key = tradeDate(row);
     if (key) counts.set(key, (counts.get(key) || 0) + 1);
   }
   for (let i=0; i<firstWeekday; i++) {
@@ -98,7 +99,7 @@ function renderCalendar() {
     button.type = 'button'; button.className = 'calendar-day';
     button.textContent = String(day);
     button.setAttribute('aria-label', day + '/' + month + '/' + year +
-      (count ? ': ' + count + ' lệnh đóng' : ': không có lệnh'));
+      (count ? ': ' + count + ' giao dịch' : ': không có giao dịch'));
     button.setAttribute('aria-pressed', String(key === selectedDay));
     if (count) {
       button.classList.add('has-trades');
@@ -117,7 +118,7 @@ function renderCalendar() {
   }
 }
 function renderDay() {
-  const rows = dayRows(selectedDay).sort((a,b) => number(b.exit_ms) - number(a.exit_ms));
+  const rows = dayRows(selectedDay).sort((a,b) => number(b.exit_ms || b.entry_ms) - number(a.exit_ms || a.entry_ms));
   const parts = selectedDay.split('-');
   setText('selected-date', 'Ngày ' + parts[2] + '/' + parts[1] + '/' + parts[0]);
   setText('history-count', rows.length + ' lệnh');
@@ -132,14 +133,14 @@ function renderDay() {
     existing ? rows.reduce((sum,row)=>sum+number(row.recorded_roi_pct),0) : null;
   setText('day-roi', roi(total));
   $('day-roi').className = classFor(total);
-  if (!rows.length) { emptyRow('history-list', 6, 'Không có lệnh đóng trong ngày này.'); return; }
+  if (!rows.length) { emptyRow('history-list', 6, 'Không có giao dịch trong ngày này.'); return; }
   const body = $('history-list'); body.replaceChildren();
   for (const row of rows) {
     const tr = document.createElement('tr');
     const side = row.side === 'BUY' ? 'Long' : row.side === 'SELL' ? 'Short' : '—';
-    const status = winOrLoss(row);
+    const status = row.status === 'open' ? 'ĐANG MỞ' : row.status === 'partial' ? 'MỘT PHẦN' : winOrLoss(row);
     const columns = [
-      [dateParts(row.exit_ms)?.time || '—', ''],
+      [dateParts(row.exit_ms || row.entry_ms)?.time || '—', ''],
       [row.symbol === 'BTC-USDT' ? 'BTC' : 'ETH', 'coin-' + row.symbol.split('-')[0].toLowerCase()],
       [row.combo || '—', ''],
       [side, side === 'Long' ? 'positive' : side === 'Short' ? 'negative' : ''],
@@ -153,7 +154,7 @@ function renderDay() {
 function chooseLatestDate() {
   const current = todayKey();
   if (selectedDay && selectedDay >= firstMonth + '-01' && selectedDay <= current) return selectedDay;
-  const dates = history.map(r=>dateParts(r.exit_ms)?.key).filter(x=>x && x<=current).sort();
+  const dates = history.map(tradeDate).filter(x=>x && x<=current).sort();
   return dates.length ? dates[dates.length - 1] : current;
 }
 function setTabs() {
@@ -181,7 +182,9 @@ async function loadSymbol() {
     renderCombos(comboRows);
     history = (data.theory?.history || []).filter(row =>
       (row.symbol === 'BTC-USDT' || row.symbol === 'ETH-USDT') &&
-      row.status === 'closed' && valid(row.exit_ms));
+      valid(row.exit_ms || row.entry_ms));
+    const months = history.map(tradeDate).filter(Boolean).sort();
+    if (months.length) firstMonth = months[0].slice(0, 7);
     selectedDay = chooseLatestDate();
     monthKey = selectedDay.slice(0, 7);
     renderCalendar();
@@ -190,7 +193,7 @@ async function loadSymbol() {
     const synced = data.last_sync?.status === 'success' && sync &&
       Date.now() - Date.parse(data.last_sync.time) < 2.5 * 3600000;
     $('status-dot').classList.toggle('status-muted', !synced);
-    setText('sync', sync ? 'BingX đồng bộ ' + sync.date + ' · ' + sync.time : 'Chưa có giờ đồng bộ');
+    setText('sync', sync ? 'Dữ liệu lưu đến ' + sync.date + ' · ' + sync.time : 'Đang đọc dữ liệu database');
     setText('updated', 'Xem lúc ' + (dateParts(Date.now())?.time || '—'));
   } catch (error) {
     if (token !== requestId) return;
