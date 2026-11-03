@@ -213,6 +213,9 @@ def _linked_results(engine, schema, has_fills=False, has_states=False):
         group = positions.get((symbol, pid, link['position_side']), []) if pid else []
         entries = [o for o in group if o['side'] == entry_side
                    and o['type'] in ('MARKET','LIMIT') and _decimal(o['filled_qty'])]
+        # In a shared BingX position, the first entry belongs to another
+        # Combo. Always use the exact linked entry for costs and margin.
+        linked_entry = next((o for o in entries if str(o['order_id']) == entry_id), None)
         binding = bindings.get((symbol, entry_id))
         use_owned_exits = bool(
             binding and binding['position_id'] == pid
@@ -230,7 +233,7 @@ def _linked_results(engine, schema, has_fills=False, has_states=False):
         exit_times = [int(o['updated_ms'] or 0) for o in exits]
         fully_closed = (side_matches and expected_position_side == link['position_side']
                         and qty is not None and qty > 0 and ownership_ok
-                        and any(str(e['order_id']) == entry_id for e in entries)
+                        and linked_entry is not None
                         and bool(exits) and all(o['side'] in ('BUY','SELL') for o in exits)
                         and exit_quantity == qty
                         and all(t >= int(link['created_ms'] or 0) for t in exit_times))
@@ -249,7 +252,7 @@ def _linked_results(engine, schema, has_fills=False, has_states=False):
         total_profit = sum(gross, Decimal(0)) if len(gross) == len(exits) and gross else None
         outcome = ('WIN' if total_profit > 0 else
                    'LOSS' if total_profit < 0 else 'BREAKEVEN') if total_profit is not None else None
-        estimate = _estimated_roi(entries[0], exits, fills_by_order) if fully_closed else None
+        estimate = _estimated_roi(linked_entry, exits, fills_by_order) if fully_closed else None
         if estimate is not None:
             net_pnl = estimate[0]
             outcome = 'WIN' if net_pnl > 0 else 'LOSS' if net_pnl < 0 else 'BREAKEVEN'
