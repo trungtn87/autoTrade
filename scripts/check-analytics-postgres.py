@@ -20,18 +20,18 @@ def docker(*args, **kwargs):
 
 
 def psql(sql):
-    return docker('exec','-i',NAME,'psql','-XAtq','-v','ON_ERROR_STOP=1','-U','postgres', input=sql)
+    return docker('exec','-i',NAME,'psql','-h','127.0.0.1','-XAtq','-v','ON_ERROR_STOP=1','-U','postgres', input=sql)
 
 
 try:
     docker('run','-d','--rm','--network','none','--name',NAME,
            '-e','POSTGRES_HOST_AUTH_METHOD=trust',IMAGE)
-    for _ in range(50):
+    for _ in range(120):
         try:
             psql('SELECT 1;')
             break
         except subprocess.CalledProcessError:
-            time.sleep(.1)
+            time.sleep(.25)
     else:
         raise RuntimeError('Isolated PostgreSQL did not become ready')
     psql('CREATE ROLE anon; CREATE ROLE authenticated;')
@@ -69,7 +69,7 @@ try:
         raise AssertionError('Anonymous role can read private results')
     # Hold a transaction on one connection; another must be excluded. Closing
     # the holder connection simulates a killed collector and releases its lock.
-    holder = subprocess.Popen(DOCKER+['exec','-i',NAME,'psql','-XAtq','-U','postgres'],
+    holder = subprocess.Popen(DOCKER+['exec','-i',NAME,'psql','-h','127.0.0.1','-XAtq','-U','postgres'],
                               env=ENV, text=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     holder.stdin.write("BEGIN; SET LOCAL idle_in_transaction_session_timeout='0'; SELECT pg_try_advisory_xact_lock(2707,20261027);\n")
     holder.stdin.flush()

@@ -100,7 +100,9 @@ and raw UPSERTs commit atomically in sync_runs JSON. Restart resumes committed
 progress; resumed_by lineage prevents replaying consumed ancestors. Coverage uses
 end_ms rather than job completion time, including Dashboard freshness. The V2
 status endpoint exposes redacted collector state/configuration codes, allowing
-future runtime checks without SSH/log access.
+future runtime checks without SSH/log access. Redacted start/completion/error
+notifications enqueue through the existing EventReporter; missing-key codes are
+observable without printing credentials. Notification failures are isolated.
 
 The proposed result store has separate SQLAlchemy metadata so legacy init_db
 cannot implicitly create trade_results. Its additive draft migration was generated
@@ -146,7 +148,7 @@ overlap. Preserve all new/raw/manual tables and data; do not drop history.
 
 ## Verification
 
-* Current local Dashboard suite: 111 tests passed, including 30 focused cases.
+* Current local Dashboard suite: 113 tests passed, including 32 focused cases.
 * All 22 V2 offline commands, unified routes/lifespans/PWA, resource sampler,
   Python compile, JavaScript syntax and whitespace checks passed.
 * Isolated PostgreSQL 17: migration, NULL constraints, event-ID UPSERT idempotency,
@@ -161,3 +163,10 @@ overlap. Preserve all new/raw/manual tables and data; do not drop history.
 Local TestClient initially hung under sandbox transport restrictions. Rerunning
 with sandbox network permission while the suite still blocked external sockets
 resolved it; no exchange network was enabled by the test runner.
+
+The first new remote PostgreSQL check exposed a test readiness race: the image's
+Unix-only temporary initialization server accepted the early probe. The check
+now probes final-server TCP on container-local 127.0.0.1, with no host port or
+external network. The corrected migration/lock test passed locally. Shutdown
+signals the archive first, stops existing engine workers/stream, then joins the
+archive; it does not delay engine stop calls while waiting on archive HTTP.

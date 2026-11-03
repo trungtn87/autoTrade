@@ -71,7 +71,7 @@ orchestrator=Orchestrator(
 )
 
 app=FastAPI(title="AutoTrade V2")
-collector_runtime=CollectorRuntime(admit=lambda: _collector_admission())
+collector_runtime=CollectorRuntime(admit=lambda: _collector_admission(), notify=lambda state: _collector_report(state))
 _state_lock=threading.Lock()
 _pipeline_lock=threading.Lock()
 _watchdog_stop=threading.Event()
@@ -91,6 +91,13 @@ runtime:dict={
     "data_health":{},
 }
 stream:BingXKlineStream|None=None
+
+
+def _collector_report(state)->None:
+    phase=str(state.get("result") or state.get("state") or "unknown")
+    severity="ERROR" if phase in {"failed","cooldown"} else "INFO"
+    event_reporter.emit("L4.ARCHIVE."+phase.upper(), severity,
+                        "V2 read-only trade archive "+phase, details=state)
 
 
 def _collector_admission()->bool:
@@ -549,12 +556,13 @@ def startup()->None:
 
 @app.on_event("shutdown")
 def shutdown()->None:
-    collector_runtime.stop()
+    collector_runtime.request_stop()
     _watchdog_stop.set()
     _execution_reconcile_stop.set()
     if stream is not None:
         stream.stop()
     event_reporter.emit("L4.SYSTEM.SHUTDOWN","INFO","AutoTrade V2 process stopping")
+    collector_runtime.stop()
     event_reporter.stop()
 
 

@@ -11,7 +11,8 @@ LOG = logging.getLogger(__name__)
 
 
 class CollectorRuntime:
-    def __init__(self, admit=lambda: True):
+    def __init__(self, admit=lambda: True, notify=None):
+        self.notify = notify
         self.admit = admit
         self._stop = threading.Event()
         self._lock = threading.Lock()
@@ -26,12 +27,22 @@ class CollectorRuntime:
             self._thread = threading.Thread(target=self._worker, name='v2-trade-collector', daemon=True)
             self._thread.start()
 
-    def stop(self):
+    def request_stop(self):
         self._stop.set()
+
+    def stop(self):
+        self.request_stop()
         # Never cancel a to_thread call and release its lock while HTTP work
         # continues. Refuse a new worker until the previous thread exits.
         if self._thread is not None:
             self._thread.join(timeout=1)
+
+    def _publish(self):
+        if self.notify is not None and not self._stop.is_set():
+            try:
+                self.notify(dict(self.status))
+            except Exception as exc:
+                LOG.error('V2_COLLECTOR_NOTIFICATION_FAILED error_class=%s', type(exc).__name__)
 
     def _worker(self):
         with archive_policy(self.admit, self._stop):
@@ -46,6 +57,7 @@ class CollectorRuntime:
             slot = ready_slot(now)
             if slot is not None and slot != completed and now >= next_attempt:
                 self.status = {'state': 'running', 'started_at': now.isoformat()}
+                self._publish()
                 try:
                     result = run_once(now)
                     if result.get('reason') == 'archive_locked':
@@ -57,7 +69,9 @@ class CollectorRuntime:
                     else:
                         completed = slot
                         next_attempt = slot + timedelta(hours=1)
-                    self.status = {'state': 'waiting', 'finished_at': datetime.now(timezone.utc).isoformat()}
+                    self.status = {'state': 'waiting', 'result':'skipped' if result.get('skipped') else 'completed',
+                                   'finished_at': datetime.now(timezone.utc).isoformat(),
+                                   'counts': {k:v for k,v in (result.get('bingx') or {}).items() if k in {'orders','fills','income','forced','positions','changes'}}}
                 except ArchiveRateLimited as exc:
                     next_attempt = datetime.now(timezone.utc) + timedelta(seconds=exc.retry_seconds)
                     self.status = {'state':'cooldown', 'retry_at':next_attempt.isoformat(), 'error_class':'ArchiveRateLimited'}
@@ -70,5 +84,6 @@ class CollectorRuntime:
                     if isinstance(exc, ArchiveConfigurationError):
                         self.status['configuration_code'] = exc.code
                     LOG.error('V2_COLLECTOR_FAILED error_class=%s retry_seconds=900', type(exc).__name__)
+                self._publish()
             self._stop.wait(30)
         self.status = {'state': 'stopped'}

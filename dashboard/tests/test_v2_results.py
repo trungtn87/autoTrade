@@ -276,3 +276,26 @@ def test_restart_marks_old_outer_audit_interrupted_without_losing_cursor(tmp_pat
         assert [r.status for r in rows] == ['interrupted','interrupted','running']
         assert json.loads(rows[1].details)['checkpoints']['BTC-USDT'] == 123
     engine.dispose()
+
+
+def test_configuration_failure_is_observable_by_existing_alert_callback(monkeypatch):
+    from autotrade_v2.analytics import lifecycle
+    from autotrade_v2.analytics.errors import ArchiveConfigurationError
+    seen = []
+    def notify(state):
+        seen.append(state)
+        if state['state'] == 'failed': runtime.request_stop()
+    runtime = lifecycle.CollectorRuntime(notify=notify)
+    monkeypatch.setattr(lifecycle, 'ready_slot', lambda now:now)
+    monkeypatch.setattr(lifecycle, 'run_once', Mock(side_effect=ArchiveConfigurationError('missing_read_credentials')))
+    runtime._run()
+    assert [s['state'] for s in seen] == ['running','failed']
+    assert seen[-1]['configuration_code'] == 'missing_read_credentials'
+
+
+def test_alert_callback_failure_cannot_stop_collector():
+    from autotrade_v2.analytics.lifecycle import CollectorRuntime
+    runtime = CollectorRuntime(notify=Mock(side_effect=RuntimeError('fixture callback failure')))
+    runtime.status = {'state':'failed', 'error_class':'FixtureFailure'}
+    runtime._publish()
+    assert runtime.status['error_class'] == 'FixtureFailure'
