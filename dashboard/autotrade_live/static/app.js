@@ -193,7 +193,7 @@ async function loadSymbol() {
     const synced = data.last_sync?.status === 'success' && sync &&
       Date.now() - Date.parse(data.last_sync.time) < 2.5 * 3600000;
     $('status-dot').classList.toggle('status-muted', !synced);
-    setText('sync', sync ? 'Dữ liệu lưu đến ' + sync.date + ' · ' + sync.time : 'Đang đọc dữ liệu database');
+    setText('sync', 'Dữ liệu từ 01/10/2026');
     setText('updated', 'Xem lúc ' + (dateParts(Date.now())?.time || '—'));
   } catch (error) {
     if (token !== requestId) return;
