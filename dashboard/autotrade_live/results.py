@@ -203,7 +203,7 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
                             margin=row.get('margin') if is_closed else None,
                             source=row.get('source'), exit_types=row.get('exit_types', [])))
     combos = []
-    for (sym, name), trades in sorted(groups.items()):
+    for (sym, name), trades in sorted(groups.items(), key=lambda item: (item[0][0] or '', str(item[0][1] or ''))):
         closed = [r for r in trades if r.get('status') == 'CLOSED' and r.get('closed_ms')]
         wins = sum(t.get('outcome') == 'WIN' for t in closed)
         losses = sum(t.get('outcome') == 'LOSS' for t in closed)
