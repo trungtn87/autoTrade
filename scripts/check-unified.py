@@ -69,6 +69,8 @@ with TestClient(app, follow_redirects=False) as client:
     engine = client.get("/engine/status")
     assert engine.status_code == 200, engine.text
     assert engine.json()["runtime"]["execution_enabled"] is False
+    assert engine.json()["lifecycle_writer"] == {
+        "state":"disabled", "reason":"collector_contract_pending"}
 
     candle = client.get("/engine/health")
     assert candle.status_code in (200, 503), candle.text

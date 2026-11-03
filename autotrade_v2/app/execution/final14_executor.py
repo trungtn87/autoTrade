@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from autotrade_v2.analytics.evidence import capture_entry
+
 import hashlib
 from decimal import Decimal
 import logging
@@ -357,7 +359,7 @@ class Final14Executor:
         allow_new_entry:bool=True,
         protection_persist=None,
     )->dict:
-        resume_state=resume_state or {}
+        resume_state=resume_state if resume_state is not None else {}
         cfg=get_case(intent.symbol,intent.combo)
         if not cfg:
             raise RuntimeError(
@@ -439,6 +441,7 @@ class Final14Executor:
                     time.sleep(ENTRY_CONFIRM_SLEEP_SEC)
                 continue
             detail=self.client.extract_order(raw)
+            capture_entry(resume_state, detail, client_order_id)
             order_id=self._order_id(detail)
             status,executed_qty,avg_price=self._order_metrics(detail)
             filled_qty_raw=str(detail.get("executedQty") or "0")
@@ -489,6 +492,7 @@ class Final14Executor:
                     )
                     if raw is not None:
                         detail=self.client.extract_order(raw)
+                        capture_entry(resume_state, detail, client_order_id)
                         final_order_id=self._order_id(detail) or final_order_id
                         final_status,final_qty,final_avg=self._order_metrics(detail)
                         if final_status in {"FILLED","CANCELED","EXPIRED"}:

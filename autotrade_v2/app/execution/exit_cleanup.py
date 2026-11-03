@@ -12,6 +12,8 @@ If exchange evidence is missing/ambiguous, no mutation is permitted.
 """
 from __future__ import annotations
 
+from autotrade_v2.analytics.evidence import order_evidence
+
 from decimal import Decimal, InvalidOperation
 import logging
 import re
@@ -120,6 +122,7 @@ def snapshot_position(positions, state):
 
 def _order_view(row):
     return {
+        "analytics_order": order_evidence(row),
         "status": str(row["status"]).upper(),
         "executed_qty": str(positive(row.get("executedQty"), "executedQty")),
         "orig_qty": str(positive(row.get("origQty") or row.get("quantity"), "origQty")),
@@ -150,7 +153,7 @@ def triggered_execution(historical_by_id, parent_id, state, kind):
     executed = positive(child.get("executedQty"), "triggered executedQty")
     if executed <= 0:
         raise CleanupUncertain("triggered execution without filled quantity")
-    return {"status": "FILLED", "executed_qty": str(executed),
+    return {"analytics_order":order_evidence(child), "status": "FILLED", "executed_qty": str(executed),
             "orig_qty": str(executed)}
 
 

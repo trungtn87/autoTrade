@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from autotrade_v2.analytics.lifecycle import CollectorRuntime
+from autotrade_v2.analytics.writer import LifecycleWriterRuntime
 import threading
 import time
 
@@ -72,6 +73,12 @@ orchestrator=Orchestrator(
 
 app=FastAPI(title="AutoTrade V2")
 collector_runtime=CollectorRuntime(admit=lambda: _collector_admission(), notify=lambda state: _collector_report(state))
+# PR 2 staging only: PR 3 must adapt collector writes before this is enabled.
+# There is deliberately no environment variable that can bypass this gate.
+lifecycle_writer=LifecycleWriterRuntime(settings.database_url, enabled=False,
+    notify=lambda state: event_reporter.emit('L4.ANALYTICS.LIFECYCLE',
+        'ERROR' if state.get('state') in {'failed','degraded'} else 'INFO',
+        'V2 lifecycle analytics status', details=state))
 _state_lock=threading.Lock()
 _pipeline_lock=threading.Lock()
 _watchdog_stop=threading.Event()
@@ -549,6 +556,7 @@ def startup()->None:
         )
 
     collector_runtime.start()
+    lifecycle_writer.start()
 
     if settings.bootstrap_enabled or settings.websocket_enabled:
         threading.Thread(target=_start_data_runtime,name="v2-data-runtime",daemon=True).start()
@@ -556,6 +564,7 @@ def startup()->None:
 
 @app.on_event("shutdown")
 def shutdown()->None:
+    lifecycle_writer.request_stop()
     collector_runtime.request_stop()
     _watchdog_stop.set()
     _execution_reconcile_stop.set()
@@ -563,6 +572,7 @@ def shutdown()->None:
         stream.stop()
     event_reporter.emit("L4.SYSTEM.SHUTDOWN","INFO","AutoTrade V2 process stopping")
     collector_runtime.stop()
+    lifecycle_writer.stop()
     event_reporter.stop()
 
 
@@ -620,6 +630,7 @@ def status()->dict:
         return {
             "runtime":dict(runtime),
             "trade_collector":dict(collector_runtime.status),
+            "lifecycle_writer":dict(lifecycle_writer.status),
             "last_run":dict(last_run),
             "processed_open":dict(_processed_open),
         }
