@@ -190,7 +190,7 @@ def dashboard_payload(records, symbol=None, combo=None, days='all'):
         from autotrade_v2.analytics.legacy_report import dashboard_payload as legacy
         return legacy(records, symbol=symbol, combo=combo, days=days)
     return result_payload(records['normalized_results'], records.get('last_sync'),
-                          symbol=symbol or '', combo=combo or '', start_ms=_start_ms())
+                          symbol=symbol or '', combo=combo or '', start_ms=0)
 
 
 @app.get('/api/dashboard')
