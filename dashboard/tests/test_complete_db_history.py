@@ -101,3 +101,39 @@ def test_without_verified_exit_no_false_closed_or_roi():
         assert result['outcome'] is None
     finally:
         engine.dispose()
+
+
+def test_v2_state_is_visible_even_when_archive_has_not_copied_new_orders():
+    """The live V2 database is the source of 3-Nov orders absent from BingX mirror."""
+    engine = _engine()
+    try:
+        with engine.begin() as db:
+            db.execute(text("""CREATE TABLE processed_targets (
+                event_id TEXT, target TEXT, payload TEXT, processed_at TIMESTAMP)"""))
+            db.execute(text("""CREATE TABLE system_events (
+                event_id TEXT, event_key TEXT, created_at TIMESTAMP)"""))
+            base = {'entry_filled':True, 'order_id':'entry-a',
+                    'intent':{'symbol':'BTC-USDT','side':'BUY','combo':1,'close_time':1000}}
+            new = {'entry_filled':True, 'order_id':'new-v2-123'.replace('new-v2-',''),
+                   'intent':{'symbol':'ETH-USDT','side':'SELL','combo':102,
+                             'close_time':1793642399999}}
+            db.execute(text("""INSERT INTO processed_targets VALUES
+                ('event-old','bingx_state',:old,'2026-11-03 06:00:00'),
+                ('event-new','bingx_state',:new,'2026-11-03 06:49:00')"""),
+                {'old':json.dumps(base),'new':json.dumps(new)})
+            db.execute(text("""INSERT INTO system_events VALUES
+                ('event-new','L3.EXEC.ORDER_FILLED','2026-11-02 18:00:45+00:00')"""))
+        rows = load_results(engine)
+        assert len(rows) == 4  # 3 mirrored entries + 1 live-only V2 order
+        assert sum(r['entry_order_id']=='entry-a' for r in rows) == 1
+        latest = next(r for r in rows if r['entry_order_id']=='123')
+        assert latest['combo']=='C12' and latest['symbol']=='ETH-USDT'
+        assert latest['source']=='v2_state_db'
+        assert latest['status']=='UNRESOLVED'
+        assert latest['roi'] is None and latest['outcome'] is None
+        from datetime import datetime, timezone
+        expected = int(datetime.fromisoformat('2026-11-02T18:00:45+00:00').timestamp()*1000)
+        assert latest['opened_ms']==expected
+        assert result_payload(rows)['summary']['total']==4
+    finally:
+        engine.dispose()
