@@ -7,6 +7,8 @@ const fmt = (value, decimals = 2) => Number(value).toLocaleString('vi-VN', {
 const number = value => value === null || value === undefined || value === '' ? NaN : Number(value);
 const valid = value => Number.isFinite(number(value));
 const roi = value => valid(value) ? (number(value) > 0 ? '+' : '') + fmt(value) + '%' : '—';
+const displayRoi = (value, estimated = false) =>
+  valid(value) ? (estimated ? '≈ ' : '') + roi(value) : '—';
 const classFor = value => valid(value) && number(value) > 0 ? 'positive' :
   valid(value) && number(value) < 0 ? 'negative' : '';
 const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
@@ -65,7 +67,7 @@ function renderCombos(rows) {
       [row.total ?? row.closed, ''], [valid(row.tp_count) ? row.tp_count : '—', 'positive'],
       [valid(row.sl_count) ? row.sl_count : '—', 'negative'],
       [valid(row.win_rate) ? fmt(row.win_rate, 1) + '%' : '—', ''],
-      [roi(row.real_roi_total), classFor(row.real_roi_total)]
+      [displayRoi(row.real_roi_total, row.roi_estimated), classFor(row.real_roi_total)]
     ]) tr.append($text('td', className, value));
     body.append(tr);
   }
@@ -124,14 +126,14 @@ function renderDay() {
   setText('history-count', rows.length + ' lệnh');
   setText('day-wins', rows.filter(r=>winOrLoss(r)==='THẮNG').length);
   setText('day-losses', rows.filter(r=>winOrLoss(r)==='THUA').length);
-  const full = rows.length > 0 && rows.every(row => valid(row.recorded_roi_pct) &&
+  const priced = rows.filter(row => row.status === 'closed' && valid(row.recorded_roi_pct));
+  const weighted = priced.length > 0 && priced.every(row =>
     valid(row.pnl) && valid(row.margin) && number(row.margin) > 0);
-  const existing = rows.length > 0 && rows.every(row =>
-    row.source === 'existing_history' && valid(row.recorded_roi_pct));
-  const total = full ? 100 * rows.reduce((sum,row)=>sum+number(row.pnl),0) /
-    rows.reduce((sum,row)=>sum+number(row.margin),0) :
-    existing ? rows.reduce((sum,row)=>sum+number(row.recorded_roi_pct),0) : null;
-  setText('day-roi', roi(total));
+  const total = weighted ? 100 * priced.reduce((sum,row)=>sum+number(row.pnl),0) /
+    priced.reduce((sum,row)=>sum+number(row.margin),0) :
+    priced.length ? priced.reduce((sum,row)=>sum+number(row.recorded_roi_pct),0) : null;
+  const estimated = priced.some(row => row.source === 'bingx_db_roi_estimate');
+  setText('day-roi', displayRoi(total, estimated));
   $('day-roi').className = classFor(total);
   if (!rows.length) { emptyRow('history-list', 6, 'Không có giao dịch trong ngày này.'); return; }
   const body = $('history-list'); body.replaceChildren();
@@ -145,7 +147,7 @@ function renderDay() {
       [row.combo || '—', ''],
       [side, side === 'Long' ? 'positive' : side === 'Short' ? 'negative' : ''],
       [status, status === 'THẮNG' ? 'positive' : status === 'THUA' ? 'negative' : ''],
-      [roi(row.recorded_roi_pct), classFor(row.recorded_roi_pct)]
+      [displayRoi(row.recorded_roi_pct, row.source === 'bingx_db_roi_estimate'), classFor(row.recorded_roi_pct)]
     ];
     for (const [value,cl] of columns) tr.append($text('td', cl, value));
     body.append(tr);

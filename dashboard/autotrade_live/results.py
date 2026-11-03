@@ -29,7 +29,57 @@ def _raw(value):
     return {}
 
 
-def _linked_results(engine, schema):
+
+def _signed_decimal(value):
+    """Provider PnL and USDT commissions may be positive, zero or negative."""
+    try:
+        number = Decimal(str(value))
+        return number if number.is_finite() else None
+    except (ValueError, TypeError, ArithmeticError):
+        return None
+
+
+def _estimated_roi(entry, exits, fills):
+    """Fee-adjusted estimate from complete exact-order fills; funding excluded.
+
+    Only used after single-entry fully matched exit-quantity confirmation.
+    """
+    leverage_text = str(_raw(entry['raw']).get('leverage') or '').strip().upper()
+    leverage = _decimal(leverage_text.removesuffix('X'))
+    if leverage is None or leverage <= 0:
+        return None
+    notional = Decimal(0)
+    net_pnl = Decimal(0)
+    for index, order in enumerate([entry, *exits]):
+        order_fills = fills.get((order['symbol'], str(order['order_id'])), [])
+        expected_qty = _decimal(order['filled_qty'])
+        if not order_fills or expected_qty is None or expected_qty <= 0:
+            return None
+        filled_qty = Decimal(0)
+        for fill in order_fills:
+            quantity = _decimal(fill['qty'])
+            price = _decimal(fill['price'])
+            realized = _signed_decimal(fill['realized_pnl'])
+            fee = _signed_decimal(fill['fee'])
+            asset = _raw(fill['raw']).get('commissionAsset')
+            if (fill['side'] != order['side'] or fill['position_side'] != order['position_side']
+                    or asset not in (None, '', 'USDT') or quantity is None or quantity <= 0
+                    or price is None or price <= 0 or realized is None or fee is None):
+                return None
+            filled_qty += quantity
+            net_pnl += realized + fee
+            if index == 0:
+                notional += quantity * price
+        # A missing or duplicated fill must not produce a misleading ROI.
+        if abs(filled_qty - expected_qty) > max(Decimal('0.00000001'), expected_qty * Decimal('0.000001')):
+            return None
+    margin = notional / leverage
+    if margin <= 0:
+        return None
+    return float(net_pnl), float(margin), float(100 * net_pnl / margin)
+
+
+def _linked_results(engine, schema, has_fills=False):
     """Read confirmed strategy entries already in DB. Never query BingX.
 
     The exchange may aggregate several Combo entries under one positionID.
@@ -48,6 +98,14 @@ def _linked_results(engine, schema):
             'SELECT order_id,symbol,side,position_side,type,status,filled_qty,'
             'updated_ms,raw FROM ' + prefix + "bingx_orders WHERE status='FILLED'"
         )).mappings().all()
+        stored_fills = conn.execute(text(
+            'SELECT order_id,symbol,side,position_side,qty,price,realized_pnl,fee,raw '
+            'FROM ' + prefix + 'bingx_fills'
+        )).mappings().all() if has_fills else []
+
+    fills_by_order = defaultdict(list)
+    for fill in stored_fills:
+        fills_by_order[(fill['symbol'], str(fill['order_id']))].append(fill)
 
     positions = defaultdict(list)
     for order in orders:
@@ -95,14 +153,21 @@ def _linked_results(engine, schema):
         total_profit = sum(gross, Decimal(0)) if len(gross) == len(exits) and gross else None
         outcome = ('WIN' if total_profit > 0 else
                    'LOSS' if total_profit < 0 else 'BREAKEVEN') if total_profit is not None else None
+        estimate = _estimated_roi(entries[0], exits, fills_by_order) if fully_closed else None
+        if estimate is not None:
+            net_pnl = estimate[0]
+            outcome = 'WIN' if net_pnl > 0 else 'LOSS' if net_pnl < 0 else 'BREAKEVEN'
         results.append(dict(
             event_id='db-entry:' + symbol + ':' + entry_id,
             entry_order_id=entry_id, symbol=symbol, combo=link['combo'],
             side=entry_side, status='CLOSED' if fully_closed else 'UNRESOLVED',
             opened_ms=int(link['created_ms'] or 0),
             closed_ms=max(exit_times) if fully_closed else None,
-            outcome=outcome, roi=None, pnl=None, margin=None,
-            source='bingx_db_verified' if fully_closed else 'bingx_db_unresolved',
+            outcome=outcome, roi=estimate[2] if estimate is not None else None,
+            pnl=estimate[0] if estimate is not None else None,
+            margin=estimate[1] if estimate is not None else None,
+            source=('bingx_db_roi_estimate' if estimate is not None else
+                    'bingx_db_verified' if fully_closed else 'bingx_db_unresolved'),
             exit_types=sorted({exit_kinds[o['type']] for o in exits}) if fully_closed else []
         ))
     return results
@@ -178,6 +243,7 @@ def load_results(engine):
     has_history = 'manual_dashboard_trade_results' in inspector.get_view_names(schema=schema)
     has_links = inspector.has_table('signal_links', schema=schema)
     has_orders = inspector.has_table('bingx_orders', schema=schema)
+    has_fills = inspector.has_table('bingx_fills', schema=schema)
     has_v2_states = inspector.has_table('processed_targets',
                                          schema='public' if schema else None)
     if not has_normalized and not has_history and not (has_links and has_orders) and not has_v2_states:
@@ -218,7 +284,7 @@ def load_results(engine):
         # A closed historical snapshot has precedence over the same raw entry.
         known = {(r.get('symbol'), str(r.get('entry_order_id')))
                  for r in rows if r.get('entry_order_id')}
-        for linked in _linked_results(engine, schema):
+        for linked in _linked_results(engine, schema, has_fills=has_fills):
             identity = (linked['symbol'], linked['entry_order_id'])
             if identity not in known:
                 rows.append(linked)
@@ -288,21 +354,24 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
         wins = sum(t.get('outcome') == 'WIN' for t in closed)
         losses = sum(t.get('outcome') == 'LOSS' for t in closed)
         complete = bool(closed) and all(t.get('outcome') in {'WIN', 'LOSS', 'BREAKEVEN'} for t in closed)
-        money_complete = bool(closed) and all(
-            t.get('roi') is not None and t.get('pnl') is not None and
-            t.get('margin') is not None and t['margin'] > 0 for t in closed)
-        actual_roi = (100*sum(t['pnl'] for t in closed)/sum(t['margin'] for t in closed)) if money_complete else None
-        # Retain historical ROI for Excel-confirmed trades even when later DB
-        # entries on the same Combo remain unverified.
-        if actual_roi is None and closed and all(
-                t.get('source') == 'existing_history' and t.get('roi') is not None for t in closed):
-            actual_roi = sum(t['roi'] for t in closed)
+        # Include ROI for all closed trades with data, even when other trades
+        # in this Combo have not yet obtained a full set of fills.
+        priced = [t for t in closed if t.get('roi') is not None]
+        weighted = bool(priced) and all(
+            t.get('pnl') is not None and t.get('margin') is not None
+            and t['margin'] > 0 for t in priced)
+        actual_roi = (100 * sum(t['pnl'] for t in priced) /
+                      sum(t['margin'] for t in priced)) if weighted else (
+                          sum(t['roi'] for t in priced) if priced else None)
+        # Historical Excel ROI has no PnL/margin; its percentage is retained.
         combos.append(dict(symbol=sym, combo=name, total=len(trades), closed=len(closed),
                            unresolved=len(trades)-len(closed), win=wins, loss=losses,
                            tp_count=wins if complete else None,
                            sl_count=losses if complete else None,
                            win_rate=round(100*wins/len(closed), 2) if complete else None,
-                           real_roi_total=round(actual_roi, 4) if actual_roi is not None else None))
+                           real_roi_total=round(actual_roi, 4) if actual_roi is not None else None,
+                           roi_estimated=any(t.get('source') == 'bingx_db_roi_estimate' for t in priced),
+                           roi_coverage=len(priced)))
     return dict(theory=dict(available=available,
                             reason=None if available else 'Existing DB results are unavailable',
                             combos=combos,
