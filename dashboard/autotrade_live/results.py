@@ -11,7 +11,7 @@ def load_results(engine):
     schema = 'autotrade_analytics' if engine.dialect.name == 'postgresql' else None
     inspector = inspect(engine)
     has_normalized = inspector.has_table('trade_results', schema=schema)
-    has_history = inspector.has_view('manual_dashboard_trade_results', schema=schema)
+    has_history = 'manual_dashboard_trade_results' in inspector.get_view_names(schema=schema)
     if not has_normalized and not has_history:
         return None
     rows = []
