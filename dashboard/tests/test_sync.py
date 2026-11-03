@@ -144,7 +144,7 @@ def test_null_does_not_mask_errors_or_missing_fields():
     with pytest.raises(RuntimeError, match='missing data field'):
         client.get('/openApi/swap/v2/user/income', {})
     response.json.return_value = {'code': 0, 'data': None}
-    with pytest.raises(RuntimeError, match='Unexpected BingX null data'):
+    with pytest.raises(ValueError, match='Only BingX swap GET endpoints allowed'):
         client.get('/openApi/swap/v2/unknown', {})
 
 

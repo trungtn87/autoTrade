@@ -45,8 +45,10 @@ let monthKey = '';
 let requestId = 0;
 const dayRows = key => history.filter(row => dateParts(row.exit_ms)?.key === key);
 const winOrLoss = row => {
-  const value = valid(row.recorded_roi_pct) ? number(row.recorded_roi_pct) : number(row.roi_pct);
-  return value > 0 ? 'TP' : value < 0 ? 'SL' : 'HÒA';
+  if (row.outcome === 'WIN') return 'THẮNG';
+  if (row.outcome === 'LOSS') return 'THUA';
+  if (row.outcome === 'BREAKEVEN') return 'HÒA';
+  return 'CHƯA XÁC MINH';
 };
 
 function renderCombos(rows) {
@@ -119,8 +121,8 @@ function renderDay() {
   const parts = selectedDay.split('-');
   setText('selected-date', 'Ngày ' + parts[2] + '/' + parts[1] + '/' + parts[0]);
   setText('history-count', rows.length + ' lệnh');
-  setText('day-wins', rows.filter(r=>winOrLoss(r)==='TP').length);
-  setText('day-losses', rows.filter(r=>winOrLoss(r)==='SL').length);
+  setText('day-wins', rows.filter(r=>winOrLoss(r)==='THẮNG').length);
+  setText('day-losses', rows.filter(r=>winOrLoss(r)==='THUA').length);
   const actual = rows.map(row => number(row.recorded_roi_pct));
   const full = rows.length > 0 && actual.every(Number.isFinite);
   const total = full ? actual.reduce((a,b)=>a+b,0) : null;
@@ -137,7 +139,7 @@ function renderDay() {
       [row.symbol === 'BTC-USDT' ? 'BTC' : 'ETH', 'coin-' + row.symbol.split('-')[0].toLowerCase()],
       [row.combo || '—', ''],
       [side, side === 'Long' ? 'positive' : side === 'Short' ? 'negative' : ''],
-      [status, status === 'TP' ? 'positive' : status === 'SL' ? 'negative' : ''],
+      [status, status === 'THẮNG' ? 'positive' : status === 'THUA' ? 'negative' : ''],
       [roi(row.recorded_roi_pct), classFor(row.recorded_roi_pct)]
     ];
     for (const [value,cl] of columns) tr.append($text('td', cl, value));

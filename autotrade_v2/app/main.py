@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+
+from autotrade_v2.analytics.lifecycle import CollectorRuntime
 import threading
 import time
 
@@ -69,6 +71,7 @@ orchestrator=Orchestrator(
 )
 
 app=FastAPI(title="AutoTrade V2")
+collector_runtime=CollectorRuntime()
 _state_lock=threading.Lock()
 _pipeline_lock=threading.Lock()
 _watchdog_stop=threading.Event()
@@ -518,12 +521,15 @@ def startup()->None:
             details={"purpose":"manual email delivery test"},
         )
 
+    collector_runtime.start()
+
     if settings.bootstrap_enabled or settings.websocket_enabled:
         threading.Thread(target=_start_data_runtime,name="v2-data-runtime",daemon=True).start()
 
 
 @app.on_event("shutdown")
 def shutdown()->None:
+    collector_runtime.stop()
     _watchdog_stop.set()
     _execution_reconcile_stop.set()
     if stream is not None:

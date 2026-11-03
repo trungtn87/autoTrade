@@ -101,3 +101,20 @@ The unified process provides the desired defaults:
 cleanup.** The owner is responsible for removing Render services after safe
 writer cutover. CI never sends real orders, and green CI does not certify a
 completed trade or live Discord delivery.
+
+## V2 analytics architecture draft — rollout blocked
+
+The draft moves the existing archive into `autotrade_v2.analytics`; retain exactly
+one root Docker process, one HTTP port and one trading instance. The manual
+recovery command is now `python -m autotrade_v2.analytics.collect --days N` from
+the repository root. Do not run it against production without Owner approval.
+Read-only archive credentials remain separate from execution credentials.
+
+Do not deploy this draft until all gates in
+[analytics-v2-phase-a.md](analytics-v2-phase-a.md) are closed, including quota
+priority, schema migration, money verification, interrupted-run recovery and
+historical Dashboard coverage. No migration is run automatically by this branch.
+Check variable presence/format and read-only key permissions privately on the VPS;
+never dump environment values. Stop the previous container before starting the
+replacement; never overlap execution instances. Collect redacted :07 and 10:07 VN
+runtime evidence after an approved deployment.

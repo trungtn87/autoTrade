@@ -33,7 +33,7 @@ from dashboard.autotrade_live.mobile import app as dashboard_app
 async def combined_lifespan(_app: FastAPI):
     # Mounted FastAPI applications' lifespan events are not called by Starlette
     # automatically. Both runtime loops are essential: V2 websocket/order
-    # reconciliation and Dashboard's read-only BingX archive scheduler.
+    # reconciliation and its read-only trade archive; Dashboard serves HTTP only.
     async with engine_app.router.lifespan_context(engine_app):
         async with dashboard_app.router.lifespan_context(dashboard_app):
             yield
