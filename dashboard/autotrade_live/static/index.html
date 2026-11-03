@@ -9,8 +9,8 @@
 <title>Autotrade · Hiệu quả giao dịch</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
-<link rel="stylesheet" href="/static/app.css?v=20261103-db-all">
-<script defer src="/static/app.js?v=20261103-db-all"></script>
+<link rel="stylesheet" href="/static/app.css?v=20261104-roi-est">
+<script defer src="/static/app.js?v=20261104-roi-est"></script>
 </head>
 <body>
 <main class="app">
@@ -41,7 +41,7 @@
     </div>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Bảng hiệu quả theo Combo, có thể cuộn ngang">
       <table class="performance-table">
-        <thead><tr><th scope="col">Combo</th><th scope="col">Số lệnh</th><th scope="col">TP</th><th scope="col">SL</th><th scope="col">Tỉ lệ thắng</th><th scope="col">ROI thực tế</th></tr></thead>
+        <thead><tr><th scope="col">Combo</th><th scope="col">Số lệnh</th><th scope="col">TP</th><th scope="col">SL</th><th scope="col">Tỉ lệ thắng</th><th scope="col">ROI ước tính</th></tr></thead>
         <tbody id="combo-list"><tr><td colspan="6" class="empty">Đang đọc dữ liệu…</td></tr></tbody>
       </table>
     </div>
@@ -63,7 +63,7 @@
     <div class="daily-summary" aria-live="polite">
       <div><small>Thắng</small><strong id="day-wins" class="positive">0</strong></div>
       <div><small>Thua</small><strong id="day-losses" class="negative">0</strong></div>
-      <div><small>ROI thực tế</small><strong id="day-roi">—</strong></div>
+      <div><small>ROI ước tính</small><strong id="day-roi">—</strong></div>
     </div>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Danh sách giao dịch theo ngày, có thể cuộn ngang">
       <table class="history-table">
@@ -71,7 +71,7 @@
         <tbody id="history-list"><tr><td colspan="6" class="empty">Chọn một ngày trên lịch.</td></tr></tbody>
       </table>
     </div>
-    <p id="roi-note" class="section-note">ROI lịch sử dùng kết quả đã ghi nhận; ROI mới tính từ PnL BingX trên ký quỹ ước tính. Thiếu số liệu sẽ hiện —, không thay bằng ROI biến động giá.</p>
+    <p id="roi-note" class="section-note">ROI lịch sử giữ nguyên số đã ghi nhận. ROI mới ≈ (PnL đã khớp + phí giao dịch) / (giá vốn × khối lượng / đòn bẩy), chưa tính funding. Tổng ngày/Combo chỉ gồm các lệnh có ROI; dữ liệu thiếu vẫn hiện —.</p>
   </section>
   <footer><span class="footer-brand">◈ AUTOTRADE · READ ONLY</span>
     <p>Dashboard chỉ đọc dữ liệu đã lưu, không gửi lệnh BingX.</p></footer>
