@@ -78,7 +78,7 @@ def validate_result(payload):
             raise InvalidResult('invalid_partial_quantity')
     if row['status'] == 'CLOSED':
         if (row['closed_ms'] is None or row['closed_ms'] < row['opened_ms']
-                or abs(opened - closed) > tolerance or not row['exit_types']):
+                or closed <= 0 or abs(opened - closed) > tolerance or not row['exit_types']):
             raise InvalidResult('unverified_closure')
     elif row['closed_ms'] is not None or row['outcome'] is not None or row['roi'] is not None:
         raise InvalidResult('nonfinal_result')

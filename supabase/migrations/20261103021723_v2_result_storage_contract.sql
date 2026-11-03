@@ -9,7 +9,7 @@ ALTER TABLE autotrade_analytics.trade_results
 -- validate historical rows separately after read-only reconciliation.
 ALTER TABLE autotrade_analytics.trade_results ADD CONSTRAINT result_closed_identity
     CHECK (status <> 'CLOSED' OR
-        (nullif(symbol, '') IS NOT NULL AND nullif(combo, '') IS NOT NULL
+        (closed_qty > 0 AND nullif(symbol, '') IS NOT NULL AND nullif(combo, '') IS NOT NULL
          AND side IN ('BUY', 'SELL') AND nullif(entry_order_id, '') IS NOT NULL
          AND nullif(verification_source, '') IS NOT NULL) IS TRUE) NOT VALID;
 

@@ -34,6 +34,8 @@ class ResultContractTests(unittest.TestCase):
     def test_partial_entry_cannot_claim_more_closure(self):
         self.assert_invalid(snapshot(status='CLOSED', opened_qty='1', closed_qty='2',
                                      closed_ms=2000, exit_types=['TP']))
+        self.assert_invalid(snapshot(status='CLOSED', opened_qty='0.0000000001', closed_qty='0',
+                                     closed_ms=2000, exit_types=['TP']))
 
     def test_missing_legacy_combo_is_unresolved_and_margin_stays_null(self):
         row = validate_result(snapshot(status='UNRESOLVED', combo=None, opened_ms=None,

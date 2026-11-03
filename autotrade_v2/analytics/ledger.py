@@ -35,6 +35,8 @@ def write_result(engine, payload, *, source, evidence_id, expected_revision):
     args = dict(event_id=row['event_id'], source=source, evidence_id=evidence_id,
                 payload=data, expected=expected_revision)
     with engine.begin() as conn:
+        conn.execute(text("SET LOCAL lock_timeout = '1s'"))
+        conn.execute(text("SET LOCAL statement_timeout = '5s'"))
         # Serialize same evidence across different intents, then same intent
         # across different evidence IDs. No locks are shared with execution.
         conn.execute(text('SELECT pg_advisory_xact_lock(2708, hashtext(:key))'),

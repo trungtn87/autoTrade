@@ -100,6 +100,10 @@ khi đặt `money_verified=true`. Validator không tự chứng thực exchange.
 - Không gọi storage API trong order/protection path; timeout/DB exceptions phải do
   worker bắt, cảnh báo và retry từ durable state. PR 1 chưa có worker này.
 - Không tự tạo schema hay tự fallback SQLite. Không chứa credentials/API headers.
+- Lock timeout 1s, statement timeout 5s chỉ áp dụng transaction analytics. Worker
+  phải cấu hình thêm connect/pool timeout trên engine riêng khi nối ở PR 2.
+- Decimal có thể là chuỗi JSON để giữ precision; adapter/reader phải parse số
+  hoặc đọc generated numeric columns, không làm số học trực tiếp trên chuỗi.
 - Receipts lưu lịch sử snapshot; tài khoản DB owner vẫn có quyền sửa, không phải
   tamper-proof audit. Không cấp Data API/public access; RLS + revoke cả hai bảng.
 
