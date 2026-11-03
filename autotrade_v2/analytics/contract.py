@@ -11,6 +11,15 @@ class InvalidResult(ValueError):
     pass
 
 
+# Normal observations only. Corrections must never reuse this transition path.
+ALLOWED_TRANSITIONS = {
+    'UNRESOLVED': ('UNRESOLVED', 'OPEN', 'PARTIAL', 'CLOSED'),
+    'OPEN': ('OPEN', 'PARTIAL', 'CLOSED'),
+    'PARTIAL': ('PARTIAL', 'CLOSED'),
+    'CLOSED': ('CLOSED',),
+}
+
+
 def validate_result(payload):
     """Return a detached JSON snapshot; unknown facts must be explicit NULLs."""
     try:
@@ -110,17 +119,52 @@ def validate_result(payload):
 
 
 def validate_transition(previous, next_row):
-    """Require evidence union and preserve confirmed identities/facts on retry."""
-    for key in ('symbol', 'side', 'entry_order_id'):
-        if previous.get(key) and previous[key] != next_row[key]:
+    """Append observations without retracting verified facts.
+
+    CLOSED is final; quantities advance monotonically until closure, then freeze.
+    Once published, monetary totals/results are immutable, including zero. NULL
+    may be enriched with verified evidence. There is deliberately no correction
+    flag/API here: retractions require a separately reviewed correction mechanism.
+    """
+    old_status, new_status = previous.get('status'), next_row.get('status')
+    if new_status not in ALLOWED_TRANSITIONS.get(old_status, ()):
+        raise InvalidResult('status_regression_correction_required')
+    for key in ('event_id', 'symbol', 'side', 'entry_order_id', 'combo', 'verification_source', 'source'):
+        if previous.get(key) not in (None, '') and previous[key] != next_row.get(key):
             raise InvalidResult('confirmed_identity_changed')
-    if previous.get('status') != 'UNRESOLVED' and previous.get('combo'):
-        if previous['combo'] != next_row['combo']:
-            raise InvalidResult('confirmed_combo_changed')
-    if previous.get('status') == 'CLOSED' and next_row['status'] in ('OPEN', 'PARTIAL'):
-        raise InvalidResult('closed_result_regression')
-    if any(ref not in next_row['evidence_refs'] for ref in previous.get('evidence_refs', [])):
-        raise InvalidResult('evidence_would_be_lost')
-    for key in ('pnl', 'fees', 'margin'):
-        if previous.get(key) is not None and next_row[key] is None:
-            raise InvalidResult('verified_money_would_be_lost')
+    progressed = old_status != new_status
+    for key in ('opened_qty', 'closed_qty'):
+        before, after = _fact_number(previous.get(key)), _fact_number(next_row.get(key))
+        if before is not None and (after is None or after < before):
+            raise InvalidResult('quantity_regression_correction_required')
+        if old_status == 'CLOSED' and before != after:
+            raise InvalidResult('closed_quantity_correction_required')
+        progressed = progressed or before != after
+    for key in ('opened_ms', 'closed_ms', 'outcome', 'margin_evidence_ref'):
+        if previous.get(key) is not None and previous[key] != next_row.get(key):
+            raise InvalidResult('verified_fact_correction_required')
+    for key in ('pnl', 'fees', 'margin', 'roi'):
+        if previous.get(key) is not None and _fact_number(previous[key]) != _fact_number(next_row.get(key)):
+            raise InvalidResult('verified_money_correction_required')
+    if previous.get('money_verified') is True and next_row.get('money_verified') is not True:
+        raise InvalidResult('money_verification_would_be_lost')
+    for key in ('evidence_refs', 'money_evidence_refs', 'exit_types'):
+        if any(ref not in (next_row.get(key) or []) for ref in (previous.get(key) or [])):
+            raise InvalidResult('evidence_would_be_lost')
+    if progressed and not any(ref not in (previous.get('evidence_refs') or [])
+                              for ref in next_row['evidence_refs']):
+        raise InvalidResult('progress_requires_new_evidence')
+
+
+def _fact_number(value):
+    if value is None:
+        return None
+    try:
+        if isinstance(value, bool):
+            raise InvalidOperation
+        number = Decimal(str(value))
+        if not number.is_finite():
+            raise InvalidOperation
+        return number
+    except (InvalidOperation, ValueError) as exc:
+        raise InvalidResult('invalid_quantity_or_money_fact') from exc

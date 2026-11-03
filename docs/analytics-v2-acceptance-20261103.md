@@ -91,9 +91,17 @@ khi đặt `money_verified=true`. Validator không tự chứng thực exchange.
   cũ lên current row. Đây không phải khẳng định current row vẫn ở revision đó.
 - Hai writer cùng revision: một commit, writer còn lại reload/reconcile rồi retry;
   không blind overwrite. Evidence trùng ID nhưng khác nội dung/intent báo conflict.
-- Không thay confirmed symbol/side/entry ID/Combo, không xóa evidence/money đã biết;
-  CLOSED không trở về OPEN/PARTIAL. Phát hiện evidence mâu thuẫn có thể đánh dấu
-  UNRESOLVED, vẫn giữ facts và snapshot trước trong receipts để điều tra.
+- Không thay confirmed symbol/side/entry ID/Combo/source, timestamps hoặc outcome;
+  không xóa evidence/exit_types, money refs hay cờ xác minh đã ghi nhận. Giá trị
+  pnl/fees/margin/roi đã biết (kể cả 0) không được đổi hay trở thành NULL.
+- Khối lượng opened_qty và closed_qty chỉ tăng, không giảm hay trở thành NULL.
+  Khi CLOSED, cả hai khối lượng đóng băng. So sánh Decimal/numeric chính xác,
+  không dùng tolerance để bỏ qua mức giảm nhỏ. Thay đổi cách biểu diễn số tương
+  đương (`"2.0"` và `2`) không phải hiệu chỉnh.
+- Tăng trạng thái hoặc khối lượng phải bổ sung evidence reference. Published
+  monetary totals là facts bất biến: adapter nên giữ cumulative money chưa chốt
+  ở NULL; chỉ công bố tổng khi đã chứng minh đầy đủ. NULL có thể được bổ sung bằng
+  bằng chứng thực tế sau khi đóng; điều đó không mở lại giao dịch.
 - SQL trigger chặn legacy UPDATE không tăng revision khi row đã thuộc writer mới.
   **Chưa bật writer cho đến khi collector được chuyển sang contract này.** Nếu bật
   trước, collector reconciliation sẽ báo lỗi thay vì xóa evidence của V2.
@@ -107,12 +115,40 @@ khi đặt `money_verified=true`. Validator không tự chứng thực exchange.
 - Receipts lưu lịch sử snapshot; tài khoản DB owner vẫn có quyền sửa, không phải
   tamper-proof audit. Không cấp Data API/public access; RLS + revoke cả hai bảng.
 
+### Quy tắc chuyển trạng thái sau review PR #55
+
+| Trạng thái hiện tại | Trạng thái đích được phép qua normal write |
+| --- | --- |
+| UNRESOLVED | UNRESOLVED, OPEN, PARTIAL, CLOSED |
+| OPEN | OPEN, PARTIAL, CLOSED |
+| PARTIAL | PARTIAL, CLOSED |
+| CLOSED | CLOSED |
+
+Mỗi snapshot đích vẫn phải hợp lệ theo quantity/time/evidence contract. Không
+được chuyển CLOSED về UNRESOLVED để ẩn giao dịch đã xác minh. Không chuyển PARTIAL
+về OPEN/UNRESOLVED. PostgreSQL trigger bổ sung thực thi cùng các quy tắc khi
+`OLD.revision > 0 OR NEW.revision > 0`, kể cả SQL tăng revision trực tiếp.
+Legacy revision 0 chưa chuyển sang contract vẫn giữ đường ghi cũ; chưa kích hoạt
+writer mới trong PR này. Các adapter sau phải chuyển hoàn toàn sang contract.
+
+PR #55 **không cung cấp correction API/bypass**. Nếu provider gửi dữ liệu hiệu
+chỉnh, normal write báo lỗi và giữ nguyên snapshot/receipts; không coi thêm refs,
+tăng revision, hay payload `correction.approved=true` là quyền sửa facts.
+Correction thực sự phải qua cơ chế riêng được review: correction ID duy nhất,
+intent và expected revision chính xác, lý do, bằng chứng provider đã xác thực,
+người/thẩm quyền duyệt; lưu before/after và liên kết superseded revision nguyên tử,
+giữ toàn bộ snapshots/receipts cũ và chống áp dụng lại. Chưa có thao tác correction
+nào được triển khai hay chạy. Evidence mâu thuẫn cần được báo để điều tra ngoài
+normal write, không làm hạ trạng thái CLOSED.
+
 ## Migration, vận hành và phê duyệt
 
 Owner chỉ áp dụng migration trong maintenance window sau staging/review:
 
 1. `20261103010119_v2_trade_results_draft.sql` (PR #54, production chưa có bảng).
 2. `20261103021723_v2_result_storage_contract.sql` (PR 1).
+3. `20261103023700_guard_trade_result_transitions.sql` (review fix PR #55;
+   migration bổ sung, không sửa hai migration trước hoặc update dữ liệu).
 
 Không chạy migration production trong phiên này. Local test chạy PostgreSQL 17 container
 `--network none`, không publish port, dữ liệu synthetic, kiểm tra kết nối qua Unix
@@ -149,12 +185,18 @@ thực tế. CI xanh không phải nghiệm thu giao dịch thật.
 ## Bằng chứng kiểm thử PR 1
 
 - `scripts/check-offline.py dashboard`: 113 tests passed.
-- `scripts/check-offline.py autotrade_v2`: 22 commands passed; unittest gồm 10 test
-  cũ và 9 test contract mới. Runner loại credentials và chặn external sockets.
+- `scripts/check-offline.py autotrade_v2`: 22 commands; unittest gồm 10 test
+  cũ và 15 test contract sau review. Runner loại credentials và chặn external sockets.
 - `scripts/check-analytics-postgres.py`: baseline migration + migration bổ sung,
   payload history giữ nguyên, quantity/NULL/identity constraints, RLS/revokes,
   atomic snapshot/receipt rollback, stale-writer race, duplicate evidence/closure,
   retry sau restart/lỗi DB giả lập và collector lock/disconnect đều PASS.
+- Review regression checks: đủ 16 cặp trạng thái, giảm hoặc xóa quantity, tăng
+  quantity sau CLOSED, sửa/xóa tiền/outcome/timestamps/provenance đã xác minh,
+  giữ số 0, rejection của correction flag; kiểm tra qua cả storage API và SQL
+  trực tiếp tăng revision. Rejection giữ nguyên payload, revision, updated_at
+  và receipts. Positive cases kiểm tra PARTIAL tiến lên, NULL enrichment và
+  numeric reencoding; mọi revision hợp lệ giữ đủ before/after snapshot.
 - `check-container-metrics.py`, `check-unified.py`, Python compile, JS syntax và
   `git diff --check`: PASS. Không sửa file strategy/execution hoặc Dashboard UI.
 - Docker production dependencies/image và network-none smoke: PASS. Build thẳng
