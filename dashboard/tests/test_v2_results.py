@@ -233,6 +233,16 @@ def test_dashboard_freshness_uses_coverage_not_resume_completion():
     assert meta['completed_at'] == completed.isoformat()
 
 
+def test_unknown_combo_is_preserved_as_unresolved_not_guessed():
+    from autotrade_v2.analytics.results_store import result_specs
+    exact, ledger = result_specs([('unknown-intent', dict(entry_filled=True, order_id='1',
+        intent=dict(combo='unknown', symbol='BTC-USDT', side='BUY')))])
+    assert exact == [] and len(ledger) == 1 and ledger[0]['combo'] is None
+    _, order, fill = fixture()
+    row = reconcile(ledger, [order], [fill], [])[0]
+    assert row['event_id'] == 'unknown-intent'
+    assert row['status'] == 'UNRESOLVED' and row['source'] == 'V2_STATE_UNVERIFIED'
+
 
 def test_combo_roi_uses_actual_margin_and_mixed_exit_counts_one_outcome():
     base = dict(status='CLOSED', symbol='BTC-USDT', combo='C1', side='BUY', opened_ms=1000,

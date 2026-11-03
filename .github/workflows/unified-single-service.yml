@@ -46,6 +46,8 @@ jobs:
           python -m compileall -q unified_app.py autotrade_v2/app dashboard/autotrade_live
           node --check dashboard/autotrade_live/static/app.js
           node --check dashboard/autotrade_live/static/sw.js
+      - name: Verify private analytics schema and cross-session lock on isolated Postgres
+        run: python scripts/check-analytics-postgres.py
       - name: Build ONLY the production root Docker image
         run: docker build -t autotrade-baseline .
       - name: Verify production image serves Dashboard and Engine with no credentials

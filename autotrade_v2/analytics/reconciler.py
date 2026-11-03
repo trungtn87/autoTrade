@@ -25,7 +25,7 @@ def reconcile(specs, orders, fills, exit_events):
         qty = sum((Decimal(str(f.qty)) for f in entry_fills), Decimal(0))
         closed = sum((Decimal(str(e['qty'])) for e in rows), Decimal(0))
         tolerance = max(Decimal('0.000000001'), qty * Decimal('0.000001'))
-        verified = bool(entry and str(getattr(entry, 'status', '')).upper() == 'FILLED' and entry_fills and counts[oid] == 1 and
+        verified = bool(spec.get('combo') and spec.get('symbol') in {'BTC-USDT', 'ETH-USDT'} and entry and str(getattr(entry, 'status', '')).upper() == 'FILLED' and entry_fills and counts[oid] == 1 and
                         entry.symbol == spec['symbol'] and entry.side == spec['side'] and
                         all(f.symbol == spec['symbol'] and f.side == spec['side'] for f in entry_fills) and
                         qty > 0 and abs(qty - Decimal(str(entry.filled_qty))) <= tolerance)
@@ -42,7 +42,7 @@ def reconcile(specs, orders, fills, exit_events):
             opened_qty=float(qty), closed_qty=float(closed),
             exit_types=sorted({e['type'] for e in rows}),
             pnl=None, fees=None, margin=None, roi=None,
-            source='BINGX_EXACT_ORDER_IDS',
+            source='BINGX_EXACT_ORDER_IDS' if verified else 'V2_STATE_UNVERIFIED',
             verification='MONEY_UNVERIFIED' if verified else 'ENTRY_OR_MAPPING_UNVERIFIED',
         ))
     return results

@@ -8,3 +8,5 @@ __pycache__/
 *.db-*
 .pytest_cache/
 browser-evidence/
+
+/supabase/.temp/
