@@ -80,7 +80,7 @@ def _estimated_roi(entry, exits, fills):
 
 
 
-def _journal_exit_bindings(states):
+def _journal_exit_bindings(states, orders):
     """Bind every V2 protection parent to its unique, confirmed strategy entry.
 
     BingX emits a *different child order ID* when a native SL/TP/trailing
@@ -89,6 +89,13 @@ def _journal_exit_bindings(states):
     """
     from autotrade_v2.analytics.bridge import extract_link
 
+    # Older V2 snapshots (notably 24 Oct) contain protection IDs but omit
+    # state.position_id. The *exact* entry order still has the provider's
+    # positionID; never infer ownership merely from a shared position group.
+    entry_orders = defaultdict(list)
+    for order in orders:
+        if order['type'] in ('MARKET', 'LIMIT') and order['side'] in ('BUY', 'SELL'):
+            entry_orders[(order['symbol'], str(order['order_id']))].append(order)
     bindings = {}
     claims = defaultdict(set)
     for record in states:
@@ -96,9 +103,27 @@ def _journal_exit_bindings(states):
         state = _raw(record['payload'])
         if not linked or not isinstance(state, dict):
             continue
-        position_id = str(state.get('position_id') or '')
+        key = (linked['symbol'], linked['entry_order_id'])
+        candidates = entry_orders.get(key, [])
+        if len(candidates) != 1:
+            continue
+        exact_entry = candidates[0]
+        if (exact_entry['side'] != linked['side'] or
+                exact_entry['position_side'] !=
+                ('LONG' if linked['side'] == 'BUY' else 'SHORT') or
+                _decimal(exact_entry['filled_qty']) in (None, Decimal(0))):
+            continue
+        entry_provider = _raw(exact_entry['raw'])
+        position_id = str(entry_provider.get('positionID') or
+                          entry_provider.get('positionId') or '')
+        state_position = str(state.get('position_id') or '')
+        # Existing state data, when present, must agree with the provider
+        # entry; a mismatch is not an opportunity to guess a replacement ID.
+        if (not position_id or position_id == '0' or
+                (state_position not in ('', '0') and state_position != position_id)):
+            continue
         protection = state.get('protection') or {}
-        if not position_id or position_id == '0' or not isinstance(protection, dict):
+        if not isinstance(protection, dict):
             continue
         parents = {}
         invalid = False
@@ -114,7 +139,6 @@ def _journal_exit_bindings(states):
             parents[parent] = kind
         if invalid or not parents:
             continue
-        key = (linked['symbol'], linked['entry_order_id'])
         binding = dict(position_id=position_id, combo=linked['combo'],
                        side=linked['side'], parents=parents)
         if key in bindings and bindings[key] != binding:
@@ -187,7 +211,7 @@ def _linked_results(engine, schema, has_fills=False, has_states=False):
             "processed_targets WHERE target='bingx_state' AND payload IS NOT NULL"
         )).mappings().all() if has_states else []
 
-    bindings = _journal_exit_bindings(states)
+    bindings = _journal_exit_bindings(states, orders)
     fills_by_order = defaultdict(list)
     for fill in stored_fills:
         fills_by_order[(fill['symbol'], str(fill['order_id']))].append(fill)
