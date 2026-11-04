@@ -9,8 +9,8 @@
 <title>Autotrade · Hiệu quả giao dịch</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
-<link rel="stylesheet" href="/static/app.css?v=20261104-roi-est">
-<script defer src="/static/app.js?v=20261104-roi-est"></script>
+<link rel="stylesheet" href="/static/app.css?v=20261104-cleanup-v16">
+<script defer src="/static/app.js?v=20261104-cleanup-v16"></script>
 </head>
 <body>
 <main class="app">
@@ -41,7 +41,7 @@
     </div>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Bảng hiệu quả theo Combo, có thể cuộn ngang">
       <table class="performance-table">
-        <thead><tr><th scope="col">Combo</th><th scope="col">Số lệnh</th><th scope="col">TP</th><th scope="col">SL</th><th scope="col">Tỉ lệ thắng</th><th scope="col">ROI ước tính</th></tr></thead>
+        <thead><tr><th scope="col">Combo</th><th scope="col" title="Đã xác minh thắng/thua trên tổng số lệnh">Số lệnh</th><th scope="col">TP</th><th scope="col">SL</th><th scope="col">Tỉ lệ thắng</th><th scope="col">ROI ước tính</th></tr></thead>
         <tbody id="combo-list"><tr><td colspan="6" class="empty">Đang đọc dữ liệu…</td></tr></tbody>
       </table>
     </div>
@@ -58,7 +58,7 @@
     </div>
     <div class="calendar-weekdays" aria-hidden="true"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
     <div id="calendar-grid" class="calendar-grid" role="group" aria-label="Chọn ngày giao dịch"></div>
-    <p class="calendar-hint">Lịch chung BTC + ETH. Lệnh có kết quả theo ngày đóng; lệnh chưa xác minh theo ngày mở, giờ Việt Nam.</p>
+    <p class="calendar-hint">Lịch chung BTC + ETH, giờ Việt Nam. Lệnh đã đóng có bằng chứng được ghi theo ngày đóng; chưa có chứng cứ đóng theo ngày mở. Số lệnh ở bảng Combo: đã xác minh thắng/thua / tổng số entry.</p>
     <h3 id="selected-date" class="selected-date">—</h3>
     <div class="daily-summary" aria-live="polite">
       <div><small>Thắng</small><strong id="day-wins" class="positive">0</strong></div>

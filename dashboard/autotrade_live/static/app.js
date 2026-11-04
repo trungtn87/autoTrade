@@ -64,7 +64,10 @@ function renderCombos(rows) {
     const tr = document.createElement('tr');
     const pair = $text('th', 'combo-cell', row.combo || '—'); pair.scope = 'row'; tr.append(pair);
     for (const [value, className] of [
-      [row.total ?? row.closed, ''], [valid(row.tp_count) ? row.tp_count : '—', 'positive'],
+      [((row.classified ?? ((row.win || 0) + (row.loss || 0))) === row.total)
+        ? (row.classified ?? row.total)
+        : (row.classified ?? ((row.win || 0) + (row.loss || 0))) + '/' + row.total, ''],
+      [valid(row.tp_count) ? row.tp_count : '—', 'positive'],
       [valid(row.sl_count) ? row.sl_count : '—', 'negative'],
       [valid(row.win_rate) ? fmt(row.win_rate, 1) + '%' : '—', ''],
       [displayRoi(row.real_roi_total, row.roi_estimated), classFor(row.real_roi_total)]
@@ -140,7 +143,11 @@ function renderDay() {
   for (const row of rows) {
     const tr = document.createElement('tr');
     const side = row.side === 'BUY' ? 'Long' : row.side === 'SELL' ? 'Short' : '—';
-    const status = row.status === 'open' ? 'ĐANG MỞ' : row.status === 'partial' ? 'MỘT PHẦN' : winOrLoss(row);
+    const status = row.status === 'closed_pending' ? 'ĐÃ ĐÓNG · CHỜ PnL' :
+      row.status === 'open' ? 'ĐANG MỞ' :
+      row.status === 'partial' || row.reason === 'partial_exit' ? 'MỘT PHẦN' :
+      row.reason === 'excess_exit_quantity' ? 'CẦN ĐỐI CHIẾU KHỐI LƯỢNG' :
+      row.reason === 'no_archived_exit' ? 'CHƯA GHI NHẬN ĐÓNG' : winOrLoss(row);
     const columns = [
       [dateParts(row.exit_ms || row.entry_ms)?.time || '—', ''],
       [row.symbol === 'BTC-USDT' ? 'BTC' : 'ETH', 'coin-' + row.symbol.split('-')[0].toLowerCase()],

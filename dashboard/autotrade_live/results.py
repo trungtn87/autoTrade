@@ -140,7 +140,8 @@ def _journal_exit_bindings(states, orders):
         if invalid or not parents:
             continue
         binding = dict(position_id=position_id, combo=linked['combo'],
-                       side=linked['side'], parents=parents)
+                       side=linked['side'], parents=parents,
+                       cleanup=state.get('exit_cleanup'))
         if key in bindings and bindings[key] != binding:
             bindings[key] = None
             continue
@@ -152,6 +153,71 @@ def _journal_exit_bindings(states, orders):
     for key in ambiguous:
         bindings[key] = None
     return bindings
+
+
+
+def _confirmed_journal_close(binding, entry, symbol):
+    """V2 already stored a native exit confirmation, awaiting BingX archive.
+
+    A flat observation or cleanup_done flag alone is insufficient evidence.
+    Require every recorded parent disposition, exact triggered child identity,
+    a complete quantity match, and the exact linked entry's position.
+    No PnL or ROI is inferred from TP/SL type.
+    """
+    cleanup = binding.get('cleanup') or {}
+    if not isinstance(cleanup, dict) or cleanup.get('status') != 'done':
+        return None
+    orders = cleanup.get('orders') or {}
+    if not isinstance(orders, dict):
+        return None
+    qty = _decimal(entry['filled_qty'])
+    if qty is None or qty <= 0:
+        return None
+    closed_qty = Decimal(0)
+    closed_ms = 0
+    kinds = set()
+    seen_child_ids = set()
+    for parent, expected_type in binding['parents'].items():
+        item = orders.get(parent)
+        if not isinstance(item, dict):
+            return None
+        state = item.get('status')
+        executed = _decimal(item.get('executed_qty'))
+        if executed is None:
+            return None
+        if state == 'CANCELLED' and executed == 0:
+            continue
+        if state != 'FILLED' or executed <= 0:
+            return None
+        confirmation = item.get('analytics_order') or {}
+        if not isinstance(confirmation, dict):
+            return None
+        child_id = str(confirmation.get('orderID') or confirmation.get('orderId') or '')
+        confirmation_time = _decimal(confirmation.get('updateTime'))
+        confirmed_qty = _decimal(confirmation.get('executedQty'))
+        trigger_id = str(confirmation.get('triggerOrderId') or '')
+        position_id = str(confirmation.get('positionID') or '')
+        expected_side = 'SELL' if entry['side'] == 'BUY' else 'BUY'
+        if (not child_id or child_id == '0' or child_id in seen_child_ids
+                or confirmation.get('status') != 'FILLED'
+                or confirmation.get('type') != expected_type
+                or confirmation.get('symbol') != symbol
+                or confirmation.get('side') != expected_side
+                or confirmation.get('positionSide') != entry['position_side']
+                or trigger_id != parent
+                or position_id != binding['position_id']
+                or confirmed_qty != executed
+                or confirmation_time is None
+                or confirmation_time <= int(entry['updated_ms'] or 0)):
+            return None
+        seen_child_ids.add(child_id)
+        closed_qty += executed
+        closed_ms = max(closed_ms, int(confirmation_time))
+        kinds.add({'STOP_MARKET':'SL', 'TAKE_PROFIT_MARKET':'TP',
+                   'TRAILING_STOP_MARKET':'TRAILING'}[expected_type])
+    if not kinds or closed_qty != qty:
+        return None
+    return closed_ms, sorted(kinds)
 
 
 def _owned_exits(group, entry_side, binding):
@@ -277,21 +343,47 @@ def _linked_results(engine, schema, has_fills=False, has_states=False):
         outcome = ('WIN' if total_profit > 0 else
                    'LOSS' if total_profit < 0 else 'BREAKEVEN') if total_profit is not None else None
         estimate = _estimated_roi(linked_entry, exits, fills_by_order) if fully_closed else None
+        # A V2 native SL/TP may close between archive syncs. Its immutable
+        # journal proves closure time/quantity, but not money. Never call
+        # BingX or fill in a speculative price here.
+        journal_close = (_confirmed_journal_close(binding, linked_entry, symbol)
+                         if not fully_closed and use_owned_exits
+                         and ownership_ok and linked_entry is not None
+                         and (qty is not None and exit_quantity <= qty)
+                         else None)
+        if fully_closed:
+            lifecycle_status = 'CLOSED'
+            close_time = max(exit_times)
+            exit_labels = sorted({exit_kinds[o['type']] for o in exits})
+            reason = None
+        elif journal_close is not None:
+            lifecycle_status = 'CLOSED_PENDING'
+            close_time, exit_labels = journal_close
+            reason = 'archive_pending'
+        else:
+            lifecycle_status = 'UNRESOLVED'
+            close_time, exit_labels = None, []
+            reason = ('excess_exit_quantity' if qty is not None and exit_quantity > qty
+                      else 'partial_exit' if exit_quantity > 0
+                      else 'no_archived_exit')
         if estimate is not None:
             net_pnl = estimate[0]
             outcome = 'WIN' if net_pnl > 0 else 'LOSS' if net_pnl < 0 else 'BREAKEVEN'
         results.append(dict(
             event_id='db-entry:' + symbol + ':' + entry_id,
             entry_order_id=entry_id, symbol=symbol, combo=link['combo'],
-            side=entry_side, status='CLOSED' if fully_closed else 'UNRESOLVED',
+            side=entry_side, status=lifecycle_status,
             opened_ms=int(link['created_ms'] or 0),
-            closed_ms=max(exit_times) if fully_closed else None,
+            closed_ms=close_time,
             outcome=outcome, roi=estimate[2] if estimate is not None else None,
             pnl=estimate[0] if estimate is not None else None,
             margin=estimate[1] if estimate is not None else None,
             source=('bingx_db_roi_estimate' if estimate is not None else
-                    'bingx_db_verified' if fully_closed else 'bingx_db_unresolved'),
-            exit_types=sorted({exit_kinds[o['type']] for o in exits}) if fully_closed else []
+                    'bingx_db_verified' if fully_closed else
+                    'v2_cleanup_pending_archive' if journal_close is not None
+                    else 'bingx_db_unresolved'),
+            reason=reason,
+            exit_types=exit_labels
         ))
     return results
 
@@ -454,6 +546,8 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
     for row in rows:
         opened = row.get('opened_ms') or 0
         is_closed = row.get('status') == 'CLOSED' and bool(row.get('closed_ms'))
+        is_pending_close = (row.get('status') == 'CLOSED_PENDING'
+                            and bool(row.get('closed_ms')))
         if opened < start_ms or not (opened or is_closed):
             continue
         if (symbol and row.get('symbol') != symbol) or (combo and row.get('combo') != combo):
@@ -464,20 +558,21 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
         history.append(dict(symbol=row['symbol'], combo=row['combo'], side=row['side'],
                             status='closed' if is_closed else (row.get('status') or 'UNRESOLVED').lower(),
                             entry_ms=opened or None,
-                            exit_ms=row.get('closed_ms') if is_closed else None,
+                            exit_ms=row.get('closed_ms') if (is_closed or is_pending_close) else None,
                             outcome=row.get('outcome') if is_closed else None,
                             result=row.get('outcome') if is_closed else 'UNRESOLVED',
                             roi_pct=row.get('roi') if is_closed else None,
                             recorded_roi_pct=row.get('roi') if is_closed else None,
                             pnl=row.get('pnl') if is_closed else None,
                             margin=row.get('margin') if is_closed else None,
-                            source=row.get('source'), exit_types=row.get('exit_types', [])))
+                            source=row.get('source'), reason=row.get('reason'),
+                            exit_types=row.get('exit_types', [])))
     combos = []
     for (sym, name), trades in sorted(groups.items(), key=lambda item: (item[0][0] or '', str(item[0][1] or ''))):
         closed = [r for r in trades if r.get('status') == 'CLOSED' and r.get('closed_ms')]
         wins = sum(t.get('outcome') == 'WIN' for t in closed)
         losses = sum(t.get('outcome') == 'LOSS' for t in closed)
-        complete = bool(closed) and all(t.get('outcome') in {'WIN', 'LOSS', 'BREAKEVEN'} for t in closed)
+        classified = wins + losses
         # Include ROI for all closed trades with data, even when other trades
         # in this Combo have not yet obtained a full set of fills.
         priced = [t for t in closed if t.get('roi') is not None]
@@ -490,9 +585,10 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
         # Historical Excel ROI has no PnL/margin; its percentage is retained.
         combos.append(dict(symbol=sym, combo=name, total=len(trades), closed=len(closed),
                            unresolved=len(trades)-len(closed), win=wins, loss=losses,
-                           tp_count=wins if complete else None,
-                           sl_count=losses if complete else None,
-                           win_rate=round(100*wins/len(closed), 2) if complete else None,
+                           tp_count=wins,
+                           sl_count=losses,
+                           classified=classified,
+                           win_rate=round(100*wins/classified, 2) if classified else None,
                            real_roi_total=round(actual_roi, 4) if actual_roi is not None else None,
                            roi_estimated=any(t.get('source') == 'bingx_db_roi_estimate' for t in priced),
                            roi_coverage=len(priced)))
