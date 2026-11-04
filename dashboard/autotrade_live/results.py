@@ -165,10 +165,10 @@ def _confirmed_journal_close(binding, entry, symbol):
     No PnL or ROI is inferred from TP/SL type.
     """
     cleanup = binding.get('cleanup') or {}
-    if cleanup.get('status') != 'done':
+    if not isinstance(cleanup, dict) or cleanup.get('status') != 'done':
         return None
     orders = cleanup.get('orders') or {}
-    if not isinstance(orders, dict) or not isinstance(cleanup, dict):
+    if not isinstance(orders, dict):
         return None
     qty = _decimal(entry['filled_qty'])
     if qty is None or qty <= 0:
