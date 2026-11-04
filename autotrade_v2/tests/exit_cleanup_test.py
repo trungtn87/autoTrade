@@ -263,6 +263,45 @@ def test_service_batches_symbol_reads_once_and_never_touches_peer():
     assert service.store.rows[combo2["intent"]["event_id"]].get("exit_cleanup",{}).get("status")=="watching"
 
 
+
+def test_cleanup_scan_api_error_is_audit_warning_only():
+    state=trade()
+    class ScanFailClient(FakeClient):
+        def get_open_orders(self,symbol):
+            self.open_orders_calls+=1
+            raise RuntimeError("BingX error 1094000: timestamp is invalid")
+
+    class Store:
+        def list_states(self):
+            return [(state["intent"]["event_id"],state)]
+
+        def save_state(self,eid,value):
+            raise AssertionError("read-only failed scan must not mutate state")
+
+    client=ScanFailClient()
+    notices=[]
+    service=object.__new__(ExecutionService)
+    service.settings=SimpleNamespace(execution_enabled=True,dry_run=False)
+    service.credentials_verified=True
+    service.store=Store()
+    service.executor=SimpleNamespace(client=client)
+    service._execution_lock=RLock()
+    service._exit_cleanup_scan_errors={}
+    service.event_cb=lambda key,severity,message,**kwargs: notices.append(
+        (key,severity,message,kwargs)
+    )
+
+    assert service.cleanup_closed_exits()==[]
+    assert service.cleanup_closed_exits()==[]
+    assert len(notices)==1
+    assert notices[0][0]=="L3.EXEC.EXIT_CLEANUP_SCAN_FAIL"
+    assert notices[0][1]=="WARNING"
+    assert "no orders changed" in notices[0][2]
+    assert client.open_orders_calls==2
+    assert client.get_positions_calls==0
+    assert client.canceled==[]
+
+
 def test_legacy_pending_sl_replacement_warns_without_resizing():
     state=trade()
     state["lifecycle"]={
@@ -515,6 +554,7 @@ def main():
         test_legacy_without_position_id_is_not_eligible,
         test_runtime_cleanup_is_bounded_but_setup_recovery_remains_15s,
         test_service_batches_symbol_reads_once_and_never_touches_peer,
+        test_cleanup_scan_api_error_is_audit_warning_only,
         test_legacy_pending_sl_replacement_warns_without_resizing,
         test_live_history_matching_closed_combo_and_no_single_get,
         test_history_missing_exact_id_fails_closed_even_when_other_ids_exist,
