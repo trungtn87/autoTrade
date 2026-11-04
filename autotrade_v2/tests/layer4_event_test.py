@@ -103,6 +103,24 @@ def main():
             **base,details={"expected_open_time":200},
         ).normalized())
         assert len(posts)==2,posts
+
+        # Cleanup polling failures are logged for diagnosis, not presented as
+        # failed trades in Discord. Actual unsafe cleanup remains critical.
+        warning_reporter._notify(SystemEvent(
+            event_key="L3.EXEC.EXIT_CLEANUP_SCAN_FAIL",
+            layer="L3",severity="WARNING",
+            message="read-only BingX cleanup scan unavailable; no orders changed",
+            symbol="BTC-USDT",
+            details={"error":"BingX error 1094000: timestamp is invalid"},
+        ).normalized())
+        assert len(posts)==2,posts
+        warning_reporter._notify(SystemEvent(
+            event_key="L3.EXEC.EXIT_CLEANUP_RISK",
+            layer="L3",severity="CRITICAL",
+            message="exit cleanup verification failed; no orders mutated",
+            symbol="BTC-USDT",
+        ).normalized())
+        assert len(posts)==3,posts
     finally:
         warning_reporter.stop()
         events_module.requests.post=original_post
