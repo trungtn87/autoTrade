@@ -194,8 +194,8 @@ class ExecutionService:
                 except Exception as exc:
                     error=f"{type(exc).__name__}: {exc}"
                     if self._exit_cleanup_scan_errors.get(symbol)!=error:
-                        self._emit("L3.EXEC.EXIT_CLEANUP_SCAN_FAIL","ERROR",
-                                   "read-only BingX cleanup scan unavailable",
+                        self._emit("L3.EXEC.EXIT_CLEANUP_SCAN_FAIL","WARNING",
+                                   "read-only BingX cleanup scan unavailable; no orders changed",
                                    None,symbol=symbol,error=error)
                         self._exit_cleanup_scan_errors[symbol]=error
                     continue
