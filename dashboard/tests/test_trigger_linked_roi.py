@@ -1,6 +1,6 @@
 """Real native child trigger IDs must resolve split Combo positions without guesses."""
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import create_engine, text
 
@@ -262,13 +262,14 @@ def test_old_shared_short_position_tp_and_sl_are_separate_combos_by_close_day():
                     (:id,'BTC-USDT','BUY','SHORT',0.0012,80000,:pnl,-0.048,'{}')"""),
                     dict(id=oid+'0',pnl=pnl))
         history = result_payload(load_results(engine))['theory']['history']
-        selected = [r for r in history if r['combo'] in ('C7','C4','C11','C14') and
-                    r['source']=='bingx_db_roi_estimate']
+        selected = [r for r in history
+                    if r['source']=='bingx_db_roi_estimate'
+                    and _ms('2026-10-24T00:00:00+07:00') <= r['entry_ms']
+                    < _ms('2026-10-25T00:00:00+07:00')]
         assert len(selected) == 4
         day = lambda item: datetime.fromtimestamp(
-            item['exit_ms']/1000, tz=timezone.utc).astimezone(
-                __import__('datetime').timezone(__import__('datetime').timedelta(hours=7))
-            ).strftime('%Y-%m-%d')
+            item['exit_ms']/1000, tz=timezone.utc
+        ).astimezone(timezone(timedelta(hours=7))).strftime('%Y-%m-%d')
         assert sum(day(r)=='2026-10-24' and r['outcome']=='WIN' for r in selected) == 3
         assert sum(day(r)=='2026-10-25' and r['outcome']=='LOSS' for r in selected) == 1
         assert all(r['recorded_roi_pct'] is not None for r in selected)
