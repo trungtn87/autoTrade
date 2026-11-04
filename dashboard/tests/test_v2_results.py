@@ -253,7 +253,12 @@ def test_combo_roi_uses_actual_margin_and_mixed_exit_counts_one_outcome():
     assert combo['closed'] == 2 and combo['tp_count'] == 2 and combo['sl_count'] == 0
     assert combo['real_roi_total'] == round(100*20/1100, 4)
     rows[0]['outcome'] = None
-    assert result_payload(rows)['theory']['combos'][0]['tp_count'] is None
+    # One unclassified close cannot erase a different verified winner.
+    partial = result_payload(rows)['theory']['combos'][0]
+    assert partial['total'] == 2 and partial['closed'] == 2
+    assert partial['classified'] == 1
+    assert partial['tp_count'] == 1 and partial['sl_count'] == 0
+    assert partial['win_rate'] == 100.0
 
 
 def test_restart_marks_old_outer_audit_interrupted_without_losing_cursor(tmp_path, monkeypatch):
