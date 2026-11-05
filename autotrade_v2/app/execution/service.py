@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from dataclasses import asdict
+from contextlib import nullcontext
 import threading
 import time
 
@@ -10,6 +12,7 @@ from .final14_executor import Final14Executor
 from .identity import entry_baseline
 from .exit_cleanup import clean_one, eligible, oid, CleanupUncertain
 from .store import ExecutionStore
+from .merged import reconcile_side
 
 
 class ExecutionService:
@@ -126,6 +129,11 @@ class ExecutionService:
                     event_id=event_id,
                 )
                 continue
+            recovery=state.get("recovery") or {}
+            if int(recovery.get("attempts",0))>=8:
+                continue  # bounded automated recovery; persisted manual intervention
+            if time.time() < float(recovery.get("next_at",0)):
+                continue
             result=self.execute(intent,recovery_only=True)
             recovered.append({
                 "event_id":event_id,
@@ -135,6 +143,16 @@ class ExecutionService:
         return recovered
 
     def cleanup_closed_exits(self)->list[dict]:
+        with self._execution_lock, self._trade_lock() as acquired:
+            if not acquired:
+                return []
+            return self._cleanup_closed_exits_locked()
+
+    def _trade_lock(self):
+        # Legacy offline doubles lack a store; production always has one.
+        return self.store.trading_lock() if hasattr(self.store,"trading_lock") else nullcontext(True)
+
+    def _cleanup_closed_exits_locked(self)->list[dict]:
         """Bounded, read-first orphan cleanup; never resize or cancelReplace SL.
 
         Only states with a persisted positionId and verified SL/TP order IDs
@@ -146,7 +164,8 @@ class ExecutionService:
             return []
         with self._execution_lock:
             grouped={}
-            for event_id,state in self.store.list_states():
+            all_states=self.store.list_states()
+            for event_id,state in all_states:
                 if eligible(state):
                     grouped.setdefault(state["intent"]["symbol"],[]).append((event_id,state))
             results=[]
@@ -212,8 +231,37 @@ class ExecutionService:
                         if oid_ in claimed and claimed[oid_] != eid:
                             collisions.update((eid,claimed[oid_]))
                         claimed[oid_]=eid
+                side_reports={}
+                for side in {s["intent"]["side"] for _,s in states}:
+                    siblings=[(eid,s) for eid,s in all_states
+                              if (s.get("intent") or {}).get("symbol")==symbol
+                              and (s.get("intent") or {}).get("side")==side]
+                    try:
+                        side_reports[side]=reconcile_side(siblings,positions,by_id,history_by_id)
+                    except Exception as exc:
+                        side_reports[side]={"status":"RECONCILE_REQUIRED","risks":[str(exc)]}
                 for event_id,state in states:
                     intent=self._intent_from_state(state)
+                    report=side_reports[state["intent"]["side"]]
+                    own_report=(report.get("combos") or {}).get(event_id,{})
+                    state["merged_reconcile"]={k:v for k,v in report.items() if k!="combos"}
+                    if own_report.get("monitor"):
+                        state["exit_cleanup"]=own_report["monitor"]
+                    if report["status"]!="VERIFIED":
+                        state["safety_status"]="RECONCILE_REQUIRED"
+                        if Decimal(str(own_report.get("remaining_qty", "-1")))!=0:
+                            state["ok"]=False
+                            state["stage"]="protection_reconcile_required"
+                        signature="|".join(report["risks"])
+                        if state.get("last_safety_warning")!=signature:
+                            self._emit("L3.EXEC.EXIT_CLEANUP_RISK","CRITICAL",signature,intent)
+                            state["last_safety_warning"]=signature
+                        self.store.save_state(event_id,state)
+                        # Exact owned fills can authorize cleanup of a fully
+                        # closed combo even if its peer lacks protection. All
+                        # live-combo mutation remains blocked.
+                        if Decimal(str(own_report.get("remaining_qty", "-1")))!=0 or not (own_report.get("monitor") or {}).get("fills_verified"):
+                            continue
                     if event_id in collisions or intent is None:
                         self._emit("L3.EXEC.EXIT_CLEANUP_RISK","CRITICAL",
                                    "ambiguous owned order IDs; cleanup refused",intent)
@@ -246,7 +294,10 @@ class ExecutionService:
             return results
 
     def execute(self, intent: TradeIntent, recovery_only:bool=False) -> ExecutionResult:
-        with self._execution_lock:
+        with self._execution_lock, self._trade_lock() as acquired:
+            if not acquired:
+                return ExecutionResult(event_id=intent.event_id, accepted=False,
+                                       status="execution_lock_busy", details={"network_called":False})
             return self._execute_unlocked(intent,recovery_only=recovery_only)
 
     def _execute_unlocked(self, intent: TradeIntent, recovery_only:bool=False) -> ExecutionResult:
@@ -319,6 +370,21 @@ class ExecutionService:
 
         client_order_id=self.executor.client_order_id(intent.event_id,"entry")
         if not state:
+            for other_id,other in self.store.list_states():
+                raw=other.get("intent") or {}
+                if raw.get("symbol")!=intent.symbol or raw.get("side")!=intent.side:
+                    continue
+                monitor=other.get("exit_cleanup") or {}
+                # done is accepted only with an explicit own-fill ledger.
+                closed=(monitor.get("fills_verified") and Decimal(str(monitor.get("remaining_qty", "-1")))==0)
+                if not closed and (not other.get("terminal") or other.get("entry_filled")
+                                   or other.get("safety_status")=="RECONCILE_REQUIRED"):
+                    self._emit("L3.EXEC.MERGED_ENTRY_BLOCK","CRITICAL",
+                               "same-side combo requires verified merged-position and executable-exit budget before another entry",intent,
+                               blocking_event_id=other_id)
+                    return ExecutionResult(event_id=intent.event_id,accepted=False,
+                                           status="merged_reconcile_required",
+                                           details={"network_called":False,"blocking_event_id":other_id})
             # The separate-isolated position identifier must be attributable to
             # this specific entry. Persist an exchange snapshot BEFORE POST.
             # If observation fails, do NOT create an entry we cannot safely
@@ -399,6 +465,17 @@ class ExecutionService:
         # positionId lookup, API outage, or Render restart.
         persisted={**(state or {}),**self._state_payload(intent,result,terminal)}
         # Do not create a post-entry SL lifecycle. BingX manages confirmed exits.
+        if not terminal:
+            attempts=int((state.get("recovery") or {}).get("attempts",0))+1
+            persisted["recovery"]={"attempts":attempts,"manual_required":attempts>=8,
+                "next_at":time.time()+min(900,15*2**min(attempts,6))}
+            if attempts==8:
+                self._emit("L3.EXEC.RECOVERY_EXHAUSTED","CRITICAL",
+                           "automated recovery exhausted; manual reconciliation required, no further order submissions",intent)
+            persisted["safety_status"]="RECONCILE_REQUIRED"
+        failure_signature=str(result.get("stage"))+":"+str(result.get("error"))
+        repeated_failure=state.get("last_failure_signature")==failure_signature
+        persisted["last_failure_signature"]=failure_signature if not result.get("ok") else None
         self.store.save_state(intent.event_id,persisted)
         if terminal:
             self.store.mark(intent.event_id, result)
@@ -472,6 +549,9 @@ class ExecutionService:
                 severity = "CRITICAL"
 
             failure_reason = str(result.get("error") or stage)
+            if repeated_failure:
+                return ExecutionResult(event_id=intent.event_id,accepted=accepted,
+                                       status=stage,order_id=order_id,details=result)
             self._emit(
                 key,
                 severity,

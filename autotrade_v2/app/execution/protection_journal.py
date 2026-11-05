@@ -78,6 +78,18 @@ class ProtectionJournal:
         self.state.update(next_state)
 
     def _confirm(self,kind:str,raw:dict,position_id:str|None)->dict:
+        data=raw.get("data") or {}
+        row=data.get("order") or data
+        acknowledged=str(row.get("orderID") or row.get("orderId") or "")
+        if not acknowledged:
+            raise ProtectionReconcilePending(f"{kind}: response lacks exact order ID")
+        next_state={**self.state}
+        journal=dict(next_state.get("protection_journal") or {})
+        prepared=dict(journal.get(kind) or {})
+        prepared["acknowledged_order_id"]=acknowledged
+        journal[kind]=prepared
+        next_state["protection_journal"]=journal
+        self._persist(next_state)  # acknowledgement is durable before verification
         verified=self.verify(raw,kind,position_id)
         next_state={**self.state}
         protection=dict(next_state.get("protection") or {})
@@ -115,7 +127,11 @@ class ProtectionJournal:
             candidates=self._candidates(spec)
             previous=set(map(str,journal.get("baseline_ids") or []))
             delta=[o for o in candidates if str(o.get("orderID") or o.get("orderId")) not in previous]
-            if len(delta)!=1:
+            acknowledged=str(journal.get("acknowledged_order_id") or "")
+            # Price/quantity/position equality is not ownership: a manual order
+            # or another combo may have identical parameters during a timeout.
+            delta=[o for o in delta if str(o.get("orderID") or o.get("orderId"))==acknowledged]
+            if not acknowledged or len(delta)!=1:
                 raise ProtectionReconcilePending(
                     f"{kind}: unresolved conditional POST, {len(delta)} new exact matches; "
                     "manual/exchange reconciliation required, no duplicate sent"

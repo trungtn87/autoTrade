@@ -9,6 +9,14 @@ from decimal import Decimal
 
 from .quantity import PositionQuantityMismatch, _amount
 
+def position_id(row: dict) -> str:
+    """BingX uses both spellings. Conflicting aliases are never evidence."""
+    values={str(row[k]) for k in ("positionId", "positionID") if row.get(k) not in (None, "", 0, "0")}
+    if len(values)>1:
+        raise PositionQuantityMismatch("conflicting BingX position ID aliases")
+    return next(iter(values), "")
+
+
 
 def _same_side(positions:list[dict],symbol:str,entry_side:str)->dict[str,Decimal]:
     wanted="LONG" if entry_side.upper()=="BUY" else "SHORT"
@@ -19,7 +27,7 @@ def _same_side(positions:list[dict],symbol:str,entry_side:str)->dict[str,Decimal
         amt=_amount(row.get("positionAmt"),"positionAmt")
         if amt<=0:
             continue
-        pid=str(row.get("positionId") or "")
+        pid=position_id(row)
         if not pid or pid in result:
             raise PositionQuantityMismatch("BingX positionId missing or duplicated")
         result[pid]=amt

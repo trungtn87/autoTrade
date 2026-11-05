@@ -151,6 +151,9 @@ def main():
         client2=ExistingOrderClient(cid)
         service2.executor.client=client2
 
+        assert service2.recover_pending()==[],"restart must honor durable backoff"
+        state1["recovery"]["next_at"]=0
+        store.save_state(intent.event_id,state1)
         recovered=service2.recover_pending()
         assert recovered and recovered[0]["status"]=="complete",recovered
         assert not any(x[0]=="entry" for x in client2.calls),client2.calls

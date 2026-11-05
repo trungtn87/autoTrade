@@ -181,6 +181,10 @@ def main():
         )
         restarted.credentials_verified=True
         restarted.executor.client=fake_db
+        assert restarted.recover_pending()==[],"restart must honor durable backoff"
+        state=store.get_state(intent().event_id)
+        state["recovery"]["next_at"]=0
+        store.save_state(intent().event_id,state)
         replay=restarted.recover_pending()
         assert replay and replay[0]["status"]=="complete",replay
         state=store.get_state(intent().event_id)

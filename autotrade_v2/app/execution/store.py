@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+import hashlib
 import json
 import sqlite3
 import threading
@@ -108,3 +110,37 @@ class ExecutionStore:
                 body={}
             out.append((str(event_id),body))
         return out
+
+    @contextmanager
+    def trading_lock(self):
+        """Cross-process exclusion for this store/account; never a lease that expires mid-POST.
+
+        Hold a dedicated PostgreSQL session across exchange calls. Lock
+        acquisition failures propagate; never fall back to a local-only lock.
+        SQLite uses an OS lock shared by service instances on the same host.
+        """
+        with self._lock:
+            if self.is_postgres:
+                with self._connect() as con:
+                    with con.cursor() as cur:
+                        cur.execute("SELECT pg_try_advisory_lock(1105, 2026)")
+                        acquired=bool(cur.fetchone()[0])
+                        try:
+                            yield acquired
+                        finally:
+                            if acquired:
+                                cur.execute("SELECT pg_advisory_unlock(1105, 2026)")
+            else:
+                import fcntl
+                # Hash only a path; never persist database credentials.
+                key=hashlib.sha256(str(self.path.resolve()).encode()).hexdigest()
+                with open(f"/tmp/autotrade-execution-{key}.lock", "a") as handle:
+                    try:
+                        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except BlockingIOError:
+                        yield False
+                    else:
+                        try:
+                            yield True
+                        finally:
+                            fcntl.flock(handle, fcntl.LOCK_UN)

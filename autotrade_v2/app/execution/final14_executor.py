@@ -3,7 +3,7 @@ from __future__ import annotations
 from autotrade_v2.analytics.evidence import capture_entry
 
 import hashlib
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN
 import logging
 import time
 
@@ -11,7 +11,7 @@ from ..contracts import TradeIntent
 from ..strategy.final14_config import case_name,get_case
 from .executor import LegacyStyleBingXClient
 from .quantity import allocate_exit_qty,confirmed_position_qty,PositionQuantityMismatch
-from .identity import identify_entry_position
+from .identity import identify_entry_position, position_id as exchange_position_id
 from .protection_journal import ProtectionJournal,ProtectionReconcilePending
 from .close_position_check import position_remaining,PositionConfirmationError
 
@@ -97,6 +97,9 @@ class Final14Executor:
         position_id:str|None=None,resume_state:dict|None=None,
         protection_persist=None,
     )->dict:
+        if (resume_state or {}).get("merged_reconcile", {}).get("shared"):
+            return {"confirmed":False,"reason":reason,
+                    "error":"shared position: automatic emergency close requires per-combo exit proof; manual intervention required"}
         # Separate Isolated must NOT be closed by side alone when multiple
         # positions coexist. Resolve from durable pre-entry snapshot if supplied.
         before=(resume_state or {}).get("pre_entry_positions")
@@ -140,9 +143,9 @@ class Final14Executor:
                             "error":"conflicting BingX position snapshots; refusing another close"}
                 return {"confirmed":True,"reason":reason,"status":"POSITION_FLAT",
                         "position_id":position_id,"remaining_qty":"0"}
-            if float(position_qty)>qty+0.0001:
+            if not journal and Decimal(str(position_qty)) != Decimal(str(qty)):
                 return {"confirmed":False,"reason":reason,
-                        "error":"position quantity exceeds entry fill; refusing cross-combo close",
+                        "error":"position quantity differs from entry fill; refusing unproven residual close",
                         "position_id":position_id,"remaining_qty":str(position_qty)}
 
         # Use the live remaining size for the FIRST close attempt. The SL
@@ -259,7 +262,6 @@ class Final14Executor:
                         # Only a terminal order with a consistent remaining
                         # quantity may start a new, bounded close revision.
                         # Never retry merely because an exchange query timed out.
-                        from decimal import Decimal,ROUND_DOWN
                         submitted=Decimal(str(journal.get("requested_qty") or "0"))
                         filled=Decimal(str(executed_qty))
                         revision=int(journal.get("revision",0))
@@ -537,7 +539,7 @@ class Final14Executor:
                 order_id=final_order_id
                 close=self._confirm_market_close(
                     intent,executed_qty,"partial_entry_timeout",
-                    position_id=str(detail.get("positionId") or "") or None,
+                    position_id=exchange_position_id(detail) or None,
                     resume_state=resume_state,protection_persist=protection_persist,
                 )
                 if close.get("confirmed"):
@@ -592,7 +594,7 @@ class Final14Executor:
         if not self._valid_fill(side,avg_price,tp,sl):
             close=self._confirm_market_close(
                 intent,executed_qty,"fill_outside_final14_range",
-                position_id=str(detail.get("positionId") or "") or None,
+                position_id=exchange_position_id(detail) or None,
                 resume_state=resume_state,protection_persist=protection_persist,
             )
             if close.get("confirmed"):
@@ -662,7 +664,7 @@ class Final14Executor:
                     position_id=identify_entry_position(
                         self.client.get_positions(intent.symbol),
                         intent.symbol,side,filled_qty_raw,baseline=before,
-                        entry_position_id=str(detail.get("positionId") or "") or None,
+                        entry_position_id=exchange_position_id(detail) or None,
                     )
                     break
                 except Exception as exc:
@@ -810,7 +812,7 @@ class Final14Executor:
                     )
                     close=self._confirm_market_close(
                         intent,executed_qty,"stop_loss_unconfirmed",
-                        position_id=position_id or str(detail.get("positionId") or "") or None,
+                        position_id=position_id or exchange_position_id(detail) or None,
                         resume_state=resume_state,
                         protection_persist=protection_persist,
                     )

@@ -5,14 +5,14 @@ combo is exchange-confirmed flat. No SL resizing and no cancelReplace.
 Polling is externally paced (60 seconds); one open-orders and one positions
 snapshot per active symbol each pass. Missing orders are queried by ID only.
 
-A completion proof is either:
-  (1) exact sum of this combo's own exchange exit fills equals its entry fill;
-  (2) this exact positionId is flat for TWO separate passes.
+Completion requires the exact sum of this combo's owned exchange exit fills
+ to equal its entry fill. A flat/missing positionId is diagnostic, never proof.
 If exchange evidence is missing/ambiguous, no mutation is permitted.
 """
 from __future__ import annotations
 
 from autotrade_v2.analytics.evidence import order_evidence
+from .identity import position_id as exchange_position_id
 
 from decimal import Decimal, InvalidOperation
 import logging
@@ -72,7 +72,7 @@ def own_orders(state):
 
 def eligible(state):
     return bool(
-        state.get("ok") and state.get("terminal")
+        state.get("entry_filled") and state.get("terminal")
         and re.fullmatch(r"[1-9][0-9]*", str(state.get("position_id") or ""))
         and str(state.get("intent", {}).get("symbol") or "")
         and state.get("executed_qty") is not None
@@ -91,7 +91,7 @@ def validate_order(state, kind, order):
         or str(order.get("type") or "").upper() != KINDS[kind]
     ):
         raise CleanupUncertain("protection order identity mismatch")
-    position_id = str(order.get("positionId") or order.get("positionID") or "")
+    position_id = exchange_position_id(order)
     if position_id not in ("", "0") and position_id != str(state["position_id"]):
         raise CleanupUncertain("protection positionId mismatch")
     if str(order.get("status") or "").upper() not in ACTIVE | TERMINAL:
@@ -105,7 +105,7 @@ def snapshot_position(positions, state):
     for row in positions:
         if row.get("symbol") != intent["symbol"] or str(row.get("positionSide") or "").upper() != side:
             continue
-        if str(row.get("positionId") or "") == str(state["position_id"]):
+        if exchange_position_id(row) == str(state["position_id"]):
             chosen.append(row)
     if len(chosen)>1:
         raise CleanupUncertain("duplicate positionId in exchange snapshot")
@@ -208,8 +208,7 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
                             historical_by_id, order_id, state, kind
                         )
                         if view is None:
-                            # No verified exit; only two independent flat
-                            # positionId reads can prove closure.
+                            # No verified own exit means no closure proof.
                             unknown_exit_ids.append(order_id)
                             continue
                         row = None  # synthetic, exact-linked FILLED view
@@ -256,10 +255,13 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
         monitor["last_flat_seen_ms"] = 0
 
     remaining = initial-total_filled
-    # Missing exchange order history can never prove a Combo's closure by
-    # fills. If its *exact* positionId remains live, refuse every mutation.
-    # If it disappeared, require two readings separated by >=30 seconds.
-    if unknown_exit_ids and monitor["flat_observations"] < 2:
+    monitor["entry_filled_qty"] = str(initial)
+    monitor["exit_filled_qty"] = str(total_filled)
+    monitor["remaining_qty"] = str(remaining)
+    monitor["fills_verified"] = not unknown_exit_ids
+    # Missing history cannot prove combo closure, even if the shared
+    # container disappeared from repeated snapshots.
+    if unknown_exit_ids:
         if not flat:
             # Missing historical conditional IDs is not itself evidence of
             # a bad order. Fail closed and emit bounded, persisted warnings
@@ -278,12 +280,13 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
                     alerts.append(warning)
         return monitor, [], alerts
 
-    # Exact known fills prove closure, or twice-verified flat positionId.
-    # With unknown exit statuses, ONLY positionId-flat proof is accepted.
-    confirmed_closed = (
-        (not unknown_exit_ids and remaining == 0)
-        or monitor["flat_observations"] >= 2
-    )
+    # A missing/rotated shared positionId is never per-combo fill evidence.
+    # Flat snapshots remain diagnostic only, even after repeated observations.
+    monitor["entry_filled_qty"] = str(initial)
+    monitor["exit_filled_qty"] = str(total_filled)
+    monitor["remaining_qty"] = str(remaining)
+    monitor["fills_verified"] = not unknown_exit_ids
+    confirmed_closed = not unknown_exit_ids and remaining == 0
     if not confirmed_closed:
         active_sl = [
             positive(monitor["orders"][oid_]["orig_qty"],"SL qty")

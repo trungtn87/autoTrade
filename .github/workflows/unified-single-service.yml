@@ -46,6 +46,10 @@ jobs:
           python -m compileall -q unified_app.py autotrade_v2/app dashboard/autotrade_live
           node --check dashboard/autotrade_live/static/app.js
           node --check dashboard/autotrade_live/static/sw.js
+      - name: Verify merged execution store on isolated PostgreSQL
+        run: |
+          python -m pip install --disable-pip-version-check pgserver==0.1.4
+          python scripts/check-merged-postgres.py
       - name: Verify private analytics schema and cross-session lock on isolated Postgres
         run: python scripts/check-analytics-postgres.py
       - name: Build ONLY the production root Docker image

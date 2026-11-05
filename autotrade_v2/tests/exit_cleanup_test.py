@@ -146,8 +146,8 @@ def test_flat_requires_two_distinct_scans():
     assert first["status"]=="watching"
     assert client.canceled==[]
     second,_,_=execute_check(state,client,open_map,[],now=1060000)
-    assert second["status"]=="cleanup"
-    assert set(client.canceled)=={"201","202","203"}
+    assert second["status"]=="watching"
+    assert client.canceled==[]
 
 
 def test_missing_order_lookup_uncertain_no_mutations():
@@ -355,7 +355,7 @@ def test_history_never_authorizes_cancel_of_order_not_in_open_snapshot():
     assert first_result["status"]=="watching"
     second_result,_,_=execute_check(state,client,{},[],
                                     now=1060000,history=hist)
-    assert second_result["status"]=="cleanup"
+    assert second_result["status"]=="watching"
     assert second_result["cancel_requested"]==[]
     assert client.canceled==[]
 
@@ -442,11 +442,11 @@ def test_missing_history_flat_twice_can_cancel_exact_orphan_only():
                              now=1010000,history={})
     assert second["status"]=="watching"
     assert client.canceled==[]
-    # Second time-separated exchange flat proof authorizes ONLY owned ID 201.
+    # Missing history never authorizes cancellation, even after two flat reads.
     third,_,_=execute_check(closed,client,open_map,[],
                             now=1060000,history={})
-    assert third["cancel_requested"]==["201"]
-    assert client.canceled==["201"]
+    assert third["cancel_requested"]==[]
+    assert client.canceled==[]
     assert set(client.canceled).isdisjoint({"301","302","303"})
     assert client.lookups==[]
 
