@@ -173,6 +173,27 @@ def run(kind,trigger,qty,rate=None):
     assert exchange.posts==1
     assert not durable[0]["protection"].get(kind)
 
+    # Crash after the exact POST acknowledgement is durable: now ownership
+    # survives restart, unlike a bare price/quantity match.
+    exchange=Exchange()
+    state={"event_id":"C6","protection":{}}
+    durable=[deepcopy(state)]
+    def persist_ack(s):
+        durable[0]=deepcopy(s)
+    def die_during_verify(*_):
+        raise SystemExit("crash after durable acknowledgement")
+    try:
+        ProtectionJournal(exchange,state,persist_ack,die_during_verify).place(
+            kind,*args,lambda:exchange.submit(kind,qty,trigger,rate),callback_rate=rate)
+        assert False
+    except SystemExit:
+        pass
+    assert durable[0]["protection_journal"][kind]["acknowledged_order_id"]=="101"
+    restarted=deepcopy(durable[0])
+    resolved=journal(exchange,restarted,persist_ack).place(
+        kind,*args,lambda:exchange.submit(kind,qty,trigger,rate),callback_rate=rate)
+    assert resolved["order_id"]=="101" and exchange.posts==1
+
     # Multiple new exact matches, e.g. external actor submitted same order:
     # never pick the first or send again.
     exchange=Exchange()

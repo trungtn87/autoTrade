@@ -12,6 +12,8 @@ from app.execution.quantity import PositionQuantityMismatch
 from app.execution.store import ExecutionStore
 from app.execution.service import ExecutionService
 from app.config import Settings
+from app.execution.final14_executor import Final14Executor
+from types import SimpleNamespace
 from exit_cleanup_test import trade, rows, position, order, FakeClient, execute_check
 
 
@@ -109,6 +111,16 @@ def main():
         assert_raises(CleanupUncertain,lambda:entry_proof(c16,{**entry,field:value},'event-client'))
     assert entry_baseline([{'symbol':'BTC-USDT','positionSide':'SHORT','positionID':'9001','positionAmt':'0.0012'}],'BTC-USDT','SELL')=={'9001':'0.0012'}
     assert_raises(PositionQuantityMismatch,lambda:position_id({'positionID':'1','positionId':'2'}))
+
+    # Single-order GET may return an unrelated order with HTTP 200; never adopt it.
+    ex=object.__new__(Final14Executor)
+    ex.client=SimpleNamespace(extract_order=lambda raw:raw['data']['order'],
+        get_order_detail=lambda *a,**k:{'data':{'order':{'orderID':'999','status':'NEW'}}})
+    assert_raises(RuntimeError,lambda:ex._verify_protection('BTC-USDT',
+        {'data':{'order':{'orderID':'201'}}},'stop-loss','9001'))
+    ex.client.get_order_detail=lambda *a,**k:{'data':{'order':{'orderID':'201','status':'NEW','positionID':'999'}}}
+    assert_raises(RuntimeError,lambda:ex._verify_protection('BTC-USDT',
+        {'data':{'order':{'orderID':'201'}}},'stop-loss','9001'))
 
     # Exact incident: C16 0.0013, C7 0.0013; C16 TP 0.0007 overlaps entry.
     # Old delta method sees +0.0006 instead of +0.0013 and refuses identity.

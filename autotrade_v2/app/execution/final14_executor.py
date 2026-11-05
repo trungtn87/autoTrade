@@ -344,7 +344,11 @@ class Final14Executor:
         raw=self.client.get_order_detail(symbol,order_id=order_id)
         detail=self.client.extract_order(raw)
         status=str(detail.get("status") or "").upper()
-        if position_id and detail.get("positionId") and str(detail["positionId"])!=str(position_id):
+        if self._order_id(detail)!=order_id:
+            raise RuntimeError(f"{kind} GET returned an unrelated orderId")
+        if detail.get("symbol") and detail["symbol"]!=symbol:
+            raise RuntimeError(f"{kind} GET returned another symbol")
+        if position_id and exchange_position_id(detail) and exchange_position_id(detail)!=str(position_id):
             raise RuntimeError(f"{kind} targets the wrong positionId")
         if status not in {"NEW","PARTIALLY_FILLED","FILLED"}:
             raise RuntimeError(f"{kind} not active after placement: status={status or 'UNKNOWN'}")
@@ -692,6 +696,10 @@ class Final14Executor:
             try:
                 raw=self.client.get_order_detail(intent.symbol,order_id=old_sl_id)
                 detail=self.client.extract_order(raw)
+                if self._order_id(detail)!=old_sl_id:
+                    raise ProtectionReconcilePending("sl: lookup returned an unrelated orderId")
+                if position_id and exchange_position_id(detail) and exchange_position_id(detail)!=str(position_id):
+                    raise ProtectionReconcilePending("sl: lookup returned another position")
                 sl_status=str(detail.get("status") or "").upper()
                 if sl_status in {"NEW","PARTIALLY_FILLED","FILLED"}:
                     sl_verified={
@@ -708,6 +716,10 @@ class Final14Executor:
             try:
                 raw=self.client.get_order_detail(intent.symbol,order_id=old_tp_id)
                 detail=self.client.extract_order(raw)
+                if self._order_id(detail)!=old_tp_id:
+                    raise ProtectionReconcilePending("tp: lookup returned an unrelated orderId")
+                if position_id and exchange_position_id(detail) and exchange_position_id(detail)!=str(position_id):
+                    raise ProtectionReconcilePending("tp: lookup returned another position")
                 tp_status=str(detail.get("status") or "").upper()
                 if tp_status in {"NEW","PARTIALLY_FILLED","FILLED"}:
                     tp_verified={
@@ -724,6 +736,10 @@ class Final14Executor:
             try:
                 raw=self.client.get_order_detail(intent.symbol,order_id=old_trailing_id)
                 detail=self.client.extract_order(raw)
+                if self._order_id(detail)!=old_trailing_id:
+                    raise ProtectionReconcilePending("trailing: lookup returned an unrelated orderId")
+                if position_id and exchange_position_id(detail) and exchange_position_id(detail)!=str(position_id):
+                    raise ProtectionReconcilePending("trailing: lookup returned another position")
                 status=str(detail.get("status") or "").upper()
                 if status in {"NEW","PARTIALLY_FILLED","FILLED"}:
                     trailing_verified={

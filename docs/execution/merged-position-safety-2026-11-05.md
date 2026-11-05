@@ -116,19 +116,23 @@ identity rule alone as the complete fix.
 
 ## Verification
 
-- Full offline V2 suite passed before the final recovery-limit adjustment:
-  23 command groups, including 42 unittest cases; external sockets blocked.
-  The suite is rerun after final changes; see PR CI for final commit evidence.
+- Full offline V2 suite: PASS, 23 command groups including 42 unittest cases;
+  external sockets blocked. The suite is rerun on changes; see PR CI for the
+  final commit evidence. Dashboard regression: PASS, 135 tests. Compile and
+  whitespace checks pass.
 - New merged regression script passed: shared IDs; TP overlap; owned trailing
   completion; exact-only cleanup; simultaneous completion; missing snapshots;
   manual SL cancellation; manual size drift; invalid side/type; duplicate
   ownership; missing history; exit budget; independent store locks; incident
   size-delta reproduction. Lost conditional POST/restart tests run separately
   for SL, TP and trailing and assert no duplicate/no shape-only adoption.
-- PostgreSQL integration script: **LOCAL BLOCKED**, not PASS. This environment
+- PostgreSQL integration script: **CI PASS** on the initial draft commit,
+  including the existing PostgreSQL analytics integration. Locally BLOCKED:
+  this environment
   rejects `socket(AF_UNIX)` with `PermissionError: [Errno 1] Operation not
   permitted`, before the isolated server starts. CI installs dev-only
   `pgserver==0.1.4` and runs the integration without production credentials.
+  Review the rerun on the final commit as well.
 - PostgreSQL checks cover independent sessions, WAL visibility/restart,
   competing lock exclusion, exception release and immutable historical marks.
   Passing those does not establish exchange-side atomicity or safe behavior
