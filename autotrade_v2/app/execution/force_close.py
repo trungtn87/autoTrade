@@ -58,9 +58,16 @@ class ForceClose:
 
         try:
             self.store.assert_trading_owner()
+            all_states=self.store.list_states()
+            side_states=[(eid,s) for eid,s in all_states
+                if (s.get("intent") or {}).get("symbol")==intent.symbol
+                and (s.get("intent") or {}).get("side")==intent.side]
+            save(affected=sorted(eid for eid,_ in side_states))
+            if any(not s.get("entry_filled") and not s.get("terminal") for _,s in side_states):
+                raise CleanupUncertain("another entry outcome on this side is unverified")
             # Enumerate every tracked filled combo in this container, including
             # terminal COMPLETE peers. No history rows are overwritten.
-            states={eid:s for eid,s in self.store.list_states()
+            states={eid:s for eid,s in all_states
                     if (s.get("intent") or {}).get("symbol")==intent.symbol
                     and (s.get("intent") or {}).get("side")==intent.side
                     and str(s.get("position_id"))==epoch["position_id"] and s.get("entry_filled")
@@ -217,6 +224,10 @@ class ForceClose:
                         "orders":[x["order"] for x in epoch["closes"]],"position_id":epoch["position_id"]},
                     safety_status="FORCE_CLOSED",exit_cleanup={"status":"done","fills_verified":True,"remaining_qty":"0"})
                 s["abort"]={**(s.get("abort") or {}),"phase":"closed","failed_kind":kind}
+                # Every acknowledged protective ID is terminal with verified
+                # fills now; do not leave its resolved submission blocking the
+                # next healthy event. Durable attempt counts remain unchanged.
+                s["protection_journal"]={}
                 self.store.save_state(eid,s)
                 self.store.mark(eid,{"stage":"force_close_confirmed","epoch":epoch["epoch"]})
             save(phase="closed",closed_at=time.time(),remaining_qty="0",error=None)

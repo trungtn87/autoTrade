@@ -304,6 +304,31 @@ def schedules(factory):
     except RuntimeError as exc:
         assert 'session lost' in str(exc)
     assert attempts==['fenced'];completed+=1
+    for mode in ('acknowledged_peer','unknown_entry'):
+        with factory() as (service,store):
+            ex,intents=start(service,store,kind='tp');a,b=intents;original=store.upsert
+            def prepare_peer(key,value,target):
+                original(key,value,target)
+                if target==TARGET and value['phase']=='requested':
+                    if mode=='acknowledged_peer':
+                        peer=store.get_state(a.event_id)
+                        peer['protection_journal']={'sl':{'phase':'acknowledged',
+                            'acknowledged_order_id':peer['protection']['sl']['order_id']}}
+                        store.save_state(a.event_id,peer)
+                    else:
+                        peer=deepcopy(store.get_state(a.event_id))
+                        peer.update(entry_filled=False,terminal=False)
+                        store.save_state('unknown-peer',peer)
+            store.upsert=prepare_peer
+            result=service.execute(b);store.upsert=original
+            if mode=='acknowledged_peer':
+                assert result.status=='force_close_confirmed',result
+                assert_closed(service,store,ex,intents)
+                assert not store.get_state(a.event_id)['protection_journal']
+            else:
+                assert result.status=='force_close_unresolved' and ex.close_count==0
+                assert 'entry outcome' in result.details['error']
+            completed+=1
     with factory() as (service,store):
         ex,intents=start(service,store,kind='tp');alerts=[]
         service.event_cb=lambda key,severity,message,**kwargs:alerts.append((key,severity,kwargs))
