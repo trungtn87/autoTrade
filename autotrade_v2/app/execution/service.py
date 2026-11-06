@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from dataclasses import asdict
+from contextlib import nullcontext, contextmanager
 import threading
 import time
 
@@ -10,6 +12,24 @@ from .final14_executor import Final14Executor
 from .identity import entry_baseline
 from .exit_cleanup import clean_one, eligible, oid, CleanupUncertain
 from .store import ExecutionStore
+from .merged import reconcile_side
+from .force_close import ForceClose, side_key, TARGET as FORCE_TARGET
+
+
+class FencedClient:
+    """Check the exact coordinator session at each private mutation boundary."""
+    def __init__(self,client,check):
+        self.client=client
+        self.check=check
+
+    def __getattr__(self,name):
+        value=getattr(self.client,name)
+        if callable(value) and (name.startswith(("place_","cancel_")) or name=="close_market"):
+            def fenced(*args,**kwargs):
+                self.check()
+                return value(*args,**kwargs)
+            return fenced
+        return value
 
 
 class ExecutionService:
@@ -28,6 +48,7 @@ class ExecutionService:
     def _emit(self, key: str, severity: str, message: str, intent: TradeIntent | None = None, **extra) -> None:
         if not self.event_cb:
             return
+
         try:
             kwargs = {
                 "event_id": intent.event_id if intent else None,
@@ -39,6 +60,9 @@ class ExecutionService:
             self.event_cb(key, severity, message, **kwargs)
         except Exception:
             return
+
+    def _emergency(self,symbol,side):
+        return self.store.get(side_key(symbol,side),FORCE_TARGET) if hasattr(self.store,"get") else None
 
     def preflight(self) -> dict:
         if not self.settings.bingx_api_key or not self.settings.bingx_api_secret:
@@ -113,6 +137,22 @@ class ExecutionService:
             return []
 
         recovered=[]
+        # An epoch survives a crash between per-combo terminal writes and the
+        # final epoch commit. Recover it even if its initiator is now terminal.
+        emergencies={}
+        for eid,s in self.store.list_states():
+            raw=s.get("intent") or {}
+            epoch=self.store.get(side_key(raw.get("symbol"),raw.get("side")),FORCE_TARGET)
+            if epoch and epoch.get("phase")!="closed":
+                emergencies[epoch["epoch"]]=epoch
+        for epoch in emergencies.values():
+            if time.time()<float(epoch.get("next_at",0)):
+                continue
+            s=self.store.get_state(epoch["initiator"])
+            intent=self._intent_from_state(s or {})
+            if intent:
+                result=self.execute(intent,recovery_only=True)
+                recovered.append({"event_id":intent.event_id,"status":result.status,"accepted":result.accepted})
         for event_id,state in self.store.list_states():
             if bool(state.get("terminal")):
                 continue
@@ -126,6 +166,14 @@ class ExecutionService:
                     event_id=event_id,
                 )
                 continue
+            recovery=state.get("recovery") or {}
+            emergency=self.store.get(side_key(intent.symbol,intent.side),FORCE_TARGET)
+            if emergency and emergency.get("phase")!="closed":
+                continue  # above epoch recovery owns this side
+            if int(recovery.get("attempts",0))>=8 and not (emergency and emergency.get("phase")!="closed"):
+                continue  # bounded automated recovery; persisted manual intervention
+            if time.time() < float(recovery.get("next_at",0)):
+                continue
             result=self.execute(intent,recovery_only=True)
             recovered.append({
                 "event_id":event_id,
@@ -135,6 +183,29 @@ class ExecutionService:
         return recovered
 
     def cleanup_closed_exits(self)->list[dict]:
+        with self._execution_lock, self._trade_lock() as acquired:
+            if not acquired:
+                return []
+            return self._cleanup_closed_exits_locked()
+
+    @contextmanager
+    def _trade_lock(self):
+        # Legacy offline doubles lack a store; production always has one.
+        lock=self.store.trading_lock() if hasattr(self.store,"trading_lock") else nullcontext(True)
+        with lock as acquired:
+            client=self.executor.client
+            check=getattr(self.store,"assert_trading_owner",lambda:None)
+            previous=vars(client).get("mutation_check")
+            if acquired:
+                client.mutation_check=check
+                self.executor.client=FencedClient(client,check)
+            try:
+                yield acquired
+            finally:
+                self.executor.client=client
+                client.mutation_check=previous
+
+    def _cleanup_closed_exits_locked(self)->list[dict]:
         """Bounded, read-first orphan cleanup; never resize or cancelReplace SL.
 
         Only states with a persisted positionId and verified SL/TP order IDs
@@ -146,7 +217,12 @@ class ExecutionService:
             return []
         with self._execution_lock:
             grouped={}
-            for event_id,state in self.store.list_states():
+            all_states=self.store.list_states()
+            for event_id,state in all_states:
+                raw=state.get("intent") or {}
+                emergency=self._emergency(raw.get("symbol"),raw.get("side"))
+                if emergency and emergency.get("phase")!="closed":
+                    continue  # the emergency epoch owns this entire side
                 if eligible(state):
                     grouped.setdefault(state["intent"]["symbol"],[]).append((event_id,state))
             results=[]
@@ -212,8 +288,47 @@ class ExecutionService:
                         if oid_ in claimed and claimed[oid_] != eid:
                             collisions.update((eid,claimed[oid_]))
                         claimed[oid_]=eid
+                side_reports={}
+                for side in {s["intent"]["side"] for _,s in states}:
+                    siblings=[(eid,s) for eid,s in all_states
+                              if (s.get("intent") or {}).get("symbol")==symbol
+                              and (s.get("intent") or {}).get("side")==side]
+                    try:
+                        side_reports[side]=reconcile_side(siblings,positions,by_id,history_by_id)
+                    except Exception as exc:
+                        side_reports[side]={"status":"RECONCILE_REQUIRED","risks":[str(exc)]}
                 for event_id,state in states:
                     intent=self._intent_from_state(state)
+                    report=side_reports[state["intent"]["side"]]
+                    own_report=(report.get("combos") or {}).get(event_id,{})
+                    state["merged_reconcile"]={k:v for k,v in report.items() if k!="combos"}
+                    if own_report.get("monitor"):
+                        state["exit_cleanup"]=own_report["monitor"]
+                    if report["status"]!="VERIFIED":
+                        budget_only=set(report["risks"])=={"EXECUTABLE_EXIT_BUDGET_EXCEEDED"}
+                        state["safety_status"]="EXIT_BUDGET_UNVERIFIED" if budget_only else "RECONCILE_REQUIRED"
+                        own_risks=[r for r in report["risks"] if r.startswith(event_id+":")
+                            or r in {"POSITION_LEDGER_MISMATCH","UNOWNED_EXIT_ORDER","UNTRACKED_ENTRY_ORDER"}
+                            or (":" not in r and r!="EXECUTABLE_EXIT_BUDGET_EXCEEDED")]
+                        if own_risks and Decimal(str(own_report.get("remaining_qty", "-1")))!=0:
+                            state["ok"]=False
+                            state["stage"]="protection_reconcile_required"
+                        if budget_only and state.get("terminal") and own_report.get("monitor",{}).get("fills_verified"):
+                            state["ok"]=True
+                            state["stage"]="complete"
+                        signature="|".join(report["risks"])
+                        if state.get("last_safety_warning")!=signature:
+                            self._emit("L3.EXEC.EXIT_CLEANUP_RISK","CRITICAL",signature,intent)
+                            state["last_safety_warning"]=signature
+                        self.store.save_state(event_id,state)
+                        # Exact owned fills can authorize cleanup of a fully
+                        # closed combo even if its peer lacks protection. All
+                        # live-combo mutation remains blocked.
+                        if Decimal(str(own_report.get("remaining_qty", "-1")))!=0 or not (own_report.get("monitor") or {}).get("fills_verified"):
+                            continue
+                    if state.get("abort") and state["abort"].get("phase")!="closed":
+                        self.store.save_state(event_id,state)
+                        continue  # abort coordinator owns all conditional/close mutations
                     if event_id in collisions or intent is None:
                         self._emit("L3.EXEC.EXIT_CLEANUP_RISK","CRITICAL",
                                    "ambiguous owned order IDs; cleanup refused",intent)
@@ -246,8 +361,62 @@ class ExecutionService:
             return results
 
     def execute(self, intent: TradeIntent, recovery_only:bool=False) -> ExecutionResult:
-        with self._execution_lock:
+        with self._execution_lock, self._trade_lock() as acquired:
+            if not acquired:
+                return ExecutionResult(event_id=intent.event_id, accepted=False,
+                                       status="execution_lock_busy", details={"network_called":False})
             return self._execute_unlocked(intent,recovery_only=recovery_only)
+
+    def _entry_admission(self,intent,include_current=False):
+        """Read-only admission. Same symbol/side alone never blocks an entry."""
+        positions=self.executor.client.get_positions(intent.symbol)
+        baseline=entry_baseline(positions,intent.symbol,intent.side)
+        opened=self._order_map(self.executor.client.get_open_orders(intent.symbol),intent.symbol)
+        siblings=[(eid,s) for eid,s in self.store.list_states()
+                  if (include_current or eid!=intent.event_id) and (s.get("intent") or {}).get("symbol")==intent.symbol
+                  and (s.get("intent") or {}).get("side")==intent.side]
+        if not siblings:
+            side="LONG" if intent.side=="BUY" else "SHORT"
+            risks=[]
+            if baseline:
+                risks.append("UNTRACKED_POSITION")
+            if any(str(row.get("positionSide") or "").upper()==side for row in opened.values()):
+                risks.append("UNOWNED_OPEN_ORDER")
+            return baseline,{"blocking_risks":risks,"shared":False}
+        required=set()
+        for _,s in siblings:
+            cached=(s.get("exit_cleanup") or {}).get("orders") or {}
+            for item in (s.get("protection") or {}).values():
+                if not isinstance(item,dict):
+                    continue
+                order_id=str(item.get("order_id") or "")
+                if order_id and order_id not in opened and not (cached.get(order_id) or {}).get("status") in {
+                    "FILLED","CANCELED","CANCELLED","EXPIRED","REJECTED"}:
+                    required.add(order_id)
+        history={}
+        if required:
+            now=int(time.time()*1000)
+            history=self._order_map(self.executor.client.get_order_history(
+                intent.symbol,now-6*86400_000,now,required_ids=required),intent.symbol)
+        report=reconcile_side(siblings,positions,opened,history)
+        # Sum of resting native conditional quantities is a separate unresolved
+        # design diagnostic, not proof a healthy same-side combo is unprotected.
+        # It must remain explicit in the draft; do not use it as a disguised
+        # blanket same-side entry switch.
+        blockers=[r for r in report["risks"] if r!="EXECUTABLE_EXIT_BUDGET_EXCEEDED"]
+        return baseline,{**{k:v for k,v in report.items() if k!="combos"},"blocking_risks":blockers}
+
+    @staticmethod
+    def _order_map(rows,symbol):
+        result={}
+        if not isinstance(rows,list):
+            raise CleanupUncertain("order snapshot is not a list")
+        for row in rows:
+            order_id=oid(row)
+            if not order_id or order_id in result or row.get("symbol")!=symbol:
+                raise CleanupUncertain("missing/duplicate/wrong-symbol exchange order identity")
+            result[order_id]=row
+        return result
 
     def _execute_unlocked(self, intent: TradeIntent, recovery_only:bool=False) -> ExecutionResult:
         if not self.settings.execution_enabled:
@@ -301,7 +470,22 @@ class ExecutionService:
             )
 
         state=self.store.get_state(intent.event_id)
+        emergency=self.store.get(side_key(intent.symbol,intent.side),FORCE_TARGET)
+        if emergency and emergency.get("phase")!="closed":
+            if intent.event_id!=emergency["initiator"]:
+                return ExecutionResult(event_id=intent.event_id,accepted=False,
+                    status="force_close_side_blocked",details={"epoch":emergency["epoch"]})
+            result=ForceClose(self).run(intent,state,emergency["failed_kind"])
+            return ExecutionResult(event_id=intent.event_id,accepted=True,status=result["stage"],details=result)
         pending=bool(state and not state.get("terminal"))
+        if pending:
+            recovery=state.get("recovery") or {}
+            exhausted=int(recovery.get("attempts",0))>=8
+            if exhausted or time.time()<float(recovery.get("next_at",0)):
+                return ExecutionResult(event_id=intent.event_id,
+                    accepted=bool(state.get("entry_accepted")),
+                    status="manual_reconcile_required" if exhausted else "recovery_backoff",
+                    order_id=state.get("order_id"),details={"network_called":False,"recovery":recovery})
 
         if self.store.seen(intent.event_id) and not pending:
             self._emit(
@@ -319,33 +503,37 @@ class ExecutionService:
 
         client_order_id=self.executor.client_order_id(intent.event_id,"entry")
         if not state:
-            # The separate-isolated position identifier must be attributable to
-            # this specific entry. Persist an exchange snapshot BEFORE POST.
-            # If observation fails, do NOT create an entry we cannot safely
-            # route its later TP/SL/trailing and emergency close to.
-            before_positions=None
-            if self.settings.tp_trailing_split_enabled:
-                try:
-                    before_positions=entry_baseline(
-                        self.executor.client.get_positions(intent.symbol),
-                        intent.symbol,intent.side,
-                    )
-                except Exception as exc:
-                    self._emit(
-                        "L3.EXEC.POSITION_PREFLIGHT_BLOCK","CRITICAL",
-                        "cannot safely bind new entry to a separate isolated position",
-                        intent,error=str(exc),
-                    )
-                    return ExecutionResult(
-                        event_id=intent.event_id,accepted=False,
-                        status="position_preflight_blocked",
-                        details={"network_called":False,"error":str(exc)},
-                    )
+            # A peer's presence is not a rejection reason. Reconcile its exact
+            # fills/protections against the exchange before increasing exposure.
+            try:
+                existing=self.executor.client.find_order_by_client_id(intent.symbol,client_order_id)
+                if existing is not None:
+                    # A prior MARKET can outlive a lost local state write.
+                    # Reconcile that exact ID; never admit another MARKET.
+                    before_positions=None
+                    admission={"blocking_risks":[],"existing_entry_recovery":True}
+                    pending=True
+                else:
+                    before_positions,admission=self._entry_admission(intent)
+            except Exception as exc:
+                self._emit("L3.EXEC.POSITION_PREFLIGHT_BLOCK","CRITICAL",
+                           "exchange exposure/protection evidence unavailable; entry not submitted",
+                           intent,error=str(exc))
+                return ExecutionResult(event_id=intent.event_id,accepted=False,
+                    status="position_preflight_blocked",details={"network_called":True,"error":str(exc)})
+            if admission["blocking_risks"]:
+                self._emit("L3.EXEC.MERGED_RECONCILE_REQUIRED","CRITICAL",
+                           "verified exposure/protection mismatch; entry not submitted",intent,
+                           risks=admission["blocking_risks"])
+                return ExecutionResult(event_id=intent.event_id,accepted=False,
+                    status="merged_reconcile_required",details=admission)
             new_state={
                     "terminal":False,
                     "stage":"entry_intent",
                     # Snapshot is durable across an ambiguous MARKET POST/restart.
                     "pre_entry_positions":before_positions,
+                    "shared_position":bool(before_positions),
+                    "admission":admission,
                     "exit_mode":"split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp",
                     "client_order_id":client_order_id,
                     "intent":asdict(intent),
@@ -379,17 +567,43 @@ class ExecutionService:
             recovery_only=bool(recovery_only),
         )
 
+        siblings=[s for eid,s in self.store.list_states() if eid!=intent.event_id
+                  and (s.get("intent") or {}).get("symbol")==intent.symbol
+                  and (s.get("intent") or {}).get("side")==intent.side
+                  and (s.get("entry_filled") or not s.get("terminal"))
+                  and not ((s.get("exit_cleanup") or {}).get("fills_verified")
+                           and Decimal(str((s.get("exit_cleanup") or {}).get("remaining_qty","-1")))==0)]
+        if siblings:
+            state["shared_position"]=True
+            self.store.save_state(intent.event_id,state)
+
         # Write-ahead protection journal: each PREPARED state must be durable
         # before BingX receives a conditional POST. This prevents duplicates
         # when HTTP replies are lost or Render restarts mid-trade.
         def persist_protection(next_state):
             self.store.save_state(intent.event_id,next_state)
 
+        def exposure_check(current):
+            _,report=self._entry_admission(intent,include_current=True)
+            # Missing current TP/trailing is expected while establishing them.
+            # Proven peer fills/old oversized SLs do not erase current entry
+            # ownership. Their repair/cleanup remains a separate exact-ID task.
+            blockers=[r for r in report.get("risks",[]) if
+                r!="EXECUTABLE_EXIT_BUDGET_EXCEEDED"
+                and not r.startswith(intent.event_id+":")
+                and not r.endswith(":SL_QUANTITY_MISMATCH")
+                and not r.endswith(":CLOSED_COMBO_ACTIVE_EXIT")]
+            current["merged_reconcile"]={k:v for k,v in report.items() if k!="blocking_risks"}
+            self.store.save_state(intent.event_id,current)
+            return blockers
+
         result = self.executor.execute_safe(
             intent,
             resume_state=state,
             allow_new_entry=not (pending or recovery_only),
             protection_persist=persist_protection,
+            exposure_check=exposure_check,
+            force_close=lambda current,kind:ForceClose(self).run(intent,current,kind),
         )
         accepted = bool(result.get("entry_accepted") or result.get("ok"))
         terminal = bool(result.get("processed"))
@@ -397,11 +611,30 @@ class ExecutionService:
 
         # Retain the pre-entry snapshot for recovery after an ambiguous
         # positionId lookup, API outage, or Render restart.
+        if result.get("force_close_epoch"):
+            state=self.store.get_state(intent.event_id) or state
         persisted={**(state or {}),**self._state_payload(intent,result,terminal)}
         # Do not create a post-entry SL lifecycle. BingX manages confirmed exits.
+        if not terminal:
+            attempts=int((state.get("recovery") or {}).get("attempts",0))+1
+            persisted["recovery"]={"attempts":attempts,"manual_required":attempts>=8,
+                "next_at":time.time()+min(900,15*2**min(attempts,6))}
+            if attempts==8:
+                self._emit("L3.EXEC.RECOVERY_EXHAUSTED","CRITICAL",
+                           "automated recovery exhausted; manual reconciliation required, no further order submissions",intent)
+            persisted["safety_status"]="RECONCILE_REQUIRED"
+        failure_signature=str(result.get("stage"))+":"+str(result.get("error"))
+        repeated_failure=state.get("last_failure_signature")==failure_signature
+        persisted["last_failure_signature"]=failure_signature if not result.get("ok") else None
         self.store.save_state(intent.event_id,persisted)
         if terminal:
             self.store.mark(intent.event_id, result)
+
+        if result.get("force_close_epoch"):
+            # The epoch emits a bounded, dedicated system alert with every
+            # affected combo. Do not also enqueue an initiator-only trade failure.
+            return ExecutionResult(event_id=intent.event_id,accepted=accepted,
+                status=result["stage"],order_id=order_id,details=result)
 
         if result.get("ok"):
             common = {
@@ -429,7 +662,13 @@ class ExecutionService:
             severity = "CRITICAL" if result.get("entry_accepted") else "ERROR"
             key = "L3.EXEC.ORDER_FAIL"
 
-            if stage in {"entry_unknown_reconcile_required","reconcile_error"}:
+            if stage in {"protection_setup_aborted_closed","force_close_confirmed"}:
+                key="L3.EXEC.EMERGENCY_CLOSE"
+                severity="WARNING"
+            elif stage in {"protection_abort_reconcile_required","force_close_unresolved"}:
+                key="L3.EXEC.UNSAFE_OPEN_POSITION"
+                severity="CRITICAL"
+            elif stage in {"entry_unknown_reconcile_required","reconcile_error"}:
                 key = "L3.EXEC.RECONCILE_REQUIRED"
                 severity = "CRITICAL"
             elif stage=="entry_absent_reconciled":
@@ -472,6 +711,9 @@ class ExecutionService:
                 severity = "CRITICAL"
 
             failure_reason = str(result.get("error") or stage)
+            if repeated_failure:
+                return ExecutionResult(event_id=intent.event_id,accepted=accepted,
+                                       status=stage,order_id=order_id,details=result)
             self._emit(
                 key,
                 severity,

@@ -119,6 +119,9 @@ class LegacyStyleBingXClient:
 
     def _signed_request(self,method:str,path:str,params:dict)->dict:
         with self.guard.request_slot():
+            # Recheck AFTER rate-limit waiting, immediately before transport.
+            if method.upper() in {"POST","DELETE"} and getattr(self,"mutation_check",None):
+                self.mutation_check()
             body=dict(params)
             body["timestamp"]=str(int(time.time()*1000))
             query="&".join(f"{k}={body[k]}" for k in sorted(body))
@@ -539,12 +542,13 @@ class LegacyStyleBingXClient:
         leverage:int,
         client_order_id:str|None=None,
         position_id:str|None=None,
+        quantity_precision:int|None=None,
     )->dict:
         close_side="SELL" if entry_side.upper()=="BUY" else "BUY"
         params={
             "symbol":symbol,
             "side":close_side,
-            "quantity":self._fmt_qty(qty),
+            "quantity":self._fmt_qty(qty) if quantity_precision is None else self._fmt_exact_qty(qty,quantity_precision),
             "leverage":str(int(leverage)),
             "type":"MARKET",
             "positionSide":"LONG" if entry_side.upper()=="BUY" else "SHORT",

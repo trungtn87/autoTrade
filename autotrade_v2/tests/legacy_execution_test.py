@@ -34,7 +34,11 @@ class FakeClient:
     def get_open_orders(self,symbol):
         # Offline fake: never query the network; known trades are confirmed by
         # their saved exchange orderId after the journaling POST.
-        return []
+        return [self.extract_order(x) for x in self.by_order.values()
+                if self.extract_order(x).get("status") in {"NEW","PARTIALLY_FILLED"}]
+
+    def get_order_history(self,symbol,*args,**kwargs):
+        return [self.extract_order(x) for x in self.by_order.values()]
 
     @staticmethod
     def extract_order(payload):
@@ -53,7 +57,9 @@ class FakeClient:
     def place_market_entry(self,symbol,side,qty,leverage,client_order_id=None):
         self.calls.append(("entry",symbol,side,qty,leverage,client_order_id))
         order={
-            "orderId":"abc",
+            "orderId":"1001","symbol":symbol,"side":side,
+            "positionSide":"LONG" if side=="BUY" else "SHORT",
+            "type":"MARKET","origQty":"1",
             "clientOrderId":client_order_id,
             "executedQty":"1" if self.entry_status in {"FILLED","PARTIALLY_FILLED"} else "0",
             "avgPrice":str(self.avg_price) if self.entry_status in {"FILLED","PARTIALLY_FILLED"} else "0",
@@ -62,7 +68,7 @@ class FakeClient:
         }
         payload={"code":0,"data":{"order":order}}
         self.by_client[client_order_id]=payload
-        self.by_order["abc"]=payload
+        self.by_order["1001"]=payload
         return payload
 
     def get_order_detail(self,symbol,order_id=None,client_order_id=None):
@@ -92,13 +98,15 @@ class FakeClient:
         if self.fail_sl:
             raise RuntimeError("simulated SL failure")
         order={
-            "orderId":"sl-1",
+            "orderId":"2001","symbol":symbol,"origQty":str(qty),"stopPrice":str(sl),
+            "side":"SELL" if entry_side=="BUY" else "BUY",
+            "positionSide":"LONG" if entry_side=="BUY" else "SHORT","type":"STOP_MARKET",
             "status":"NEW",
             "executedQty":"0",
             "avgPrice":"0",
         }
         payload={"code":0,"data":{"order":order}}
-        self.by_order["sl-1"]=payload
+        self.by_order["2001"]=payload
         return payload
 
     def place_take_profit(self,symbol,entry_side,qty,tp,position_id=None):
@@ -106,13 +114,15 @@ class FakeClient:
         if self.fail_tp:
             raise RuntimeError("simulated TP failure")
         order={
-            "orderId":"tp-1",
+            "orderId":"2002","symbol":symbol,"origQty":str(qty),"stopPrice":str(tp),
+            "side":"SELL" if entry_side=="BUY" else "BUY",
+            "positionSide":"LONG" if entry_side=="BUY" else "SHORT","type":"TAKE_PROFIT_MARKET",
             "status":"NEW",
             "executedQty":"0",
             "avgPrice":"0",
         }
         payload={"code":0,"data":{"order":order}}
-        self.by_order["tp-1"]=payload
+        self.by_order["2002"]=payload
         return payload
 
     def close_market(self,symbol,entry_side,qty,leverage,client_order_id=None,position_id=None):

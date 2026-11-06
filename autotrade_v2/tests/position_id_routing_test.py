@@ -157,6 +157,9 @@ def main():
         def place_market_entry(self,*args,**kwargs):
             result=super().place_market_entry(*args,**kwargs)
             self.position_qty="1"
+            # This regression intentionally has no explicit container ID on the
+            # entry: two snapshot candidates must still fail closed.
+            result["data"]["order"].pop("positionId",None)
             return result
 
     fd,db_path=tempfile.mkstemp(suffix=".db")
@@ -181,6 +184,10 @@ def main():
         )
         restarted.credentials_verified=True
         restarted.executor.client=fake_db
+        assert restarted.recover_pending()==[],"restart must honor durable backoff"
+        state=store.get_state(intent().event_id)
+        state["recovery"]["next_at"]=0
+        store.save_state(intent().event_id,state)
         replay=restarted.recover_pending()
         assert replay and replay[0]["status"]=="complete",replay
         state=store.get_state(intent().event_id)

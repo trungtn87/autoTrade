@@ -70,7 +70,7 @@ def run(kind,trigger,qty,rate=None):
     result=journal(exchange,state,persist).place(kind,*args,send,callback_rate=rate)
     assert result["order_id"]=="101"
     assert exchange.posts==1
-    assert len(history)==2
+    assert len(history)==3
     assert history[0]["protection_journal"][kind]["phase"]=="prepared"
     assert history[0]["protection"].get(kind) is None
     assert durable[0]["protection"][kind]["order_id"]=="101"
@@ -82,11 +82,14 @@ def run(kind,trigger,qty,rate=None):
     durable=[deepcopy(state)]
     def persist(s):
         durable[0]=deepcopy(s)
-    result=journal(exchange,state,persist).place(
-        kind,*args,lambda:exchange.submit(kind,qty,trigger,rate,lose_response=True),
-        callback_rate=rate,
-    )
-    assert result["order_id"]=="101",result
+    try:
+        journal(exchange,state,persist).place(
+            kind,*args,lambda:exchange.submit(kind,qty,trigger,rate,lose_response=True),
+            callback_rate=rate,
+        )
+        assert False,"shape-only candidate cannot establish ownership"
+    except ProtectionReconcilePending:
+        pass
     assert exchange.posts==1,"lost reply must not create a second order"
 
     # Crash AFTER POST but BEFORE the verified orderId could be persisted.
@@ -105,11 +108,14 @@ def run(kind,trigger,qty,rate=None):
         pass
     assert exchange.posts==1
     restarted=deepcopy(durable[0])
-    resolved=journal(exchange,restarted,persist).place(
-        kind,*args,lambda:exchange.submit(kind,qty,trigger,rate),
-        callback_rate=rate,
-    )
-    assert resolved["order_id"]=="101"
+    try:
+        journal(exchange,restarted,persist).place(
+            kind,*args,lambda:exchange.submit(kind,qty,trigger,rate),
+            callback_rate=rate,
+        )
+        assert False,"unacknowledged POST needs manual ownership reconciliation"
+    except ProtectionReconcilePending:
+        pass
     assert exchange.posts==1,"restart must not re-submit an accepted order"
 
     # Crash AFTER durable prepare BEFORE BingX POST. There is no proof of
@@ -157,11 +163,36 @@ def run(kind,trigger,qty,rate=None):
     assert exchange.posts==1
     exchange.hide_open=False
     after_restart=deepcopy(durable[0])
-    journal(exchange,after_restart,lambda s:durable.__setitem__(0,deepcopy(s))).place(
-        kind,*args,lambda:exchange.submit(kind,qty,trigger,rate),callback_rate=rate,
-    )
+    try:
+        journal(exchange,after_restart,lambda s:durable.__setitem__(0,deepcopy(s))).place(
+            kind,*args,lambda:exchange.submit(kind,qty,trigger,rate),callback_rate=rate,
+        )
+        assert False,"visibility is not ownership after a lost acknowledgement"
+    except ProtectionReconcilePending:
+        pass
     assert exchange.posts==1
-    assert durable[0]["protection"][kind]["order_id"]=="101"
+    assert not durable[0]["protection"].get(kind)
+
+    # Crash after the exact POST acknowledgement is durable: now ownership
+    # survives restart, unlike a bare price/quantity match.
+    exchange=Exchange()
+    state={"event_id":"C6","protection":{}}
+    durable=[deepcopy(state)]
+    def persist_ack(s):
+        durable[0]=deepcopy(s)
+    def die_during_verify(*_):
+        raise SystemExit("crash after durable acknowledgement")
+    try:
+        ProtectionJournal(exchange,state,persist_ack,die_during_verify).place(
+            kind,*args,lambda:exchange.submit(kind,qty,trigger,rate),callback_rate=rate)
+        assert False
+    except SystemExit:
+        pass
+    assert durable[0]["protection_journal"][kind]["acknowledged_order_id"]=="101"
+    restarted=deepcopy(durable[0])
+    resolved=journal(exchange,restarted,persist_ack).place(
+        kind,*args,lambda:exchange.submit(kind,qty,trigger,rate),callback_rate=rate)
+    assert resolved["order_id"]=="101" and exchange.posts==1
 
     # Multiple new exact matches, e.g. external actor submitted same order:
     # never pick the first or send again.
@@ -190,8 +221,8 @@ def main():
     run("sl",99,1)
     run("tp",102,0.5)
     run("trailing",102,0.5,0.005)
-    print({"ok":True,"durable_prepare":True,"lost_response_recovered":True,
-           "crash_after_post_recovered":True,"crash_before_post_no_resend":True,
+    print({"ok":True,"durable_prepare":True,"lost_response_no_duplicate":True,
+           "crash_after_post_no_duplicate":True,"crash_before_post_no_resend":True,
            "hidden_orders_fail_closed":True,"duplicate_candidates_refused":True})
 
 

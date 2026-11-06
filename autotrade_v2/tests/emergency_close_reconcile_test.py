@@ -128,14 +128,14 @@ def main():
     unresolved=close(ex,resumed,persist)
     assert not unresolved["confirmed"] and fake.posts==0,unresolved
 
-    # Existing residual may be smaller than entry fill after another exit
-    # partially closes the exact isolated position. Send only the live size.
+    # A smaller residual without owned fill evidence may belong to another
+    # combo after container changes. Never assign/close it by subtraction.
     ex,fake,state,persist,writes=setup(
         [{"status":"FILLED","filled":0.6,"applied":0.6}],qty=0.6
     )
     residual=close(ex,state,persist,qty=1.0)
-    assert residual["confirmed"] and fake.posts==1,residual
-    assert float(writes[0]["emergency_close"]["requested_qty"])==0.6
+    assert not residual["confirmed"] and fake.posts==0,residual
+    assert not writes
 
     # An unavailable Supabase write must fail BEFORE the MARKET POST.
     ex,fake,state,persist,writes=setup([])
