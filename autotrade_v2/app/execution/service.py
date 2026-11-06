@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from dataclasses import asdict
-from contextlib import nullcontext
+from contextlib import nullcontext, contextmanager
 import threading
 import time
 
@@ -13,6 +13,23 @@ from .identity import entry_baseline
 from .exit_cleanup import clean_one, eligible, oid, CleanupUncertain
 from .store import ExecutionStore
 from .merged import reconcile_side
+from .force_close import ForceClose, side_key, TARGET as FORCE_TARGET
+
+
+class FencedClient:
+    """Check the exact coordinator session at each private mutation boundary."""
+    def __init__(self,client,check):
+        self.client=client
+        self.check=check
+
+    def __getattr__(self,name):
+        value=getattr(self.client,name)
+        if callable(value) and (name.startswith(("place_","cancel_")) or name=="close_market"):
+            def fenced(*args,**kwargs):
+                self.check()
+                return value(*args,**kwargs)
+            return fenced
+        return value
 
 
 class ExecutionService:
@@ -31,6 +48,7 @@ class ExecutionService:
     def _emit(self, key: str, severity: str, message: str, intent: TradeIntent | None = None, **extra) -> None:
         if not self.event_cb:
             return
+
         try:
             kwargs = {
                 "event_id": intent.event_id if intent else None,
@@ -42,6 +60,9 @@ class ExecutionService:
             self.event_cb(key, severity, message, **kwargs)
         except Exception:
             return
+
+    def _emergency(self,symbol,side):
+        return self.store.get(side_key(symbol,side),FORCE_TARGET) if hasattr(self.store,"get") else None
 
     def preflight(self) -> dict:
         if not self.settings.bingx_api_key or not self.settings.bingx_api_secret:
@@ -116,6 +137,22 @@ class ExecutionService:
             return []
 
         recovered=[]
+        # An epoch survives a crash between per-combo terminal writes and the
+        # final epoch commit. Recover it even if its initiator is now terminal.
+        emergencies={}
+        for eid,s in self.store.list_states():
+            raw=s.get("intent") or {}
+            epoch=self.store.get(side_key(raw.get("symbol"),raw.get("side")),FORCE_TARGET)
+            if epoch and epoch.get("phase")!="closed":
+                emergencies[epoch["epoch"]]=epoch
+        for epoch in emergencies.values():
+            if time.time()<float(epoch.get("next_at",0)):
+                continue
+            s=self.store.get_state(epoch["initiator"])
+            intent=self._intent_from_state(s or {})
+            if intent:
+                result=self.execute(intent,recovery_only=True)
+                recovered.append({"event_id":intent.event_id,"status":result.status,"accepted":result.accepted})
         for event_id,state in self.store.list_states():
             if bool(state.get("terminal")):
                 continue
@@ -130,7 +167,10 @@ class ExecutionService:
                 )
                 continue
             recovery=state.get("recovery") or {}
-            if int(recovery.get("attempts",0))>=8:
+            emergency=self.store.get(side_key(intent.symbol,intent.side),FORCE_TARGET)
+            if emergency and emergency.get("phase")!="closed":
+                continue  # above epoch recovery owns this side
+            if int(recovery.get("attempts",0))>=8 and not (emergency and emergency.get("phase")!="closed"):
                 continue  # bounded automated recovery; persisted manual intervention
             if time.time() < float(recovery.get("next_at",0)):
                 continue
@@ -148,9 +188,22 @@ class ExecutionService:
                 return []
             return self._cleanup_closed_exits_locked()
 
+    @contextmanager
     def _trade_lock(self):
         # Legacy offline doubles lack a store; production always has one.
-        return self.store.trading_lock() if hasattr(self.store,"trading_lock") else nullcontext(True)
+        lock=self.store.trading_lock() if hasattr(self.store,"trading_lock") else nullcontext(True)
+        with lock as acquired:
+            client=self.executor.client
+            check=getattr(self.store,"assert_trading_owner",lambda:None)
+            previous=vars(client).get("mutation_check")
+            if acquired:
+                client.mutation_check=check
+                self.executor.client=FencedClient(client,check)
+            try:
+                yield acquired
+            finally:
+                self.executor.client=client
+                client.mutation_check=previous
 
     def _cleanup_closed_exits_locked(self)->list[dict]:
         """Bounded, read-first orphan cleanup; never resize or cancelReplace SL.
@@ -166,6 +219,10 @@ class ExecutionService:
             grouped={}
             all_states=self.store.list_states()
             for event_id,state in all_states:
+                raw=state.get("intent") or {}
+                emergency=self._emergency(raw.get("symbol"),raw.get("side"))
+                if emergency and emergency.get("phase")!="closed":
+                    continue  # the emergency epoch owns this entire side
                 if eligible(state):
                     grouped.setdefault(state["intent"]["symbol"],[]).append((event_id,state))
             results=[]
@@ -413,6 +470,13 @@ class ExecutionService:
             )
 
         state=self.store.get_state(intent.event_id)
+        emergency=self.store.get(side_key(intent.symbol,intent.side),FORCE_TARGET)
+        if emergency and emergency.get("phase")!="closed":
+            if intent.event_id!=emergency["initiator"]:
+                return ExecutionResult(event_id=intent.event_id,accepted=False,
+                    status="force_close_side_blocked",details={"epoch":emergency["epoch"]})
+            result=ForceClose(self).run(intent,state,emergency["failed_kind"])
+            return ExecutionResult(event_id=intent.event_id,accepted=True,status=result["stage"],details=result)
         pending=bool(state and not state.get("terminal"))
         if pending:
             recovery=state.get("recovery") or {}
@@ -539,6 +603,7 @@ class ExecutionService:
             allow_new_entry=not (pending or recovery_only),
             protection_persist=persist_protection,
             exposure_check=exposure_check,
+            force_close=lambda current,kind:ForceClose(self).run(intent,current,kind),
         )
         accepted = bool(result.get("entry_accepted") or result.get("ok"))
         terminal = bool(result.get("processed"))
@@ -546,6 +611,8 @@ class ExecutionService:
 
         # Retain the pre-entry snapshot for recovery after an ambiguous
         # positionId lookup, API outage, or Render restart.
+        if result.get("force_close_epoch"):
+            state=self.store.get_state(intent.event_id) or state
         persisted={**(state or {}),**self._state_payload(intent,result,terminal)}
         # Do not create a post-entry SL lifecycle. BingX manages confirmed exits.
         if not terminal:
@@ -589,10 +656,10 @@ class ExecutionService:
             severity = "CRITICAL" if result.get("entry_accepted") else "ERROR"
             key = "L3.EXEC.ORDER_FAIL"
 
-            if stage=="protection_setup_aborted_closed":
+            if stage in {"protection_setup_aborted_closed","force_close_confirmed"}:
                 key="L3.EXEC.EMERGENCY_CLOSE"
                 severity="WARNING"
-            elif stage=="protection_abort_reconcile_required":
+            elif stage in {"protection_abort_reconcile_required","force_close_unresolved"}:
                 key="L3.EXEC.UNSAFE_OPEN_POSITION"
                 severity="CRITICAL"
             elif stage in {"entry_unknown_reconcile_required","reconcile_error"}:

@@ -1371,6 +1371,8 @@ class Final14Executor:
 
     def _abort_required(self,intent,state,persist,kind,exposure_check):
         try:
+            if state.get("shared_position") and getattr(self,"_force_close",None):
+                return self._force_close(state,kind)
             return abort_setup(self.client,intent,state,persist,
                 self.client_order_id(intent.event_id,"close"),kind,
                 FINAL14_EXECUTION_LEVERAGE,gate=exposure_check)
@@ -1387,7 +1389,9 @@ class Final14Executor:
         allow_new_entry:bool=True,
         protection_persist=None,
         exposure_check=None,
+        force_close=None,
     )->dict:
+        self._force_close=force_close
         selected_mode=str((resume_state or {}).get("exit_mode") or (
             "split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp"
         ))

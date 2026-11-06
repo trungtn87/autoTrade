@@ -16,6 +16,7 @@ class ExecutionStore:
         self.is_postgres=bool(self.database_url)
         self.path=Path(db_path)
         self._lock=threading.RLock()
+        self._session=threading.local()
         if not self.is_postgres:
             self._init_sqlite()
 
@@ -27,6 +28,28 @@ class ExecutionStore:
 
     def _sql(self,sql:str)->str:
         return sql.replace("?","%s") if self.is_postgres else sql
+
+    @contextmanager
+    def _connection(self):
+        held=getattr(self._session,"connection",None)
+        if held is not None:
+            self.assert_trading_owner()
+            yield held
+        else:
+            with self._connect() as con:
+                yield con
+
+    def assert_trading_owner(self):
+        if not getattr(self._session,"held",False):
+            raise RuntimeError("execution coordinator ownership missing/lost")
+        con=getattr(self._session,"connection",None)
+        if con is not None:
+            # Never reconnect here: the exact session owns the advisory lock.
+            row=con.execute("""SELECT EXISTS (SELECT 1 FROM pg_locks
+                WHERE locktype='advisory' AND pid=pg_backend_pid()
+                AND classid=1105 AND objid=2026 AND objsubid=2 AND granted)""").fetchone()
+            if not row or not row[0]:
+                raise RuntimeError("execution advisory ownership missing/lost")
 
     def _init_sqlite(self)->None:
         with self._connect() as con:
@@ -43,7 +66,7 @@ class ExecutionStore:
             con.commit()
 
     def seen(self,event_id:str,target:str="bingx_account")->bool:
-        with self._lock,self._connect() as con:
+        with self._lock,self._connection() as con:
             cur=con.cursor()
             cur.execute(self._sql(
                 "SELECT 1 FROM processed_targets WHERE event_id=? AND target=?"
@@ -52,7 +75,7 @@ class ExecutionStore:
 
     def mark(self,event_id:str,payload:dict,target:str="bingx_account")->None:
         body=json.dumps(payload,ensure_ascii=False,sort_keys=True,default=str)
-        with self._lock,self._connect() as con:
+        with self._lock,self._connection() as con:
             cur=con.cursor()
             cur.execute(self._sql("""
                 INSERT INTO processed_targets(event_id,target,payload)
@@ -63,7 +86,7 @@ class ExecutionStore:
 
 
     def get(self,event_id:str,target:str)->dict|None:
-        with self._lock,self._connect() as con:
+        with self._lock,self._connection() as con:
             cur=con.cursor()
             cur.execute(self._sql(
                 "SELECT payload FROM processed_targets WHERE event_id=? AND target=?"
@@ -78,7 +101,7 @@ class ExecutionStore:
 
     def upsert(self,event_id:str,payload:dict,target:str)->None:
         body=json.dumps(payload,ensure_ascii=False,sort_keys=True,default=str)
-        with self._lock,self._connect() as con:
+        with self._lock,self._connection() as con:
             cur=con.cursor()
             cur.execute(self._sql("""
                 INSERT INTO processed_targets(event_id,target,payload)
@@ -96,7 +119,7 @@ class ExecutionStore:
         self.upsert(event_id,payload,"bingx_state")
 
     def list_states(self)->list[tuple[str,dict]]:
-        with self._lock,self._connect() as con:
+        with self._lock,self._connection() as con:
             cur=con.cursor()
             cur.execute(self._sql(
                 "SELECT event_id,payload FROM processed_targets WHERE target=?"
@@ -125,11 +148,17 @@ class ExecutionStore:
                     with con.cursor() as cur:
                         cur.execute("SELECT pg_try_advisory_lock(1105, 2026)")
                         acquired=bool(cur.fetchone()[0])
+                        con.commit()
+                        self._session.connection=con if acquired else None
+                        self._session.held=acquired
                         try:
                             yield acquired
                         finally:
-                            if acquired:
+                            self._session.connection=None
+                            self._session.held=False
+                            if acquired and not con.closed:
                                 cur.execute("SELECT pg_advisory_unlock(1105, 2026)")
+                                con.commit()
             else:
                 import fcntl
                 # Hash only a path; never persist database credentials.
@@ -140,7 +169,9 @@ class ExecutionStore:
                     except BlockingIOError:
                         yield False
                     else:
+                        self._session.held=True
                         try:
                             yield True
                         finally:
+                            self._session.held=False
                             fcntl.flock(handle, fcntl.LOCK_UN)

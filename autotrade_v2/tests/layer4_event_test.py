@@ -23,7 +23,7 @@ class FakeExecutor:
     def client_order_id(event_id,purpose="entry"):
         return f"fake-{purpose}-{event_id}"[:40]
 
-    def execute_safe(self, intent, resume_state=None, allow_new_entry=True, protection_persist=None, exposure_check=None):
+    def execute_safe(self, intent, resume_state=None, allow_new_entry=True, protection_persist=None, exposure_check=None, force_close=None):
         return {
             "ok": True,
             "processed": True,

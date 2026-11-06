@@ -198,25 +198,20 @@ def main():
                            client_order_id='abort-fixture',position_id='123',quantity_precision=5)
     assert sent[0]['quantity']=='0.00005'
 
-    # Shared live container cannot be safely fenced by snapshot equality alone.
-    # Preserve the peer and refuse a blind partial close after exhausted retry.
+    # Owner-approved Option A closes the entire shared container after fencing
+    # every owned native exit. No blind partial-combo MARKET is attempted.
     with TemporaryDirectory() as tmp:
         service,store,_=setup(tmp);ex=FailureExchange(failures=0);service.executor.client=ex
         a,b=signal(),signal(7)
         assert service.execute(a).status=='complete';peer=state_ids(store,a)
         ex.failures=2
         result=service.execute(b)
-        assert result.status=='protection_abort_reconcile_required',result
-        assert ex.close_count==0 and ex.calls.count(('post','sl'))==3
-        assert all(ex.orders[oid]['status']=='NEW' for oid in peer.values())
-        assert 'shared' in result.details['error']
-        # Once the peer genuinely finishes and its exits are verified cleaned,
-        # the formerly shared container can be closed without touching a peer.
-        ex.fill(peer['tp']);ex.fill(peer['trailing'])
-        service.cleanup_closed_exits()
-        result=resume_now(service,store,b)
-        assert result.status=='protection_setup_aborted_closed',result
+        assert result.status=='force_close_confirmed',result
+        assert ex.amount==0 and all(ex.orders[oid]['status']=='CANCELLED' for oid in peer.values())
+        assert store.get_state(a.event_id)['stage']=='force_close_confirmed'
         assert ex.close_count==1 and ex.calls.count(('post','sl'))==3
+        _,report=service._entry_admission(signal(7,2))
+        assert not report['blocking_risks'],report
 
     print({'ok':True,'retry_once_per_leg':True,'exhaustion_closes_exclusive_combo':True,
            'restart_does_not_reset_budget':True,'verify_error_never_reposts':True,

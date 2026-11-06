@@ -82,7 +82,7 @@ def reconcile_side(states, positions, open_by_id, history_by_id):
         abort=state.get("abort") or {}
         if abort and abort.get("phase")!="closed":
             risks.append(f"{event_id}:ABORT_IN_PROGRESS")
-        if not state.get("protection") and not abort.get("close_order"):
+        if not state.get("protection") and not abort.get("close_order") and not state.get("force_close_allocation"):
             remaining=initial; monitor={"fills_verified":False}
             risks.append(f"{event_id}:PROTECTION_UNVERIFIED")
         else:

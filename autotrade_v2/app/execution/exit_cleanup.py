@@ -180,6 +180,35 @@ def abort_close_quantity(state):
     return filled
 
 
+def force_close_quantity(state):
+    allocation=state.get("force_close_allocation")
+    if not allocation:
+        return Decimal(0)
+    if (allocation.get("epoch")!=state.get("force_close_epoch")
+            or allocation.get("position_id")!=str(state.get("position_id"))):
+        raise CleanupUncertain("force close allocation identity mismatch")
+    amount=positive(allocation.get("quantity"),"force close allocation")
+    total=Decimal(0);seen=set()
+    intent=state["intent"]
+    for row in allocation.get("orders") or []:
+        if (not oid(row) or oid(row) in seen
+                or row.get("symbol")!=intent["symbol"]
+                or str(row.get("side","")).upper()!=("SELL" if intent["side"]=="BUY" else "BUY")
+                or str(row.get("positionSide","")).upper()!=("LONG" if intent["side"]=="BUY" else "SHORT")
+                or exchange_position_id(row)!=str(state["position_id"])
+                or str(row.get("type","")).upper()!="MARKET"
+                or str(row.get("status","")).upper() not in TERMINAL):
+            raise CleanupUncertain("force close fill proof invalid")
+        seen.add(oid(row))
+        executed=positive(row.get("executedQty"),"force close fill")
+        if executed>positive(row.get("origQty"),"force close original"):
+            raise CleanupUncertain("force close overfill")
+        total+=executed
+    if amount>total:
+        raise CleanupUncertain("force close allocation exceeds verified fills")
+    return amount
+
+
 def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical_by_id=None, allow_incomplete=False):
     """Inspect one trade without mutation. Return (new monitor state, cancel IDs, alerts)."""
     old = state.get("exit_cleanup") or {}
@@ -204,7 +233,7 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
         monitor["warnings"].append("LEGACY_SL_REPLACEMENT_UNVERIFIED")
     outstanding = []
     unknown_exit_ids = []
-    total_filled = abort_close_quantity(state)
+    total_filled = abort_close_quantity(state)+force_close_quantity(state)
     alerts = (
         ["LEGACY_SL_REPLACEMENT_UNVERIFIED"] if legacy_pending
         and (state.get("exit_cleanup") or {}).get("status") is None

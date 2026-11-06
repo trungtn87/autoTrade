@@ -1,3 +1,10 @@
+> Update 7 November 2026 (Vietnam): the Owner subsequently selected Option A,
+> emergency closure of the entire affected merged container after required
+> protection retries exhaust. The historical partial-combo handoff blockers below
+> describe the earlier design. Current implementation, limits and test gates:
+> [Protection retry and Force Close](protection-retry-once-or-close.md).
+> Normal native-exit budget/SL resizing risks remain separate and explicit.
+
 # BingX merged-position incident — investigation and safety groundwork
 
 Status: **DRAFT / NOT ACCEPTED / DO NOT DEPLOY**. Updated 06 November 2026:

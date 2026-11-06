@@ -119,6 +119,9 @@ class LegacyStyleBingXClient:
 
     def _signed_request(self,method:str,path:str,params:dict)->dict:
         with self.guard.request_slot():
+            # Recheck AFTER rate-limit waiting, immediately before transport.
+            if method.upper() in {"POST","DELETE"} and getattr(self,"mutation_check",None):
+                self.mutation_check()
             body=dict(params)
             body["timestamp"]=str(int(time.time()*1000))
             query="&".join(f"{k}={body[k]}" for k in sorted(body))

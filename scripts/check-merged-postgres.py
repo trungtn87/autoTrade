@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 from tempfile import TemporaryDirectory
 import threading
+from contextlib import contextmanager
 
 import pgserver
 import psycopg
@@ -98,6 +99,44 @@ with TemporaryDirectory(prefix='merged-pg-') as tmp:
             state=a.get_state(signal().event_id)
             assert state['protection_attempts'][kind]['posts']==2
             assert state['abort']['phase']=='closed' and state['terminal']
+        from force_close_test import schedules,start,resume,assert_closed
+        @contextmanager
+        def factory():
+            with psycopg.connect(uri) as con:
+                con.execute('TRUNCATE processed_targets')  # disposable server only
+            store=ExecutionStore('',database_url=uri)
+            worker=ExecutionService(service.settings,store)
+            worker.credentials_verified=True
+            yield worker,store
+        count=schedules(factory)
+        print(f'PASS PostgreSQL: {count} whole-container Force Close fault schedules')
+        # Two deployed services contend on a real database session, followed
+        # by terminating the owner session at a live cancellation boundary.
+        with factory() as (worker,store):
+            ex,intents=start(worker,store,kind='tp')
+            rival=ExecutionService(service.settings,ExecutionStore('',database_url=uri))
+            rival.credentials_verified=True;rival.executor.client=ex
+            original=ex.cancel_order;observed=[]
+            def lose_session(symbol,order_id=None,**kwargs):
+                observed.append(rival.execute(intents[-1]).status)
+                assert rival.cleanup_closed_exits()==[]
+                value=original(symbol,order_id,**kwargs)
+                pid=store._session.connection.info.backend_pid
+                with psycopg.connect(uri) as killer:
+                    killer.execute('SELECT pg_terminate_backend(%s)',(pid,))
+                return value
+            ex.cancel_order=lose_session
+            try:
+                worker.execute(intents[-1])
+                raise AssertionError('terminated owner must fail closed')
+            except psycopg.Error:
+                pass
+            assert observed==['execution_lock_busy'] and ex.close_count==0
+            assert len([x for x in ex.calls if x[0]=='cancel'])==1
+            ex.cancel_order=original
+            assert rival.execute(intents[-1],recovery_only=True).status=='force_close_confirmed'
+            assert_closed(rival,rival.store,ex,intents)
+        print('PASS PostgreSQL: second deployment exclusion, session termination fences subsequent mutations, new owner resumes same epoch')
         print(f'PASS PostgreSQL {version}: independent-session exclusion, exception release, WAL restart recovery, immutable historical mark, full same-side entry/TP-overlap/owned-cleanup engine schedule; retry-once/abort-close for SL, TP and trailing')
     finally:
         server.cleanup()

@@ -1,155 +1,93 @@
-# Protection setup: confirm, retry once, otherwise abort the combo
+# Protection retry and emergency Force Close — Option A
 
-Status: **PARTIALLY IMPLEMENTED — not approved for live deployment.**
+Owner decision: 6 November 2026; implementation completed in PR #68.
+Merge requires current-head CI, including real isolated PostgreSQL fault schedules.
+No test submits a live BingX order or writes the production database.
 
-Implemented: durable <=2 protection POSTs per leg for explicit documented POST
-rejections (101204, 109400, 109425), no duplicate on uncertain POST/verification
-failure, abort coordinator, exact residual MARKET close when the selected
-container is exclusively owned, close-fill confirmation, and exact post-close
-cleanup. An active SL is retained until owned closure is proven. Close quantity
-uses the contract precision, not a blind four-decimal rounding.
+## Normal execution
 
-State is stored in the existing execution JSON: `protection_attempts`,
-`protection_journal`, `abort`, and `emergency_close`. Owned MARKET abort fills
-are included in the existing exit ledger, so a closed failed entry does not
-reappear as live quantity after restart. PostgreSQL integration exercises SL,
-TP and trailing exhaustion/closure.
+Healthy Hedge Mode entries on the same symbol and side remain allowed. Each
+combo is identified by its exact MARKET/client order and fills, independently
+of concurrent peer exits. The exchange position ID identifies a shared container.
+SL is verified first, then TP and the configured trailing allocation. The
+20FINAL strategy, target ratios, sizing, 50x leverage and Dashboard are unchanged.
 
-**Not implemented/certified:** safe partial-combo abort while its container is
-still shared with live peers and competing exits. That case retains confirmed
-protection, reports CRITICAL and does not submit a blind MARKET close. Once
-peers have actually closed and their exits are verified cleaned, recovery can
-close the now-exclusive residual. The tests deliberately assert this guard;
-it is a remaining acceptance blocker, not fulfillment of all shared aborts.
+Every required protective leg has a durable budget of at most two POSTs. Only
+explicit documented protective POST rejections (101204, 109400, 109425) authorize
+the one retry. A timeout, missing acknowledgement, verification GET error or
+rate limit is reconciled; it never becomes permission to blindly POST again.
 
-Owner decision, 06 November 2026: after entry, require TP/SL (and the existing
-trailing leg when configured); at most one protection retry; if still unable to
-establish required protection, exit that combo. Healthy same-side combos remain
-allowed. This decision supersedes leaving a trade running merely because its
-SL is active when TP/trailing setup fails.
+## Exhausted protection in a shared container
 
-## Outcome contract
+`force_close.py` supersedes the former shared-container manual hold with the
+Owner-approved whole-container emergency policy. It does not attempt to reserve
+one combo's residual with an asynchronous snapshot.
 
-For a filled entry, success means all required owned protection orders have
-been verified against BingX, or owned exit fills have already closed the combo.
-A failure outcome means its exact remaining quantity has been exchange-confirmed
-closed. Neither an accepted POST nor a close request is confirmation of success.
+1. Persist a per-symbol/side emergency epoch in existing `processed_targets`
+   JSON, target `bingx_force_close`. No new table, credential or public API.
+   Block new entries for this side, including pending peers; unaffected symbols
+   and the opposite side continue. Generic cleanup cannot mutate this side.
+2. Enumerate exact entry evidence for all affected combos, their owned exits,
+   current positions, and native exit/trigger history. Manual/unowned same-side
+   orders, unaccounted size changes and unknown protective POST outcomes hold
+   the emergency unresolved. They never authorize broad cancellation.
+3. Persist each exact-ID cancellation before DELETE. Cancel TP/trailing before
+   SL to retain coverage as long as possible. Verify terminal native orders and
+   attributable trigger fills from fresh exchange observations. A lost DELETE
+   reply or cancellation/trigger race is reconciled. At most two DELETEs per ID.
+4. Re-read position size and exit states immediately before MARKET. Require
+   native residuals minus verified emergency fills to equal actual position
+   size, no competing native exits, and terminal prior MARKETs. Persist a
+   deterministic CID and exact contract-precision quantity before sending once.
+5. Query every uncertain MARKET by its CID. Never resend a prepared CID whose
+   outcome is unknown, including a crash after WAL but before POST. Active or
+   partial MARKETs remain unresolved. A terminal partial close permits a new,
+   uniquely identified residual close after fresh reconciliation, bounded to
+   three MARKET submissions per epoch.
+6. Require verified zero exposure, no owned active exits and exact attributable
+   native/market fills before finalizing. Persist the epoch's quantity
+   allocations, then affected combo states, then `closed`. Recovery resumes
+   interrupted finalization even when the initiator already became terminal.
+   Quantity allocations are not claimed to be exchange-provided per-combo PnL.
+7. Otherwise persist `unresolved`, continue bounded read recovery every minute
+   and emit CRITICAL alerts at most once per five minutes with affected combos,
+   close requests/fills, remaining exposure and active protection IDs.
 
-`COMPLETE` is allowed only for a live combo with fully verified required
-protection. `ABORT_CLOSED` requires actual owned close/exit fills summing to the
-entry fill. Any uncertain or unsafe state remains non-success and CRITICAL.
-No claim is made that an external API can always accept a protection or close.
+The confirmed status is `force_close_confirmed`; an uncertain outcome is
+`force_close_unresolved`, never COMPLETE or a false CLOSED. Existing exclusive
+combo abort handling remains available when the container was not shared.
 
-## Normal path
+## Coordinator ownership
 
-1. Persist the exact filled MARKET identity, executed quantity and container ID.
-   Never resubmit the entry as a protection retry.
-2. Submit SL and verify its exact ID, symbol, side, type, trigger, quantity and
-   active state. Do not submit TP/trailing until SL is verified.
-3. Submit and verify TP, then the existing trailing allocation if configured.
-   Use the original strategy targets and allocation; do not change the strategy
-   to make a failed submission pass.
-4. Re-read required protections and owned fills before `COMPLETE`. If a target
-   filled during setup, account for that owned fill, not as a missing order to
-   recreate. Verify remaining protection against the owned residual.
+All automated mutations share the account-wide PostgreSQL advisory lock.
+State writes reuse that exact session; an ownership check verifies its advisory
+lock before each mutation, including after private request-guard waiting.
+A lost session never reconnects silently and cannot write stale progress.
+The next owner reads the durable epoch and reconciles before acting. Use a
+session-preserving/direct PostgreSQL connection; transaction pooling cannot
+preserve a session advisory lock. SQLite tests use the existing OS lock.
 
-## One retry means at most two POSTs per required leg
+A database lock cannot retract a request already in flight or fence a manual
+exchange user. Fresh fills/quantity checks detect observable interference and
+hold unresolved. Cancellation precedes MARKET, so if the exchange cannot close
+there can be an uncovered interval requiring CRITICAL intervention. This is an
+explicit emergency failure, not a promise that an unavailable API always closes.
 
-Count SL, TP and trailing separately. Save attempt count and prepared intent
-BEFORE every POST in the existing execution-state journal. Counts survive
-restart, direct execute calls and scheduled recovery. Recovery cannot reset the
-budget or create a fresh entry. No new credentials, tables or cron are needed.
+## Validation
 
-| First attempt outcome | Allowed next action |
-|---|---|
-| Exact order is verified active | Continue; no second POST |
-| Explicit exchange rejection establishes no order was accepted | Wait through the existing request guard, recheck exposure, POST once more |
-| Exact owned order is confirmed canceled/rejected with zero fills and no executing trigger child | Recheck exposure and use the one remaining POST |
-| Timeout, disconnection, HTTP/server ambiguity, missing acknowledgement | Reconcile reads; do not assume rejection and do not POST again |
-| Known order ID exists but verification is temporarily unavailable | Re-query that ID; do not create a replacement |
-| Second permitted POST is definitively rejected / verified not usable | Enter `ABORT_REQUIRED` |
+`force_close_test.py` exercises the real service, executor and durable store:
+BTC/ETH LONG/SHORT, two/three combos, every failed protective leg, overlapping
+entry/TP, partial TP then SL, simultaneous trailing fills, cancellation races,
+lost DELETE/MARKET responses, partial and terminal-partial closes, missing
+history, stale/error/429 reads, manual orders/quantity, wrong close identity,
+every emergency persistence boundary, database write errors, unaffected sides
+and private transport fencing. The fake exchange does not implement OCO.
 
-The transport must explicitly classify a definitive rejection; it must not
-catch every exception as retryable. A missing row in open orders, or a single
-price/quantity match, is not proof that the first POST failed. Bound read
-reconciliation by the existing pacing/backoff policy. An unresolved submission
-moves to `ABORT_RECONCILE_REQUIRED`, never a third POST or reported success.
+`scripts/check-merged-postgres.py` runs the same schedules on a disposable real
+PostgreSQL server, then checks two deployment instances, terminates the owning
+DB session during cancellation and verifies recovery by a new owner. CI also
+runs the full offline engine/Dashboard suites and full-history strategy parity.
 
-## Abort path applies to SL, TP and trailing setup failure
-
-Even if SL is active, a definitively exhausted TP/trailing setup enters the same
-abort policy requested by the Owner. Keep the SL until the abort protocol has a
-verified safe handoff; do not simply delete it and hope the MARKET close works.
-
-Before any close POST:
-
-- Acquire the same account/store mutation exclusion used by setup/recovery.
-- Freeze new actions for the affected unsafe symbol/side; this is a transient
-  failure guard, not a blanket same-side admission policy.
-- Prove the entry and every owned exit/close fill by exact order/trigger IDs.
-  Compute `own_remaining = entry_filled - owned_exit_filled - owned_close_filled`.
-  Never substitute the shared position's amount or an average entry price.
-- Reconcile the aggregate exchange quantity against all tracked residuals.
-  Unknown manual changes, missing history or unknown accepted POSTs prevent a
-  blind close. A stale pre-entry snapshot cannot authorize the close.
-- Establish that existing owned conditional exits cannot also execute against
-  the same residual during/after the abort. Pending trigger children count as
-  outstanding executions. Do not rely on cancel acknowledgement alone.
-- Establish that concurrently executable peer exits cannot consume this combo's
-  reserved residual. A database lock serializes bot workers, not BingX matching.
-
-Once these conditions are proven, persist one deterministic emergency-close
-client ID and the exact owned residual before sending the opposite MARKET close
-through the existing trade client. Never use close-all or the whole container
-quantity. Confirm the exact close ID, side, type and cumulative filled quantity.
-An ambiguous close POST is queried by that client ID and is never blindly sent
-again. A partial close does not mean flat; any later residual submission needs
-terminal evidence for the previous close and a fresh owned-fill calculation.
-
-After actual full closure, cancel only verified leftover orders belonging to
-that combo. Verify their terminal statuses. Do not touch another combo's orders.
-If no quantity remains because an owned SL/TP/trailing already filled, do not
-send an additional MARKET close.
-
-## Shared-position handoff is a release prerequisite
-
-An active SL plus an emergency MARKET close can both fill and consume a peer's
-quantity. Canceling the SL first instead creates an unprotected interval if the
-close then fails. Retry-once alone does not solve this race. Snapshot equality
-and a bot-side database lock do not prove an atomic exchange-side reservation.
-
-Therefore implementation must provide and test a trustworthy exchange-side
-handoff/execution constraint, or another verified isolation mechanism, before
-removing the current shared-position emergency-close guard. It must preserve
-same-side admission and the strategy. Do not substitute an unconditional close
-of `executed_qty` and call it safe. The earlier native exit-budget/SL replacement
-blocker is not waived by this design.
-
-If the necessary ownership or execution proof cannot be obtained, keep verified
-protection, suppress further risk-increasing actions and send one CRITICAL
-alert with periodic bounded escalation for manual intervention. This is an
-explicit failure requiring intervention, not a normal successful fallback.
-No implementation may promise that the account is flat without exchange proof.
-
-## Implementation and acceptance checklist
-
-- Extend `protection_journal.py` with durable attempt/verdict states and a
-  definitive-rejection classifier. Separate POST from read verification errors.
-- Connect exhausted required protection to one abort coordinator in
-  `final14_executor.py` / `service.py`; remove the keep-running TP-failure policy
-  only after the safe handoff is implemented. Keep public APIs unchanged.
-- Reuse existing execution-state storage, emergency-close journaling, private
-  request guard and reconcile loop. Cleanup must not independently mutate a
-  combo while its setup/abort owner holds the mutation lock.
-- Test initial success; retry success; two rejections for each leg; lost POST
-  response with/without acknowledgement; verification-only failure; crash before
-  POST/after POST/after acknowledgement; already-filled target; manual cancel;
-  partial close; lost close response; peer exit at every abort boundary; and
-  concurrent workers. Assert <=2 protection POSTs per leg, zero duplicate
-  entries, exact owned closure, no peer order mutation and no false COMPLETE.
-- Run the real executor schedules on isolated PostgreSQL and BTC/ETH in both
-  directions. A simulator that assumes OCO or suppresses competing fills is not
-  evidence for the shared-position handoff guarantee.
-
-No deployment, merge or actual BingX account action is authorized by this
-specification; the original Owner-review gate remains in force.
+This emergency policy does not certify atomic native-exit budgeting or automatic
+SL resizing after a normal partial TP. Those existing risks remain explicit in
+the ledger; it does not silently change the strategy to solve them.
