@@ -9,7 +9,8 @@ import threading
 import pgserver
 import psycopg
 
-sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'autotrade_v2'))
+ROOT=Path(__file__).resolve().parents[1]
+sys.path[:0]=[str(ROOT/'autotrade_v2'),str(ROOT)]
 from app.execution.store import ExecutionStore
 
 with TemporaryDirectory(prefix='merged-pg-') as tmp:
