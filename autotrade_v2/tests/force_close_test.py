@@ -304,6 +304,24 @@ def schedules(factory):
     except RuntimeError as exc:
         assert 'session lost' in str(exc)
     assert attempts==['fenced'];completed+=1
+    with factory() as (service,store):
+        ex,intents=start(service,store,kind='tp');alerts=[]
+        service.event_cb=lambda key,severity,message,**kwargs:alerts.append((key,severity,kwargs))
+        ex.close_hidden=True
+        assert service.execute(intents[-1]).status=='force_close_unresolved'
+        service.execute(intents[-1],recovery_only=True)
+        critical=[x for x in alerts if x[0]=='L3.EXEC.FORCE_CLOSE_UNRESOLVED']
+        assert len(critical)==1 and critical[0][1]=='CRITICAL'
+        details=critical[0][2]['details']
+        assert len(details['affected_combos'])==2 and details['closes'][0]['requested_qty']
+        key=side_key(intents[-1].symbol,intents[-1].side)
+        epoch=store.get(key,TARGET);epoch['last_alert_at']-=301;store.upsert(key,epoch,TARGET)
+        service.execute(intents[-1],recovery_only=True)
+        assert len([x for x in alerts if x[0]=='L3.EXEC.FORCE_CLOSE_UNRESOLVED'])==2
+        ex.close_hidden=False
+        assert service.execute(intents[-1],recovery_only=True).status=='force_close_confirmed'
+        assert any(x[0]=='L3.EXEC.FORCE_CLOSE_CONFIRMED' for x in alerts)
+        assert ex.close_count==1;completed+=1
     return completed
 
 

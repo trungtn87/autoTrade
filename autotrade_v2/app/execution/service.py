@@ -630,6 +630,12 @@ class ExecutionService:
         if terminal:
             self.store.mark(intent.event_id, result)
 
+        if result.get("force_close_epoch"):
+            # The epoch emits a bounded, dedicated system alert with every
+            # affected combo. Do not also enqueue an initiator-only trade failure.
+            return ExecutionResult(event_id=intent.event_id,accepted=accepted,
+                status=result["stage"],order_id=order_id,details=result)
+
         if result.get("ok"):
             common = {
                 "order_id": order_id,

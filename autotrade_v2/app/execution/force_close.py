@@ -89,19 +89,21 @@ class ForceClose:
 
             def close_rows():
                 total=Decimal(0)
+                seen=set()
                 for item in epoch["closes"]:
                     raw=self.client.find_order_by_client_id(intent.symbol,item["client_order_id"])
                     if raw is None:
                         raise CleanupUncertain("prepared emergency MARKET outcome unknown; never resent")
                     row=self.client.extract_order(raw)
                     clients={str(row[k]) for k in ("clientOrderId","clientOrderID") if row.get(k)}
-                    if (not oid(row) or clients!={item["client_order_id"]}
+                    if (not oid(row) or oid(row) in seen or clients!={item["client_order_id"]}
                             or row.get("symbol")!=intent.symbol or position_id(row)!=epoch["position_id"]
                             or str(row.get("side","")).upper()!=("SELL" if intent.side=="BUY" else "BUY")
                             or str(row.get("positionSide","")).upper()!=("LONG" if intent.side=="BUY" else "SHORT")
                             or str(row.get("type","")).upper()!="MARKET"
                             or str(row.get("status","")).upper() not in ACTIVE|TERMINAL):
                         raise CleanupUncertain("emergency MARKET identity unverified")
+                    seen.add(oid(row))
                     original=positive(row.get("origQty") or row.get("quantity"),"close quantity")
                     filled=positive(row.get("executedQty"),"close executed quantity")
                     if original!=Decimal(item["requested_qty"]) or filled>original:
@@ -218,9 +220,9 @@ class ForceClose:
                 self.store.save_state(eid,s)
                 self.store.mark(eid,{"stage":"force_close_confirmed","epoch":epoch["epoch"]})
             save(phase="closed",closed_at=time.time(),remaining_qty="0",error=None)
-            self.service._emit("L3.EXEC.EMERGENCY_CLOSE","WARNING",
+            self.service._emit("L3.EXEC.FORCE_CLOSE_CONFIRMED","WARNING",
                 "Emergency Force Close confirmed: merged position is zero",intent,
-                affected_combos=epoch["affected"],remaining_exposure="0",closes=epoch["closes"])
+                side=intent.side,affected_combos=epoch["affected"],remaining_exposure="0")
             return result()
         except Exception as exc:
             # A lost owner cannot write a stale verdict or make another API
@@ -230,8 +232,11 @@ class ForceClose:
             now=time.time()
             if now-float(epoch.get("last_alert_at",0))>=300:
                 save(last_alert_at=now)
-                self.service._emit("L3.EXEC.UNSAFE_OPEN_POSITION","CRITICAL",
+                closes=[{"cid":x["client_order_id"],"requested_qty":x["requested_qty"],
+                    "filled_qty":(x.get("order") or {}).get("executedQty"),
+                    "status":(x.get("order") or {}).get("status")} for x in epoch["closes"]]
+                self.service._emit("L3.EXEC.FORCE_CLOSE_UNRESOLVED","CRITICAL",
                     "Emergency Force Close unresolved: "+epoch["error"],intent,
-                    affected_combos=epoch["affected"],remaining_exposure=epoch.get("remaining_qty"),
-                    active_exit_ids=epoch.get("active_exit_ids"),closes=epoch["closes"])
+                    side=intent.side,affected_combos=epoch["affected"],remaining_exposure=epoch.get("remaining_qty"),
+                    active_exit_ids=epoch.get("active_exit_ids"),closes=closes)
             return result()

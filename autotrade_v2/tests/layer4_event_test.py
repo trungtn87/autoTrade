@@ -126,6 +126,18 @@ def main():
             symbol="BTC-USDT",
         ).normalized())
         assert len(posts)==3,posts
+        # Whole-container emergency reports must use the system/error channel,
+        # with all affected combos and quantities, not a single failed-trade card.
+        for key,severity in (("FORCE_CLOSE_UNRESOLVED","CRITICAL"),("FORCE_CLOSE_CONFIRMED","WARNING")):
+            warning_reporter._notify(SystemEvent(
+                event_key="L3.EXEC."+key,layer="L3",severity=severity,
+                message="merged container emergency",symbol="BTC-USDT",
+                details={"affected_combos":["C7","C16"],"remaining_exposure":"0.0013",
+                         "closes":[{"requested_qty":"0.0026","filled_qty":"0.0013"}]},
+            ).normalized())
+            assert posts[-1][0]=="https://discord.invalid/error"
+            assert all(value in posts[-1][1]['content'] for value in ('C7','C16','0.0026','0.0013'))
+        assert len(posts)==5,posts
     finally:
         warning_reporter.stop()
         events_module.requests.post=original_post
