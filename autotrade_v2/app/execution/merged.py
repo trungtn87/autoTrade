@@ -79,12 +79,15 @@ def reconcile_side(states, positions, open_by_id, history_by_id):
                 # Exact durable POST acknowledgement proves ownership, not
                 # activation/parameters. The journal must still verify those.
                 owners[acknowledged]=(event_id,kind)
-        if not state.get("protection"):
+        abort=state.get("abort") or {}
+        if abort and abort.get("phase")!="closed":
+            risks.append(f"{event_id}:ABORT_IN_PROGRESS")
+        if not state.get("protection") and not abort.get("close_order"):
             remaining=initial; monitor={"fills_verified":False}
             risks.append(f"{event_id}:PROTECTION_UNVERIFIED")
         else:
             # Do not trust 'done' as a quantity proof; recalculate owned fills.
-            check={**state,"exit_cleanup":{**(state.get("exit_cleanup") or {}),"status":"watching"}}
+            check={**state,"protection":state.get("protection") or {},"exit_cleanup":{**(state.get("exit_cleanup") or {}),"status":"watching"}}
             monitor,_,_=inspect_one(None,check,open_by_id,positions,historical_by_id=history_by_id,allow_incomplete=True)
             remaining=positive(monitor.get("remaining_qty"),"remaining_qty")
             if not monitor.get("fills_verified"):
@@ -95,7 +98,7 @@ def reconcile_side(states, positions, open_by_id, history_by_id):
         ledgers[event_id]={"entry_qty":str(initial),"remaining_qty":str(remaining),
                            "exit_filled_qty_by_kind":quantities,
                            "monitor":monitor,"position_id":state.get("position_id")}
-        if state.get("protection_journal"):
+        if any(x.get("phase")!="rejected" for x in (state.get("protection_journal") or {}).values()):
             risks.append(f"{event_id}:PROTECTION_SUBMISSION_UNRESOLVED")
         if remaining:
             required={"sl","tp"}|({"trailing"} if state.get("exit_mode")=="split_trailing" else set())

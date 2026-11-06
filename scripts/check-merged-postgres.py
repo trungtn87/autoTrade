@@ -87,6 +87,17 @@ with TemporaryDirectory(prefix='merged-pg-') as tmp:
         restarted.credentials_verified=True;restarted.executor.client=exchange
         assert restarted.execute(second).status=='duplicate_skipped'
         assert len(exchange.clients)==2
-        print(f'PASS PostgreSQL {version}: independent-session exclusion, exception release, WAL restart recovery, immutable historical mark, full same-side entry/TP-overlap/owned-cleanup engine schedule')
+        from protection_retry_abort_test import FailureExchange
+        for kind in ('sl','tp','trailing'):
+            with psycopg.connect(uri) as con:
+                con.execute('TRUNCATE processed_targets')  # isolated test server only
+            failed=FailureExchange(kind,2);service.executor.client=failed
+            result=service.execute(signal())
+            assert result.status=='protection_setup_aborted_closed',result
+            assert failed.close_count==1 and failed.amount==0
+            state=a.get_state(signal().event_id)
+            assert state['protection_attempts'][kind]['posts']==2
+            assert state['abort']['phase']=='closed' and state['terminal']
+        print(f'PASS PostgreSQL {version}: independent-session exclusion, exception release, WAL restart recovery, immutable historical mark, full same-side entry/TP-overlap/owned-cleanup engine schedule; retry-once/abort-close for SL, TP and trailing')
     finally:
         server.cleanup()

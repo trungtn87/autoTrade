@@ -12,7 +12,8 @@ from ..strategy.final14_config import case_name,get_case
 from .executor import LegacyStyleBingXClient
 from .quantity import allocate_exit_qty,confirmed_position_qty,PositionQuantityMismatch
 from .identity import identify_entry_position, position_id as exchange_position_id
-from .protection_journal import ProtectionJournal,ProtectionReconcilePending
+from .protection_journal import ProtectionJournal,ProtectionReconcilePending,ProtectionAttemptsExhausted
+from .protection_abort import abort_setup
 from .close_position_check import position_remaining,PositionConfirmationError
 
 log=logging.getLogger(__name__)
@@ -336,7 +337,7 @@ class Final14Executor:
 
     def _verify_protection(
         self,symbol:str,payload:dict,kind:str,position_id:str|None=None,
-        *,entry_side:str|None=None,expected_quantity=None,
+        *,entry_side:str|None=None,expected_quantity=None,expected_trigger=None,expected_callback=None,
     )->dict:
         order=self.client.extract_order(payload)
         order_id=self._order_id(order)
@@ -363,6 +364,13 @@ class Final14Executor:
             if (not original.is_finite() or not filled.is_finite() or original<=0
                     or filled<0 or filled>original or original!=Decimal(str(expected_quantity))):
                 raise RuntimeError(f"{kind} protection quantity unverified")
+            if expected_trigger is not None:
+                trigger=detail.get("activationPrice") if kind=="trailing" else detail.get("stopPrice")
+                if Decimal(str(trigger))!=Decimal(str(expected_trigger)):
+                    raise RuntimeError(f"{kind} trigger price unverified")
+            if kind=="trailing" and expected_callback is not None:
+                if Decimal(str(detail.get("priceRate")))!=Decimal(str(expected_callback)):
+                    raise RuntimeError("trailing callback unverified")
         if status not in {"NEW","PARTIALLY_FILLED","FILLED"}:
             raise RuntimeError(f"{kind} not active after placement: status={status or 'UNKNOWN'}")
         return {
@@ -702,13 +710,20 @@ class Final14Executor:
         old_protection=resume_state.get("protection") or {}
         # On production, the caller persists journal snapshots in Supabase
         # *before* every conditional POST and after every confirmation.
+        def before_protection_retry():
+            if exposure_check is not None:
+                blockers=exposure_check(resume_state)
+                if blockers:
+                    raise ProtectionReconcilePending("retry exposure check failed: "+"; ".join(blockers))
         journal=(
             ProtectionJournal(
                 self.client,resume_state,protection_persist,
                 lambda raw,kind,pid:self._verify_protection(
                     intent.symbol,raw,kind,pid,entry_side=side,
                     expected_quantity=((resume_state.get("protection_journal") or {}).get(kind) or {}).get("spec",{}).get("quantity"),
-                ),
+                    expected_trigger=((resume_state.get("protection_journal") or {}).get(kind) or {}).get("spec",{}).get("trigger"),
+                    expected_callback=((resume_state.get("protection_journal") or {}).get(kind) or {}).get("spec",{}).get("callback_rate"),
+                ),before_retry=before_protection_retry,
             ) if protection_persist is not None else None
         )
         # Resolve the particular position BEFORE placing conditional exit orders.
@@ -862,6 +877,8 @@ class Final14Executor:
                     sl_verified=self._verify_protection(
                         intent.symbol,sl_payload,"stop-loss",position_id
                     )
+            except ProtectionAttemptsExhausted:
+                raise
             except ProtectionReconcilePending as pending:
                 return {
                     "processed":False,"entry_accepted":True,"entry_filled":True,
@@ -1064,6 +1081,8 @@ class Final14Executor:
                     tp_verified=self._verify_protection(
                         intent.symbol,tp_payload,"take-profit",position_id
                     )
+            except ProtectionAttemptsExhausted:
+                raise
             except ProtectionReconcilePending as pending:
                 return {
                     "processed":False,"entry_accepted":True,"entry_filled":True,
@@ -1190,8 +1209,10 @@ class Final14Executor:
             elif prepared_activation is not None:
                 activation_price=float(prepared_activation)
             elif old_trailing_id:
-                # Existing trades placed under the old TP-activation release.
-                activation_price=tp
+                # A crash can follow the confirmed trailing WAL but precede
+                # the final result. Preserve its actual acknowledged trigger.
+                saved_row=old_trailing.get("exchange_order") or self.client.extract_order(old_trailing.get("payload") or {})
+                activation_price=float(saved_row.get("activationPrice") or tp)
             else:
                 activation_price=self.trailing_activation_price(
                     avg_price,side,self.settings.tp_trailing_activation_pct
@@ -1216,6 +1237,8 @@ class Final14Executor:
                         trailing_verified=self._verify_protection(
                             intent.symbol,trailing_payload,"trailing-stop",position_id
                         )
+                except ProtectionAttemptsExhausted:
+                    raise
                 except ProtectionReconcilePending as pending:
                     return {
                         "processed":False,"entry_accepted":True,"entry_filled":True,
@@ -1291,10 +1314,15 @@ class Final14Executor:
         if protection_persist is not None:
             try:
                 quantities={"sl":executed_qty,"tp":tp_qty,"trailing":trail_qty}
+                triggers={"sl":sl,"tp":tp}
+                if split_trailing:
+                    triggers["trailing"]=activation_price
                 for kind,item in protection.items():
                     current=self._verify_protection(intent.symbol,
                         {"data":{"order":{"orderId":item["order_id"]}}},kind,position_id,
-                        entry_side=side,expected_quantity=quantities[kind])
+                        entry_side=side,expected_quantity=quantities[kind],
+                        expected_trigger=getattr(self.client,"_fmt_price",lambda value:value)(triggers[kind]),
+                        expected_callback=self.settings.tp_trailing_callback_rate if kind=="trailing" else None)
                     if current["status"]!="NEW":
                         raise ProtectionReconcilePending(f"{kind}: changed during setup; reconcile owned fills")
                     protection[kind]=current
@@ -1341,6 +1369,17 @@ class Final14Executor:
             "error":None,
         }
 
+    def _abort_required(self,intent,state,persist,kind,exposure_check):
+        try:
+            return abort_setup(self.client,intent,state,persist,
+                self.client_order_id(intent.event_id,"close"),kind,
+                FINAL14_EXECUTION_LEVERAGE,gate=exposure_check)
+        except Exception as exc:
+            return {"processed":False,"ok":False,"entry_accepted":True,"entry_filled":True,
+                "stage":"protection_abort_reconcile_required","order_id":state.get("order_id"),
+                "executed_qty":state.get("executed_qty"),"position_id":state.get("position_id"),
+                "client_order_id":state.get("client_order_id"),"error":str(exc)}
+
     def execute_safe(
         self,
         intent:TradeIntent,
@@ -1353,6 +1392,11 @@ class Final14Executor:
             "split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp"
         ))
         try:
+            if protection_persist is not None and (resume_state or {}).get("abort"):
+                result=self._abort_required(intent,resume_state,protection_persist,
+                    resume_state["abort"]["failed_kind"],exposure_check)
+                result.setdefault("exit_mode",selected_mode)
+                return result
             result=self.execute(
                 intent,
                 resume_state=resume_state,
@@ -1360,6 +1404,10 @@ class Final14Executor:
                 protection_persist=protection_persist,
                 exposure_check=exposure_check,
             )
+            result.setdefault("exit_mode",selected_mode)
+            return result
+        except ProtectionAttemptsExhausted as exc:
+            result=self._abort_required(intent,resume_state,protection_persist,exc.kind,exposure_check)
             result.setdefault("exit_mode",selected_mode)
             return result
         except Exception as exc:

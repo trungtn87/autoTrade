@@ -539,12 +539,13 @@ class LegacyStyleBingXClient:
         leverage:int,
         client_order_id:str|None=None,
         position_id:str|None=None,
+        quantity_precision:int|None=None,
     )->dict:
         close_side="SELL" if entry_side.upper()=="BUY" else "BUY"
         params={
             "symbol":symbol,
             "side":close_side,
-            "quantity":self._fmt_qty(qty),
+            "quantity":self._fmt_qty(qty) if quantity_precision is None else self._fmt_exact_qty(qty,quantity_precision),
             "leverage":str(int(leverage)),
             "type":"MARKET",
             "positionSide":"LONG" if entry_side.upper()=="BUY" else "SHORT",

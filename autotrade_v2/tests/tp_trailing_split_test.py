@@ -43,6 +43,7 @@ class FakeTrailingClient(FakeClient):
         payload={"code":0,"data":{"order":{
             "orderId":"2003","status":"NEW","executedQty":"0","avgPrice":"0",
             "symbol":symbol,"origQty":str(qty),"type":"TRAILING_STOP_MARKET",
+            "activationPrice":str(activation_price),"priceRate":str(callback_rate),
             "side":"SELL" if entry_side=="BUY" else "BUY",
             "positionSide":"LONG" if entry_side=="BUY" else "SHORT",
         }}}

@@ -98,7 +98,7 @@ class FakeClient:
         if self.fail_sl:
             raise RuntimeError("simulated SL failure")
         order={
-            "orderId":"2001","symbol":symbol,"origQty":str(qty),
+            "orderId":"2001","symbol":symbol,"origQty":str(qty),"stopPrice":str(sl),
             "side":"SELL" if entry_side=="BUY" else "BUY",
             "positionSide":"LONG" if entry_side=="BUY" else "SHORT","type":"STOP_MARKET",
             "status":"NEW",
@@ -114,7 +114,7 @@ class FakeClient:
         if self.fail_tp:
             raise RuntimeError("simulated TP failure")
         order={
-            "orderId":"2002","symbol":symbol,"origQty":str(qty),
+            "orderId":"2002","symbol":symbol,"origQty":str(qty),"stopPrice":str(tp),
             "side":"SELL" if entry_side=="BUY" else "BUY",
             "positionSide":"LONG" if entry_side=="BUY" else "SHORT","type":"TAKE_PROFIT_MARKET",
             "status":"NEW",

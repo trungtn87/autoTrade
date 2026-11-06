@@ -73,7 +73,7 @@ class BaseClient:
     def place_stop_loss(self,symbol,entry_side,qty,sl,position_id=None):
         self.calls.append(("sl",qty,sl))
         payload={"code":0,"data":{"order":{
-            "orderId":"3001","status":"NEW","symbol":symbol,"origQty":str(qty),
+            "orderId":"3001","status":"NEW","symbol":symbol,"origQty":str(qty),"stopPrice":str(sl),
             "side":"SELL" if entry_side=="BUY" else "BUY",
             "positionSide":"LONG" if entry_side=="BUY" else "SHORT","type":"STOP_MARKET",
             "executedQty":"0","avgPrice":"0",
@@ -84,7 +84,7 @@ class BaseClient:
     def place_take_profit(self,symbol,entry_side,qty,tp,position_id=None):
         self.calls.append(("tp",qty,tp))
         payload={"code":0,"data":{"order":{
-            "orderId":"3002","status":"NEW","symbol":symbol,"origQty":str(qty),
+            "orderId":"3002","status":"NEW","symbol":symbol,"origQty":str(qty),"stopPrice":str(tp),
             "side":"SELL" if entry_side=="BUY" else "BUY",
             "positionSide":"LONG" if entry_side=="BUY" else "SHORT","type":"TAKE_PROFIT_MARKET",
             "executedQty":"0","avgPrice":"0",

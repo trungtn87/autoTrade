@@ -269,6 +269,9 @@ class ExecutionService:
                         # live-combo mutation remains blocked.
                         if Decimal(str(own_report.get("remaining_qty", "-1")))!=0 or not (own_report.get("monitor") or {}).get("fills_verified"):
                             continue
+                    if state.get("abort") and state["abort"].get("phase")!="closed":
+                        self.store.save_state(event_id,state)
+                        continue  # abort coordinator owns all conditional/close mutations
                     if event_id in collisions or intent is None:
                         self._emit("L3.EXEC.EXIT_CLEANUP_RISK","CRITICAL",
                                    "ambiguous owned order IDs; cleanup refused",intent)
@@ -586,7 +589,13 @@ class ExecutionService:
             severity = "CRITICAL" if result.get("entry_accepted") else "ERROR"
             key = "L3.EXEC.ORDER_FAIL"
 
-            if stage in {"entry_unknown_reconcile_required","reconcile_error"}:
+            if stage=="protection_setup_aborted_closed":
+                key="L3.EXEC.EMERGENCY_CLOSE"
+                severity="WARNING"
+            elif stage=="protection_abort_reconcile_required":
+                key="L3.EXEC.UNSAFE_OPEN_POSITION"
+                severity="CRITICAL"
+            elif stage in {"entry_unknown_reconcile_required","reconcile_error"}:
                 key = "L3.EXEC.RECONCILE_REQUIRED"
                 severity = "CRITICAL"
             elif stage=="entry_absent_reconciled":

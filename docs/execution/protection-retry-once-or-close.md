@@ -1,6 +1,27 @@
 # Protection setup: confirm, retry once, otherwise abort the combo
 
-Status: **DESIGN ONLY — not implemented or approved for live deployment.**
+Status: **PARTIALLY IMPLEMENTED — not approved for live deployment.**
+
+Implemented: durable <=2 protection POSTs per leg for explicit documented POST
+rejections (101204, 109400, 109425), no duplicate on uncertain POST/verification
+failure, abort coordinator, exact residual MARKET close when the selected
+container is exclusively owned, close-fill confirmation, and exact post-close
+cleanup. An active SL is retained until owned closure is proven. Close quantity
+uses the contract precision, not a blind four-decimal rounding.
+
+State is stored in the existing execution JSON: `protection_attempts`,
+`protection_journal`, `abort`, and `emergency_close`. Owned MARKET abort fills
+are included in the existing exit ledger, so a closed failed entry does not
+reappear as live quantity after restart. PostgreSQL integration exercises SL,
+TP and trailing exhaustion/closure.
+
+**Not implemented/certified:** safe partial-combo abort while its container is
+still shared with live peers and competing exits. That case retains confirmed
+protection, reports CRITICAL and does not submit a blind MARKET close. Once
+peers have actually closed and their exits are verified cleaned, recovery can
+close the now-exclusive residual. The tests deliberately assert this guard;
+it is a remaining acceptance blocker, not fulfillment of all shared aborts.
+
 Owner decision, 06 November 2026: after entry, require TP/SL (and the existing
 trailing leg when configured); at most one protection retry; if still unable to
 establish required protection, exit that combo. Healthy same-side combos remain

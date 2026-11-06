@@ -158,6 +158,28 @@ def triggered_execution(historical_by_id, parent_id, state, kind):
             "orig_qty": str(executed)}
 
 
+def abort_close_quantity(state):
+    """Count only the exact deterministic MARKET abort identity, never side delta."""
+    row=(state.get("abort") or {}).get("close_order")
+    if not row:
+        return Decimal(0)
+    intent=state["intent"];journal=state.get("emergency_close") or {}
+    cid=str(row.get("clientOrderId") or row.get("clientOrderID") or "")
+    if (not oid(row) or cid!=journal.get("client_order_id")
+            or row.get("symbol")!=intent["symbol"]
+            or str(row.get("side") or "").upper()!=("SELL" if intent["side"]=="BUY" else "BUY")
+            or str(row.get("positionSide") or "").upper()!=("LONG" if intent["side"]=="BUY" else "SHORT")
+            or str(row.get("type") or "").upper()!="MARKET"
+            or exchange_position_id(row)!=str(state["position_id"])
+            or str(row.get("status") or "").upper() not in ACTIVE|TERMINAL):
+        raise CleanupUncertain("abort close identity unverified")
+    original=positive(row.get("origQty") or row.get("quantity"),"abort origQty")
+    filled=positive(row.get("executedQty"),"abort executedQty")
+    if original!=positive(journal.get("requested_qty"),"abort requested qty") or filled>original:
+        raise CleanupUncertain("abort close quantity unverified")
+    return filled
+
+
 def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical_by_id=None, allow_incomplete=False):
     """Inspect one trade without mutation. Return (new monitor state, cancel IDs, alerts)."""
     old = state.get("exit_cleanup") or {}
@@ -182,7 +204,7 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
         monitor["warnings"].append("LEGACY_SL_REPLACEMENT_UNVERIFIED")
     outstanding = []
     unknown_exit_ids = []
-    total_filled = Decimal(0)
+    total_filled = abort_close_quantity(state)
     alerts = (
         ["LEGACY_SL_REPLACEMENT_UNVERIFIED"] if legacy_pending
         and (state.get("exit_cleanup") or {}).get("status") is None
