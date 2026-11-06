@@ -18,7 +18,8 @@ from app.execution.merged import reconcile_side
 
 
 class Exchange:
-    def __init__(self):
+    def __init__(self,side='SELL',prices=('79701.6','78778.5')):
+        self.side=side;self.prices=prices
         self.amount=Decimal(0)
         self.next_id=2118327594881601000
         self.orders={};self.clients={};self.calls=[]
@@ -44,7 +45,7 @@ class Exchange:
         if self.lag:
             self.lag-=1
             return []
-        return ([] if not self.amount else [{'symbol':symbol,'positionSide':'SHORT',
+        return ([] if not self.amount else [{'symbol':symbol,'positionSide':'SHORT' if self.side=='SELL' else 'LONG',
                 'positionID':self.position_id,'positionAmt':str(self.amount)}])
 
     def get_open_orders(self,symbol):
@@ -67,11 +68,11 @@ class Exchange:
         return self._raw(self.orders[order_id])
 
     def place_market_entry(self,symbol,side,qty,leverage,client_order_id=None):
-        assert side=='SELL'
+        assert side==self.side
         oid=self._id();quantity=Decimal(str(qty));self.amount+=quantity
-        price='79701.6' if not self.clients else '78778.5'
+        price=self.prices[0] if not self.clients else self.prices[1]
         row={'orderID':oid,'orderId':int(oid),'clientOrderId':client_order_id,
-             'symbol':symbol,'side':side,'positionSide':'SHORT','type':'MARKET',
+             'symbol':symbol,'side':side,'positionSide':'SHORT' if self.side=='SELL' else 'LONG','type':'MARKET',
              'status':'FILLED','origQty':str(quantity),'executedQty':str(quantity),
              'avgPrice':price,'positionID':self.position_id}
         self.orders[oid]=row;self.clients[client_order_id]=oid
@@ -84,10 +85,10 @@ class Exchange:
         return self._raw(row)
 
     def _protect(self,kind,symbol,side,qty,trigger,position_id,rate=None):
-        assert side=='SELL' and position_id==self.position_id
+        assert side==self.side and position_id==self.position_id
         oid=self._id()
-        row={'orderID':oid,'orderId':int(oid),'symbol':symbol,'side':'BUY',
-             'positionSide':'SHORT','positionID':position_id,'type':{
+        row={'orderID':oid,'orderId':int(oid),'symbol':symbol,'side':'BUY' if self.side=='SELL' else 'SELL',
+             'positionSide':'SHORT' if self.side=='SELL' else 'LONG','positionID':position_id,'type':{
                 'sl':'STOP_MARKET','tp':'TAKE_PROFIT_MARKET','trailing':'TRAILING_STOP_MARKET'}[kind],
              'status':'NEW','origQty':str(qty),'executedQty':'0','avgPrice':'0'}
         row.update({'activationPrice':str(trigger),'priceRate':str(rate)} if kind=='trailing' else {'stopPrice':str(trigger)})
@@ -167,6 +168,21 @@ def main():
         assert ex.amount==Decimal('0.0026') and len(ex.clients)==2
         assert all(ex.orders[oid]['status']=='NEW' for oid in first.values())
         assert not service.execute(b).accepted and len(ex.clients)==2
+
+    # ETH LONG uses the same evidence path; no hardcoded BTC/SHORT routing.
+    with TemporaryDirectory() as tmp:
+        service,store,_=setup(tmp);ex=Exchange(side='BUY',prices=('2000','2010'))
+        service.executor.client=ex
+        a=TradeIntent(event_id='ETH|C1|1',symbol='ETH-USDT',combo=1,side='BUY',
+            timeframe='1h',close_time=1,entry=2000,tp=2040,sl=1986.66666,smc_dir=1)
+        b=replace(a,event_id='ETH|C3|2',combo=3,close_time=2,entry=2010,tp=2046.18,sl=1997.94)
+        assert service.execute(a).status=='complete';first=state_ids(store,a)
+        ex.on_entry=lambda:ex.fill(first['tp'])
+        assert service.execute(b).status=='complete';second=state_ids(store,b)
+        ex.fill(first['trailing']);service.cleanup_closed_exits()
+        assert ('cancel',first['sl']) in ex.calls
+        assert all(ex.orders[oid]['status']=='NEW' for oid in second.values())
+        assert ex.amount==Decimal('0.0498')
 
     # 2/3/4: C16 TP overlaps C7 entry; C16 trailing then closes its own rest.
     with TemporaryDirectory() as tmp:
