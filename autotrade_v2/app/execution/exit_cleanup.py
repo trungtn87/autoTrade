@@ -48,7 +48,7 @@ def oid(row):
     return v if re.fullmatch(r"[1-9][0-9]*", v) else ""
 
 
-def own_orders(state):
+def own_orders(state, require_complete=True):
     protection = state.get("protection")
     if not isinstance(protection, dict):
         raise CleanupUncertain("protection missing")
@@ -63,16 +63,16 @@ def own_orders(state):
         if v in entries:
             raise CleanupUncertain("duplicate protection orderId")
         entries[v] = kind
-    if "sl" not in entries.values() or "tp" not in entries.values():
+    if require_complete and ("sl" not in entries.values() or "tp" not in entries.values()):
         raise CleanupUncertain("required SL/TP missing")
-    if state.get("exit_mode") == "split_trailing" and "trailing" not in entries.values():
+    if require_complete and state.get("exit_mode") == "split_trailing" and "trailing" not in entries.values():
         raise CleanupUncertain("expected trailing order missing")
     return entries
 
 
 def eligible(state):
     return bool(
-        state.get("entry_filled") and state.get("terminal")
+        state.get("entry_filled")
         and re.fullmatch(r"[1-9][0-9]*", str(state.get("position_id") or ""))
         and str(state.get("intent", {}).get("symbol") or "")
         and state.get("executed_qty") is not None
@@ -139,6 +139,7 @@ def triggered_execution(historical_by_id, parent_id, state, kind):
     matches = [
         row for row in historical_by_id.values()
         if str(row.get("triggerOrderId") or row.get("triggerOrderID") or "") == parent_id
+        and oid(row) != parent_id  # conditional parents may self-reference
     ]
     if not matches:
         return None
@@ -157,7 +158,7 @@ def triggered_execution(historical_by_id, parent_id, state, kind):
             "orig_qty": str(executed)}
 
 
-def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical_by_id=None):
+def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical_by_id=None, allow_incomplete=False):
     """Inspect one trade without mutation. Return (new monitor state, cancel IDs, alerts)."""
     old = state.get("exit_cleanup") or {}
     if old.get("status") == "done":
@@ -172,7 +173,7 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
         "warnings": list(old.get("warnings") or []),
     }
     now_ms = int(now_ms if now_ms is not None else time.time()*1000)
-    own = own_orders(state)
+    own = own_orders(state,require_complete=not allow_incomplete)
     # The previous lifecycle could cancelReplace SL into an ID that was never
     # durably resolved. This cleanup cannot safely claim/delete that unknown
     # order; alert once so it can be investigated on BingX.
@@ -227,6 +228,15 @@ def inspect_one(client, state, open_by_id, positions, *, now_ms=None, historical
         else:
             validate_order(state, kind, row)
             view = _order_view(row)
+        if historical_by_id is not None:
+            child=triggered_execution(historical_by_id,order_id,state,kind)
+            if child is not None:
+                if view["status"] in ACTIVE:
+                    raise CleanupUncertain("trigger execution conflicts with active parent snapshot")
+                if positive(view["executed_qty"],"parent fill") not in {
+                    Decimal(0),positive(child["executed_qty"],"child fill")}:
+                    raise CleanupUncertain("parent/child filled quantities disagree")
+                view=child  # count the parent-linked execution once, never twice
         if view["status"] not in ACTIVE | TERMINAL:
             raise CleanupUncertain("unrecognized status in cached order")
         count = positive(view["executed_qty"], "executedQty")

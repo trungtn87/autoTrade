@@ -4,6 +4,7 @@ import os
 import tempfile
 import time
 from dataclasses import replace
+from types import SimpleNamespace
 
 from app.config import Settings
 from app.contracts import TradeIntent
@@ -14,11 +15,15 @@ from app.execution.store import ExecutionStore
 
 
 class FakeExecutor:
+    def __init__(self):
+        self.client=SimpleNamespace(get_positions=lambda symbol:[],get_open_orders=lambda symbol:[],
+                                    find_order_by_client_id=lambda symbol,cid:None)
+
     @staticmethod
     def client_order_id(event_id,purpose="entry"):
         return f"fake-{purpose}-{event_id}"[:40]
 
-    def execute_safe(self, intent, resume_state=None, allow_new_entry=True, protection_persist=None):
+    def execute_safe(self, intent, resume_state=None, allow_new_entry=True, protection_persist=None, exposure_check=None):
         return {
             "ok": True,
             "processed": True,
@@ -32,8 +37,8 @@ class FakeExecutor:
             "tp": 102.0,
             "sl": 99.0,
             "protection":{
-                "sl":{"order_id":"sl-1","status":"NEW"},
-                "tp":{"order_id":"tp-1","status":"NEW"},
+                "sl":{"order_id":"2001","status":"NEW"},
+                "tp":{"order_id":"2002","status":"NEW"},
             },
         }
 

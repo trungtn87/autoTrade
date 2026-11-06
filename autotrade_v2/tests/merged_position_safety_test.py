@@ -146,7 +146,7 @@ def main():
         service.executor.client=NoExchange()
         pending=service._intent_from_state(c7)
         blocked=service.execute(pending)
-        assert blocked.status=='merged_reconcile_required' and not blocked.accepted
+        assert blocked.status=='position_preflight_blocked' and not blocked.accepted
         assert store.get_state(pending.event_id) is None
         store.save_state('C16',{**c16,'terminal':False,'recovery':{'attempts':8}})
         assert service.recover_pending()==[],"exhaustion survives restart without another method retry"

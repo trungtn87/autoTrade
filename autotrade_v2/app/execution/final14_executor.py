@@ -97,7 +97,7 @@ class Final14Executor:
         position_id:str|None=None,resume_state:dict|None=None,
         protection_persist=None,
     )->dict:
-        if (resume_state or {}).get("merged_reconcile", {}).get("shared"):
+        if (resume_state or {}).get("shared_position") or (resume_state or {}).get("merged_reconcile", {}).get("shared"):
             return {"confirmed":False,"reason":reason,
                     "error":"shared position: automatic emergency close requires per-combo exit proof; manual intervention required"}
         # Separate Isolated must NOT be closed by side alone when multiple
@@ -335,7 +335,8 @@ class Final14Executor:
         }
 
     def _verify_protection(
-        self,symbol:str,payload:dict,kind:str,position_id:str|None=None
+        self,symbol:str,payload:dict,kind:str,position_id:str|None=None,
+        *,entry_side:str|None=None,expected_quantity=None,
     )->dict:
         order=self.client.extract_order(payload)
         order_id=self._order_id(order)
@@ -350,12 +351,25 @@ class Final14Executor:
             raise RuntimeError(f"{kind} GET returned another symbol")
         if position_id and exchange_position_id(detail) and exchange_position_id(detail)!=str(position_id):
             raise RuntimeError(f"{kind} targets the wrong positionId")
+        if entry_side is not None:
+            expected_types={"sl":"STOP_MARKET","tp":"TAKE_PROFIT_MARKET","trailing":"TRAILING_STOP_MARKET"}
+            if (detail.get("symbol")!=symbol
+                    or str(detail.get("side") or "").upper()!=("SELL" if entry_side=="BUY" else "BUY")
+                    or str(detail.get("positionSide") or "").upper()!=("LONG" if entry_side=="BUY" else "SHORT")
+                    or str(detail.get("type") or "").upper()!=expected_types[kind]):
+                raise RuntimeError(f"{kind} protection symbol/side/type identity unverified")
+            original=Decimal(str(detail.get("origQty") or detail.get("quantity")))
+            filled=Decimal(str(detail.get("executedQty")))
+            if (not original.is_finite() or not filled.is_finite() or original<=0
+                    or filled<0 or filled>original or original!=Decimal(str(expected_quantity))):
+                raise RuntimeError(f"{kind} protection quantity unverified")
         if status not in {"NEW","PARTIALLY_FILLED","FILLED"}:
             raise RuntimeError(f"{kind} not active after placement: status={status or 'UNKNOWN'}")
         return {
             "order_id":order_id,
             "status":status,
             "payload":payload,
+            "exchange_order":detail,
         }
 
     def execute(
@@ -364,6 +378,7 @@ class Final14Executor:
         resume_state:dict|None=None,
         allow_new_entry:bool=True,
         protection_persist=None,
+        exposure_check=None,
     )->dict:
         resume_state=resume_state if resume_state is not None else {}
         cfg=get_case(intent.symbol,intent.combo)
@@ -440,6 +455,7 @@ class Final14Executor:
         filled_qty_raw="0"
         avg_price=0.0
         order_id=""
+        expected_entry_id=str(resume_state.get("order_id") or self._order_id(self.client.extract_order(entry_result or {})) or "")
         for attempt in range(1,ENTRY_CONFIRM_ATTEMPTS+1):
             raw=self.client.find_order_by_client_id(intent.symbol,client_order_id)
             if raw is None:
@@ -448,6 +464,18 @@ class Final14Executor:
                 continue
             detail=self.client.extract_order(raw)
             capture_entry(resume_state, detail, client_order_id)
+            if protection_persist is not None:
+                from .identity import verified_entry_order
+                try:
+                    verified_entry_order(detail,intent.symbol,side,client_order_id,
+                                         expected_entry_id or None,require_filled=False)
+                except Exception as exc:
+                    return {"processed":False,"entry_accepted":True,
+                        "entry_filled":bool(resume_state.get("entry_filled")),
+                        "ok":False,"stage":"entry_identity_reconcile_required",
+                        "order_id":resume_state.get("order_id"),"client_order_id":client_order_id,
+                        "executed_qty":resume_state.get("executed_qty"),
+                        "unsafe_open_position":True,"error":str(exc)}
             order_id=self._order_id(detail)
             status,executed_qty,avg_price=self._order_metrics(detail)
             filled_qty_raw=str(detail.get("executedQty") or "0")
@@ -499,6 +527,10 @@ class Final14Executor:
                     if raw is not None:
                         detail=self.client.extract_order(raw)
                         capture_entry(resume_state, detail, client_order_id)
+                        if protection_persist is not None:
+                            from .identity import verified_entry_order
+                            verified_entry_order(detail,intent.symbol,side,client_order_id,
+                                                 order_id or None,require_filled=False)
                         final_order_id=self._order_id(detail) or final_order_id
                         final_status,final_qty,final_avg=self._order_metrics(detail)
                         if final_status in {"FILLED","CANCELED","EXPIRED"}:
@@ -595,6 +627,26 @@ class Final14Executor:
                 "error":"entry did not reach confirmed FILLED state",
             }
 
+        entry_detail=dict(detail)
+        if protection_persist is not None:
+            # Fill identity is durable before position reads/protection setup.
+            # A crash cannot erase a real fill or turn it into another entry.
+            from .identity import verified_entry_order
+            try:
+                verified_entry_order(entry_detail,intent.symbol,side,client_order_id,order_id)
+            except Exception as exc:
+                return {"processed":False,"entry_accepted":True,"entry_filled":True,
+                        "ok":False,"stage":"entry_identity_reconcile_required",
+                        "order_id":order_id,"client_order_id":client_order_id,
+                        "executed_qty":executed_qty,"avg_price":avg_price,
+                        "unsafe_open_position":True,"error":str(exc)}
+            prepared={**resume_state,"entry_accepted":True,"entry_filled":True,
+                      "executed_qty":filled_qty_raw,"avg_price":avg_price,
+                      "order_id":order_id,"client_order_id":client_order_id,
+                      "verified_entry":entry_detail,"stage":"entry_filled_unprotected"}
+            protection_persist(prepared)
+            resume_state.update(prepared)
+
         if not self._valid_fill(side,avg_price,tp,sl):
             close=self._confirm_market_close(
                 intent,executed_qty,"fill_outside_final14_range",
@@ -654,21 +706,24 @@ class Final14Executor:
             ProtectionJournal(
                 self.client,resume_state,protection_persist,
                 lambda raw,kind,pid:self._verify_protection(
-                    intent.symbol,raw,kind,pid
+                    intent.symbol,raw,kind,pid,entry_side=side,
+                    expected_quantity=((resume_state.get("protection_journal") or {}).get(kind) or {}).get("spec",{}).get("quantity"),
                 ),
             ) if protection_persist is not None else None
         )
         # Resolve the particular position BEFORE placing conditional exit orders.
         # Baseline is durable in Supabase prior to the MARKET POST.
         before=resume_state.get("pre_entry_positions")
-        if split_trailing and isinstance(before,dict):
+        if (split_trailing and isinstance(before,dict)) or protection_persist is not None:
             last_error=None
             for attempt in range(1,AMBIGUOUS_RECHECK_ATTEMPTS+1):
                 try:
                     position_id=identify_entry_position(
                         self.client.get_positions(intent.symbol),
                         intent.symbol,side,filled_qty_raw,baseline=before,
-                        entry_position_id=exchange_position_id(detail) or None,
+                        entry_position_id=exchange_position_id(entry_detail) or None,
+                        entry_order=entry_detail if protection_persist is not None else None,
+                        client_order_id=client_order_id,expected_order_id=order_id,
                     )
                     break
                 except Exception as exc:
@@ -684,6 +739,29 @@ class Final14Executor:
                     "unsafe_open_position":True,
                     "error":f"cannot attribute entry to exactly one BingX positionId: {last_error}",
                 }
+        if position_id and protection_persist is not None:
+            prepared={**resume_state,"position_id":position_id}
+            protection_persist(prepared)
+            resume_state.update(prepared)
+        def exposure_gate(stage):
+            if exposure_check is None:
+                return None
+            try:
+                blockers=exposure_check(resume_state)
+            except Exception as exc:
+                blockers=[f"read-only exposure scan unavailable: {exc}"]
+            if blockers:
+                return {"processed":False,"entry_accepted":True,"entry_filled":True,
+                    "ok":False,"stage":stage,"position_id":position_id,
+                    "order_id":order_id,"client_order_id":client_order_id,
+                    "executed_qty":executed_qty,"avg_price":avg_price,
+                    "protection":resume_state.get("protection") or {},
+                    "unsafe_open_position":not bool((resume_state.get("protection") or {}).get("sl")),
+                    "error":"; ".join(blockers)}
+            return None
+        blocked=exposure_gate("entry_exposure_reconcile_required")
+        if blocked:
+            return blocked
         sl_verified=None
         tp_verified=None
         trailing_verified=None
@@ -903,6 +981,9 @@ class Final14Executor:
                 "error":"stop-loss is partially filled; protection reconciliation required",
             }
 
+        blocked=exposure_gate("exposure_reconcile_required_sl_active")
+        if blocked:
+            return blocked
         if split_trailing:
             # SL is already active. Before splitting, independently read the
             # exchange position and current contract lot rules. Never trust
@@ -1207,6 +1288,26 @@ class Final14Executor:
         protection={"tp":tp_verified,"sl":sl_verified}
         if split_trailing:
             protection["trailing"]=trailing_verified
+        if protection_persist is not None:
+            try:
+                quantities={"sl":executed_qty,"tp":tp_qty,"trailing":trail_qty}
+                for kind,item in protection.items():
+                    current=self._verify_protection(intent.symbol,
+                        {"data":{"order":{"orderId":item["order_id"]}}},kind,position_id,
+                        entry_side=side,expected_quantity=quantities[kind])
+                    if current["status"]!="NEW":
+                        raise ProtectionReconcilePending(f"{kind}: changed during setup; reconcile owned fills")
+                    protection[kind]=current
+            except Exception as exc:
+                return {"processed":False,"entry_accepted":True,"entry_filled":True,
+                    "ok":False,"stage":"protection_changed_during_setup",
+                    "order_id":order_id,"client_order_id":client_order_id,
+                    "position_id":position_id,"executed_qty":executed_qty,"avg_price":avg_price,
+                    "protection":resume_state.get("protection") or protection,
+                    "error":str(exc)}
+        blocked=exposure_gate("exposure_reconcile_required_sl_active")
+        if blocked:
+            return blocked
         return {
             "processed":True,
             "entry_accepted":True,
@@ -1246,6 +1347,7 @@ class Final14Executor:
         resume_state:dict|None=None,
         allow_new_entry:bool=True,
         protection_persist=None,
+        exposure_check=None,
     )->dict:
         selected_mode=str((resume_state or {}).get("exit_mode") or (
             "split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp"
@@ -1256,6 +1358,7 @@ class Final14Executor:
                 resume_state=resume_state,
                 allow_new_entry=allow_new_entry,
                 protection_persist=protection_persist,
+                exposure_check=exposure_check,
             )
             result.setdefault("exit_mode",selected_mode)
             return result
@@ -1267,8 +1370,10 @@ class Final14Executor:
             return {
                 "ok":False,
                 "processed":False,
-                "entry_accepted":False,
-                "entry_filled":False,
+                "entry_accepted":bool((resume_state or {}).get("entry_accepted")),
+                "entry_filled":bool((resume_state or {}).get("entry_filled")),
+                "order_id":(resume_state or {}).get("order_id"),
+                "executed_qty":(resume_state or {}).get("executed_qty"),
                 "stage":"reconcile_error",
                 "exit_mode":selected_mode,
                 "client_order_id":self.client_order_id(intent.event_id,"entry"),

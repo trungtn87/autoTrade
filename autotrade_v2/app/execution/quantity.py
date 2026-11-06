@@ -29,6 +29,7 @@ def confirmed_position_qty(
     Confirm that the exchange position can accommodate the real entry fill,
     without treating aggregated positionAmt as this trade's order quantity.
     """
+    from .identity import position_id as exchange_position_id
     side="LONG" if entry_side.upper()=="BUY" else "SHORT"
     candidates=[]
     for row in positions:
@@ -42,7 +43,7 @@ def confirmed_position_qty(
         raise PositionQuantityMismatch("BingX entry filled but no matching live position")
     if expected_position_id:
         candidates=[(row,amt) for row,amt in candidates
-                    if str(row.get("positionId") or "")==str(expected_position_id)]
+                    if exchange_position_id(row)==str(expected_position_id)]
     if len(candidates)!=1:
         raise PositionQuantityMismatch(
             "cannot attribute exchange-side quantity to one confirmed BingX positionId"
@@ -53,7 +54,7 @@ def confirmed_position_qty(
             f"BingX selected positionAmt={total} differs from executedQty={filled}"
         )
     own=filled if allow_aggregate else total
-    position_id=str(row.get("positionId") or "") or None
+    position_id=exchange_position_id(row) or None
     if expected_position_id and position_id!=str(expected_position_id):
         raise PositionQuantityMismatch("BingX tracked positionId changed")
     return format(own,"f"),position_id
@@ -67,11 +68,12 @@ def remaining_position_qty(
     No position of this symbol/side means fully closed. If the tracked position
     ID disappears while another one exists, refuse to confuse their sizes.
     """
+    from .identity import position_id as exchange_position_id
     side="LONG" if entry_side.upper()=="BUY" else "SHORT"
     candidates=[row for row in positions if row.get("symbol")==symbol
                 and str(row.get("positionSide") or "").upper()==side]
     if expected_position_id:
-        selected=[row for row in candidates if str(row.get("positionId") or "")==str(expected_position_id)]
+        selected=[row for row in candidates if exchange_position_id(row)==str(expected_position_id)]
         if not selected and candidates:
             raise PositionQuantityMismatch("tracked positionId no longer matches BingX position")
     else:

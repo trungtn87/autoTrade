@@ -1,11 +1,12 @@
 # BingX merged-position incident — investigation and safety groundwork
 
-Status: **DRAFT / NOT ACCEPTED / DO NOT DEPLOY**. This change is not the complete
-merged-position trading implementation requested by the Owner. In particular,
-it conservatively blocks another same-side entry while a tracked combo remains
-live; it does not yet authorize independent concurrent combos in a merged
-container. No live account actions, production DB writes, merges or deploys
-were performed during this investigation.
+Status: **DRAFT / NOT ACCEPTED / DO NOT DEPLOY**. Updated 06 November 2026:
+the blanket same-side entry rejection has been removed. Independently verified
+same-side combos may enter and receive their own native SL/TP/trailing while
+sharing a position ID. This update fixes the incident's fill-versus-net-delta
+identity failure. It does not certify atomic native-exit budgeting or SL
+replacement races. No live account actions, production DB writes, merges or
+deploys were performed.
 
 ## Base and related changes
 
@@ -64,8 +65,11 @@ reassigned on that basis.
 - `merged.py`: pure ledger, per-combo exit quantities by kind, exact-owned-fill
   arithmetic, aggregate exchange comparison, duplicate ownership rejection,
   active SL checks, unowned order checks and executable exit budget diagnostics.
-  `entry_proof()` validates exact entry client/order identity; it is groundwork,
-  not yet wired to replace the production snapshot-delta resolver.
+  The production resolver now validates the exact MARKET client/order ID,
+  symbol, side, type and executed quantity before accepting its explicit
+  `positionID`. Peer exits no longer have to leave a net delta equal to entry.
+  A missing explicit ID still needs a durable, unambiguous baseline; missing or
+  conflicting evidence never authorizes routing to an arbitrary same-side ID.
 - `exit_cleanup.py`: remove the two-flat-snapshot cancellation authorization.
   Only exact owned fills summing to entry authorize cleanup; missing shared IDs
   remain diagnostics. Persist own entry/exit/remaining quantities. Continue
@@ -73,7 +77,11 @@ reassigned on that basis.
 - `service.py`: use the ledger in the existing cleanup loop, include pending
   siblings, downgrade unsafe live `complete` states to reconciliation, preserve
   exact closed-combo cleanup while blocking mutations of live ambiguous peers,
-  block new same-side entry while another tracked combo is unresolved/live.
+  allow healthy same-side entry after a fresh read-only exposure/protection
+  reconciliation. Genuine missing protection, unexplained quantity drift,
+  unowned exits, duplicate IDs or unknown submissions still prevent increasing
+  exposure. Closed-combo exits must be cleaned before another entry can use
+  that side. A healthy peer's mere presence is never a blocker.
   Persist recovery backoff, limit automated attempts to eight, bound identical
   failure alerts and preserve the no-new-entry recovery rule.
 - `store.py`: one store-wide PostgreSQL advisory session lock across execution
@@ -81,7 +89,13 @@ reassigned on that basis.
   leases expire mid-call. This intentionally serializes more than one symbol.
 - `final14_executor.py`: normalize entry aliases; refuse emergency closing an
   unproven smaller residual by attributing a shared position size to a combo;
-  remove the floating point tolerance for cross-combo close sizing.
+  remove the floating point tolerance for cross-combo close sizing. Persist
+  verified fill identity before any position/protection calls; persist the
+  resolved container before conditional POSTs. Re-read every required protection
+  before COMPLETE, validating exact order ID, symbol, side, type, original size
+  and active state. A canceled SL during setup cannot yield COMPLETE. Exceptions
+  after a durable fill retain known exposure. Same-side recovery never blindly
+  closes the shared container.
 - `protection_journal.py`: persist an exact POST acknowledgement before GET
   verification. A lost POST response with only a new price/quantity match is
   **not ownership proof**, even if there is only one matching order. No resend.
@@ -104,8 +118,15 @@ A side-wide reduce-only cap would still not isolate combo ownership: an old
 combo's overlarge SL could consume a live peer's remaining quantity. REST polling
 and cancel/replace cannot make that race atomic. Posting replacement SL first
 creates overlapping executable protection; canceling old SL first opens a gap.
-This draft therefore detects budget overcommit and does **not** implement an
-unproven replacement protocol or claim server-side OCO.
+This draft detects the sum-of-resting-orders budget diagnostic and does **not**
+implement an unproven replacement protocol or claim server-side OCO. To honor
+the Owner's latest instruction, the diagnostic alone is not an admission veto
+for every otherwise healthy same-side combo. It remains explicit as
+`EXIT_BUDGET_UNVERIFIED`; it is not evidence that a verified active SL has gone
+missing. COMPLETE describes verified own protections, not certification of
+exchange-side mutually exclusive execution. Actual own SL size mismatches after
+TP fills remain critical, retain the existing SL and require reconciliation;
+they are not silently treated as safe or adjusted by blind subtraction.
 
 The Owner's requirements to retain all native independent full SL/TP/trailing
 and guarantee their total executable quantity never exceeds exposure need a
@@ -126,13 +147,15 @@ identity rule alone as the complete fix.
   ownership; missing history; exit budget; independent store locks; incident
   size-delta reproduction. Lost conditional POST/restart tests run separately
   for SL, TP and trailing and assert no duplicate/no shape-only adoption.
-- PostgreSQL integration script: **CI PASS** on the initial draft commit,
+- PostgreSQL integration script: **CI PASS** on the preceding draft commits,
   including the existing PostgreSQL analytics integration. Locally BLOCKED:
   this environment
   rejects `socket(AF_UNIX)` with `PermissionError: [Errno 1] Operation not
   permitted`, before the isolated server starts. CI installs dev-only
   `pgserver==0.1.4` and runs the integration without production credentials.
-  Review the rerun on the final commit as well.
+  The new update adds the full engine schedule on PostgreSQL: C16 entry,
+  C7 same-side entry overlapping C16 TP, exact C16 cleanup preserving C7,
+  and restart idempotency. Review the rerun on the final commit as well.
 - PostgreSQL checks cover independent sessions, WAL visibility/restart,
   competing lock exclusion, exception release and immutable historical marks.
   Passing those does not establish exchange-side atomicity or safe behavior
@@ -142,14 +165,24 @@ identity rule alone as the complete fix.
 
 ## Unfinished acceptance and manual intervention
 
-This PR is safety groundwork, **not acceptance of all 15 requested end-to-end
-scenarios**. The ledger models the shared quantity but the production entry
-resolver still needs integration with independently verified fills. Existing
-pending trades are not automatically granted container ownership. Stop-quantity
-replacement, full native-exit budget safety, lock-session-loss fencing,
-post-crash acknowledgement ownership and live completed-trade protection
-restoration still require design/verification. Pending recovery eventually
-requires manual intervention rather than retrying forever.
+The production fill-based resolver and healthy same-side admission are now
+implemented, not a proposal. `merged_entry_test.py` runs the real service/store/
+executor over a Decimal-based fake exchange with shared container IDs and
+parent-linked fills. It exercises same-side admission, partial/full peer exit
+during entry, simultaneous exits, exact cleanup, delayed snapshots, lost MARKET
+and conditional replies, restart before SL, SL canceled during setup, manual
+position changes, missing/duplicate/wrong-side/type history, TP with oversized
+SL retained for reconciliation, competing stores and closed-position orphan
+cleanup. These are tested safety outcomes, **not acceptance of the strict
+atomic-exit-budget requirement**. The last case deliberately escalates the
+oversized SL rather than pretending it can be resized race-free.
+
+Stop-quantity replacement, full native-exit budget safety, lock-session-loss
+fencing and automatic live shared-position protection restoration still require
+verification. Unknown conditional POSTs never get a second POST. Pending
+recovery eventually requires manual intervention rather than retrying forever.
+The existing reconciliation loop now watches filled nonterminal trades as well
+as completed ones, including recovery-exhausted states with known container IDs.
 
 Absent/mismatched history, unknown accepted POST, external/manual size changes,
 missing active SL and full SL after partial TP must remain visible risks; no
@@ -160,7 +193,7 @@ cannot be safely recovered solely from matching parameters.
 
 1. Do not merge/deploy this draft or grant it approval as a complete fix.
 2. Resolve the exit-budget/atomic protection design and wire proven fill-based
-   entry reconciliation without changing 20FINAL targets or ratios.
+   protection handling without changing 20FINAL targets or ratios.
 3. Run all 15 end-to-end event schedules on a deterministic fake exchange,
    PostgreSQL concurrency/crash tests and independent review of the final SHA.
 4. Only after Owner approval, pause new entries during rollout, reconcile a

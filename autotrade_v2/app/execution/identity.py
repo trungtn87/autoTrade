@@ -5,6 +5,7 @@ positionId. The pre-entry snapshot is persisted before any MARKET POST.
 """
 from __future__ import annotations
 
+import re
 from decimal import Decimal
 
 from .quantity import PositionQuantityMismatch, _amount
@@ -16,6 +17,29 @@ def position_id(row: dict) -> str:
         raise PositionQuantityMismatch("conflicting BingX position ID aliases")
     return next(iter(values), "")
 
+
+
+def verified_entry_order(order:dict, symbol:str, entry_side:str, client_id:str,
+                         expected_order_id:str|None=None,*,require_filled=True)->tuple[Decimal,str]:
+    """Prove the combo fill from its exact MARKET order, not a position delta."""
+    ids={str(order[k]) for k in ("orderID","orderId") if order.get(k) not in (None, "")}
+    clients={str(order[k]) for k in ("clientOrderId","clientOrderID") if order.get(k) not in (None, "")}
+    oid=next(iter(ids), "")
+    side=entry_side.upper()
+    if (len(ids)!=1 or not re.fullmatch(r"[1-9][0-9]*",oid)
+            or clients!={client_id} or (expected_order_id and oid!=str(expected_order_id))
+            or order.get("symbol")!=symbol
+            or str(order.get("side") or "").upper()!=side
+            or str(order.get("positionSide") or "").upper()!=("LONG" if side=="BUY" else "SHORT")
+            or str(order.get("type") or "").upper()!="MARKET"
+            or str(order.get("status") or "").upper() not in (
+                {"FILLED"} if require_filled else {"NEW","PARTIALLY_FILLED","FILLED","CANCELED","CANCELLED","EXPIRED","REJECTED"})):
+        raise PositionQuantityMismatch("entry client/order/symbol/side/type/fill identity unverified")
+    filled=_amount(order.get("executedQty"),"entry executedQty")
+    original=_amount(order.get("origQty") or order.get("quantity"),"entry origQty")
+    if original<=0 or (require_filled and filled<=0) or filled>original:
+        raise PositionQuantityMismatch("entry fill quantity unverified")
+    return filled,position_id(order)
 
 
 def _same_side(positions:list[dict],symbol:str,entry_side:str)->dict[str,Decimal]:
@@ -44,10 +68,16 @@ def entry_baseline(positions:list[dict],symbol:str,entry_side:str)->dict[str,str
 def identify_entry_position(
     positions:list[dict],symbol:str,entry_side:str,executed_qty,
     baseline:dict[str,str]|None=None,entry_position_id:str|None=None,
+    *,entry_order:dict|None=None,client_order_id:str|None=None,
+    expected_order_id:str|None=None,
 )->str:
     """Resolve one ID, never by arbitrary list ordering or side alone.
 
-    Baseline-based proof: exactly one NEW position with its quantity equal to
+    A validated exact MARKET/client ID with an explicit container ID proves
+    routing independently of concurrent peer exits. The filled quantity remains
+    owned by the combo's order, not by this shared container.
+
+    Legacy baseline-based proof: exactly one NEW position with its quantity equal to
     the fill (Separate Isolated); OR exactly one old ID whose amount grew by
     exactly the fill (aggregated Hedge). Unrelated other IDs must be unchanged.
     If the exchange explicitly reports an ID on the entry itself, it must also
@@ -57,6 +87,22 @@ def identify_entry_position(
     filled=_amount(executed_qty,"entry executedQty")
     if filled<=0:
         raise PositionQuantityMismatch("entry executedQty must be positive")
+    if entry_order is not None:
+        proven,pid=verified_entry_order(entry_order,symbol,entry_side,
+                                        str(client_order_id or ""),expected_order_id)
+        if proven!=filled:
+            raise PositionQuantityMismatch("entry fill disagrees with requested combo quantity")
+        if entry_position_id and pid and str(entry_position_id)!=pid:
+            raise PositionQuantityMismatch("entry position ID aliases disagree")
+        if not pid and baseline is None:
+            raise PositionQuantityMismatch("entry lacks an explicit container ID and durable baseline")
+        if pid:
+            # An exchange order ties this exact fill to the container. A peer
+            # exit changes container quantity, never the entry's own fill.
+            # Do not reassign missing/rotated IDs from side or average price.
+            if pid not in current or current[pid]<filled:
+                raise PositionQuantityMismatch("filled entry container not confirmed in current snapshot")
+            return pid
     if entry_position_id:
         pid=str(entry_position_id)
         if pid not in current or current[pid]<filled:

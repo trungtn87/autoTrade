@@ -71,13 +71,21 @@ def reconcile_side(states, positions, open_by_id, history_by_id):
             if order_id in owners:
                 raise CleanupUncertain("protection order claimed by multiple combos")
             owners[order_id]=(event_id,kind)
+        for kind,prepared in (state.get("protection_journal") or {}).items():
+            acknowledged=str(prepared.get("acknowledged_order_id") or "")
+            if acknowledged:
+                if acknowledged in owners and owners[acknowledged]!=(event_id,kind):
+                    raise CleanupUncertain("acknowledged protection ID claimed by another combo")
+                # Exact durable POST acknowledgement proves ownership, not
+                # activation/parameters. The journal must still verify those.
+                owners[acknowledged]=(event_id,kind)
         if not state.get("protection"):
             remaining=initial; monitor={"fills_verified":False}
             risks.append(f"{event_id}:PROTECTION_UNVERIFIED")
         else:
             # Do not trust 'done' as a quantity proof; recalculate owned fills.
             check={**state,"exit_cleanup":{**(state.get("exit_cleanup") or {}),"status":"watching"}}
-            monitor,_,_=inspect_one(None,check,open_by_id,positions,historical_by_id=history_by_id)
+            monitor,_,_=inspect_one(None,check,open_by_id,positions,historical_by_id=history_by_id,allow_incomplete=True)
             remaining=positive(monitor.get("remaining_qty"),"remaining_qty")
             if not monitor.get("fills_verified"):
                 risks.append(f"{event_id}:EXIT_HISTORY_UNVERIFIED")
@@ -87,7 +95,16 @@ def reconcile_side(states, positions, open_by_id, history_by_id):
         ledgers[event_id]={"entry_qty":str(initial),"remaining_qty":str(remaining),
                            "exit_filled_qty_by_kind":quantities,
                            "monitor":monitor,"position_id":state.get("position_id")}
+        if state.get("protection_journal"):
+            risks.append(f"{event_id}:PROTECTION_SUBMISSION_UNRESOLVED")
         if remaining:
+            required={"sl","tp"}|({"trailing"} if state.get("exit_mode")=="split_trailing" else set())
+            for kind in required:
+                item=(state.get("protection") or {}).get(kind) or {}
+                order_id=str(item.get("order_id") or "")
+                observed=(monitor.get("orders") or {}).get(order_id) or {}
+                if order_id not in open_by_id and positive(observed.get("executed_qty",0),"exit fill")==0:
+                    risks.append(f"{event_id}:NO_VERIFIED_ACTIVE_{kind.upper()}")
             sl=(state.get("protection") or {}).get("sl") or {}
             slrow=open_by_id.get(str(sl.get("order_id") or ""))
             if slrow is None:
@@ -107,7 +124,15 @@ def reconcile_side(states, positions, open_by_id, history_by_id):
             risks.append("UNOWNED_EXIT_ORDER")
         if str(row.get("status") or "").upper() not in ACTIVE:
             raise CleanupUncertain("inactive order in open snapshot")
-        executable+=positive(row.get("origQty") or row.get("quantity"),"exit origQty")-positive(row.get("executedQty"),"exit executedQty")
+        original=positive(row.get("origQty") or row.get("quantity"),"exit origQty")
+        executed=positive(row.get("executedQty"),"exit executedQty")
+        if executed>original:
+            raise CleanupUncertain("exit executed quantity exceeds original")
+        if order_id in owners:
+            owner,_=owners[order_id]
+            if positive(ledgers[owner]["remaining_qty"],"owned remaining")==0 and original>executed:
+                risks.append(f"{owner}:CLOSED_COMBO_ACTIVE_EXIT")
+        executable+=original-executed
     # No assumed OCO or side-wide reduce-only guarantee. An overcommitted
     # container cannot be declared safe just because every order is a close.
     if executable>actual:

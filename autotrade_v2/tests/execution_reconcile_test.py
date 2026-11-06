@@ -35,10 +35,18 @@ class BaseClient:
         self.by_client={}
         self.by_order={}
 
+    def get_positions(self,symbol):
+        return ([{"symbol":symbol,"positionSide":"LONG","positionID":"123","positionAmt":"1"}]
+                if self.by_client else [])
+
     def get_open_orders(self,symbol):
         # Offline fake: never query the network; known trades are confirmed by
         # their saved exchange orderId after the journaling POST.
-        return []
+        return [self.extract_order(x) for x in self.by_order.values()
+                if self.extract_order(x).get("status") in {"NEW","PARTIALLY_FILLED"}]
+
+    def get_order_history(self,symbol,*args,**kwargs):
+        return [self.extract_order(x) for x in self.by_order.values()]
 
     @staticmethod
     def extract_order(payload):
@@ -62,22 +70,26 @@ class BaseClient:
             raise RuntimeError("order not found")
         return payload
 
-    def place_stop_loss(self,symbol,entry_side,qty,sl):
+    def place_stop_loss(self,symbol,entry_side,qty,sl,position_id=None):
         self.calls.append(("sl",qty,sl))
         payload={"code":0,"data":{"order":{
-            "orderId":"sl-recovery","status":"NEW",
+            "orderId":"3001","status":"NEW","symbol":symbol,"origQty":str(qty),
+            "side":"SELL" if entry_side=="BUY" else "BUY",
+            "positionSide":"LONG" if entry_side=="BUY" else "SHORT","type":"STOP_MARKET",
             "executedQty":"0","avgPrice":"0",
         }}}
-        self.by_order["sl-recovery"]=payload
+        self.by_order["3001"]=payload
         return payload
 
-    def place_take_profit(self,symbol,entry_side,qty,tp):
+    def place_take_profit(self,symbol,entry_side,qty,tp,position_id=None):
         self.calls.append(("tp",qty,tp))
         payload={"code":0,"data":{"order":{
-            "orderId":"tp-recovery","status":"NEW",
+            "orderId":"3002","status":"NEW","symbol":symbol,"origQty":str(qty),
+            "side":"SELL" if entry_side=="BUY" else "BUY",
+            "positionSide":"LONG" if entry_side=="BUY" else "SHORT","type":"TAKE_PROFIT_MARKET",
             "executedQty":"0","avgPrice":"0",
         }}}
-        self.by_order["tp-recovery"]=payload
+        self.by_order["3002"]=payload
         return payload
 
     def cancel_order(self,*args,**kwargs):
@@ -99,14 +111,15 @@ class ExistingOrderClient(BaseClient):
     def __init__(self,client_order_id):
         super().__init__()
         payload={"code":0,"data":{"order":{
-            "orderId":"entry-existing",
+            "orderId":"1001","symbol":"BTC-USDT","side":"BUY",
+            "positionSide":"LONG","type":"MARKET","origQty":"1","positionID":"123",
             "clientOrderId":client_order_id,
             "status":"FILLED",
             "executedQty":"1",
             "avgPrice":"100",
         }}}
         self.by_client[client_order_id]=payload
-        self.by_order["entry-existing"]=payload
+        self.by_order["1001"]=payload
 
     def place_market_entry(self,*args,**kwargs):
         self.calls.append(("entry",kwargs.get("client_order_id")))

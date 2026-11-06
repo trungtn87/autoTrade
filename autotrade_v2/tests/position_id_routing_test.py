@@ -157,6 +157,9 @@ def main():
         def place_market_entry(self,*args,**kwargs):
             result=super().place_market_entry(*args,**kwargs)
             self.position_qty="1"
+            # This regression intentionally has no explicit container ID on the
+            # entry: two snapshot candidates must still fail closed.
+            result["data"]["order"].pop("positionId",None)
             return result
 
     fd,db_path=tempfile.mkstemp(suffix=".db")

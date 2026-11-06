@@ -41,9 +41,12 @@ class FakeTrailingClient(FakeClient):
         if self.fail_trailing:
             raise RuntimeError("simulated trailing post failure")
         payload={"code":0,"data":{"order":{
-            "orderId":"trail-1","status":"NEW","executedQty":"0","avgPrice":"0",
+            "orderId":"2003","status":"NEW","executedQty":"0","avgPrice":"0",
+            "symbol":symbol,"origQty":str(qty),"type":"TRAILING_STOP_MARKET",
+            "side":"SELL" if entry_side=="BUY" else "BUY",
+            "positionSide":"LONG" if entry_side=="BUY" else "SHORT",
         }}}
-        self.by_order["trail-1"]=payload
+        self.by_order["2003"]=payload
         return payload
 
     def find_matching_trailing(self,symbol,entry_side,qty,activation_price,callback_rate,position_id=None):
@@ -78,7 +81,7 @@ def main():
     assert Final14Executor.trailing_activation_price(100.0,"SELL",0.005)==99.5
     assert Final14Executor.trailing_activation_price(100.0,"BUY",0.005)==100.5
     assert result["tp"]==102.0,result  # hard TP independent of trailing activation
-    assert result["protection"]["trailing"]["order_id"]=="trail-1",result
+    assert result["protection"]["trailing"]["order_id"]=="2003",result
     placements=[x for x in fake.calls if x[0] in {"sl","tp","trailing"}]
     assert [x[0] for x in placements]==["sl","tp","trailing"],placements
     assert placements[0][3]==1.0,placements  # hard SL always spans entry

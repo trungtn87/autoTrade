@@ -58,6 +58,34 @@ with TemporaryDirectory(prefix='merged-pg-') as tmp:
         assert restarted.get_state('C7')==state
         a.mark('C7',{'original':True});b.mark('C7',{'original':False})
         assert a.get('C7','bingx_account')=={'original':True}
-        print(f'PASS PostgreSQL {version}: independent-session exclusion, exception release, WAL restart recovery, immutable historical mark')
+        # The database is an isolated temporary server created above. Exercise
+        # the same full engine schedules on PostgreSQL, not only store methods.
+        with psycopg.connect(uri) as con:
+            con.execute('TRUNCATE processed_targets')
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'autotrade_v2/tests'))
+        from dataclasses import replace
+        from app.config import Settings
+        from app.execution.service import ExecutionService
+        from merged_entry_test import Exchange,signal,state_ids
+        service=ExecutionService(replace(Settings(),execution_enabled=True,dry_run=False,
+            tp_trailing_split_enabled=True,bingx_api_key='offline',bingx_api_secret='offline'),a)
+        service.credentials_verified=True
+        exchange=Exchange();service.executor.client=exchange
+        first,second=signal(),signal(7)
+        assert service.execute(first).status=='complete'
+        first_ids=state_ids(a,first)
+        exchange.on_entry=lambda:exchange.fill(first_ids['tp'])
+        assert service.execute(second).status=='complete'
+        second_ids=state_ids(a,second)
+        assert set(first_ids.values()).isdisjoint(second_ids.values())
+        exchange.fill(first_ids['trailing'])
+        service.cleanup_closed_exits()
+        assert ('cancel',first_ids['sl']) in exchange.calls
+        assert all(exchange.orders[oid]['status']=='NEW' for oid in second_ids.values())
+        restarted=ExecutionService(service.settings,ExecutionStore('',database_url=uri))
+        restarted.credentials_verified=True;restarted.executor.client=exchange
+        assert restarted.execute(second).status=='duplicate_skipped'
+        assert len(exchange.clients)==2
+        print(f'PASS PostgreSQL {version}: independent-session exclusion, exception release, WAL restart recovery, immutable historical mark, full same-side entry/TP-overlap/owned-cleanup engine schedule')
     finally:
         server.cleanup()
