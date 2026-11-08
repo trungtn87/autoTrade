@@ -61,7 +61,7 @@ def test_balanced_merges_estimate_win_loss_roi_and_pnl(monkeypatch):
         assert abs(found["C15"]["pnl"] - 0.52) < 1e-8
         assert abs(found["C13"]["roi"] - (-0.16 / 1.92 * 100)) < 1e-6
         assert abs(found["C15"]["roi"] - (0.52 / 1.92 * 100)) < 1e-6
-        assert sum(row["pnl"] for row in rows) == 0.36
+        assert abs(sum(row["pnl"] for row in rows) - 0.36) < 1e-8
         report = results.result_payload(rows)
         assert report["summary"]["closed"] == 2
         assert {r["status"] for r in report["theory"]["history"]} == {"estimated_closed"}
