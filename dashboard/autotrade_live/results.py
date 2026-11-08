@@ -275,6 +275,14 @@ def _estimate_balanced_merged_positions(results, links, orders, bindings, fills_
         member_ids = {str(m['entry_order_id']) for m in members}
         if len(member_ids) != len(members):
             continue
+        # Every executed Entry on the shared provider position must be mapped.
+        all_entries = {str(o['order_id']) for o in orders
+                       if o['symbol'] == symbol and o['position_side'] == position_side
+                       and str(_raw(o['raw']).get('positionID') or
+                               _raw(o['raw']).get('positionId') or '') == pid
+                       and o['side'] == side and o['type'] in ('MARKET', 'LIMIT')}
+        if all_entries != member_ids:
+            continue
         # No estimate on a group with missing entries/unknown parents, and no
         # overriding complete independently verified results.
         if any((symbol, eid) not in row_by_id for eid in member_ids):
@@ -789,7 +797,7 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
                            win_rate=round(100*wins/classified, 2) if classified else None,
                            real_roi_total=round(actual_roi, 4) if actual_roi is not None else None,
                            roi_estimated=any(t.get('source') in ('bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate') for t in priced),\n                           estimated_count=sum(t.get('status') == 'ESTIMATED_CLOSED' for t in closed),
-                           roi_coverage=len(priced)))
+                           roi_coverage=len(priced),\n                           pnl_total=round(sum(t['pnl'] for t in priced if t.get('pnl') is not None), 4)\n                           if any(t.get('pnl') is not None for t in priced) else None,\n                           pnl_coverage=sum(t.get('pnl') is not None for t in priced)))
     return dict(theory=dict(available=available,
                             reason=None if available else 'Existing DB results are unavailable',
                             combos=combos,
