@@ -461,6 +461,7 @@ class GeminiObserver:
                         "pnl": payload.get("pnl"),
                         "roi": payload.get("roi"),
                         "revision": revision,
+                        "pre_decision": review.get("decision") if isinstance(review, dict) else None,
                         "pre_trade_assessment": result.get("pre_trade_assessment"),
                         "explanation": result.get("explanation"),
                         "lessons": result.get("lessons"),

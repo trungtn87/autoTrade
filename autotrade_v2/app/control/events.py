@@ -261,8 +261,13 @@ def _ai_discord_content(event: "SystemEvent") -> str:
         }.get(str(details.get("pre_trade_assessment") or ""), "Chưa kết luận")
         lessons = details.get("lessons")
         lesson = " | ".join(str(x) for x in lessons[:2]) if isinstance(lessons, list) else ""
+        earlier = {
+            "ALLOW": "NÊN VÀO", "BLOCK": "KHÔNG NÊN VÀO",
+            "UNSURE": "CHƯA RÕ",
+        }.get(str(details.get("pre_decision") or ""), "KHÔNG CÓ")
         lines = [
             "🤖 **GEMINI · PHÂN TÍCH SAU EXIT**", header,
+            f"Nhận định trước Entry: {earlier}",
             f"Kết quả đối soát: {label}",
             f"PnL: {_fmt_trade_number(details.get('pnl'))} USDT"
             if details.get("pnl") is not None else "PnL: chưa có số liệu xác minh",
