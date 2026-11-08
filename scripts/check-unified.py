@@ -34,6 +34,13 @@ with TestClient(app, follow_redirects=False) as client:
     assert home.status_code == 303
     assert home.headers["location"] == "/mobile"
 
+    # The private AI page must resolve before the public Dashboard mount.
+    private_ai = client.get("/ai")
+    assert private_ai.status_code == 503, private_ai.text
+    assert "AI_ANALYST_PASSWORD" in private_ai.text
+    assert client.get("/ai/api/state").status_code == 503
+    assert client.get("/ai/static/app.js").status_code == 200
+
     mobile = client.get("/mobile")
     assert mobile.status_code == 200, mobile.text
     assert "Đăng xuất" not in mobile.text
