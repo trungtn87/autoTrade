@@ -165,7 +165,7 @@ async def ai_login(request: Request):
                        if time.monotonic() - t < LOGIN_WINDOW_SEC]) >= LOGIN_MAX_FAILS
     if blocked:
         return _private(HTMLResponse(_login_html("invalid"), status_code=429))
-    if not hmac.compare_digest(supplied, _password()):
+    if not hmac.compare_digest(supplied.encode("utf-8"), _password().encode("utf-8")):
         _attempt_allowed(ip)
         return _private(HTMLResponse(_login_html("invalid"), status_code=401))
     _attempt_allowed(ip, succeeded=True)
@@ -239,10 +239,11 @@ def _summary(conn) -> list[dict]:
                COUNT(*) FILTER (WHERE a.ai_decision='UNSURE') AS unsure_count,
                COUNT(*) FILTER (WHERE p.outcome='WIN') AS verified_wins,
                COUNT(*) FILTER (WHERE p.outcome='LOSS') AS verified_losses,
-               COUNT(*) FILTER (WHERE p.outcome IS NOT NULL) AS verified_outcomes
+               COUNT(*) FILTER (WHERE p.outcome IS NOT NULL) AS verified_outcomes,
+               COUNT(*) FILTER (WHERE p.trade_result_revision IS NOT NULL) AS reviewed_closed
           FROM autotrade_analytics.ai_reviews a
           LEFT JOIN LATERAL (
-             SELECT outcome FROM autotrade_analytics.ai_post_reviews
+             SELECT outcome,trade_result_revision FROM autotrade_analytics.ai_post_reviews
               WHERE event_id=a.event_id ORDER BY trade_result_revision DESC LIMIT 1
           ) p ON true
          GROUP BY a.symbol,a.combo ORDER BY signals DESC LIMIT 40
@@ -339,7 +340,10 @@ def _reserve_message(conn, body: ChatInput):
             return answer["session_id"], answer["content"], True
         raise HTTPException(409, "Câu hỏi này đang được xử lý, không gửi trùng")
 
-    cap = min(200, max(0, int(os.getenv("AI_CHAT_DAILY_MAX_CALLS", "30"))))
+    try:
+        cap = min(200, max(0, int(os.getenv("AI_CHAT_DAILY_MAX_CALLS", "30"))))
+    except ValueError:
+        cap = 30
     midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     used = conn.execute("""
         SELECT COUNT(*) AS n FROM autotrade_analytics.ai_chat_messages
@@ -355,6 +359,12 @@ def _reserve_message(conn, body: ChatInput):
         """, (session_id,)).fetchone()
         if not existing:
             raise HTTPException(404, "Cuộc trò chuyện không tồn tại")
+        pending = conn.execute("""
+            SELECT role FROM autotrade_analytics.ai_chat_messages
+             WHERE session_id=%s ORDER BY created_at DESC,id DESC LIMIT 1
+        """, (session_id,)).fetchone()
+        if pending and pending["role"] == "user":
+            raise HTTPException(409, "Gemini đang xử lý câu hỏi trước trong cuộc trò chuyện này")
     else:
         event_id = body.event_id or None
         if event_id and not conn.execute(

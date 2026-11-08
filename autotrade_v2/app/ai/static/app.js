@@ -45,11 +45,11 @@ function verdictText(label) {
   return label === "ALLOW" ? "ALLOW" : label === "BLOCK" ? "BLOCK" : "UNSURE";
 }
 function renderMetrics() {
-  const rows = state.reviews;
-  $("metric-total").textContent = rows.length;
-  $("metric-allow").textContent = rows.filter(r => r.ai_decision === "ALLOW").length;
-  $("metric-block").textContent = rows.filter(r => r.ai_decision === "BLOCK").length;
-  $("metric-post").textContent = rows.filter(r => r.post_revision !== null).length;
+  const rows = state.summary;
+  $("metric-total").textContent = rows.reduce((a, r) => a + Number(r.signals || 0), 0);
+  $("metric-allow").textContent = rows.reduce((a, r) => a + Number(r.allow_count || 0), 0);
+  $("metric-block").textContent = rows.reduce((a, r) => a + Number(r.block_count || 0), 0);
+  $("metric-post").textContent = rows.reduce((a, r) => a + Number(r.reviewed_closed || 0), 0);
 }
 function renderReviews() {
   const parent = $("review-list"); parent.replaceChildren();
