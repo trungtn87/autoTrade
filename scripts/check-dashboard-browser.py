@@ -26,6 +26,7 @@ def serve():
         ts = int(time.time()*1000) - 86400000 + i * 100000
         rows.append(dict(event_id=f'fixture-{i}', symbol=coin, combo=combo,
                          side='BUY', status='CLOSED', outcome=outcome, roi=roi,
+                         pnl=[5.5, -1.5, 3.25][i],
                          opened_ms=ts, closed_ms=ts+2000,
                          source='SYNTHETIC_DB_FIXTURE', exit_types=['TP','TRAILING']))
     mobile._db_records = lambda: {'normalized_results': rows, 'last_sync':None}
@@ -82,6 +83,12 @@ def check():
                 assert page.locator('#history-list td.coin-btc').count() == 2
                 assert page.locator('#history-list td.coin-eth').count() == 1
                 assert page.locator('#combo-list tr').count() == 2  # BTC only
+                assert page.locator('#pnl-active-symbol').inner_text() == 'BTC'
+                assert page.locator('#pnl-summary').inner_text() == '+4,00 USDT'
+                assert page.locator('#pnl-trade-count').inner_text() == '2 lệnh có PnL'
+                assert page.locator('#pnl-svg path').count() == 3  # Total + C1 + C2
+                page.locator('#pnl-combo-filter').select_option('C1')
+                assert page.locator('#pnl-svg path').count() == 2  # Total + selected C1
                 assert page.locator('#calendar-grid .has-trades').count() >= 1
                 assert page.locator('#day-wins').inner_text() == '1'
                 # Summaries use known closed-trade ROI even if a peer lacks ROI.
@@ -89,15 +96,23 @@ def check():
                 assert 'CHƯA XÁC MINH' in page.locator('#history-list').inner_text()
                 assert page.locator('#day-losses').inner_text() == '1'
 
-                # BTC/ETH toggle affects only the Combo table, never the shared calendar.
+                # BTC/ETH toggle changes the existing Combo table and the new PnL chart,
+                # but NEVER the shared calendar.
                 date_before = page.locator('#selected-date').inner_text()
                 page.locator('#tab-eth').click()
                 assert page.locator('#combo-list tr').count() == 1
+                assert page.locator('#pnl-active-symbol').inner_text() == 'ETH'
+                assert page.locator('#pnl-summary').inner_text() == '+3,25 USDT'
+                assert page.locator('#pnl-trade-count').inner_text() == '1 lệnh có PnL'
+                assert page.locator('#pnl-svg path').count() == 2
                 assert page.locator('#history-list tr').count() == 3
                 assert page.locator('#selected-date').inner_text() == date_before
                 assert page.locator('#history-count').inner_text() == '3 lệnh'
                 page.locator('#tab-btc').click()
                 assert page.locator('#combo-list tr').count() == 2
+                assert page.locator('#pnl-active-symbol').inner_text() == 'BTC'
+                assert page.locator('#pnl-summary').inner_text() == '+4,00 USDT'
+                assert page.locator('#pnl-combo-filter').input_value() == ''
                 assert page.locator('#history-list tr').count() == 3
 
                 # Selecting any empty date filters rows to zero for both coins.

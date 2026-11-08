@@ -286,3 +286,21 @@ footer p{margin:6px 0 0}
   .calendar-day{min-height:35px}
   .daily-summary strong{font-size:15px}
 }
+
+/* PnL chart: same card language as existing Combo and calendar panels. */
+.pnl-chart-panel .section-head{margin-bottom:12px}
+.pnl-chart-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 8px}
+#pnl-summary{font-size:clamp(18px,3.1vw,25px);font-variant-numeric:tabular-nums;font-weight:800}
+.pnl-chart-toolbar label{display:flex;align-items:center;gap:8px;font-size:11px;color:#9cb0c9}
+.pnl-chart-toolbar select{min-width:120px;max-width:185px;height:35px;border:1px solid #324760;
+  border-radius:8px;background:#111f33;color:#eaf2ff;padding:5px 9px;font-size:12px}
+.pnl-chart-toolbar select:focus-visible{outline:2px solid #66dcff;outline-offset:2px}
+.pnl-chart-plot{border:1px solid #2b3e55;border-radius:12px;background:#101b2c;padding:8px 5px 0;min-width:0}
+#pnl-svg{display:block;width:100%;height:250px}
+.pnl-chart-panel .section-note{margin:10px 0 0}
+@media(max-width:480px){
+  .pnl-chart-toolbar{gap:7px}
+  .pnl-chart-toolbar label{gap:5px}
+  .pnl-chart-toolbar select{min-width:102px;max-width:138px}
+  .pnl-chart-plot{padding:4px 2px 0}
+}
