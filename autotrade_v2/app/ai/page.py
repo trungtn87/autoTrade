@@ -217,7 +217,7 @@ def _reviews(conn, symbol: str | None = None, limit: int = 30) -> list[dict]:
                FROM autotrade_analytics.ai_post_reviews p
               WHERE p.event_id=a.event_id ORDER BY p.trade_result_revision DESC LIMIT 1
           ) p ON true
-         WHERE (%s IS NULL OR a.symbol=%s)
+         WHERE (%s::text IS NULL OR a.symbol=%s)
          ORDER BY a.created_at DESC LIMIT %s
     """, (symbol, symbol, limit)).fetchall()
     return [_serialize(row) for row in rows]
