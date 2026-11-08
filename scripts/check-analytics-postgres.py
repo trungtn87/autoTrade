@@ -95,6 +95,18 @@ try:
         verify_lifecycle(engine)
     finally:
         engine.dispose()
+    # Regression: psycopg binds None as an unspecified PostgreSQL type.
+    # The /ai page must load empty AI history without SQLSTATE 42P18.
+    import psycopg
+    from psycopg.rows import dict_row
+    from autotrade_v2.app.ai.page import _reviews, _summary, _sessions
+    with psycopg.connect("dbname=postgres user=postgres", host=socket_dir.name,
+                         row_factory=dict_row, connect_timeout=3) as con:
+        assert _reviews(con, symbol=None) == [], "Unfiltered /ai history must load with NULL parameter"
+        assert _reviews(con, symbol="BTC-USDT") == [], "BTC-only /ai history must load"
+        assert _sessions(con) == []
+        assert _summary(con) == []
+
     # Hold a transaction on one connection; another must be excluded. Closing
     # the holder connection simulates a killed collector and releases its lock.
     holder = subprocess.Popen(DOCKER+['exec','-i',NAME,'psql','-h','127.0.0.1','-XAtq','-U','postgres'],

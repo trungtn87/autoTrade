@@ -217,7 +217,7 @@ def _reviews(conn, symbol: str | None = None, limit: int = 30) -> list[dict]:
                FROM autotrade_analytics.ai_post_reviews p
               WHERE p.event_id=a.event_id ORDER BY p.trade_result_revision DESC LIMIT 1
           ) p ON true
-         WHERE (%s IS NULL OR a.symbol=%s)
+         WHERE (%s::text IS NULL OR a.symbol=%s)
          ORDER BY a.created_at DESC LIMIT %s
     """, (symbol, symbol, limit)).fetchall()
     return [_serialize(row) for row in rows]
@@ -507,16 +507,26 @@ def _gemini_reply(history: list[dict], data: dict) -> str:
                  "parts": [{"text": x["content"][:7000]}]} for x in history]
     if not contents:
         raise RuntimeError("chat_question_missing")
-    response = requests.post(
-        "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
-        headers={"x-goog-api-key": key, "Content-Type": "application/json"},
-        json={
-            "systemInstruction": {"parts": [{"text": instruction}]},
-            "contents": contents,
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2600},
-        },
-        timeout=25,
-    )
+    # Bound the entire live chat call; retry only a temporary provider 503,
+    # not bad keys, unavailable models or quota errors.
+    deadline = time.monotonic() + 25.0
+    for attempt in range(2):
+        available = deadline - time.monotonic()
+        if available <= 2:
+            raise RuntimeError("gemini_request_deadline")
+        response = requests.post(
+            "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
+            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
+            json={
+                "systemInstruction": {"parts": [{"text": instruction}]},
+                "contents": contents,
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2600},
+            },
+            timeout=min(20.0, available),
+        )
+        if response.status_code != 503 or attempt == 1:
+            break
+        time.sleep(0.7)
     response.raise_for_status()
     parsed = response.json()
     candidates = parsed.get("candidates") or []
