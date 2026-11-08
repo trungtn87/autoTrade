@@ -214,8 +214,10 @@ class GeminiObserver:
 
     def __init__(self, database_url: str, *, enabled: bool | None = None,
                  key: str | None = None, model: str | None = None,
-                 client: GeminiClient | None = None, poll_seconds: int = 60):
+                 client: GeminiClient | None = None, poll_seconds: int = 60,
+                 event_cb=None):
         self.database_url = database_url
+        self.event_cb = event_cb
         self.enabled = (os.getenv("AI_OBSERVE_ENABLED", "false").lower() in ("1", "true", "yes")
                         if enabled is None else enabled)
         api_key = os.getenv("GEMINI_API_KEY", "") if key is None else key
@@ -264,6 +266,20 @@ class GeminiObserver:
             LOG.warning("AI_OBSERVER_SUBMIT_FAIL error_class=%s", type(exc).__name__)
             return False
 
+    def _announce(self, key: str, event_id: str, symbol: str,
+                  combo: int | None, details: dict):
+        # Reuse the existing asynchronous Layer-4 EventReporter/Discord routes.
+        # Never make Gemini notifications part of any trade decision.
+        if self.event_cb is None:
+            return
+        try:
+            self.event_cb(key, "INFO", "Gemini analysis recorded",
+                          event_id=event_id, symbol=symbol,
+                          combo=combo, details=details)
+        except Exception as exc:
+            LOG.warning("AI_DISCORD_ANNOUNCE_FAIL event_id=%s error_class=%s",
+                        event_id, type(exc).__name__)
+
     def _connection(self):
         import psycopg
         return psycopg.connect(self.database_url, connect_timeout=3,
@@ -292,7 +308,7 @@ class GeminiObserver:
                    usage, error_code=None):
         from psycopg.types.json import Jsonb
         with self._connection() as con:
-            con.execute("""
+            inserted = con.execute("""
                 INSERT INTO autotrade_analytics.ai_reviews (
                     event_id,symbol,combo,side,timeframe,signal_close_ms,
                     mode,ai_decision,final_action,confidence,smc_alignment,news_risk,
@@ -301,7 +317,7 @@ class GeminiObserver:
                 ) VALUES (
                     %s,%s,%s,%s,%s,%s,'OBSERVE',%s,'NO_INTERVENTION',%s,%s,%s,
                     'UNAVAILABLE',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
-                ) ON CONFLICT (event_id) DO NOTHING
+                ) ON CONFLICT (event_id) DO NOTHING RETURNING event_id
             """, (
                 intent.event_id,intent.symbol,
                 "TIER" if intent.combo == 11 else f"C{intent.combo-90 if intent.combo >= 101 else intent.combo}",
@@ -314,6 +330,7 @@ class GeminiObserver:
                 self.model,PROMPT_VERSION,RULES_VERSION,latency_ms,
                 usage.get("promptTokenCount"),usage.get("candidatesTokenCount"),error_code,
             ))
+            return inserted.fetchone() is not None
 
     def _observe_one(self, intent, raw):
         try:
@@ -336,7 +353,18 @@ class GeminiObserver:
                 elapsed = max(elapsed, int((monotonic() - started) * 1000))
             else:
                 error = "daily_call_cap"
-            self._write_pre(intent, ctx, decision, output, elapsed, usage, error)
+            inserted = self._write_pre(intent, ctx, decision, output, elapsed, usage, error)
+            if inserted and output is not None and decision in VALID_DECISIONS:
+                self._announce("L4.AI.PRE_REVIEW", intent.event_id, intent.symbol,
+                               int(intent.combo), {
+                    "side": intent.side, "ai_decision": decision,
+                    "smc_alignment": output.get("smc_alignment"),
+                    "news_status": "UNAVAILABLE",
+                    "news_risk": output.get("news_risk"),
+                    "reasoning_verified": output.get("reasoning_verified"),
+                    "reasoning_ai_opinion": output.get("reasoning_ai_opinion"),
+                    "entry": intent.entry, "tp": intent.tp, "sl": intent.sl,
+                })
         except Exception as exc:
             LOG.warning("AI_PRE_REVIEW_FAIL event_id=%s error_class=%s",
                         intent.event_id, type(exc).__name__)
@@ -368,7 +396,7 @@ class GeminiObserver:
                     usage, error_code):
         from psycopg.types.json import Jsonb
         with self._connection() as con:
-            con.execute("""
+            inserted = con.execute("""
                 INSERT INTO autotrade_analytics.ai_post_reviews(
                     event_id,trade_result_revision,entry_order_id,exit_order_ids,
                     outcome,pnl,fees,funding,roi,primary_cause,pre_trade_assessment,
@@ -376,7 +404,7 @@ class GeminiObserver:
                     tokens_in,tokens_out,error_code
                 ) VALUES (
                     %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
-                ) ON CONFLICT (event_id,trade_result_revision) DO NOTHING
+                ) ON CONFLICT (event_id,trade_result_revision) DO NOTHING RETURNING event_id
             """, (
                 event_id,revision,payload.get("entry_order_id"),
                 Jsonb(payload.get("exit_order_ids") or []),payload.get("outcome"),
@@ -387,6 +415,7 @@ class GeminiObserver:
                 POST_PROMPT_VERSION,latency_ms,usage.get("promptTokenCount"),
                 usage.get("candidatesTokenCount"),error_code,
             ))
+            return inserted.fetchone() is not None
 
     def _observe_closed(self):
         try:
@@ -418,7 +447,24 @@ class GeminiObserver:
                 except Exception as exc:
                     error = type(exc).__name__
                 elapsed = max(elapsed,int((monotonic()-started)*1000))
-                self._write_post(event_id,revision,payload,ctx,result,elapsed,usage,error)
+                inserted = self._write_post(event_id,revision,payload,ctx,result,elapsed,usage,error)
+                if inserted and result:
+                    signal = pre.get("signal") if isinstance(pre, dict) else {}
+                    signal = signal if isinstance(signal, dict) else {}
+                    combo = signal.get("combo")
+                    self._announce("L4.AI.POST_REVIEW", event_id,
+                                   payload.get("symbol") or signal.get("symbol") or "",
+                                   int(combo) if combo is not None else None, {
+                        "combo": payload.get("combo"),
+                        "side": payload.get("side") or signal.get("side"),
+                        "outcome": payload.get("outcome"),
+                        "pnl": payload.get("pnl"),
+                        "roi": payload.get("roi"),
+                        "revision": revision,
+                        "pre_trade_assessment": result.get("pre_trade_assessment"),
+                        "explanation": result.get("explanation"),
+                        "lessons": result.get("lessons"),
+                    })
             except Exception as exc:
                 LOG.warning("AI_POST_REVIEW_FAIL event_id=%s error_class=%s",
                             event_id,type(exc).__name__)
