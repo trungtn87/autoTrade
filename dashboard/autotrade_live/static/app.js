@@ -218,6 +218,7 @@ async function loadSymbol() {
     history = (data.theory?.history || []).filter(row =>
       (row.symbol === 'BTC-USDT' || row.symbol === 'ETH-USDT') &&
       valid(row.entry_ms || row.exit_ms));
+    window.PnlChart.render(history, symbol);
     const months = history.map(tradeDate).filter(Boolean).sort();
     if (months.length) firstMonth = months[0].slice(0, 7);
     selectedDay = chooseLatestDate();
@@ -234,6 +235,7 @@ async function loadSymbol() {
     if (token !== requestId) return;
     history = [];
     comboRows = [];
+    window.PnlChart.render(history, symbol);
     emptyRow('combo-list', 7, 'Không đọc được dữ liệu.');
     emptyRow('history-list', 7, 'Không đọc được dữ liệu.');
     setText('combo-count', '—'); setText('history-count','—');
@@ -246,6 +248,7 @@ for (const name of ['BTC','ETH']) {
     symbol = name + '-USDT';
     setTabs();
     renderCombos(comboRows);
+    window.PnlChart.render(history, symbol);
   });
 }
 $('prev-month').addEventListener('click', () => {
