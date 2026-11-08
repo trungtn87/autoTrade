@@ -71,6 +71,12 @@ def check():
                 page.wait_for_function('navigator.serviceWorker.controller !== null', timeout=10000)
                 assert page.evaluate('navigator.serviceWorker.controller.scriptURL.endsWith("/sw.js")')
                 assert page.request.get(BASE+'/sw.js').headers['service-worker-allowed'] == '/'
+                ai_link = page.locator('header.topbar a.ai-link')
+                assert ai_link.count() == 1
+                assert ai_link.inner_text().strip() == '✦ AI phân tích'
+                assert ai_link.get_attribute('href') == '/ai'
+                assert ai_link.get_attribute('target') is None
+                assert ai_link.is_visible()
                 assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), 'horizontal page overflow'
                 # Fixture: BTC x2 + ETH x1, with three confirmed closes on one date.
                 payload = page.request.get(BASE+'/api/dashboard?days=all').json()

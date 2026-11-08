@@ -45,6 +45,10 @@ with TestClient(app, follow_redirects=False) as client:
     assert mobile.status_code == 200, mobile.text
     assert "Đăng xuất" not in mobile.text
     assert "LIVE TERMINAL" in mobile.text
+    assert 'href="/ai"' in mobile.text
+    assert '✦ AI phân tích' in mobile.text
+    assert 'Chỉ xem' in mobile.text
+
 
     # The public JSON remains redacted and never requests trade privileges.
     from dashboard.autotrade_live import mobile as web
