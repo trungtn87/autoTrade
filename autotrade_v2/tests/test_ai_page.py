@@ -165,6 +165,31 @@ class AnalystPageTests(unittest.TestCase):
         self.assertIn("Không bịa lệnh", instruction)
         self.assertTrue(send.call_args.args[0].startswith("https://generativelanguage.googleapis.com/"))
 
+    def test_chat_retry_only_on_gemini_503(self):
+        context = {"recent_reviews": [], "verified_post_rule": "UNKNOWN"}
+        response503 = MagicMock()
+        response503.status_code = 503
+        response200 = MagicMock()
+        response200.status_code = 200
+        response200.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": "Đã trả lời."}]}}]
+        }
+        with patch("app.ai.page.requests.post", side_effect=[response503, response200]) as post, patch(
+            "app.ai.page.time.sleep"
+        ):
+            answer = page._gemini_reply([{"role": "user", "content": "Hello"}], context)
+        self.assertEqual(answer, "Đã trả lời.")
+        self.assertEqual(post.call_count, 2)
+        self.assertTrue(all(call.kwargs["timeout"] <= 20 for call in post.call_args_list))
+
+    def test_chat_does_not_retry_non_transient_provider_error(self):
+        response401 = MagicMock()
+        response401.status_code = 401
+        response401.raise_for_status.side_effect = page.requests.HTTPError("401")
+        with patch("app.ai.page.requests.post", return_value=response401) as post, self.assertRaises(page.requests.HTTPError):
+            page._gemini_reply([{"role": "user", "content": "Hello"}], {})
+        post.assert_called_once()
+
     def test_password_rotation_revokes_old_session(self):
         self.login()
         with patch.dict(os.environ, {"AI_ANALYST_PASSWORD": "SomeOtherStrongPassword2026"}):

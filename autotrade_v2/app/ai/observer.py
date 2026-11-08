@@ -14,7 +14,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from queue import Empty, Full, Queue
 from threading import Event, Lock, Thread
-from time import monotonic, time
+from time import monotonic, time, sleep
 
 import pandas as pd
 import requests
@@ -166,13 +166,19 @@ class GeminiClient:
     def ask(self, prompt: str) -> tuple[dict, dict, int]:
         started = monotonic()
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
-        response = self.transport(
-            url, headers={"x-goog-api-key": self.key, "Content-Type": "application/json"},
-            json={"contents": [{"parts": [{"text": prompt}]}],
-                  "generationConfig": {"responseMimeType": "application/json",
-                                       "temperature": 0, "maxOutputTokens": 3072}},
-            timeout=self.timeout_sec,
-        )
+        for attempt in range(2):
+            response = self.transport(
+                url, headers={"x-goog-api-key": self.key, "Content-Type": "application/json"},
+                json={"contents": [{"parts": [{"text": prompt}]}],
+                      "generationConfig": {"responseMimeType": "application/json",
+                                           "temperature": 0, "maxOutputTokens": 3072}},
+                timeout=self.timeout_sec,
+            )
+            if response.status_code != 503 or attempt == 1:
+                break
+            # Google explicitly documents short backoff for temporary 503s.
+            # This worker is independent of the 20FINAL executor.
+            sleep(0.75)
         response.raise_for_status()
         data = response.json()
         return data, data.get("usageMetadata") or {}, int((monotonic() - started) * 1000)

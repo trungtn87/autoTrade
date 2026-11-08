@@ -50,6 +50,25 @@ class AiObserverTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"unverified_evidence"):
             _validated_output({"decision":"BLOCK","risk_flags":[{"evidence_ids":["made-up"]}]},context)
 
+    def test_observer_retries_503_once_and_not_other_errors(self):
+        from app.ai.observer import GeminiClient
+        first = Mock(status_code=503)
+        last = Mock(status_code=200)
+        last.json.return_value = {"candidates": [], "usageMetadata": {}}
+        transport = Mock(side_effect=[first, last])
+        with patch("app.ai.observer.sleep") as delay:
+            response, usage, ms = GeminiClient("secret", "gemini-3.6-flash", transport=transport).ask("test")
+        self.assertEqual(transport.call_count, 2)
+        delay.assert_called_once()
+        self.assertIsInstance(ms, int)
+        self.assertEqual(response["usageMetadata"], {})
+        auth = Mock(status_code=401)
+        auth.raise_for_status.side_effect = __import__("requests").HTTPError("401")
+        transport2 = Mock(return_value=auth)
+        with self.assertRaises(__import__("requests").HTTPError):
+            GeminiClient("secret", "gemini-3.6-flash", transport=transport2).ask("test")
+        transport2.assert_called_once()
+
     def test_no_key_no_background_work(self):
         observer=GeminiObserver("",enabled=True,key="")
         observer.start()
