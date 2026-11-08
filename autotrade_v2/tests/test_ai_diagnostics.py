@@ -103,7 +103,11 @@ class AiDiagnosticTests(unittest.TestCase):
         self.assertEqual(result.json()["code"], "MODEL_NOT_FOUND")
         self.assertEqual(result.json()["http_status"], 404)
         self.assertEqual(post.call_count, 1)
-        self.assertEqual(post.call_args.kwargs["timeout"], 12)
+        self.assertEqual(post.call_args.kwargs["timeout"], diagnostics.DIAGNOSTIC_TIMEOUT_SECONDS)
+        self.assertEqual(
+            post.call_args.kwargs["json"]["generationConfig"]["thinkingConfig"],
+            {"thinkingLevel": "low"}
+        )
         self.assertNotIn("private-gemini-key", result.text)
         # Throttled requests must not cost another Gemini call.
         with patch("app.ai.diagnostics.requests.post") as post:
@@ -123,6 +127,11 @@ class AiDiagnosticTests(unittest.TestCase):
         with patch("app.ai.diagnostics.requests.post", side_effect=diagnostics.requests.Timeout):
             failed = self.client.post("/ai/api/diagnostics/gemini", headers={"x-ai-csrf": csrf})
         self.assertEqual(failed.json()["code"], "TIMEOUT")
+        self.assertIn("25 giây", failed.json()["detail"])
+        diagnostics._NEXT_PROBE.clear()
+        with patch("app.ai.diagnostics.requests.post", side_effect=diagnostics.requests.ConnectTimeout):
+            unreachable = self.client.post("/ai/api/diagnostics/gemini", headers={"x-ai-csrf": csrf})
+        self.assertEqual(unreachable.json()["code"], "CONNECT_TIMEOUT")
 
     def test_discord_opt_in_uses_only_existing_symbol_webhooks(self):
         csrf = self.login()

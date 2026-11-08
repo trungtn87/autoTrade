@@ -59,6 +59,11 @@ class AiObserverTests(unittest.TestCase):
         with patch("app.ai.observer.sleep") as delay:
             response, usage, ms = GeminiClient("secret", "gemini-3.6-flash", transport=transport).ask("test")
         self.assertEqual(transport.call_count, 2)
+        self.assertEqual(transport.call_args.kwargs["timeout"], 25.0)
+        self.assertEqual(transport.call_args.kwargs["json"]["generationConfig"]["thinkingConfig"],
+                         {"thinkingLevel": "low"})
+        self.assertEqual(transport.call_args.kwargs["json"]["generationConfig"]["responseMimeType"],
+                         "application/json")
         delay.assert_called_once()
         self.assertIsInstance(ms, int)
         self.assertEqual(response["usageMetadata"], {})

@@ -19,6 +19,7 @@ from time import monotonic, time, sleep
 import pandas as pd
 import requests
 
+from .gemini_config import generation_config
 from ..strategy.final14_research.smc_ob import OBConfig, ob_context
 from ..strategy.final14_research.smc_structure import smc_direction
 
@@ -157,7 +158,7 @@ def _validated_output(out: dict, ctx: dict) -> dict:
 
 
 class GeminiClient:
-    def __init__(self, key: str, model: str, timeout_sec: float = 12.0, transport=None):
+    def __init__(self, key: str, model: str, timeout_sec: float = 25.0, transport=None):
         self.key = key
         self.model = model
         self.timeout_sec = timeout_sec
@@ -170,8 +171,8 @@ class GeminiClient:
             response = self.transport(
                 url, headers={"x-goog-api-key": self.key, "Content-Type": "application/json"},
                 json={"contents": [{"parts": [{"text": prompt}]}],
-                      "generationConfig": {"responseMimeType": "application/json",
-                                           "temperature": 0, "maxOutputTokens": 3072}},
+                      "generationConfig": generation_config(
+                          self.model, 3072, "application/json")},
                 timeout=self.timeout_sec,
             )
             if response.status_code != 503 or attempt == 1:

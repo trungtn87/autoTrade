@@ -75,3 +75,19 @@ authentication as the private AI page. It shows:
 - Tests never call BingX, update strategy or trade state, or write DB data.
   A configured credential does NOT mean the remote provider was tested or
   a message was delivered.
+
+
+## Gemini latency diagnostics (November 2026)
+
+The private **Gọi thử Gemini** button now waits up to 25 seconds (formerly 12),
+uses Gemini 3's supported \`thinkingLevel=low\` with 256 max output tokens,
+and distinguishes connection timeout from response timeout. It is still a
+single explicit small synthetic API request, not a health proof for the
+larger SMC analysis prompts.
+
+Chat and the independent OBSERVE worker use low thinking too. The worker
+allows 25 seconds per request, on its own queue/thread, and does not block
+the BingX execution path. Gemini 3.8 deprecated sampling arguments are not
+sent. Existing timeout/retry and finite daily call limits remain enforced.
+If provider errors continue, review current Google quota/model availability
+or choose a supported model in \`GEMINI_MODEL\`; do not change the trading engine.
