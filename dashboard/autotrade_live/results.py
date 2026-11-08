@@ -287,7 +287,7 @@ def _estimate_balanced_merged_positions(results, links, orders, bindings, fills_
         # overriding complete independently verified results.
         if any((symbol, eid) not in row_by_id for eid in member_ids):
             continue
-        if all(row_by_id[(symbol, eid)]['status'] == 'CLOSED' for eid in member_ids):
+        if any(row_by_id[(symbol, eid)]['status'] == 'CLOSED' for eid in member_ids):
             continue
         quantities = {}
         margins = {}
