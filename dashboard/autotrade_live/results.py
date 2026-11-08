@@ -363,9 +363,20 @@ def _linked_results(engine, schema, has_fills=False, has_states=False):
         else:
             lifecycle_status = 'UNRESOLVED'
             close_time, exit_labels = None, []
-            reason = ('excess_exit_quantity' if qty is not None and exit_quantity > qty
-                      else 'partial_exit' if exit_quantity > 0
-                      else 'no_archived_exit')
+            # In BingX hedge mode multiple Combo entries can share positionID.
+            # A child protection order may execute more/less than its owner's
+            # intended quantity. Report the mismatch instead of treating it
+            # as a verified per-Combo partial close (or fabricating ROI).
+            shared = len(entries) > 1
+            if shared and qty is not None:
+                reason = ('merged_excess_exit' if exit_quantity > qty else
+                          'merged_short_exit' if exit_quantity > 0 and exit_quantity < qty else
+                          'merged_identity_unverified' if exit_quantity == qty else
+                          'merged_no_exit')
+            else:
+                reason = ('excess_exit_quantity' if qty is not None and exit_quantity > qty
+                          else 'partial_exit' if exit_quantity > 0
+                          else 'no_archived_exit')
         if estimate is not None:
             net_pnl = estimate[0]
             outcome = 'WIN' if net_pnl > 0 else 'LOSS' if net_pnl < 0 else 'BREAKEVEN'
@@ -383,6 +394,9 @@ def _linked_results(engine, schema, has_fills=False, has_states=False):
                     'v2_cleanup_pending_archive' if journal_close is not None
                     else 'bingx_db_unresolved'),
             reason=reason,
+            entry_qty=float(qty) if qty is not None else None,
+            matched_exit_qty=float(exit_quantity) if exit_quantity is not None else None,
+            shared_position=len(entries) > 1,
             exit_types=exit_labels
         ))
     return results
@@ -566,6 +580,9 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
                             pnl=row.get('pnl') if is_closed else None,
                             margin=row.get('margin') if is_closed else None,
                             source=row.get('source'), reason=row.get('reason'),
+                            entry_qty=row.get('entry_qty'),
+                            matched_exit_qty=row.get('matched_exit_qty'),
+                            shared_position=row.get('shared_position', False),
                             exit_types=row.get('exit_types', [])))
     combos = []
     for (sym, name), trades in sorted(groups.items(), key=lambda item: (item[0][0] or '', str(item[0][1] or ''))):
