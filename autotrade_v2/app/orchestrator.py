@@ -25,12 +25,14 @@ class Orchestrator:
         strategy: StrategyEngine,
         execution: ExecutionService,
         event_cb=None,
+        observer=None,
     ):
         self.settings = settings
         self.data = data
         self.strategy = strategy
         self.execution = execution
         self.event_cb = event_cb
+        self.observer = observer
 
     def _emit(self, key: str, severity: str, message: str, **kwargs) -> None:
         if not self.event_cb:
@@ -143,6 +145,13 @@ class Orchestrator:
                     },
                 )
 
+            # OBSERVE is strictly side-channel, dispatched BEFORE execution.
+            # Its result is never read by the execution path.
+            if self.observer is not None and intents:
+                try:
+                    self.observer.submit(intents, snapshot)
+                except Exception as exc:
+                    log.warning("AI_OBSERVER_SUBMIT_ERROR error_class=%s", type(exc).__name__)
             stage="execution"
             results=[self.execution.execute(intent) for intent in intents]
             out={
