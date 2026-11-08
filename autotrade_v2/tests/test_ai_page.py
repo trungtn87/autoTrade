@@ -45,6 +45,18 @@ class AnalystPageTests(unittest.TestCase):
             self.assertEqual(self.client.get("/ai").status_code, 503)
             self.assertEqual(self.client.get("/ai/api/state").status_code, 503)
 
+    def test_password_minimum_exactly_ten_characters(self):
+        with patch.dict(os.environ, {"AI_ANALYST_PASSWORD": "abcdefghi"}):
+            self.assertEqual(self.client.get("/ai").status_code, 503)
+            self.assertEqual(self.client.post("/ai/login", data={"password": "abcdefghi"}).status_code, 503)
+        with patch.dict(os.environ, {"AI_ANALYST_PASSWORD": "abcdefghij"}):
+            response = self.client.get("/ai")
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('minlength="10"', response.text)
+            login = self.client.post("/ai/login", data={"password": "abcdefghij"})
+            self.assertEqual(login.status_code, 303)
+            self.assertEqual(self.client.get("/ai").status_code, 200)
+
     def test_wrong_password_rate_limits(self):
         for _ in range(5):
             self.assertEqual(self.client.post("/ai/login", data={"password": "wrong"}).status_code, 401)

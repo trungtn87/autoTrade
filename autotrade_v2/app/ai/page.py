@@ -55,7 +55,7 @@ def _token() -> str:
 
 
 def _authenticated(request: Request) -> bool:
-    if len(_password()) < 12:
+    if len(_password()) < 10:
         return False
     value = request.cookies.get(COOKIE, "")
     if not value or len(value) > 256:
@@ -73,8 +73,8 @@ def _authenticated(request: Request) -> bool:
 
 
 def _require_auth(request: Request) -> None:
-    if len(_password()) < 12:
-        raise HTTPException(503, "AI_ANALYST_PASSWORD chưa được cấu hình (tối thiểu 12 ký tự)")
+    if len(_password()) < 10:
+        raise HTTPException(503, "AI_ANALYST_PASSWORD chưa được cấu hình (tối thiểu 10 ký tự)")
     if not _authenticated(request):
         raise HTTPException(401, "Cần đăng nhập vào AI Analyst")
 
@@ -119,7 +119,7 @@ def _login_html(message: str = "") -> str:
         '<p class="muted">Xem nhận định của Gemini và trò chuyện về giao dịch từ Supabase.</p>'
         + error +
         '<form action="/ai/login" method="post"><label for="password">Mật khẩu</label>'
-        '<input id="password" name="password" type="password" minlength="12" '
+        '<input id="password" name="password" type="password" minlength="10" '
         'autocomplete="current-password" required autofocus>'
         '<button type="submit" class="primary">Đăng nhập</button></form>'
         '<p class="hint">Mật khẩu cấu hình bằng AI_ANALYST_PASSWORD trên VPS.</p>'
@@ -144,9 +144,9 @@ def _attempt_allowed(client_ip: str, succeeded: bool = False) -> bool:
 
 @router.get("/ai")
 def ai_home(request: Request):
-    if len(_password()) < 12:
+    if len(_password()) < 10:
         return _private(HTMLResponse(
-            "<h2>AI Analyst chưa cấu hình</h2><p>Cần AI_ANALYST_PASSWORD dài tối thiểu 12 ký tự.</p>",
+            "<h2>AI Analyst chưa cấu hình</h2><p>Cần AI_ANALYST_PASSWORD dài tối thiểu 10 ký tự.</p>",
             status_code=503))
     if not _authenticated(request):
         return _private(HTMLResponse(_login_html()))
@@ -155,7 +155,7 @@ def ai_home(request: Request):
 
 @router.post("/ai/login")
 async def ai_login(request: Request):
-    if len(_password()) < 12:
+    if len(_password()) < 10:
         raise HTTPException(503, "Chưa cấu hình AI_ANALYST_PASSWORD")
     ip = request.client.host if request.client else "unknown"
     form = await request.form()
