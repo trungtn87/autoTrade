@@ -20,6 +20,7 @@ from .data.websocket import BingXKlineStream
 from .execution.service import ExecutionService
 from .execution.store import ExecutionStore
 from .orchestrator import Orchestrator
+from .ai.observer import GeminiObserver
 from .strategy.engine import StrategyEngine
 
 STEP_15M_MS=15*60_000
@@ -67,8 +68,10 @@ data_service=DataService(
 )
 strategy_engine=StrategyEngine()
 execution_service=ExecutionService(settings,execution_store,event_cb=event_reporter.emit)
+ai_observer=GeminiObserver(settings.database_url)
 orchestrator=Orchestrator(
-    settings,data_service,strategy_engine,execution_service,event_cb=event_reporter.emit
+    settings,data_service,strategy_engine,execution_service,event_cb=event_reporter.emit,
+    observer=ai_observer,
 )
 
 app=FastAPI(title="AutoTrade V2")
@@ -555,6 +558,7 @@ def startup()->None:
             details={"purpose":"manual email delivery test"},
         )
 
+    ai_observer.start()
     collector_runtime.start()
     lifecycle_writer.start()
 
@@ -564,6 +568,7 @@ def startup()->None:
 
 @app.on_event("shutdown")
 def shutdown()->None:
+    ai_observer.stop()
     lifecycle_writer.request_stop()
     collector_runtime.request_stop()
     _watchdog_stop.set()
