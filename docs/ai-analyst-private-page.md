@@ -53,3 +53,25 @@ and stores its first pre-trade review.
 
 This page is private even when DASHBOARD_PUBLIC_READONLY=true. No additional
 BingX API, automated order decisions, or Dashboard UI changes are introduced.
+
+
+## Owner self-service diagnostics (no VPS runtime logs required)
+
+On /ai, click **Chẩn đoán**. The panel is behind the same password
+authentication as the private AI page. It shows:
+- Supabase: read-only connection, required tables and counts, SQLSTATE-based
+  safe failure hints, and whether the verified CLOSED ledger exists.
+- Gemini: configured model name, observer enabled switch, and API key presence
+  (never its value). **Gọi thử Gemini** sends one short synthetic prompt to
+  the configured model with a 12s timeout, displaying safe HTTP/error code,
+  reason and latency. Not a trade signal; consumes a small Gemini API call.
+- Discord BTC and ETH: configuration flags for the existing webhooks.
+  **Gửi tin thử BTC/ETH** explicitly posts one marked TEST message to the
+  corresponding configured Discord webhook; no new webhook is introduced.
+  It reports only HTTP code / safe reason, never the webhook URL or response
+  content. Test delivery is rate-limited per channel to once per 90 seconds.
+- GET /ai/api/diagnostics never calls Gemini or sends Discord messages.
+  Test POST endpoints are CSRF-protected and require the signed /ai cookie.
+- Tests never call BingX, update strategy or trade state, or write DB data.
+  A configured credential does NOT mean the remote provider was tested or
+  a message was delivered.

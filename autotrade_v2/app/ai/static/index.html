@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#0c1424">
   <meta name="robots" content="noindex,nofollow,noarchive">
   <title>AutoTrade AI Analyst</title>
-  <link rel="stylesheet" href="/ai/static/style.css">
-  <script src="/ai/static/app.js?v=csrf-bootstrap-1" defer></script>
+  <link rel="stylesheet" href="/ai/static/style.css?v=ai-diagnostics-1">
+  <script src="/ai/static/app.js?v=ai-diagnostics-1" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -18,6 +18,7 @@
       </div>
       <div class="top-actions">
         <span class="pill mode"><span class="dot"></span> OBSERVE ONLY</span>
+        <button class="text-button" type="button" id="diagnostics-button" aria-expanded="false" aria-controls="diagnostics-panel">Chẩn đoán</button>
         <button class="icon-button" type="button" id="refresh-button" title="Làm mới" aria-label="Làm mới">↻</button>
         <button class="text-button" type="button" id="logout-button">Đăng xuất</button>
       </div>
@@ -57,6 +58,39 @@
           <article class="metric"><span>Đã đối soát</span><strong id="metric-post">—</strong><small>Kết quả CLOSED xác minh</small></article>
         </div>
         <div id="notice" class="notice hidden" role="status"></div>
+
+        <section class="diagnostics-panel hidden" id="diagnostics-panel" aria-label="Chẩn đoán kết nối AI" aria-live="polite">
+          <div class="diagnostics-head">
+            <div><p class="eyebrow">CHẨN ĐOÁN KHÔNG CẦN LOG VPS</p>
+              <h2>Kết nối AutoTrade AI</h2>
+              <p class="diagnostics-hint">Chỉ kiểm tra cấu hình khi mở. Gemini và Discord chỉ được gọi khi bạn bấm nút thử tương ứng.</p>
+            </div>
+            <button type="button" class="mini-button" id="diagnostics-refresh">Kiểm tra lại</button>
+          </div>
+          <div class="diagnostics-grid">
+            <article class="diagnostics-item">
+              <div class="diagnostics-item-head"><strong>Supabase</strong><span id="diag-db-status" class="diag-state">Chưa kiểm tra</span></div>
+              <p id="diag-db-detail">Kiểm tra kết nối và dữ liệu AI trong PostgreSQL.</p>
+            </article>
+            <article class="diagnostics-item">
+              <div class="diagnostics-item-head"><strong>Gemini</strong><span id="diag-gemini-status" class="diag-state">Chưa kiểm tra</span></div>
+              <p id="diag-gemini-detail">Kiểm tra model, API key và trạng thái OBSERVE.</p>
+              <button type="button" id="diag-test-gemini" class="diag-test">Gọi thử Gemini</button>
+            </article>
+            <article class="diagnostics-item">
+              <div class="diagnostics-item-head"><strong>Discord BTC</strong><span id="diag-btc-status" class="diag-state">Chưa kiểm tra</span></div>
+              <p id="diag-btc-detail">Dùng webhook BTC đã cấu hình trên AutoTrade.</p>
+              <button type="button" id="diag-test-btc" class="diag-test">Gửi tin thử BTC</button>
+            </article>
+            <article class="diagnostics-item">
+              <div class="diagnostics-item-head"><strong>Discord ETH</strong><span id="diag-eth-status" class="diag-state">Chưa kiểm tra</span></div>
+              <p id="diag-eth-detail">Dùng webhook ETH đã cấu hình trên AutoTrade.</p>
+              <button type="button" id="diag-test-eth" class="diag-test">Gửi tin thử ETH</button>
+            </article>
+          </div>
+          <p id="diagnostics-message" class="diagnostics-message">Các kiểm tra không gửi lệnh BingX, không sửa database, không thay đổi 20FINAL.</p>
+        </section>
+
 
         <section class="chat-card" aria-label="Trò chuyện với Gemini">
           <div class="chat-heading">
