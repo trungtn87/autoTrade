@@ -1,7 +1,7 @@
 // Versioned PWA shell: prefer the network for executable CSS/JS assets.
 // Never cache dashboard HTML/API, and update installed PWA tabs immediately.
 const CACHE = 'autotrade-pwa-shell-v16';
-const VERSION = '20261104-cleanup-v16';
+const VERSION = '20261108-entry-calendar-v1';
 const ASSETS = [
   '/static/manifest.webmanifest', '/static/icon.svg',
   '/static/icon-192.png', '/static/icon-512.png',
