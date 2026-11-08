@@ -1,4 +1,4 @@
-/* Autotrade read-only · BTC/ETH Combo table and daily close calendar. */
+/* Autotrade read-only · BTC/ETH Combo table and entry-date calendar. */
 'use strict';
 const $ = id => document.getElementById(id);
 const fmt = (value, decimals = 2) => Number(value).toLocaleString('vi-VN', {
@@ -131,13 +131,13 @@ function renderDay() {
   setText('history-count', rows.length + ' lệnh');
   setText('day-wins', rows.filter(r=>winOrLoss(r)==='THẮNG').length);
   setText('day-losses', rows.filter(r=>winOrLoss(r)==='THUA').length);
-  const priced = rows.filter(row => row.status === 'closed' && valid(row.recorded_roi_pct));
+  const priced = rows.filter(row => (row.status === 'closed' || row.status === 'estimated_closed') && valid(row.recorded_roi_pct));
   const weighted = priced.length > 0 && priced.every(row =>
     valid(row.pnl) && valid(row.margin) && number(row.margin) > 0);
   const total = weighted ? 100 * priced.reduce((sum,row)=>sum+number(row.pnl),0) /
     priced.reduce((sum,row)=>sum+number(row.margin),0) :
     priced.length ? priced.reduce((sum,row)=>sum+number(row.recorded_roi_pct),0) : null;
-  const estimated = priced.some(row => row.source === 'bingx_db_roi_estimate');
+  const estimated = priced.some(row => ['bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate'].includes(row.source));
   setText('day-roi', displayRoi(total, estimated));
   $('day-roi').className = classFor(total);
   if (!rows.length) { emptyRow('history-list', 6, 'Không có giao dịch trong ngày này.'); return; }
@@ -148,7 +148,7 @@ function renderDay() {
     const mismatch = valid(row.entry_qty) && valid(row.matched_exit_qty)
       ? number(row.matched_exit_qty) - number(row.entry_qty) : NaN;
     const qtyText = value => number(value).toLocaleString('vi-VN', {maximumFractionDigits: 8});
-    const status = row.status === 'closed_pending' ? 'ĐÃ ĐÓNG · CHỜ PnL' :
+    const status = row.status === 'estimated_closed' ? '≈ ' + winOrLoss(row) + ' · BÙ TRỪ' :\n      row.status === 'closed_pending' ? 'ĐÃ ĐÓNG · CHỜ PnL' :
       row.status === 'open' ? 'ĐANG MỞ' :
       row.reason === 'merged_excess_exit' ? 'VỊ THẾ GỘP · DƯ ' + qtyText(mismatch) :
       row.reason === 'merged_short_exit' ? 'VỊ THẾ GỘP · THIẾU ' + qtyText(-mismatch) :
@@ -163,14 +163,14 @@ function renderDay() {
       [row.combo || '—', ''],
       [side, side === 'Long' ? 'positive' : side === 'Short' ? 'negative' : ''],
       [status, status === 'THẮNG' ? 'positive' : status === 'THUA' ? 'negative' : ''],
-      [displayRoi(row.recorded_roi_pct, row.source === 'bingx_db_roi_estimate'), classFor(row.recorded_roi_pct)]
+      [displayRoi(row.recorded_roi_pct, ['bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate'].includes(row.source)), classFor(row.recorded_roi_pct)]
     ];
     for (const [value,cl] of columns) tr.append($text('td', cl, value));
     if (row.shared_position && valid(row.entry_qty) && valid(row.matched_exit_qty)) {
-      const detail = 'Entry: ' + qtyText(row.entry_qty) +
+      const detail = (row.status === 'estimated_closed' ? 'PnL/ROI phân bổ ước tính, không phải kết quả từng Combo từ BingX. ' : '') + 'Entry: ' + qtyText(row.entry_qty) +
         ' · Exit liên kết: ' + qtyText(row.matched_exit_qty) +
         ' · Chênh lệch: ' + (mismatch > 0 ? '+' : '') + qtyText(mismatch) +
-        ' · Chưa đủ bằng chứng phân bổ PnL cho Combo.';
+        (row.status === 'estimated_closed' ? ' · Bù trừ theo khối lượng cân bằng.' : ' · Chưa đủ bằng chứng phân bổ PnL cho Combo.');
       tr.cells[4].title = detail;
       tr.cells[4].setAttribute('aria-label', status + '. ' + detail);
     }
