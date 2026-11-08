@@ -65,6 +65,34 @@ class AnalystPageTests(unittest.TestCase):
             429
         )
 
+    def test_csrf_bootstrap_without_database_even_when_history_fails(self):
+        self.login()
+        with patch.object(page, "_db", side_effect=page.psycopg.OperationalError("db offline")):
+            session = self.client.get("/ai/api/session")
+            self.assertEqual(session.status_code, 200, session.text)
+            token = session.json()["csrf"]
+            self.assertEqual(len(token), 64)
+            self.assertEqual(session.headers.get("cache-control"), "no-store, private")
+
+            # Read failure is 503, but POST must not be falsely reported as CSRF 403.
+            state = self.client.get("/ai/api/state")
+            self.assertEqual(state.status_code, 503)
+            chat = self.client.post("/ai/api/chat", headers={"X-AI-CSRF": token}, json={
+                "message": "What trades have you reviewed?",
+                "request_id": str(uuid4()),
+            })
+            self.assertEqual(chat.status_code, 503)
+            self.assertIn("Supabase", chat.json()["detail"])
+
+    def test_rejects_forged_csrf_after_bootstrap(self):
+        self.login()
+        session = self.client.get("/ai/api/session")
+        self.assertEqual(session.status_code, 200)
+        bad = self.client.post("/ai/api/chat", headers={"X-AI-CSRF": "0" * 64}, json={
+            "message": "Hello Gemini", "request_id": str(uuid4()),
+        })
+        self.assertEqual(bad.status_code, 403)
+
     def test_login_requires_csrf_for_chat(self):
         self.login()
         page_html = self.client.get("/ai")
