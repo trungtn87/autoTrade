@@ -164,6 +164,9 @@ class AnalystPageTests(unittest.TestCase):
         instruction = send.call_args.kwargs["json"]["systemInstruction"]["parts"][0]["text"]
         self.assertIn("Không bịa lệnh", instruction)
         self.assertTrue(send.call_args.args[0].startswith("https://generativelanguage.googleapis.com/"))
+        payload = send.call_args.kwargs["json"]
+        self.assertEqual(payload["generationConfig"]["thinkingConfig"], {"thinkingLevel": "low"})
+        self.assertNotIn("temperature", payload["generationConfig"])
 
     def test_chat_retry_only_on_gemini_503(self):
         context = {"recent_reviews": [], "verified_post_rule": "UNKNOWN"}

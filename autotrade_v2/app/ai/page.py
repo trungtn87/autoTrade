@@ -27,6 +27,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from pydantic import BaseModel, Field
 from psycopg.rows import dict_row
 
+from .gemini_config import generation_config
+
 log = logging.getLogger(__name__)
 router = APIRouter(include_in_schema=False)
 STATIC = Path(__file__).resolve().parent / "static"
@@ -520,7 +522,7 @@ def _gemini_reply(history: list[dict], data: dict) -> str:
             json={
                 "systemInstruction": {"parts": [{"text": instruction}]},
                 "contents": contents,
-                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2600},
+                "generationConfig": generation_config(model, 2600),
             },
             timeout=min(20.0, available),
         )

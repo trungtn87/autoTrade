@@ -14,6 +14,10 @@ from urllib.parse import urlsplit
 import psycopg
 import requests
 
+from .gemini_config import generation_config
+
+DIAGNOSTIC_TIMEOUT_SECONDS = 25
+
 _PROBE_LOCK = threading.Lock()
 _NEXT_PROBE: dict[str, float] = {}
 
@@ -164,8 +168,8 @@ def probe_gemini() -> dict:
             f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
             headers={"x-goog-api-key": key, "Content-Type": "application/json"},
             json={"contents": [{"parts": [{"text": "Return exactly OK."}]}],
-                  "generationConfig": {"maxOutputTokens": 120, "temperature": 0}},
-            timeout=12,
+                  "generationConfig": generation_config(model, 256)},
+            timeout=DIAGNOSTIC_TIMEOUT_SECONDS,
         )
         elapsed = int((time.monotonic() - started) * 1000)
         if response.status_code != 200:
@@ -183,9 +187,14 @@ def probe_gemini() -> dict:
                 "http_status": 200, "latency_ms": elapsed, "model": model,
                 "detail": ("Gemini đã sinh phản hồi thử nghiệm thành công."
                            if has_text else "Gemini trả HTTP 200 nhưng không có nội dung trả lời.")}
+    except requests.ConnectTimeout:
+        return {"status": "error", "code": "CONNECT_TIMEOUT", "model": model,
+                "latency_ms": int((time.monotonic() - started) * 1000),
+                "detail": "Container không kết nối được tới máy chủ Gemini trong thời hạn cho phép."}
     except requests.Timeout:
         return {"status": "error", "code": "TIMEOUT", "model": model,
-                "detail": "Không nhận được phản hồi Gemini trong 12 giây."}
+                "latency_ms": int((time.monotonic() - started) * 1000),
+                "detail": f"Gemini chưa trả lời trong {DIAGNOSTIC_TIMEOUT_SECONDS} giây; có thể phản hồi chậm hoặc mạng không ổn định."}
     except requests.RequestException:
         return {"status": "error", "code": "NETWORK_ERROR", "model": model,
                 "detail": "Container không gọi được API Gemini (DNS/TLS/mạng)."}
