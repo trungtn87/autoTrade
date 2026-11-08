@@ -9,7 +9,8 @@ from app.ai.observer import (
     GeminiObserver, _candles_at_signal, _resample_complete,
     _validated_output, build_pre_context,
 )
-from app.contracts import TradeIntent, MarketSnapshot
+from app.contracts import TradeIntent, MarketSnapshot, ExecutionResult
+from app.orchestrator import Orchestrator
 
 
 class AiObserverTests(unittest.TestCase):
@@ -68,6 +69,24 @@ class AiObserverTests(unittest.TestCase):
         self.assertEqual(intents,(self.intent,))
         frame.iloc[0,frame.columns.get_loc("close")]=12345
         self.assertNotEqual(frame.iloc[0]["close"],self.frame.iloc[0]["close"])
+
+    def test_ai_hypothetical_block_never_reaches_executor(self):
+        snapshot=MarketSnapshot("BTC-USDT","15m",self.frame,0,3599999,{})
+        data=Mock()
+        data.ingest_closed_candle.return_value=snapshot
+        strategy=Mock()
+        strategy.calculate.return_value=[self.intent]
+        execution=Mock()
+        execution.execute.return_value=ExecutionResult(self.intent.event_id,True,"accepted")
+        observer=Mock()
+        observer.submit.return_value="BLOCK"
+        orch=Orchestrator(Mock(execution_enabled=True),data,strategy,execution,
+                          observer=observer)
+        result=orch.on_closed_candle("BTC-USDT",self.frame.iloc[-1:])
+        self.assertTrue(result["ok"])
+        self.assertEqual(len(result["execution"]),1)
+        observer.submit.assert_called_once()
+        execution.execute.assert_called_once_with(self.intent)
 
 
 if __name__=="__main__":

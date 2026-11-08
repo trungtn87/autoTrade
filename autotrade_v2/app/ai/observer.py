@@ -267,7 +267,7 @@ class GeminiObserver:
     def _connection(self):
         import psycopg
         return psycopg.connect(self.database_url, connect_timeout=3,
-                               options="-c statement_timeout=5000")
+                               prepare_threshold=None)
 
     def _try_budget(self):
         day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
