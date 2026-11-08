@@ -10,7 +10,7 @@
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
 <link rel="stylesheet" href="/static/app.css?v=20261104-cleanup-v16">
-<script defer src="/static/app.js?v=20261104-cleanup-v16"></script>
+<script defer src="/static/app.js?v=20261108-entry-calendar-v1"></script>
 </head>
 <body>
 <main class="app">
@@ -58,7 +58,7 @@
     </div>
     <div class="calendar-weekdays" aria-hidden="true"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
     <div id="calendar-grid" class="calendar-grid" role="group" aria-label="Chọn ngày giao dịch"></div>
-    <p class="calendar-hint">Lịch chung BTC + ETH, giờ Việt Nam. Lệnh đã đóng có bằng chứng được ghi theo ngày đóng; chưa có chứng cứ đóng theo ngày mở. Số lệnh ở bảng Combo: đã xác minh thắng/thua / tổng số entry.</p>
+    <p class="calendar-hint">Lịch chung BTC + ETH theo ngày mở lệnh (Entry), giờ Việt Nam. Ngày đóng có trong chi tiết thời gian; lệnh chưa xác minh vẫn được hiển thị. Số lệnh ở bảng Combo: đã xác minh thắng/thua / tổng số Entry.</p>
     <h3 id="selected-date" class="selected-date">—</h3>
     <div class="daily-summary" aria-live="polite">
       <div><small>Thắng</small><strong id="day-wins" class="positive">0</strong></div>
@@ -67,7 +67,7 @@
     </div>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Danh sách giao dịch theo ngày, có thể cuộn ngang">
       <table class="history-table">
-        <thead><tr><th scope="col">Thời gian</th><th scope="col">Coin</th><th scope="col">Combo</th><th scope="col">Hướng</th><th scope="col">Kết quả</th><th scope="col">ROI</th></tr></thead>
+        <thead><tr><th scope="col">Giờ mở</th><th scope="col">Coin</th><th scope="col">Combo</th><th scope="col">Hướng</th><th scope="col">Kết quả</th><th scope="col">ROI</th></tr></thead>
         <tbody id="history-list"><tr><td colspan="6" class="empty">Chọn một ngày trên lịch.</td></tr></tbody>
       </table>
     </div>
