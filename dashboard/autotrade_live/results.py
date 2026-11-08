@@ -589,7 +589,10 @@ def _linked_results(engine, schema, has_fills=False, has_states=False):
             shared_position=len(entries) > 1,
             exit_types=exit_labels
         ))
-    return _estimate_balanced_merged_positions(results, links, orders, bindings, fills_by_order)\n\n\ndef _event_time_ms(value):
+    return _estimate_balanced_merged_positions(results, links, orders, bindings, fills_by_order)
+
+
+def _event_time_ms(value):
     if isinstance(value, str):
         try:
             value = datetime.fromisoformat(value.replace('Z', '+00:00'))
