@@ -34,7 +34,7 @@ rebuilding/restarting the running application. Never put secrets into GitHub.
 ## Database rollout
 
 Apply the additive migration file
-supabase/migrations/20261108160000_ai_analyst_private_chat.sql. It creates
+supabase/migrations/20261108214500_ai_analyst_private_chat.sql. It creates
 autotrade_analytics.ai_chat_sessions and ai_chat_messages, enables RLS and
 revokes anonymous/authenticated grants. No trading or Dashboard data changes.
 
