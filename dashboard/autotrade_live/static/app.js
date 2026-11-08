@@ -7,6 +7,7 @@ const fmt = (value, decimals = 2) => Number(value).toLocaleString('vi-VN', {
 const number = value => value === null || value === undefined || value === '' ? NaN : Number(value);
 const valid = value => Number.isFinite(number(value));
 const roi = value => valid(value) ? (number(value) > 0 ? '+' : '') + fmt(value) + '%' : '—';
+const money = value => valid(value) ? (number(value) > 0 ? '+' : '') + fmt(value, 3) : '—';
 const displayRoi = (value, estimated = false) =>
   valid(value) ? (estimated ? '≈ ' : '') + roi(value) : '—';
 const classFor = value => valid(value) && number(value) > 0 ? 'positive' :
@@ -60,7 +61,7 @@ function renderCombos(rows) {
   const items = (rows || []).filter(row => (row.total || row.closed) > 0 && row.symbol === symbol)
     .sort((a,b) => String(a.combo).localeCompare(String(b.combo), 'vi', {numeric:true}));
   setText('combo-count', items.length + ' Combo');
-  if (!items.length) { emptyRow('combo-list', 6, 'Chưa có giao dịch trong database.'); return; }
+  if (!items.length) { emptyRow('combo-list', 7, 'Chưa có giao dịch trong database.'); return; }
   const body = $('combo-list'); body.replaceChildren();
   for (const row of items) {
     const tr = document.createElement('tr');
@@ -72,7 +73,8 @@ function renderCombos(rows) {
       [valid(row.tp_count) ? row.tp_count : '—', 'positive'],
       [valid(row.sl_count) ? row.sl_count : '—', 'negative'],
       [valid(row.win_rate) ? fmt(row.win_rate, 1) + '%' : '—', ''],
-      [displayRoi(row.real_roi_total, row.roi_estimated), classFor(row.real_roi_total)]
+      [displayRoi(row.real_roi_total, row.roi_estimated), classFor(row.real_roi_total)],
+      [valid(row.pnl_total) ? (row.estimated_count ? '≈ ' : '') + money(row.pnl_total) : '—', classFor(row.pnl_total)]
     ]) tr.append($text('td', className, value));
     body.append(tr);
   }
@@ -140,7 +142,7 @@ function renderDay() {
   const estimated = priced.some(row => ['bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate'].includes(row.source));
   setText('day-roi', displayRoi(total, estimated));
   $('day-roi').className = classFor(total);
-  if (!rows.length) { emptyRow('history-list', 6, 'Không có giao dịch trong ngày này.'); return; }
+  if (!rows.length) { emptyRow('history-list', 7, 'Không có giao dịch trong ngày này.'); return; }
   const body = $('history-list'); body.replaceChildren();
   for (const row of rows) {
     const tr = document.createElement('tr');
@@ -163,7 +165,8 @@ function renderDay() {
       [row.combo || '—', ''],
       [side, side === 'Long' ? 'positive' : side === 'Short' ? 'negative' : ''],
       [status, status === 'THẮNG' ? 'positive' : status === 'THUA' ? 'negative' : ''],
-      [displayRoi(row.recorded_roi_pct, ['bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate'].includes(row.source)), classFor(row.recorded_roi_pct)]
+      [displayRoi(row.recorded_roi_pct, ['bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate'].includes(row.source)), classFor(row.recorded_roi_pct)],
+      [valid(row.pnl) ? (row.status === 'estimated_closed' ? '≈ ' : '') + money(row.pnl) : '—', classFor(row.pnl)]
     ];
     for (const [value,cl] of columns) tr.append($text('td', cl, value));
     if (row.shared_position && valid(row.entry_qty) && valid(row.matched_exit_qty)) {
@@ -230,8 +233,8 @@ async function loadSymbol() {
     if (token !== requestId) return;
     history = [];
     comboRows = [];
-    emptyRow('combo-list', 6, 'Không đọc được dữ liệu.');
-    emptyRow('history-list', 6, 'Không đọc được dữ liệu.');
+    emptyRow('combo-list', 7, 'Không đọc được dữ liệu.');
+    emptyRow('history-list', 7, 'Không đọc được dữ liệu.');
     setText('combo-count', '—'); setText('history-count','—');
     setText('sync', 'Lỗi kết nối dashboard · ' + error.message);
   }
