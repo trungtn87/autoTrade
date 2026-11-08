@@ -68,7 +68,7 @@ data_service=DataService(
 )
 strategy_engine=StrategyEngine()
 execution_service=ExecutionService(settings,execution_store,event_cb=event_reporter.emit)
-ai_observer=GeminiObserver(settings.database_url)
+ai_observer=GeminiObserver(settings.database_url, event_cb=event_reporter.emit)
 orchestrator=Orchestrator(
     settings,data_service,strategy_engine,execution_service,event_cb=event_reporter.emit,
     observer=ai_observer,

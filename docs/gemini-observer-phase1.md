@@ -43,3 +43,24 @@ Known limits:
 - The AI rating is a hypothesis, not a calibrated probability or trade advice.
 - For multi-entry merged BingX positions, any ambiguous or incomplete
   allocation must remain UNRESOLVED, never silently counted as CLOSED.
+
+## Discord reporting (Dashboard unchanged)
+
+Gemini does not create any new Dashboard screens and uses the **existing BTC/ETH
+Discord channels** through Layer-4 EventReporter:
+
+- New pre-trade review in Supabase -> Vietnamese report marked **hypothetical**
+  ALLOW/BLOCK/UNSURE, with SMC reasoning and explicit non-intervention label.
+- New post-trade review for a **verified CLOSED** combo -> Discord comparison
+  against the original immutable pre-trade judgment, including PnL/ROI only
+  when verified.
+- Both reports are INFO (not alerts), routed by symbol; cannot place, block,
+  modify or delay orders. Discord outage is not an execution dependency.
+- Existing webhook and existing execution notification format remain unchanged.
+- EventReporter INFO notifications are best-effort; persistent truth is the
+  immutable Supabase AI review. No guarantee of replay after Discord outage.
+
+**Activation:** AI_OBSERVE_ENABLED=true and GEMINI_API_KEY in VPS
+environment. The deployed Gemini post-review worker remains inactive while
+the verified trade_results table and lifecycle writer are absent; these are
+separate safety prerequisites.
