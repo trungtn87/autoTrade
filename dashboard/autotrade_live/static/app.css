@@ -226,7 +226,7 @@ footer p{margin:6px 0 0}
 .table-scroll{overflow-x:auto;max-width:100%;border:1px solid #2b3e55;border-radius:12px;scrollbar-width:thin;scrollbar-color:#415b78 transparent}
 .table-scroll:focus-visible{outline:2px solid #5abde8;outline-offset:2px}
 .performance-table,.history-table{width:100%;border-collapse:collapse;text-align:center;font-variant-numeric:tabular-nums}
-.performance-table{min-width:330px;table-layout:fixed}
+.performance-table{min-width:450px;table-layout:fixed}
 .history-table{min-width:370px;table-layout:fixed}
 .performance-table th,.history-table th{font-weight:650;color:#acc2db;font-size:11px;background:#1a2a40;padding:12px 4px;line-height:1.3}
 .performance-table td,.history-table td,.performance-table tbody th{font-weight:600;color:#eaf2ff;font-size:12px;padding:12px 4px;border-top:1px solid #24394e;white-space:nowrap}

@@ -248,6 +248,196 @@ def _owned_exits(group, entry_side, binding):
     return exits, not invalid
 
 
+
+def _estimate_balanced_merged_positions(results, links, orders, bindings, fills_by_order):
+    """Dashboard-only estimate; never update confirmed exchange evidence.
+
+    Each FILLED child exit retains its real PnL/fee. Its excess quantity is
+    transferred to a deficient entry on the SAME symbol/positionID/side,
+    with dollars allocated by quantity. No cross-position or guessed orders.
+    """
+    order_by_id = {str(o['order_id']): o for o in orders}
+    groups = defaultdict(list)
+    for link in links:
+        pid = str(_raw(link['raw']).get('positionID') or
+                  _raw(link['raw']).get('positionId') or '')
+        if pid and pid != '0':
+            groups[(link['symbol'], pid, link['position_side'])].append(link)
+    row_by_id = {(r['symbol'], r['entry_order_id']): r for r in results}
+    exit_types = {'STOP_MARKET': 'SL', 'TAKE_PROFIT_MARKET': 'TP',
+                  'TRAILING_STOP_MARKET': 'TRAILING'}
+    for (symbol, pid, position_side), members in groups.items():
+        if len(members) < 2:
+            continue
+        side = 'BUY' if position_side == 'LONG' else 'SELL' if position_side == 'SHORT' else None
+        if side is None or any(m['side'] != side or m['link_side'] not in ('', None, side) for m in members):
+            continue
+        member_ids = {str(m['entry_order_id']) for m in members}
+        if len(member_ids) != len(members):
+            continue
+        # Every executed Entry on the shared provider position must be mapped.
+        all_entries = {str(o['order_id']) for o in orders
+                       if o['symbol'] == symbol and o['position_side'] == position_side
+                       and str(_raw(o['raw']).get('positionID') or
+                               _raw(o['raw']).get('positionId') or '') == pid
+                       and o['side'] == side and o['type'] in ('MARKET', 'LIMIT')}
+        if all_entries != member_ids:
+            continue
+        # No estimate on a group with missing entries/unknown parents, and no
+        # overriding complete independently verified results.
+        if any((symbol, eid) not in row_by_id for eid in member_ids):
+            continue
+        if any(row_by_id[(symbol, eid)]['status'] == 'CLOSED' for eid in member_ids):
+            continue
+        quantities = {}
+        margins = {}
+        entry_fees = {}
+        owners = {}
+        valid = True
+        for member in members:
+            eid = str(member['entry_order_id'])
+            binding = bindings.get((symbol, eid))
+            entry = order_by_id.get(eid)
+            if (not binding or binding.get('position_id') != pid or
+                    binding.get('side') != side or binding.get('combo') != member['combo'] or
+                    not binding.get('parents') or entry is None):
+                valid = False
+                break
+            qty = _decimal(member['filled_qty'])
+            raw = _raw(entry['raw'])
+            leverage = _decimal(str(raw.get('leverage') or '').upper().removesuffix('X'))
+            entry_price = _decimal(raw.get('avgPrice'))
+            if (qty is None or qty <= 0 or leverage is None or leverage <= 0
+                    or entry_price is None or entry_price <= 0):
+                valid = False
+                break
+            entry_fills = fills_by_order.get((symbol, eid), [])
+            fee = Decimal(0)
+            fill_qty = Decimal(0)
+            for fill in entry_fills:
+                fq = _decimal(fill['qty'])
+                ff = _signed_decimal(fill['fee'])
+                if (fq is None or fq <= 0 or ff is None
+                        or fill['symbol'] != symbol or fill['side'] != side
+                        or fill['position_side'] != position_side
+                        or _raw(fill['raw']).get('commissionAsset') not in (None, '', 'USDT')):
+                    valid = False
+                    break
+                fill_qty += fq
+                fee += ff
+            if not valid or abs(fill_qty - qty) > max(Decimal('0.00000001'), qty * Decimal('0.000001')):
+                valid = False
+                break
+            quantities[eid] = qty
+            margins[eid] = entry_price * qty / leverage
+            entry_fees[eid] = fee
+            for parent, kind in binding['parents'].items():
+                if parent in owners:
+                    valid = False
+                    break
+                owners[parent] = (eid, kind)
+            if not valid:
+                break
+        if not valid:
+            continue
+        group_orders = [o for o in orders if o['symbol'] == symbol
+                        and o['position_side'] == position_side
+                        and str(_raw(o['raw']).get('positionID') or
+                                _raw(o['raw']).get('positionId') or '') == pid
+                        and o['side'] != side]
+        legs = []
+        used_parents = set()
+        for order in group_orders:
+            oid = str(order['order_id'])
+            raw = _raw(order['raw'])
+            parent = str(raw.get('triggerOrderId') or raw.get('triggerOrderID') or oid)
+            owner = owners.get(parent)
+            qty = _decimal(order['filled_qty'])
+            if (owner is None or order['type'] != owner[1] or
+                    order['type'] not in exit_types or qty is None or qty <= 0 or
+                    parent in used_parents):
+                valid = False
+                break
+            used_parents.add(parent)
+            fills = fills_by_order.get((symbol, oid), [])
+            actual_qty = Decimal(0)
+            net_money = Decimal(0)
+            for fill in fills:
+                fq = _decimal(fill['qty'])
+                fpnl = _signed_decimal(fill['realized_pnl'])
+                fee = _signed_decimal(fill['fee'])
+                if (fq is None or fq <= 0 or fpnl is None or fee is None
+                        or fill['symbol'] != symbol or fill['position_side'] != position_side
+                        or fill['side'] == side or
+                        _raw(fill['raw']).get('commissionAsset') not in (None, '', 'USDT')):
+                    valid = False
+                    break
+                actual_qty += fq
+                net_money += fpnl + fee
+            if (not valid or abs(actual_qty - qty) >
+                    max(Decimal('0.00000001'), qty * Decimal('0.000001'))):
+                valid = False
+                break
+            legs.append(dict(owner=owner[0], qty=qty, net=net_money,
+                             time=int(order['updated_ms'] or 0),
+                             kind=exit_types[order['type']], remaining=qty))
+        if not valid or not legs:
+            continue
+        # Require the WHOLE position to balance, never only a convenient pair.
+        total_entry = sum(quantities.values(), Decimal(0))
+        total_exit = sum((leg['qty'] for leg in legs), Decimal(0))
+        tolerance = max(Decimal('0.00000001'), total_entry * Decimal('0.000001'))
+        if abs(total_exit - total_entry) > tolerance:
+            continue
+        allocated = {eid: Decimal(0) for eid in member_ids}
+        pnl = dict(entry_fees)
+        kinds = {eid: set() for eid in member_ids}
+        close_times = {eid: 0 for eid in member_ids}
+        by_entry = {str(m['entry_order_id']): m for m in members}
+        def assign(leg, eid, take):
+            if take <= 0:
+                return
+            allocated[eid] += take
+            pnl[eid] += leg['net'] * take / leg['qty']
+            kinds[eid].add(leg['kind'])
+            close_times[eid] = max(close_times[eid], leg['time'])
+            leg['remaining'] -= take
+
+        # First credit each original protection owner, up to its Entry quantity.
+        for leg in sorted(legs, key=lambda v: (v['time'], v['owner'])):
+            eid = leg['owner']
+            if leg['time'] < int(by_entry[eid]['created_ms'] or 0):
+                valid = False
+                break
+            assign(leg, eid, min(leg['qty'], quantities[eid] - allocated[eid]))
+        if not valid:
+            continue
+        # Then move residual excess to other still-deficient entries in this
+        # position. Chronological ordering avoids non-deterministic allocation.
+        for leg in sorted(legs, key=lambda v: (v['time'], v['owner'])):
+            for eid in sorted(member_ids, key=lambda v: (int(by_entry[v]['created_ms'] or 0), v)):
+                if leg['remaining'] <= tolerance:
+                    break
+                if leg['time'] < int(by_entry[eid]['created_ms'] or 0):
+                    continue
+                assign(leg, eid, min(leg['remaining'], quantities[eid] - allocated[eid]))
+        if (any(abs(quantities[eid] - allocated[eid]) > tolerance for eid in member_ids)
+                or any(leg['remaining'] > tolerance for leg in legs)):
+            continue
+        for eid in member_ids:
+            row = row_by_id[(symbol, eid)]
+            margin = margins[eid]
+            row.update(status='ESTIMATED_CLOSED', outcome=(
+                'WIN' if pnl[eid] > 0 else 'LOSS' if pnl[eid] < 0 else 'BREAKEVEN'
+            ), pnl=float(pnl[eid]), margin=float(margin),
+                roi=float(100 * pnl[eid] / margin),
+                closed_ms=close_times[eid], exit_types=sorted(kinds[eid]),
+                source='bingx_db_merged_allocation_estimate',
+                reason='merged_volume_balanced_estimate',
+                allocated_exit_qty=float(allocated[eid]))
+    return results
+
+
 def _linked_results(engine, schema, has_fills=False, has_states=False):
     """Read confirmed strategy entries already in DB. Never query BingX.
 
@@ -399,7 +589,7 @@ def _linked_results(engine, schema, has_fills=False, has_states=False):
             shared_position=len(entries) > 1,
             exit_types=exit_labels
         ))
-    return results
+    return _estimate_balanced_merged_positions(results, links, orders, bindings, fills_by_order)
 
 
 def _event_time_ms(value):
@@ -559,7 +749,9 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
     closed_count = 0
     for row in rows:
         opened = row.get('opened_ms') or 0
+        is_estimated = row.get('status') == 'ESTIMATED_CLOSED' and bool(row.get('closed_ms'))
         is_closed = row.get('status') == 'CLOSED' and bool(row.get('closed_ms'))
+        counted_close = is_closed or is_estimated
         is_pending_close = (row.get('status') == 'CLOSED_PENDING'
                             and bool(row.get('closed_ms')))
         if opened < start_ms or not (opened or is_closed):
@@ -567,18 +759,18 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
         if (symbol and row.get('symbol') != symbol) or (combo and row.get('combo') != combo):
             continue
         groups[(row['symbol'], row['combo'])].append(row)
-        if is_closed:
+        if counted_close:
             closed_count += 1
         history.append(dict(symbol=row['symbol'], combo=row['combo'], side=row['side'],
-                            status='closed' if is_closed else (row.get('status') or 'UNRESOLVED').lower(),
+                            status='estimated_closed' if is_estimated else ('closed' if is_closed else (row.get('status') or 'UNRESOLVED').lower()),
                             entry_ms=opened or None,
-                            exit_ms=row.get('closed_ms') if (is_closed or is_pending_close) else None,
-                            outcome=row.get('outcome') if is_closed else None,
-                            result=row.get('outcome') if is_closed else 'UNRESOLVED',
-                            roi_pct=row.get('roi') if is_closed else None,
-                            recorded_roi_pct=row.get('roi') if is_closed else None,
-                            pnl=row.get('pnl') if is_closed else None,
-                            margin=row.get('margin') if is_closed else None,
+                            exit_ms=row.get('closed_ms') if (counted_close or is_pending_close) else None,
+                            outcome=row.get('outcome') if counted_close else None,
+                            result=row.get('outcome') if counted_close else 'UNRESOLVED',
+                            roi_pct=row.get('roi') if counted_close else None,
+                            recorded_roi_pct=row.get('roi') if counted_close else None,
+                            pnl=row.get('pnl') if counted_close else None,
+                            margin=row.get('margin') if counted_close else None,
                             source=row.get('source'), reason=row.get('reason'),
                             entry_qty=row.get('entry_qty'),
                             matched_exit_qty=row.get('matched_exit_qty'),
@@ -586,7 +778,7 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
                             exit_types=row.get('exit_types', [])))
     combos = []
     for (sym, name), trades in sorted(groups.items(), key=lambda item: (item[0][0] or '', str(item[0][1] or ''))):
-        closed = [r for r in trades if r.get('status') == 'CLOSED' and r.get('closed_ms')]
+        closed = [r for r in trades if r.get('status') in ('CLOSED', 'ESTIMATED_CLOSED') and r.get('closed_ms')]
         wins = sum(t.get('outcome') == 'WIN' for t in closed)
         losses = sum(t.get('outcome') == 'LOSS' for t in closed)
         classified = wins + losses
@@ -607,8 +799,12 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
                            classified=classified,
                            win_rate=round(100*wins/classified, 2) if classified else None,
                            real_roi_total=round(actual_roi, 4) if actual_roi is not None else None,
-                           roi_estimated=any(t.get('source') == 'bingx_db_roi_estimate' for t in priced),
-                           roi_coverage=len(priced)))
+                           roi_estimated=any(t.get('source') in ('bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate') for t in priced),
+                           estimated_count=sum(t.get('status') == 'ESTIMATED_CLOSED' for t in closed),
+                           roi_coverage=len(priced),
+                           pnl_total=round(sum(t['pnl'] for t in priced if t.get('pnl') is not None), 4)
+                           if any(t.get('pnl') is not None for t in priced) else None,
+                           pnl_coverage=sum(t.get('pnl') is not None for t in priced)))
     return dict(theory=dict(available=available,
                             reason=None if available else 'Existing DB results are unavailable',
                             combos=combos,
@@ -616,4 +812,4 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
                                            reverse=True)),
                 last_sync=last_sync, trades=[],
                 summary={'closed':closed_count, 'total':len(history)},
-                unresolved=sum(r.get('status') != 'CLOSED' for r in rows))
+                unresolved=sum(r.get('status') not in ('CLOSED','ESTIMATED_CLOSED') for r in rows))

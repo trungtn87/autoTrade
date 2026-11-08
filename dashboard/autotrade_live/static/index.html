@@ -9,8 +9,8 @@
 <title>Autotrade · Hiệu quả giao dịch</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
-<link rel="stylesheet" href="/static/app.css?v=20261108-merged-evidence-v2">
-<script defer src="/static/app.js?v=20261108-merged-evidence-v2"></script>
+<link rel="stylesheet" href="/static/app.css?v=20261108-balanced-estimate-v3">
+<script defer src="/static/app.js?v=20261108-balanced-estimate-v3"></script>
 </head>
 <body>
 <main class="app">
@@ -41,8 +41,8 @@
     </div>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Bảng hiệu quả theo Combo, có thể cuộn ngang">
       <table class="performance-table">
-        <thead><tr><th scope="col">Combo</th><th scope="col" title="Đã xác minh thắng/thua trên tổng số lệnh">Số lệnh</th><th scope="col">TP</th><th scope="col">SL</th><th scope="col">Tỉ lệ thắng</th><th scope="col">ROI ước tính</th></tr></thead>
-        <tbody id="combo-list"><tr><td colspan="6" class="empty">Đang đọc dữ liệu…</td></tr></tbody>
+        <thead><tr><th scope="col">Combo</th><th scope="col" title="Đã xác minh thắng/thua trên tổng số lệnh">Số lệnh</th><th scope="col">TP</th><th scope="col">SL</th><th scope="col">Tỉ lệ thắng</th><th scope="col">ROI ước tính</th><th scope="col">PnL (USDT)</th></tr></thead>
+        <tbody id="combo-list"><tr><td colspan="7" class="empty">Đang đọc dữ liệu…</td></tr></tbody>
       </table>
     </div>
   </section>
@@ -58,7 +58,7 @@
     </div>
     <div class="calendar-weekdays" aria-hidden="true"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
     <div id="calendar-grid" class="calendar-grid" role="group" aria-label="Chọn ngày giao dịch"></div>
-    <p class="calendar-hint">Lịch chung BTC + ETH theo ngày mở lệnh (Entry), giờ Việt Nam. Ngày đóng có trong chi tiết thời gian; lệnh chưa xác minh vẫn được hiển thị. Nếu vị thế BingX gộp nhiều Combo, phần chênh lệch khối lượng sẽ được ghi rõ và chưa tính thắng/thua hay ROI khi thiếu bằng chứng. Số lệnh ở bảng Combo: đã xác minh thắng/thua / tổng Entry.</p>
+    <p class="calendar-hint">Lịch chung BTC + ETH theo ngày mở lệnh (Entry), giờ Việt Nam. Ngày đóng có trong chi tiết thời gian; lệnh chưa xác minh vẫn được hiển thị. Vị thế BingX gộp được bù trừ theo khối lượng khi đủ Entry, Exit và fill. Thắng/thua, ROI và PnL phân bổ hiển thị dấu ≈; thiếu dữ liệu vẫn cần đối chiếu. Số lệnh ở bảng Combo: đã xác minh thắng/thua / tổng Entry.</p>
     <h3 id="selected-date" class="selected-date">—</h3>
     <div class="daily-summary" aria-live="polite">
       <div><small>Thắng</small><strong id="day-wins" class="positive">0</strong></div>
@@ -67,11 +67,11 @@
     </div>
     <div class="table-scroll" tabindex="0" role="region" aria-label="Danh sách giao dịch theo ngày, có thể cuộn ngang">
       <table class="history-table">
-        <thead><tr><th scope="col">Giờ mở</th><th scope="col">Coin</th><th scope="col">Combo</th><th scope="col">Hướng</th><th scope="col">Kết quả</th><th scope="col">ROI</th></tr></thead>
+        <thead><tr><th scope="col">Giờ mở</th><th scope="col">Coin</th><th scope="col">Combo</th><th scope="col">Hướng</th><th scope="col">Kết quả</th><th scope="col">ROI</th><th scope="col">PnL (USDT)</th></tr></thead>
         <tbody id="history-list"><tr><td colspan="6" class="empty">Chọn một ngày trên lịch.</td></tr></tbody>
       </table>
     </div>
-    <p id="roi-note" class="section-note">ROI lịch sử giữ nguyên số đã ghi nhận. ROI mới ≈ (PnL đã khớp + phí giao dịch) / (giá vốn × khối lượng / đòn bẩy), chưa tính funding. Tổng ngày/Combo chỉ gồm các lệnh có ROI; dữ liệu thiếu vẫn hiện —.</p>
+    <p id="roi-note" class="section-note">≈ là số phân bổ ước tính theo khối lượng của vị thế gộp, không phải PnL xác minh riêng từng Combo. ROI lịch sử giữ nguyên số đã ghi nhận. ROI mới ≈ (PnL đã khớp + phí giao dịch) / (giá vốn × khối lượng / đòn bẩy), chưa tính funding. Tổng ngày/Combo chỉ gồm các lệnh có ROI; dữ liệu thiếu vẫn hiện —.</p>
   </section>
   <footer><span class="footer-brand">◈ AUTOTRADE · READ ONLY</span>
     <p>Dashboard chỉ đọc dữ liệu đã lưu, không gửi lệnh BingX.</p></footer>
