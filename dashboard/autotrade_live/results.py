@@ -799,8 +799,12 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
                            classified=classified,
                            win_rate=round(100*wins/classified, 2) if classified else None,
                            real_roi_total=round(actual_roi, 4) if actual_roi is not None else None,
-                           roi_estimated=any(t.get('source') in ('bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate') for t in priced),\n                           estimated_count=sum(t.get('status') == 'ESTIMATED_CLOSED' for t in closed),
-                           roi_coverage=len(priced),\n                           pnl_total=round(sum(t['pnl'] for t in priced if t.get('pnl') is not None), 4)\n                           if any(t.get('pnl') is not None for t in priced) else None,\n                           pnl_coverage=sum(t.get('pnl') is not None for t in priced)))
+                           roi_estimated=any(t.get('source') in ('bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate') for t in priced),
+                           estimated_count=sum(t.get('status') == 'ESTIMATED_CLOSED' for t in closed),
+                           roi_coverage=len(priced),
+                           pnl_total=round(sum(t['pnl'] for t in priced if t.get('pnl') is not None), 4)
+                           if any(t.get('pnl') is not None for t in priced) else None,
+                           pnl_coverage=sum(t.get('pnl') is not None for t in priced)))
     return dict(theory=dict(available=available,
                             reason=None if available else 'Existing DB results are unavailable',
                             combos=combos,
