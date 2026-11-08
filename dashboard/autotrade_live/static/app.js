@@ -145,8 +145,15 @@ function renderDay() {
   for (const row of rows) {
     const tr = document.createElement('tr');
     const side = row.side === 'BUY' ? 'Long' : row.side === 'SELL' ? 'Short' : '—';
+    const mismatch = valid(row.entry_qty) && valid(row.matched_exit_qty)
+      ? number(row.matched_exit_qty) - number(row.entry_qty) : NaN;
+    const qtyText = value => number(value).toLocaleString('vi-VN', {maximumFractionDigits: 8});
     const status = row.status === 'closed_pending' ? 'ĐÃ ĐÓNG · CHỜ PnL' :
       row.status === 'open' ? 'ĐANG MỞ' :
+      row.reason === 'merged_excess_exit' ? 'VỊ THẾ GỘP · DƯ ' + qtyText(mismatch) :
+      row.reason === 'merged_short_exit' ? 'VỊ THẾ GỘP · THIẾU ' + qtyText(-mismatch) :
+      row.reason === 'merged_identity_unverified' ? 'VỊ THẾ GỘP · CHƯA XÁC MINH' :
+      row.reason === 'merged_no_exit' ? 'VỊ THẾ GỘP · THIẾU EXIT' :
       row.status === 'partial' || row.reason === 'partial_exit' ? 'MỘT PHẦN' :
       row.reason === 'excess_exit_quantity' ? 'CẦN ĐỐI CHIẾU KHỐI LƯỢNG' :
       row.reason === 'no_archived_exit' ? 'CHƯA GHI NHẬN ĐÓNG' : winOrLoss(row);
@@ -159,6 +166,14 @@ function renderDay() {
       [displayRoi(row.recorded_roi_pct, row.source === 'bingx_db_roi_estimate'), classFor(row.recorded_roi_pct)]
     ];
     for (const [value,cl] of columns) tr.append($text('td', cl, value));
+    if (row.shared_position && valid(row.entry_qty) && valid(row.matched_exit_qty)) {
+      const detail = 'Entry: ' + qtyText(row.entry_qty) +
+        ' · Exit liên kết: ' + qtyText(row.matched_exit_qty) +
+        ' · Chênh lệch: ' + (mismatch > 0 ? '+' : '') + qtyText(mismatch) +
+        ' · Chưa đủ bằng chứng phân bổ PnL cho Combo.';
+      tr.cells[4].title = detail;
+      tr.cells[4].setAttribute('aria-label', status + '. ' + detail);
+    }
     if (valid(row.exit_ms) && valid(row.entry_ms)) {
       const exit = dateParts(row.exit_ms);
       if (exit) tr.cells[0].title = 'Mở: ' + dateParts(row.entry_ms).date + ' ' + dateParts(row.entry_ms).time +
