@@ -150,7 +150,8 @@ function renderDay() {
     const mismatch = valid(row.entry_qty) && valid(row.matched_exit_qty)
       ? number(row.matched_exit_qty) - number(row.entry_qty) : NaN;
     const qtyText = value => number(value).toLocaleString('vi-VN', {maximumFractionDigits: 8});
-    const status = row.status === 'estimated_closed' ? '≈ ' + winOrLoss(row) + ' · BÙ TRỪ' :\n      row.status === 'closed_pending' ? 'ĐÃ ĐÓNG · CHỜ PnL' :
+    const status = row.status === 'estimated_closed' ? '≈ ' + winOrLoss(row) + ' · BÙ TRỪ' :
+      row.status === 'closed_pending' ? 'ĐÃ ĐÓNG · CHỜ PnL' :
       row.status === 'open' ? 'ĐANG MỞ' :
       row.reason === 'merged_excess_exit' ? 'VỊ THẾ GỘP · DƯ ' + qtyText(mismatch) :
       row.reason === 'merged_short_exit' ? 'VỊ THẾ GỘP · THIẾU ' + qtyText(-mismatch) :
