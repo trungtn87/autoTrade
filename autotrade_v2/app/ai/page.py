@@ -576,3 +576,29 @@ def ai_chat(request: Request, body: ChatInput):
         "session_id": str(session_id), "reply": reply, "error": error,
         "observe_only": True
     }))
+
+
+# Diagnostic endpoints are intentionally isolated from the trading engine.
+# GET runs local, read-only checks; live providers are contacted ONLY on
+# explicit, authenticated + CSRF-protected button-triggered POST requests.
+from . import diagnostics as _ai_diagnostics
+
+
+@router.get("/ai/api/diagnostics")
+def ai_diagnostics(request: Request):
+    _require_auth(request)
+    return _private(JSONResponse(_ai_diagnostics.summary(_db)))
+
+
+@router.post("/ai/api/diagnostics/gemini")
+def ai_diagnostics_gemini(request: Request):
+    _require_csrf(request)
+    return _private(JSONResponse(_ai_diagnostics.probe_gemini()))
+
+
+@router.post("/ai/api/diagnostics/discord/{market}")
+def ai_diagnostics_discord(request: Request, market: str):
+    _require_csrf(request)
+    if market not in ("BTC", "ETH"):
+        raise HTTPException(404, "Không hỗ trợ kênh Discord này")
+    return _private(JSONResponse(_ai_diagnostics.probe_discord(market)))

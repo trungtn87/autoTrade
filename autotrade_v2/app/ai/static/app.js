@@ -1,7 +1,8 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 const state = { csrf: "", reviews: [], threads: [], summary: [], selectedEvent: null,
-  currentThread: null, filter: "all", busy: false, postReady: false };
+  currentThread: null, filter: "all", busy: false, postReady: false,
+  diagnosticsOpen: false, diagnosticsBusy: false };
 function create(tag, className, text) {
   const el = document.createElement(tag);
   if (className) el.className = className;
@@ -176,7 +177,7 @@ async function refreshState(showNotice) {
     state.postReady = !!data.post_ready;
     renderMetrics(); renderReviews(); renderThreads(); renderSelection();
     $("assistant-status").textContent = data.model_configured
-      ? "Gemini API sẵn sàng · Chỉ quan sát" : "Chưa cấu hình GEMINI_API_KEY";
+      ? "Gemini API key đã cấu hình · Chưa xác minh kết nối" : "Chưa cấu hình GEMINI_API_KEY";
     if (!data.model_configured) displayNotice("Gemini API key chưa được cấu hình trên VPS.", true);
     else if (!data.post_ready) displayNotice("Đã có trang chat; phần phân tích sau Exit chỉ chạy khi dữ liệu CLOSED được đối soát.", false);
     else if (showNotice) displayNotice("Đã cập nhật dữ liệu Supabase.", false);
@@ -217,7 +218,79 @@ async function sendQuestion(event) {
     displayNotice(err.message, true);
   } finally { state.busy = false; $("send-button").disabled = false; $("chat-input").disabled = false; $("chat-input").focus(); }
 }
+
+function paintDiagnostic(name, value) {
+  const status = $("diag-" + name + "-status");
+  const detail = $("diag-" + name + "-detail");
+  const kind = value && value.status || "error";
+  const label = {
+    ok: "Hoạt động", error: "Có lỗi", warning: "Cảnh báo",
+    configured: "Đã cấu hình", checking: "Đang thử"
+  }[kind] || "Chưa kiểm tra";
+  status.textContent = label;
+  status.className = "diag-state " + (["ok", "error", "warning", "configured", "checking"].includes(kind) ? kind : "");
+  const code = value && value.code ? " [" + value.code + "]" : "";
+  const http = value && value.http_status ? " · HTTP " + value.http_status : "";
+  const latency = value && value.latency_ms !== undefined ? " · " + value.latency_ms + "ms" : "";
+  const model = value && value.model && name === "gemini" ? " · Model: " + value.model : "";
+  const counts = value && name === "db" && value.status === "ok"
+    ? " · " + value.reviews + " nhận định · " + value.chat_messages + " tin chat" : "";
+  detail.textContent = String(value && value.detail || "Chưa có dữ liệu") + code + http + latency + model + counts;
+}
+
+async function loadDiagnostics() {
+  if (state.diagnosticsBusy || !state.diagnosticsOpen) return;
+  state.diagnosticsBusy = true;
+  $("diagnostics-refresh").disabled = true;
+  $("diagnostics-message").textContent = "Đang kiểm tra cấu hình và kết nối PostgreSQL...";
+  try {
+    const data = await api("/ai/api/diagnostics");
+    paintDiagnostic("db", data.database);
+    paintDiagnostic("gemini", data.gemini);
+    paintDiagnostic("btc", data.discord && data.discord.BTC);
+    paintDiagnostic("eth", data.discord && data.discord.ETH);
+    $("diagnostics-message").textContent =
+      "Đây chỉ là trạng thái cấu hình. Bấm 'Gọi thử' / 'Gửi tin thử' mới kiểm tra kết nối thực tế.";
+  } catch (err) {
+    $("diagnostics-message").textContent = "Lỗi chẩn đoán: " + err.message;
+  } finally {
+    state.diagnosticsBusy = false;
+    $("diagnostics-refresh").disabled = false;
+  }
+}
+
+async function runDiagnostic(name, path) {
+  const button = $("diag-test-" + name);
+  if (button.disabled) return;
+  button.disabled = true;
+  paintDiagnostic(name, {status: "checking", detail: "Đang thực hiện bài thử..."});
+  try {
+    // This POST always gets its own cookie-bound CSRF token via api().
+    // No exchange endpoint or user-supplied destination is involved.
+    const result = await api(path, {method: "POST"});
+    paintDiagnostic(name, result);
+    $("diagnostics-message").textContent = result.status === "ok"
+      ? "Bài thử hoàn thành. Kiểm tra đúng kênh nếu vừa gửi Discord."
+      : "Bài thử trả lỗi đã phân loại; không lộ API key/webhook.";
+  } catch (err) {
+    paintDiagnostic(name, {status: "error", code: "REQUEST_FAILED", detail: err.message});
+    $("diagnostics-message").textContent = "Không thể hoàn thành bài thử.";
+  } finally {
+    button.disabled = false;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  $("diagnostics-button").addEventListener("click", () => {
+    state.diagnosticsOpen = !state.diagnosticsOpen;
+    $("diagnostics-panel").classList.toggle("hidden", !state.diagnosticsOpen);
+    $("diagnostics-button").setAttribute("aria-expanded", String(state.diagnosticsOpen));
+    if (state.diagnosticsOpen) loadDiagnostics();
+  });
+  $("diagnostics-refresh").addEventListener("click", loadDiagnostics);
+  $("diag-test-gemini").addEventListener("click", () => runDiagnostic("gemini", "/ai/api/diagnostics/gemini"));
+  $("diag-test-btc").addEventListener("click", () => runDiagnostic("btc", "/ai/api/diagnostics/discord/BTC"));
+  $("diag-test-eth").addEventListener("click", () => runDiagnostic("eth", "/ai/api/diagnostics/discord/ETH"));
   $("chat-form").addEventListener("submit", sendQuestion);
   $("chat-input").addEventListener("keydown", event => {
     if (event.key === "Enter" && event.ctrlKey) { event.preventDefault(); $("chat-form").requestSubmit(); }
