@@ -1,11 +1,11 @@
 // Versioned PWA shell: prefer the network for executable CSS/JS assets.
 // Never cache dashboard HTML/API, and update installed PWA tabs immediately.
-const CACHE = 'autotrade-pwa-shell-v19';
-const VERSION = '20261108-balanced-estimate-v3';
+const CACHE = 'autotrade-pwa-shell-v20';
+const VERSION = '20261108-pnl-chart-v1';
 const ASSETS = [
   '/static/manifest.webmanifest', '/static/icon.svg',
   '/static/icon-192.png', '/static/icon-512.png',
-  '/static/app.css?v=' + VERSION, '/static/app.js?v=' + VERSION
+  '/static/app.css?v=' + VERSION, '/static/pnl_chart.js?v=' + VERSION, '/static/app.js?v=' + VERSION
 ];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))
@@ -19,7 +19,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const u = new URL(event.request.url);
   if (event.request.method !== 'GET' || !u.pathname.startsWith('/static/')) return;
-  if (u.pathname.endsWith('/app.js') || u.pathname.endsWith('/app.css')) {
+  if (u.pathname.endsWith('/app.js') || u.pathname.endsWith('/pnl_chart.js') || u.pathname.endsWith('/app.css')) {
     // Network first prevents yesterday's app.js from drawing today's HTML.
     event.respondWith(fetch(event.request, {cache:'no-store'}).then(response => {
       if (response.ok) {
