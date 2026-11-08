@@ -308,7 +308,7 @@ def test_mobile_report_has_compact_kpis_and_no_double_counting():
                  'day-losses', 'day-roi', 'active-symbol'):
         assert 'id="'+name+'"' in html
     assert 'BTC + ETH' in html
-    assert 'valid(row.exit_ms || row.entry_ms)' in script  # unresolved entries stay visible
+    assert 'valid(row.entry_ms || row.exit_ms)' in script  # unresolved entries stay visible on entry day
     assert "row.symbol === symbol" in script  # only the Combo table filters coin
     assert "'/api/dashboard?days=all'" in script
     assert "row.symbol === 'BTC-USDT' || row.symbol === 'ETH-USDT'" in script
