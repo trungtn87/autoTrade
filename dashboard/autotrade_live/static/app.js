@@ -45,7 +45,9 @@ let comboRows = [];
 let selectedDay = '';
 let monthKey = '';
 let requestId = 0;
-const tradeDate = row => dateParts(row.exit_ms || row.entry_ms)?.key;
+// A trade belongs to its ENTRY day. An exit can happen hours/days later.
+// Fall back to exit time only for legacy records without an entry timestamp.
+const tradeDate = row => dateParts(row.entry_ms || row.exit_ms)?.key;
 const dayRows = key => history.filter(row => tradeDate(row) === key);
 const winOrLoss = row => {
   if (row.outcome === 'WIN') return 'THẮNG';
@@ -123,7 +125,7 @@ function renderCalendar() {
   }
 }
 function renderDay() {
-  const rows = dayRows(selectedDay).sort((a,b) => number(b.exit_ms || b.entry_ms) - number(a.exit_ms || a.entry_ms));
+  const rows = dayRows(selectedDay).sort((a,b) => number(b.entry_ms || b.exit_ms) - number(a.entry_ms || a.exit_ms));
   const parts = selectedDay.split('-');
   setText('selected-date', 'Ngày ' + parts[2] + '/' + parts[1] + '/' + parts[0]);
   setText('history-count', rows.length + ' lệnh');
@@ -149,7 +151,7 @@ function renderDay() {
       row.reason === 'excess_exit_quantity' ? 'CẦN ĐỐI CHIẾU KHỐI LƯỢNG' :
       row.reason === 'no_archived_exit' ? 'CHƯA GHI NHẬN ĐÓNG' : winOrLoss(row);
     const columns = [
-      [dateParts(row.exit_ms || row.entry_ms)?.time || '—', ''],
+      [dateParts(row.entry_ms || row.exit_ms)?.time || '—', ''],
       [row.symbol === 'BTC-USDT' ? 'BTC' : 'ETH', 'coin-' + row.symbol.split('-')[0].toLowerCase()],
       [row.combo || '—', ''],
       [side, side === 'Long' ? 'positive' : side === 'Short' ? 'negative' : ''],
@@ -157,6 +159,11 @@ function renderDay() {
       [displayRoi(row.recorded_roi_pct, row.source === 'bingx_db_roi_estimate'), classFor(row.recorded_roi_pct)]
     ];
     for (const [value,cl] of columns) tr.append($text('td', cl, value));
+    if (valid(row.exit_ms) && valid(row.entry_ms)) {
+      const exit = dateParts(row.exit_ms);
+      if (exit) tr.cells[0].title = 'Mở: ' + dateParts(row.entry_ms).date + ' ' + dateParts(row.entry_ms).time +
+        ' · Đóng: ' + exit.date + ' ' + exit.time;
+    }
     body.append(tr);
   }
 }
@@ -191,7 +198,7 @@ async function loadSymbol() {
     renderCombos(comboRows);
     history = (data.theory?.history || []).filter(row =>
       (row.symbol === 'BTC-USDT' || row.symbol === 'ETH-USDT') &&
-      valid(row.exit_ms || row.entry_ms));
+      valid(row.entry_ms || row.exit_ms));
     const months = history.map(tradeDate).filter(Boolean).sort();
     if (months.length) firstMonth = months[0].slice(0, 7);
     selectedDay = chooseLatestDate();
