@@ -9,9 +9,9 @@
 <title>Autotrade · Hiệu quả giao dịch</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
-<link rel="stylesheet" href="/static/app.css?v=20261108-pnl-chart-v1">
-<script defer src="/static/pnl_chart.js?v=20261108-pnl-chart-v1"></script>
-<script defer src="/static/app.js?v=20261108-pnl-chart-v1"></script>
+<link rel="stylesheet" href="/static/app.css?v=20261109-ai-link-v1">
+<script defer src="/static/pnl_chart.js?v=20261109-ai-link-v1"></script>
+<script defer src="/static/app.js?v=20261109-ai-link-v1"></script>
 </head>
 <body>
 <main class="app">
@@ -24,7 +24,10 @@
         <div class="subtitle">Lịch sử có trong database · Giờ Việt Nam (UTC+7)</div>
       </div>
     </div>
-    <form method="post" action="/logout"><button class="quiet">Đăng xuất</button></form>
+    <nav class="top-actions" aria-label="Điều hướng chính">
+      <a class="quiet ai-link" href="/ai" aria-label="Mở trang AI phân tích">✦ AI phân tích</a>
+      <form method="post" action="/logout"><button class="quiet">Đăng xuất</button></form>
+    </nav>
   </header>
   <div class="statusline" aria-live="polite">
     <span class="signal-dot" id="status-dot"></span>
