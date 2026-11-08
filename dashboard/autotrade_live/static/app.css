@@ -304,3 +304,16 @@ footer p{margin:6px 0 0}
   .pnl-chart-toolbar select{min-width:102px;max-width:138px}
   .pnl-chart-plot{padding:4px 2px 0}
 }
+
+/* Quick access to the existing password-protected AI Analyst page. */
+.top-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-shrink:0}
+.top-actions form{margin:0}
+.top-actions .ai-link{display:inline-flex;align-items:center;justify-content:center;
+  color:#59e4d2;border-color:#277d79;text-decoration:none;font-weight:750}
+.top-actions .ai-link:hover{background:#1a3944}
+.top-actions .ai-link:focus-visible{outline:2px solid #66dcff;outline-offset:2px}
+@media(max-width:560px){
+  .topbar{flex-wrap:wrap}
+  .top-actions{width:100%}
+  .top-actions .quiet{padding:8px 10px}
+}
