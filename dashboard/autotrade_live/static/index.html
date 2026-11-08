@@ -9,8 +9,9 @@
 <title>Autotrade · Hiệu quả giao dịch</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
-<link rel="stylesheet" href="/static/app.css?v=20261108-balanced-estimate-v3">
-<script defer src="/static/app.js?v=20261108-balanced-estimate-v3"></script>
+<link rel="stylesheet" href="/static/app.css?v=20261108-pnl-chart-v1">
+<script defer src="/static/pnl_chart.js?v=20261108-pnl-chart-v1"></script>
+<script defer src="/static/app.js?v=20261108-pnl-chart-v1"></script>
 </head>
 <body>
 <main class="app">
@@ -45,6 +46,22 @@
         <tbody id="combo-list"><tr><td colspan="7" class="empty">Đang đọc dữ liệu…</td></tr></tbody>
       </table>
     </div>
+  </section>
+  <section class="panel pnl-chart-panel" aria-labelledby="pnl-chart-heading">
+    <div class="section-head">
+      <div><div class="section-kicker">PNL THEO NGÀY ĐÓNG LỆNH</div><h2 id="pnl-chart-heading">PnL tích lũy · <span id="pnl-active-symbol">BTC</span></h2></div>
+      <span id="pnl-trade-count" class="panel-count">—</span>
+    </div>
+    <div class="pnl-chart-toolbar">
+      <strong id="pnl-summary" aria-live="polite">—</strong>
+      <label for="pnl-combo-filter">Combo
+        <select id="pnl-combo-filter" aria-label="Chọn combo để làm nổi trên biểu đồ">
+          <option value="">Tất cả Combo</option>
+        </select>
+      </label>
+    </div>
+    <div class="pnl-chart-plot"><svg id="pnl-svg" role="img" aria-label="PnL tích lũy theo ngày đóng lệnh"></svg></div>
+    <p class="section-note" id="pnl-chart-note">Biểu đồ chỉ sử dụng PnL các lệnh đã đóng lưu trong database.</p>
   </section>
   <section class="panel calendar-panel" id="history" aria-labelledby="history-heading">
     <div class="section-head">
