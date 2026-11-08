@@ -251,6 +251,17 @@ def _summary(conn) -> list[dict]:
     return [_serialize(x) for x in rows]
 
 
+@router.get("/ai/api/session")
+def ai_session(request: Request):
+    """CSRF bootstrap without a database connection.
+
+    A failed Supabase read must not strip the browser of its session CSRF
+    token or masquerade as an authentication problem when sending a chat.
+    """
+    _require_auth(request)
+    return _private(JSONResponse({"csrf": _csrf_token(request), "observe_only": True}))
+
+
 @router.get("/ai/api/state")
 def ai_state(request: Request):
     _require_auth(request)

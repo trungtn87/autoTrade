@@ -17,17 +17,37 @@ function displayNotice(message, error) {
 async function api(path, options) {
   const opts = Object.assign({credentials: "same-origin", cache: "no-store"}, options || {});
   const headers = Object.assign({"Accept": "application/json"}, opts.headers || {});
-  if (opts.method && opts.method !== "GET") headers["X-AI-CSRF"] = state.csrf;
-  opts.headers = headers;
-  const response = await fetch(path, opts);
-  let data;
-  try { data = await response.json(); } catch (_e) { data = {}; }
-  if (response.status === 401) { window.location.replace("/ai"); throw new Error("Phiên đăng nhập đã hết hạn"); }
-  if (!response.ok) {
-    const d = data.detail;
-    throw new Error(typeof d === "string" ? d : "Không thể kết nối AI Analyst (" + response.status + ")");
+  const changingData = !!opts.method && opts.method.toUpperCase() !== "GET";
+  for (let attempt = 0; attempt < (changingData ? 2 : 1); attempt++) {
+    if (changingData) {
+      // The CSRF token is tied to the current login cookie. Bootstrap it
+      // directly from the signed session, never from a Supabase data read.
+      const session = await api("/ai/api/session");
+      if (!session.csrf) throw new Error("Không nhận được CSRF token. Hãy đăng nhập lại.");
+      state.csrf = session.csrf;
+      headers["X-AI-CSRF"] = session.csrf;
+    }
+    opts.headers = headers;
+    const response = await fetch(path, opts);
+    let data;
+    try { data = await response.json(); } catch (_e) { data = {}; }
+    if (response.status === 401) {
+      window.location.replace("/ai");
+      throw new Error("Phiên đăng nhập đã hết hạn");
+    }
+    if (response.status === 403 && changingData && attempt === 0 &&
+        data.detail === "CSRF token không hợp lệ") {
+      // Another tab may have rotated the session between GET and POST.
+      // Refresh once and retry the SAME idempotent request_id.
+      continue;
+    }
+    if (!response.ok) {
+      const d = data.detail;
+      throw new Error(typeof d === "string" ? d : "Không thể kết nối AI Analyst (" + response.status + ")");
+    }
+    return data;
   }
-  return data;
+  throw new Error("Phiên đăng nhập thay đổi. Hãy tải lại trang.");
 }
 function dateVN(value) {
   try {
@@ -145,8 +165,11 @@ async function openThread(id) {
 }
 async function refreshState(showNotice) {
   try {
+    // This lightweight endpoint requires login but does NOT query Supabase.
+    // Chat remains able to report the real database failure when history fails.
+    const session = await api("/ai/api/session");
+    state.csrf = session.csrf;
     const data = await api("/ai/api/state");
-    state.csrf = data.csrf;
     state.reviews = data.reviews || [];
     state.threads = data.threads || [];
     state.summary = data.summary || [];
