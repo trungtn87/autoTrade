@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c1424">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>AutoTrade AI Analyst</title>
+  <link rel="stylesheet" href="/ai/static/style.css">
+  <script src="/ai/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="logo" aria-hidden="true">✦</span>
+        <div><strong>AutoTrade <span class="brand-light">AI Analyst</span></strong>
+          <small>Chuyên gia phân tích Gemini · Chỉ quan sát</small></div>
+      </div>
+      <div class="top-actions">
+        <span class="pill mode"><span class="dot"></span> OBSERVE ONLY</span>
+        <button class="icon-button" type="button" id="refresh-button" title="Làm mới" aria-label="Làm mới">↻</button>
+        <button class="text-button" type="button" id="logout-button">Đăng xuất</button>
+      </div>
+    </header>
+
+    <div class="main-layout">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-head"><div><p class="eyebrow">LỊCH SỬ</p><h2>Nhận định Gemini</h2></div>
+          <button id="new-chat" class="mini-button" type="button">+ Chat mới</button></div>
+        <div class="filters" role="group" aria-label="Lọc theo cặp">
+          <button type="button" class="filter active" data-filter="all">Tất cả</button>
+          <button type="button" class="filter" data-filter="BTC-USDT">BTC</button>
+          <button type="button" class="filter" data-filter="ETH-USDT">ETH</button>
+        </div>
+        <div id="review-list" class="review-list"><p class="empty">Đang tải dữ liệu...</p></div>
+
+        <div class="thread-header"><p class="eyebrow">HỘI THOẠI ĐÃ LƯU</p></div>
+        <div id="thread-list" class="thread-list"><p class="empty">Chưa có hội thoại.</p></div>
+        <div class="sidebar-footer">
+          <span aria-hidden="true">◈</span>
+          <p>Chỉ đọc Supabase. Không gửi lệnh BingX, không can thiệp 20FINAL.</p>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <div class="page-title">
+          <button id="mobile-sidebar" class="mobile-menu icon-button" type="button" aria-label="Hiện danh sách">☰</button>
+          <div><p class="eyebrow">PHÒNG PHÂN TÍCH RIÊNG TƯ</p>
+            <h1>Hỏi Gemini về giao dịch của bạn</h1>
+            <p class="subhead">Xem nhận định trước Entry, đối chiếu kết quả sau Exit và trao đổi bằng dữ liệu thực.</p>
+          </div>
+        </div>
+        <div class="metrics" id="metrics">
+          <article class="metric"><span>Tín hiệu AI</span><strong id="metric-total">—</strong><small>Đã ghi nhận</small></article>
+          <article class="metric"><span>Giả định ALLOW</span><strong id="metric-allow">—</strong><small>Không can thiệp Entry</small></article>
+          <article class="metric"><span>Giả định BLOCK</span><strong id="metric-block">—</strong><small>Không hủy lệnh thật</small></article>
+          <article class="metric"><span>Đã đối soát</span><strong id="metric-post">—</strong><small>Kết quả CLOSED xác minh</small></article>
+        </div>
+        <div id="notice" class="notice hidden" role="status"></div>
+
+        <section class="chat-card" aria-label="Trò chuyện với Gemini">
+          <div class="chat-heading">
+            <div class="assistant-identity"><span class="assistant-avatar">✦</span>
+              <div><strong>Gemini Analyst</strong><small id="assistant-status">Chỉ phân tích · Không điều khiển giao dịch</small></div>
+            </div>
+            <span class="status-tag">PRIVATE CHAT</span>
+          </div>
+          <div class="selected-trade hidden" id="selected-trade">
+            <div><span class="eyebrow">ĐANG PHÂN TÍCH TÍN HIỆU</span>
+              <strong id="selected-title"></strong><small id="selected-subtitle"></small></div>
+            <button id="clear-selection" type="button" class="text-button">Bỏ chọn</button>
+          </div>
+          <div class="chat-messages" id="messages" aria-live="polite">
+            <div class="welcome"><span class="welcome-icon">✦</span>
+              <h2>Chào mừng tới AI Analyst</h2>
+              <p>Chọn một nhận định ở bên trái hoặc đặt câu hỏi. Gemini chỉ sử dụng dữ liệu được phép đọc từ Supabase; nếu chưa có kết quả xác minh, hệ thống sẽ nói rõ.</p>
+              <div class="suggestions" id="suggestions">
+                <button type="button" data-question="Gần đây Gemini đã đánh giá những tín hiệu nào?">Tín hiệu gần đây</button>
+                <button type="button" data-question="Những combo nào Gemini thường đánh giá rủi ro cao?">Rủi ro theo combo</button>
+                <button type="button" data-question="Bạn đã có đủ dữ liệu để đánh giá độ chính xác của nhận định AI chưa?">Độ chính xác AI</button>
+              </div>
+            </div>
+          </div>
+          <form id="chat-form" class="composer">
+            <label for="chat-input" class="sr-only">Nội dung câu hỏi</label>
+            <textarea id="chat-input" rows="2" maxlength="1600" placeholder="Hỏi về C10, SMC, lý do BLOCK hoặc bài học sau lệnh..." required></textarea>
+            <div class="composer-bottom">
+              <small>Nhấn Ctrl + Enter để gửi · Mọi phân tích chỉ mang tính nghiên cứu</small>
+              <button type="submit" id="send-button" class="primary">Gửi <span aria-hidden="true">↗</span></button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>
