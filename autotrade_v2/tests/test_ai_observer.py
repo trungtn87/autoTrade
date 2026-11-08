@@ -1,7 +1,7 @@
 """Offline regression: OBSERVE cannot modify real TradeIntents or execution."""
 import unittest
 from dataclasses import asdict
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pandas as pd
 
