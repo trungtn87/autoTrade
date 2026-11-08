@@ -46,6 +46,7 @@ jobs:
           python -m compileall -q unified_app.py autotrade_v2/app dashboard/autotrade_live
           node --check dashboard/autotrade_live/static/app.js
           node --check autotrade_v2/app/ai/static/app.js
+          node scripts/check-ai-chat-csrf.js
           node --check dashboard/autotrade_live/static/sw.js
       - name: Verify merged execution store on isolated PostgreSQL
         run: |
