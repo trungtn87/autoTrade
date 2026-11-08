@@ -57,6 +57,8 @@ _DISCORD_SYSTEM_WARNING_KEYS = {
     "L1.DATA.STARTUP_RECOVERY",
 }
 
+_AI_REPORT_KEYS = {"L4.AI.PRE_REVIEW", "L4.AI.POST_REVIEW"}
+
 _ORDER_RESULT_KEYS = {
     # Exactly one Discord summary per execution result. Intermediate execution
     # stages remain audit-only so one trade never bursts several webhook posts.
@@ -207,6 +209,73 @@ def _order_discord_content(event: "SystemEvent") -> str:
         reason = str(details.get("error") or event.message or "Không rõ lý do")
         lines.append("❌ Đặt lệnh thất bại")
         lines.append(f"Lý do: {reason}")
+    return "\n".join(lines)[:1900]
+
+
+
+def _ai_one_line(value: Any, limit: int = 320) -> str:
+    """Human-readable model output; never let it ping Discord members."""
+    if value is None:
+        return "-"
+    value = " ".join(str(value).split()).replace("@", "＠").replace(chr(96), "'")
+    return value[:limit] + ("…" if len(value) > limit else "")
+
+
+def _ai_discord_content(event: "SystemEvent") -> str:
+    """Plain Vietnamese observer reports. Never imply AI controls execution."""
+    details = event.details or {}
+    combo = (_combo_label(event.combo) if event.combo is not None
+             else _ai_one_line(details.get("combo"), 30))
+    side = {"BUY": "LONG", "SELL": "SHORT"}.get(
+        str(details.get("side") or "").upper(), _ai_one_line(details.get("side"), 20))
+    header = f"{_ai_one_line(event.symbol, 35)} · {combo} · {side}"
+    if event.event_key == "L4.AI.PRE_REVIEW":
+        decision = str(details.get("ai_decision") or "UNSURE").upper()
+        verdict = {
+            "ALLOW": "✅ GIẢ ĐỊNH: NÊN VÀO",
+            "BLOCK": "⛔ GIẢ ĐỊNH: KHÔNG NÊN VÀO",
+            "UNSURE": "❔ GIẢ ĐỊNH: CHƯA ĐỦ CƠ SỞ",
+        }.get(decision, "❔ CHƯA CÓ NHẬN ĐỊNH")
+        news_text = ("Chưa có dữ liệu tin tức kiểm chứng"
+            if details.get("news_status") == "UNAVAILABLE"
+            else _ai_one_line(details.get("news_risk"), 60))
+        lines = [
+            "🤖 **GEMINI · ĐÁNH GIÁ TRƯỚC ENTRY**", header, verdict,
+            "🔒 AutoTrade vẫn giao dịch theo 20FINAL; AI không chặn lệnh.",
+            f"SMC: {_ai_one_line(details.get('smc_alignment'), 60)}",
+            f"Tin tức: {news_text}",
+            f"Entry: {_fmt_trade_number(details.get('entry'))} | "
+            f"TP: {_fmt_trade_number(details.get('tp'))} | "
+            f"SL: {_fmt_trade_number(details.get('sl'))}",
+            f"Bằng chứng: {_ai_one_line(details.get('reasoning_verified'), 390)}",
+            f"Ý kiến AI: {_ai_one_line(details.get('reasoning_ai_opinion'), 390)}",
+        ]
+    else:
+        outcome = str(details.get("outcome") or "").upper()
+        label = {"WIN": "✅ THẮNG", "LOSS": "❌ THUA",
+                 "BREAKEVEN": "➖ HÒA VỐN"}.get(outcome, "⚪ PNL CHƯA XÁC MINH")
+        comparison = {
+            "CORRECT": "Đúng (theo đánh giá AI)",
+            "INCORRECT": "Sai (theo đánh giá AI)",
+            "INCONCLUSIVE": "Chưa đủ bằng chứng",
+        }.get(str(details.get("pre_trade_assessment") or ""), "Chưa kết luận")
+        lessons = details.get("lessons")
+        lesson = " | ".join(str(x) for x in lessons[:2]) if isinstance(lessons, list) else ""
+        lines = [
+            "🤖 **GEMINI · PHÂN TÍCH SAU EXIT**", header,
+            f"Kết quả đối soát: {label}",
+            f"PnL: {_fmt_trade_number(details.get('pnl'))} USDT"
+            if details.get("pnl") is not None else "PnL: chưa có số liệu xác minh",
+            f"ROI: {_fmt_trade_number(details.get('roi'))}%"
+            if details.get("roi") is not None else "ROI: chưa xác minh",
+            f"Đánh giá lại nhận định trước: {comparison}",
+            f"Phân tích: {_ai_one_line(details.get('explanation'), 480)}",
+            f"Bài học: {_ai_one_line(lesson, 360)}",
+            "🔒 Chỉ gửi khi ledger xác nhận combo đã CLOSED.",
+        ]
+    lines.append(f"Mã tín hiệu: {_ai_one_line(event.event_id, 120)}")
+    if details.get("revision") is not None:
+        lines.append(f"Revision: {_ai_one_line(details['revision'], 12)}")
     return "\n".join(lines)[:1900]
 
 
@@ -564,7 +633,7 @@ class EventReporter:
             return
 
         url = ""
-        if event.event_key in _ORDER_RESULT_KEYS:
+        if event.event_key in (_ORDER_RESULT_KEYS | _AI_REPORT_KEYS):
             if event.symbol == "BTC-USDT":
                 url = self.webhook_btc
             elif event.symbol == "ETH-USDT":
@@ -592,6 +661,8 @@ class EventReporter:
 
         if event.event_key in _ORDER_RESULT_KEYS:
             content = _order_discord_content(event)
+        elif event.event_key in _AI_REPORT_KEYS:
+            content = _ai_discord_content(event)
         else:
             icon = {
                 "INFO": "✅",
@@ -623,7 +694,8 @@ class EventReporter:
             for attempt in range(3):
                 response = requests.post(
                     url,
-                    json={"content": content},
+                    json=({"content": content, "allowed_mentions": {"parse": []}}
+                          if event.event_key in _AI_REPORT_KEYS else {"content": content}),
                     headers=_DISCORD_REQUEST_HEADERS,
                     timeout=8,
                 )
