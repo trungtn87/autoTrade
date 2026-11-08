@@ -24,7 +24,7 @@ workflow. The engine deploy is harmless without Gemini configuration:
 
 - AI_OBSERVE_ENABLED=true
 - GEMINI_API_KEY=<secret> (VPS environment only, never commit)
-- GEMINI_MODEL=gemini-2.5-flash (optional)
+- GEMINI_MODEL=gemini-3.8-flash (optional)
 - AI_DAILY_MAX_CALLS=50 (optional)
 
 Do not configure AI_GATE_MODE or any policy to veto orders. There is **no**

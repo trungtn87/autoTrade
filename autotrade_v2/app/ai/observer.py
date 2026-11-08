@@ -170,7 +170,7 @@ class GeminiClient:
             url, headers={"x-goog-api-key": self.key, "Content-Type": "application/json"},
             json={"contents": [{"parts": [{"text": prompt}]}],
                   "generationConfig": {"responseMimeType": "application/json",
-                                       "temperature": 0, "maxOutputTokens": 1400}},
+                                       "temperature": 0, "maxOutputTokens": 3072}},
             timeout=self.timeout_sec,
         )
         response.raise_for_status()
@@ -219,7 +219,7 @@ class GeminiObserver:
         self.enabled = (os.getenv("AI_OBSERVE_ENABLED", "false").lower() in ("1", "true", "yes")
                         if enabled is None else enabled)
         api_key = os.getenv("GEMINI_API_KEY", "") if key is None else key
-        self.model = model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        self.model = model or os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
         self.client = client or (GeminiClient(api_key, self.model) if api_key else None)
         self._stop = Event()
         self._thread = None
