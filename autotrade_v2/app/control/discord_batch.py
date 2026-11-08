@@ -69,10 +69,21 @@ def _batch_key(event) -> str:
 
 def _row_text(data: dict, symbol: str) -> str:
     """Keep the classic Discord trade layout, including for grouped trades."""
-    successful = data.get("event_key") == "L3.EXEC.ORDER_COMPLETE"
+    event_key = str(data.get("event_key") or "")
+    successful = event_key == "L3.EXEC.ORDER_COMPLETE"
+    reconciled_absent = event_key == "L3.EXEC.RECONCILE_CLEARED"
+    pending_reconciliation = event_key == "L3.EXEC.RECONCILE_REQUIRED"
+    if successful:
+        heading = "✅ Đặt lệnh"
+    elif reconciled_absent:
+        heading = "ℹ️ Đối soát lệnh"
+    elif pending_reconciliation:
+        heading = "⚠️ Chờ xác minh lệnh"
+    else:
+        heading = "❌ Đặt lệnh"
     side = str(data.get("side") or "").upper()
     lines = [
-        f"{'✅' if successful else '❌'} Đặt lệnh",
+        heading,
         " ".join(part for part in (symbol, side) if part) or "-",
         "",
         f"📊 Combo {_combo(data.get('combo'))}",
@@ -88,6 +99,10 @@ def _row_text(data: dict, symbol: str) -> str:
         lines.extend((f"🕒 {label} (VN): {order_time}", ""))
     if successful:
         lines.append("✅ Đặt lệnh thành công")
+    elif reconciled_absent:
+        lines.append("ℹ️ Không tìm thấy lệnh tương ứng trên BingX; không gửi lại để tránh trùng.")
+    elif pending_reconciliation:
+        lines.append("⚠️ Trạng thái gửi lệnh chưa xác định; cần đối soát với BingX.")
     else:
         # Preserve the old failed-order layout without leaking multiline details.
         reason = str(data.get("error") or "Không rõ lý do")

@@ -121,6 +121,35 @@ class TradeBatchTests(unittest.TestCase):
         self.assertIn("🕒 Giờ xử lý lệnh (VN): 22:00:24 24/10/2026", content)
         self.assertIn("❌ Đặt lệnh thất bại\nLý do: BingX không khớp lệnh", content)
 
+    def test_reconcile_cleared_is_not_presented_as_failed_order(self):
+        content, _ = _one_message("ETH-USDT", [
+            (1, {"event_key":"L3.EXEC.RECONCILE_CLEARED",
+                 "combo":6,"side":"BUY","entry":2378.6,
+                 "error":"no BingX order exists for persisted event; entry not resent"})
+        ])
+        self.assertIn("ℹ️ Đối soát lệnh",content)
+        self.assertIn("không gửi lại để tránh trùng",content)
+        self.assertNotIn("❌ Đặt lệnh thất bại",content)
+
+    def test_uncertain_send_is_a_warning_not_claimed_failure(self):
+        content, _ = _one_message("ETH-USDT", [
+            (1, {"event_key":"L3.EXEC.RECONCILE_REQUIRED",
+                 "combo":4,"side":"BUY","entry":2378.6,
+                 "error":"entry send uncertain: timeout"})
+        ])
+        self.assertIn("⚠️ Chờ xác minh lệnh",content)
+        self.assertNotIn("❌ Đặt lệnh thất bại",content)
+
+    def test_insufficient_margin_is_clear_terminal_failure(self):
+        content, _ = _one_message("ETH-USDT", [
+            (1, {"event_key":"L3.EXEC.ORDER_FAIL",
+                 "combo":6,"side":"BUY","entry":2378.6,
+                 "error":"BingX từ chối lệnh: không đủ ký quỹ khả dụng (101204)"})
+        ])
+        self.assertIn("❌ Đặt lệnh thất bại",content)
+        self.assertIn("không đủ ký quỹ khả dụng (101204)",content)
+        self.assertNotIn("entry send uncertain",content)
+
     def test_long_batch_does_not_drop_unformatted_rows(self):
         rows = [(i, {"event_key":"L3.EXEC.ORDER_FAIL","combo":i,
                      "error":"Failure "+("X" * 150)}) for i in range(1,30)]

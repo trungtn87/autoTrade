@@ -6,6 +6,7 @@ from dataclasses import replace
 
 import app.execution.final14_executor as fe
 from app.config import Settings
+from app.control.errors import BingXApiError
 from app.contracts import TradeIntent
 from app.execution.service import ExecutionService
 from app.execution.store import ExecutionStore
@@ -132,6 +133,13 @@ class NoOrderClient(BaseClient):
         raise AssertionError("restart recovery must fail closed when order is absent")
 
 
+class InsufficientMarginClient(BaseClient):
+    def place_market_entry(self,symbol,side,qty,leverage,client_order_id=None):
+        self.calls.append(("entry",client_order_id))
+        raise BingXApiError("101204","Insufficient margin",
+                            "/openApi/swap/v2/trade/order",{"symbol":symbol})
+
+
 def main():
     settings=replace(
         Settings(),
@@ -207,11 +215,33 @@ def main():
         assert not any(x[0]=="entry" for x in client3.calls),client3.calls
         assert store.seen(intent2.event_id) is True
 
+        # A definitive BingX 101204 rejection must not become an ambiguous
+        # send, stay pending across restarts, or trigger a second MARKET POST.
+        intent3=make_intent(999)
+        service4=ExecutionService(settings,store)
+        service4.credentials_verified=True
+        client4=InsufficientMarginClient()
+        service4.executor.client=client4
+        failed=service4.execute(intent3)
+        assert failed.status=="entry_rejected_insufficient_margin",failed
+        assert failed.accepted is False
+        assert "101204" in failed.details["error"]
+        assert [x[0] for x in client4.calls]==["lookup","entry"],client4.calls
+        state3=store.get_state(intent3.event_id)
+        assert state3 and state3["terminal"] is True
+        assert store.seen(intent3.event_id) is True
+        recovered3=service4.recover_pending()
+        assert not any(row["event_id"]==intent3.event_id for row in recovered3)
+        skipped=service4.execute(intent3)
+        assert skipped.status=="duplicate_skipped"
+        assert [x[0] for x in client4.calls].count("entry")==1
+
         print({
             "ok":True,
             "ambiguous_post_persisted":True,
             "restart_found_existing_without_resend":True,
             "restart_absent_order_not_resent":True,
+            "insufficient_margin_terminal_without_resend":True,
         })
     finally:
         os.unlink(path)

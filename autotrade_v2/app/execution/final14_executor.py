@@ -8,6 +8,7 @@ import logging
 import time
 
 from ..contracts import TradeIntent
+from ..control.errors import BingXApiError
 from ..strategy.final14_config import case_name,get_case
 from .executor import LegacyStyleBingXClient
 from .quantity import allocate_exit_qty,confirmed_position_qty,PositionQuantityMismatch
@@ -437,6 +438,20 @@ class Final14Executor:
                     client_order_id=client_order_id,
                 )
             except Exception as send_exc:
+                # A parsed BingX business rejection is definitive, unlike a
+                # network timeout or an unreadable response. Never misreport
+                # insufficient margin as an uncertain entry or schedule a
+                # recovery that would issue a second failure notification.
+                if isinstance(send_exc, BingXApiError) and send_exc.code == "101204":
+                    return {
+                        "processed": True,
+                        "entry_accepted": False,
+                        "entry_filled": False,
+                        "ok": False,
+                        "stage": "entry_rejected_insufficient_margin",
+                        "client_order_id": client_order_id,
+                        "error": "BingX từ chối lệnh: không đủ ký quỹ khả dụng (101204)",
+                    }
                 # POST may have reached BingX even though its response was lost.
                 # Query by deterministic id before deciding anything.
                 found,recheck_error=self._find_entry_after_ambiguous_send(
