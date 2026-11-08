@@ -19,7 +19,7 @@ BingX engine, PWA, and Discord are unchanged.
 
 ## VPS configuration (same AutoTrade container)
 
-AI_ANALYST_PASSWORD=<choose a strong unique password, at least 12 characters>
+AI_ANALYST_PASSWORD=<choose a strong unique password, at least 10 characters>
 GEMINI_API_KEY=<existing Gemini secret>
 AI_CHAT_DAILY_MAX_CALLS=30
 GEMINI_MODEL=gemini-3.8-flash
