@@ -44,6 +44,8 @@ class ExecutionService:
         self.preflight_error: str | None = None
         self._execution_lock = threading.RLock()
         self._exit_cleanup_scan_errors = {}
+        self._last_reconciliation_check = {}
+        self._last_reconciliation_alert = {}
 
     def _emit(self, key: str, severity: str, message: str, intent: TradeIntent | None = None, **extra) -> None:
         if not self.event_cb:
@@ -60,6 +62,187 @@ class ExecutionService:
             self.event_cb(key, severity, message, **kwargs)
         except Exception:
             return
+
+    def _emit_operational(self,key,severity,message,symbol,**details):
+        """System-level incident, preserving symbol without a TradeIntent."""
+        if self.event_cb:
+            try:
+                self.event_cb(key,severity,message,symbol=symbol,details=details)
+            except Exception:
+                pass  # Observability never blocks live execution.
+
+    @staticmethod
+    def _symbol_flat(positions,opened,symbol):
+        """A valid empty exchange exposure AND empty order book for this symbol."""
+        if not isinstance(positions,list) or not isinstance(opened,dict):
+            raise CleanupUncertain("invalid exchange position/order snapshot")
+        if opened:
+            return False
+        for row in positions:
+            if not isinstance(row,dict):
+                raise CleanupUncertain("invalid BingX position row")
+            if row.get("symbol")!=symbol:
+                continue
+            if str(row.get("positionSide") or "").upper() not in {"LONG","SHORT"}:
+                raise CleanupUncertain("BingX positionSide unverified")
+            try:
+                quantity=Decimal(str(row["positionAmt"]))
+            except (KeyError,ValueError,TypeError) as exc:
+                raise CleanupUncertain("BingX positionAmt unverified") from exc
+            if not quantity.is_finite():
+                raise CleanupUncertain("nonfinite BingX positionAmt")
+            if quantity!=0:
+                return False
+        return True
+
+    @staticmethod
+    def _unresolved_submission(states):
+        """Flat snapshots cannot settle an ambiguous, possibly in-flight POST."""
+        for _,state in states:
+            if not state.get("terminal") and not state.get("entry_filled"):
+                return True
+            if (state.get("abort") or {}).get("phase") not in (None,"closed"):
+                return True
+        return False
+
+    def _confirm_exchange_flat(self,symbol,positions,opened):
+        """Two fresh independent exchange snapshots; no DB state is proof."""
+        if not self._symbol_flat(positions,opened,symbol):
+            return False,positions,opened
+        time.sleep(0.25)
+        second_positions=self.executor.client.get_positions(symbol)
+        second_opened=self._order_map(
+            self.executor.client.get_open_orders(symbol),symbol
+        )
+        return (self._symbol_flat(second_positions,second_opened,symbol),
+                second_positions,second_opened)
+
+    def _retire_flat_history(self,symbol,side,states,origin):
+        """Retire exposure, never fabricate exit fills/ROI or erase audit."""
+        if self._unresolved_submission(states):
+            raise CleanupUncertain(
+                "ambiguous in-flight submission; flat snapshot alone insufficient"
+            )
+        at_ms=int(time.time()*1000)
+        to_save=[]
+        pending=0
+        for eid,state in states:
+            if state.get("exchange_flat_reconciled"):
+                continue
+            older=dict(state)
+            old_stage=str(state.get("stage") or "")
+            old_risk=str(state.get("safety_status") or "")
+            had_issue=bool(old_risk or not state.get("terminal")
+                           or old_stage not in ("complete","entry_absent_reconciled"))
+            if had_issue:
+                pending+=1
+            older["exchange_flat_reconciled"]={
+                "status":"EXCHANGE_FLAT_RECONCILED",
+                "at_ms":at_ms,
+                "source":"two independent BingX position+openOrders snapshots",
+                "origin":origin,
+                "symbol":symbol,
+                "side":side,
+                "previous_stage":old_stage,
+                "previous_safety_status":old_risk,
+                "historical_accounting_pending":had_issue,
+            }
+            if had_issue:
+                # Remaining PnL / historical exact-fill discrepancies survive.
+                # They no longer imply a LIVE position or block a NEW epoch.
+                older["stage"]="exchange_flat_reconciled"
+                older["historical_reconcile_pending"]=True
+                older.pop("safety_status",None)
+            if state.get("entry_filled"):
+                # The trade's live exposure is proven flat. Recover_pending
+                # must no longer retry a historical entry after restart.
+                older["terminal"]=True
+            to_save.append((eid,older))
+        self.store.save_states_atomic(to_save)
+        if to_save:
+            self._emit_operational(
+                "L3.EXEC.EXCHANGE_FLAT_RECONCILED","WARNING",
+                "BingX confirmed no positions/open orders; old exposure cleared; "
+                "historical fill accounting remains for audit",
+                symbol,side=side,closed_exposure_count=len(to_save),
+                historical_pending=pending,origin=origin,
+                entry_unblocked=True,
+            )
+        return len(to_save)
+
+    def _alert_stuck_reconciliation(self,symbol,side,states,reason):
+        key=f"{symbol}|{side}"
+        now=time.monotonic()
+        if now-self._last_reconciliation_alert.get(key,-3601.0)<3600.0:
+            return
+        self._last_reconciliation_alert[key]=now
+        pending=[eid for eid,state in states
+                 if state.get("safety_status") or not state.get("terminal")
+                 or state.get("stage")=="protection_reconcile_required"]
+        self._emit_operational(
+            "L3.EXEC.RECONCILIATION_STUCK","CRITICAL",
+            "Trading may be blocked by unresolved live/historical reconciliation; "
+            "exchange risk must be verified before increasing exposure",
+            symbol,side=side,affected_count=len(pending),
+            sample_events=pending[:5],reason=reason,
+            reminder_minutes=60,
+        )
+
+    def _reconcile_idle_flat_locked(self):
+        """Periodic zero-exposure recovery, independent of whether new signals occur."""
+        if (not self.settings.execution_enabled or self.settings.dry_run
+                or not self.credentials_verified):
+            return []
+        states=self.store.list_states()
+        groups={}
+        for eid,state in states:
+            if state.get("exchange_flat_reconciled"):
+                continue
+            raw=state.get("intent") or {}
+            symbol,side=raw.get("symbol"),raw.get("side")
+            if symbol not in {"BTC-USDT","ETH-USDT"} or side not in {"BUY","SELL"}:
+                continue
+            groups.setdefault((symbol,side),[]).append((eid,state))
+        now=time.monotonic()
+        outcome=[]
+        for (symbol,side),siblings in groups.items():
+            # Do not add polling of healthy historical states. The signal path
+            # independently checks flatness when creating its next entry.
+            needs_reconcile=any(
+                state.get("safety_status") or not state.get("terminal")
+                or state.get("stage")=="protection_reconcile_required"
+                for _,state in siblings
+            )
+            if not needs_reconcile or self._emergency(symbol,side):
+                continue
+            key=f"{symbol}|{side}"
+            if now-self._last_reconciliation_check.get(key,-301.0)<300.0:
+                continue
+            self._last_reconciliation_check[key]=now
+            try:
+                positions=self.executor.client.get_positions(symbol)
+                opened=self._order_map(self.executor.client.get_open_orders(symbol),symbol)
+                if self._unresolved_submission(siblings):
+                    self._alert_stuck_reconciliation(
+                        symbol,side,siblings,"PENDING_SUBMISSION_UNVERIFIED"
+                    )
+                    continue
+                is_flat,_,_=self._confirm_exchange_flat(symbol,positions,opened)
+                if is_flat:
+                    count=self._retire_flat_history(
+                        symbol,side,siblings,"periodic-reconciliation"
+                    )
+                    outcome.append({"symbol":symbol,"side":side,
+                                    "status":"EXCHANGE_FLAT_RECONCILED","count":count})
+                else:
+                    self._alert_stuck_reconciliation(
+                        symbol,side,siblings,"EXCHANGE_POSITION_OR_ORDER_REMAINS"
+                    )
+            except Exception as exc:
+                self._alert_stuck_reconciliation(
+                    symbol,side,siblings,f"EXCHANGE_VERIFICATION_FAILED:{type(exc).__name__}"
+                )
+        return outcome
 
     def _emergency(self,symbol,side):
         return self.store.get(side_key(symbol,side),FORCE_TARGET) if hasattr(self.store,"get") else None
@@ -186,7 +369,8 @@ class ExecutionService:
         with self._execution_lock, self._trade_lock() as acquired:
             if not acquired:
                 return []
-            return self._cleanup_closed_exits_locked()
+            flat_results=self._reconcile_idle_flat_locked()
+            return flat_results+self._cleanup_closed_exits_locked()
 
     @contextmanager
     def _trade_lock(self):
@@ -374,7 +558,21 @@ class ExecutionService:
         opened=self._order_map(self.executor.client.get_open_orders(intent.symbol),intent.symbol)
         siblings=[(eid,s) for eid,s in self.store.list_states()
                   if (include_current or eid!=intent.event_id) and (s.get("intent") or {}).get("symbol")==intent.symbol
-                  and (s.get("intent") or {}).get("side")==intent.side]
+                  and (s.get("intent") or {}).get("side")==intent.side
+                  and not s.get("exchange_flat_reconciled")]
+        if siblings and not include_current and not self._emergency(intent.symbol,intent.side):
+            # A verified empty exchange account starts a fresh risk epoch.
+            # Historic TP/SL gaps remain auditable but may not lock Entry.
+            if not self._unresolved_submission(siblings):
+                flat,positions,opened=self._confirm_exchange_flat(
+                    intent.symbol,positions,opened
+                )
+                baseline=entry_baseline(positions,intent.symbol,intent.side)
+                if flat:
+                    self._retire_flat_history(
+                        intent.symbol,intent.side,siblings,"entry-admission"
+                    )
+                    siblings=[]
         if not siblings:
             side="LONG" if intent.side=="BUY" else "SHORT"
             risks=[]
