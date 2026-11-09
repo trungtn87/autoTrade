@@ -38,6 +38,19 @@ class AnalystPageTests(unittest.TestCase):
         self.assertIn("samesite=strict", cookie)
         return response
 
+    def test_optional_bingx_failure_is_scoped_to_savepoint(self):
+        # Missing optional archive schema must not break the AI page session.
+        conn = MagicMock()
+        with patch.object(page, "load_bingx_feedback",
+                          side_effect=page.psycopg.errors.UndefinedTable("missing")):
+            result = page._attach_bingx_feedback(
+                conn, [{"event_id": "E1", "symbol": "BTC-USDT"}]
+            )
+        conn.transaction.assert_called_once_with()
+        conn.transaction.return_value.__enter__.assert_called_once()
+        conn.transaction.return_value.__exit__.assert_called_once()
+        self.assertEqual(result[0]["bingx_post"]["status"], "SOURCE_UNAVAILABLE")
+
     def test_password_env_required_and_public_dashboard_cookie_is_not_enough(self):
         self.assertEqual(self.client.get("/ai").status_code, 200)
         self.assertEqual(self.client.get("/ai/api/state").status_code, 401)

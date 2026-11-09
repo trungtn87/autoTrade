@@ -65,12 +65,22 @@ function verdictClass(label) {
 function verdictText(label) {
   return label === "ALLOW" ? "ALLOW" : label === "BLOCK" ? "BLOCK" : "UNSURE";
 }
+function bingxEvidenceText(p) {
+  if (!p || p.status === "SOURCE_UNAVAILABLE") return "Chưa đọc được kết quả BingX";
+  if (p.quality === "BINGX_VERIFIED_EXIT") return "BingX · Exit đã xác minh";
+  if (p.quality === "BINGX_VERIFIED_EXIT_ESTIMATED_MONEY") return "BingX · Exit xác minh, ROI/PnL ước tính";
+  if (p.quality === "MERGED_POSITION_ESTIMATE") return "BingX · Vị thế gộp, kết quả ước tính";
+  if (p.quality === "MANUAL_HISTORICAL_RECORD") return "Lịch sử · kết quả nhập trước";
+  if (p.status === "NO_CONFIRMED_ENTRY_LINK") return "Chưa xác nhận được Entry trên BingX";
+  if (p.status === "ENTRY_LINKED_RESULT_UNAVAILABLE") return "Entry có trên BingX · thiếu kết quả";
+  return "Chưa đối soát được lệnh";
+}
 function renderMetrics() {
   const rows = state.summary;
   $("metric-total").textContent = rows.reduce((a, r) => a + Number(r.signals || 0), 0);
   $("metric-allow").textContent = rows.reduce((a, r) => a + Number(r.allow_count || 0), 0);
   $("metric-block").textContent = rows.reduce((a, r) => a + Number(r.block_count || 0), 0);
-  $("metric-post").textContent = rows.reduce((a, r) => a + Number(r.reviewed_closed || 0), 0);
+  $("metric-post").textContent = state.reviews.filter(r => r.post_revision != null || ["CLOSED", "ESTIMATED_CLOSED"].includes((r.bingx_post || {}).status)).length;
 }
 function renderReviews() {
   const parent = $("review-list"); parent.replaceChildren();
@@ -89,8 +99,10 @@ function renderReviews() {
     b.append(create("span", "review-meta", (r.side === "BUY" ? "LONG" : "SHORT") + " · " + dateVN(r.signal_close_ms)));
     const reason = r.output_json && (r.output_json.reasoning_ai_opinion || r.output_json.reasoning_verified);
     b.append(create("span", "review-detail", reason ? String(reason).slice(0,115) : "Nhận định chưa có phân tích chi tiết"));
-    if (r.post_revision !== null) {
-      b.append(create("span", "review-meta", "✓ Có báo cáo sau đóng lệnh"));
+    if (r.post_revision != null) {
+      b.append(create("span", "review-meta", "✓ Có báo cáo hậu giao dịch"));
+    } else {
+      b.append(create("span", "review-meta", bingxEvidenceText(r.bingx_post)));
     }
     b.addEventListener("click", () => selectReview(r));
     parent.append(b);
@@ -115,7 +127,7 @@ function renderSelection() {
   $("selected-title").textContent = r.symbol + " · " + r.combo + " · " +
     (r.side === "BUY" ? "LONG" : "SHORT") + " · " + verdictText(r.ai_decision);
   $("selected-subtitle").textContent = dateVN(r.signal_close_ms) +
-    (r.post_revision === null ? " · Chưa có kết quả đóng được xác minh" : " · Có báo cáo sau Exit");
+    (r.post_revision != null ? " · Có báo cáo sau Exit" : " · " + bingxEvidenceText(r.bingx_post));
 }
 function welcome() {
   const parent = $("messages"); parent.replaceChildren();
