@@ -213,7 +213,8 @@ class ExecutionService:
                 or state.get("stage")=="protection_reconcile_required"
                 for _,state in siblings
             )
-            if not needs_reconcile or self._emergency(symbol,side):
+            emergency=self._emergency(symbol,side)
+            if not needs_reconcile or (emergency and emergency.get("phase")!="closed"):
                 continue
             key=f"{symbol}|{side}"
             if now-self._last_reconciliation_check.get(key,-301.0)<300.0:
@@ -560,7 +561,9 @@ class ExecutionService:
                   if (include_current or eid!=intent.event_id) and (s.get("intent") or {}).get("symbol")==intent.symbol
                   and (s.get("intent") or {}).get("side")==intent.side
                   and not s.get("exchange_flat_reconciled")]
-        if siblings and not include_current and not self._emergency(intent.symbol,intent.side):
+        emergency=self._emergency(intent.symbol,intent.side)
+        if (siblings and not include_current
+                and not (emergency and emergency.get("phase")!="closed")):
             # A verified empty exchange account starts a fresh risk epoch.
             # Historic TP/SL gaps remain auditable but may not lock Entry.
             if not self._unresolved_submission(siblings):
