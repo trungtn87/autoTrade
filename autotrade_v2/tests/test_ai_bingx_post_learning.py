@@ -1,7 +1,7 @@
 """Safety tests for BingX-backed post-EXIT Gemini lessons; no live API calls."""
 import json
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch
 
 from app.ai.bingx_post_learning import (
     eligible, evidence_payload, evidence_hash, assessment,
@@ -138,9 +138,8 @@ class BingxPostLearningTests(unittest.TestCase):
                 ("INCONCLUSIVE", ["Xem lại OB"], "MERGED_POSITION_ESTIMATE")
             ])),
         ]
-        manager = Mock()
-        manager.__enter__ = Mock(return_value=con)
-        manager.__exit__ = Mock(return_value=False)
+        manager = MagicMock()
+        manager.__enter__.return_value = con
         obs._connection = Mock(return_value=manager)
         lessons = obs._prior_lessons(SimpleNamespace(
             symbol="ETH-USDT", combo=105, close_time=1700000000000
