@@ -321,6 +321,7 @@ class GeminiObserver:
         self._last_post_check = 0.0
         self.bingx_post_enabled = os.getenv("AI_BINGX_POST_ENABLED", "false").lower() in ("1", "true", "yes")
         self._bingx_post_thread = None
+        self._bingx_scan_before = None
         self._no_result_table_logged = False
 
     def start(self):
@@ -693,14 +694,20 @@ class GeminiObserver:
                 if exists is None:
                     return []
                 rows = con.execute("""
-                    SELECT assessment,analysis_json->'lessons',evidence_quality
-                      FROM autotrade_analytics.ai_bingx_post_reviews
-                     WHERE state='READY' AND symbol=%s AND combo=%s
-                       AND closed_ms < %s
+                    SELECT assessment,lessons,evidence_quality FROM (
+                        SELECT DISTINCT ON (event_id) event_id,state,assessment,
+                               analysis_json->'lessons' AS lessons,evidence_quality,
+                               completed_at
+                          FROM autotrade_analytics.ai_bingx_post_reviews
+                         WHERE symbol=%s AND combo=%s AND closed_ms < %s
+                           AND started_at <= to_timestamp(%s / 1000.0)
+                         ORDER BY event_id,started_at DESC,evidence_hash DESC
+                    ) most_recent
+                     WHERE state='READY'
                        AND completed_at <= to_timestamp(%s / 1000.0)
                      ORDER BY completed_at DESC LIMIT 3
                 """, (intent.symbol, label, int(intent.close_time),
-                      int(intent.close_time))).fetchall()
+                      int(intent.close_time), int(intent.close_time))).fetchall()
             return [{"assessment": item[0], "lessons": item[1],
                      "quality": item[2]} for item in rows]
         except Exception as exc:
@@ -716,17 +723,29 @@ class GeminiObserver:
             ).fetchone()[0] is None:
                 return []
             with con.cursor(row_factory=dict_row) as cur:
+                # Keyset pagination: late-closing trades must not starve
+                # behind the newest 100 historical signal reviews.
+                before = self._bingx_scan_before
                 reviews = cur.execute("""
                     SELECT event_id,symbol,combo,side,signal_close_ms,ai_decision,
                            input_json,output_json
                       FROM autotrade_analytics.ai_reviews
                      WHERE ai_decision IN ('ALLOW','BLOCK')
-                     ORDER BY signal_close_ms DESC LIMIT 100
-                """).fetchall()
+                       AND (%s::bigint IS NULL OR
+                           (signal_close_ms,event_id) < (%s::bigint,%s::varchar))
+                     ORDER BY signal_close_ms DESC,event_id DESC LIMIT 100
+                """, (
+                    before[0] if before else None,
+                    before[0] if before else None,
+                    before[1] if before else None,
+                )).fetchall()
                 if not reviews:
+                    self._bingx_scan_before = None  # restart oldest-to-newest cycle
                     return []
                 with con.transaction():
                     evidence = load_bingx_feedback(cur, reviews)
+        last = reviews[-1]
+        self._bingx_scan_before = (last["signal_close_ms"], last["event_id"])
         return [(review, evidence[review["event_id"]])
                 for review in reviews
                 if eligible(review, evidence.get(review["event_id"]))]
