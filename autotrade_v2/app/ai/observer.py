@@ -24,8 +24,8 @@ from ..strategy.final14_research.smc_ob import OBConfig, ob_context
 from ..strategy.final14_research.smc_structure import smc_direction
 
 LOG = logging.getLogger(__name__)
-PROMPT_VERSION = "observe.pre.v1"
-POST_PROMPT_VERSION = "observe.post.v1"
+PROMPT_VERSION = "observe.pre.vi.v2"
+POST_PROMPT_VERSION = "observe.post.vi.v2"
 RULES_VERSION = "observe.only.v1"
 VALID_DECISIONS = {"ALLOW", "BLOCK", "UNSURE"}
 
@@ -199,6 +199,11 @@ def _pre_prompt(ctx: dict) -> str:
         "risk_flags as array of {code,severity,evidence_ids}, "
         "reasoning_verified and reasoning_ai_opinion as distinct strings, watch_points array. "
         "BLOCK is a hypothetical assessment, not an instruction to execute. "
+        "Write all human-readable commentary in natural Vietnamese (vi-VN) with accents: "
+        "reasoning_verified, reasoning_ai_opinion, watch_points, and any explanatory "
+        "text in risk_flags. Preserve JSON keys, enum values, risk codes, severity, "
+        "feature IDs, evidence_ids, and all numeric values exactly; never translate "
+        "machine-readable identifiers. Do not convert hypothetical BLOCK into a trade veto. "
         "INPUT:\n" + _json(ctx)
     )
 
@@ -212,6 +217,10 @@ def _post_prompt(ctx: dict) -> str:
         "If evidence inadequate choose INCONCLUSIVE. Return ONLY a JSON object with keys "
         "primary_cause, contributing_factors (array), pre_trade_assessment "
         "(CORRECT|INCORRECT|INCONCLUSIVE), explanation, lessons (array). "
+        "Write ALL human-readable analysis in natural Vietnamese (vi-VN) with accents, "
+        "including primary_cause, contributing_factors, explanation, and every lesson. "
+        "Preserve JSON keys, CORRECT/INCORRECT/INCONCLUSIVE values, identifiers, "
+        "trade numbers and source evidence unchanged; do not translate machine-readable codes. "
         "INPUT:\n" + _json(ctx)
     )
 
