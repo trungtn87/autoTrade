@@ -15,6 +15,7 @@ from typing import Any
 import requests
 
 from .discord_batch import DiscordTradeOutbox, _format_vn_time
+from .discord_format import incident_view, risk_codes, safe_line, trade_status
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ _DISCORD_ALERT_COOLDOWN_SEC = {
     "L1.DATA.CANDLE_STALE": 3600.0,
     "L1.DATA.RECOVERY_FAIL": 1800.0,
     "L3.EXEC.MERGED_RECONCILE_REQUIRED": 3600.0,
+    "L3.EXEC.EXIT_CLEANUP_RISK": 3600.0,
 }
 
 _AI_REPORT_KEYS = {"L4.AI.PRE_REVIEW", "L4.AI.POST_REVIEW"}
@@ -189,36 +191,24 @@ def _discord_response_diag(response: Any) -> dict[str, Any]:
 
 
 def _order_discord_content(event: "SystemEvent") -> str:
-    """Compact human-facing order summary using Layer-2 intent prices."""
-    details = event.details or {}
+    """Readable result even without the durable trade notification outbox."""
+    details = {"event_key": event.event_key, **(event.details or {})}
+    title, status, action = trade_status(details)
     side = str(details.get("side") or "").upper()
-    symbol_side = " ".join(x for x in (event.symbol or "", side) if x)
-    combo = _combo_label(event.combo)
     lines = [
-        f"{'✅' if event.event_key == 'L3.EXEC.ORDER_COMPLETE' else '❌'} Đặt lệnh",
-        symbol_side or "-",
-        "",
-        f"📊 Combo {combo}",
-        f"Entry: {_fmt_trade_number(details.get('entry'))}",
-        "",
-        f"TP : {_fmt_trade_number(details.get('tp'))}",
-        f"SL : {_fmt_trade_number(details.get('sl'))}",
-        "",
+        title,
+        " · ".join(x for x in (event.symbol or "", _combo_label(event.combo), side) if x),
+        f"Entry dự kiến: {_fmt_trade_number(details.get('entry'))}",
+        f"TP dự kiến: {_fmt_trade_number(details.get('tp'))}",
+        f"SL dự kiến: {_fmt_trade_number(details.get('sl'))}",
+        f"Trạng thái: {status}",
+        f"Cần làm: {action}",
     ]
     order_time = _format_vn_time(details.get("order_time") or event.created_at)
     if order_time:
-        label = (
-            "Giờ xác nhận lệnh"
-            if event.event_key == "L3.EXEC.ORDER_COMPLETE"
-            else "Giờ xử lý lệnh"
-        )
-        lines.extend((f"🕒 {label} (VN): {order_time}", ""))
-    if event.event_key == "L3.EXEC.ORDER_COMPLETE":
-        lines.append("✅ Đặt lệnh thành công")
-    else:
-        reason = str(details.get("error") or event.message or "Không rõ lý do")
-        lines.append("❌ Đặt lệnh thất bại")
-        lines.append(f"Lý do: {reason}")
+        lines.append(f"Thời gian (VN): {order_time}")
+    lines.append(f"Mã tra cứu: {safe_line(event.event_key, 65)}"
+                 + (f" / {safe_line(details['stage'], 50)}" if details.get("stage") else ""))
     return "\n".join(lines)[:1900]
 
 
@@ -635,17 +625,14 @@ class EventReporter:
 
     @staticmethod
     def _discord_dedupe_key(event: SystemEvent) -> str:
-        if event.event_key == "L3.EXEC.MERGED_RECONCILE_REQUIRED":
-            # New signals are repeatedly blocked by the same old risks.
-            # New risk sets bypass the cooldown immediately.
-            risks = (event.details or {}).get("risks") or []
-            fingerprint = json.dumps(
-                sorted({str(risk) for risk in risks}), ensure_ascii=True,
-                separators=(",", ":"),
-            )
-            return f"{event.event_key}|{event.symbol}|{fingerprint}"
+        if event.event_key in {"L3.EXEC.MERGED_RECONCILE_REQUIRED",
+                               "L3.EXEC.EXIT_CLEANUP_RISK"}:
+            # Same incident can mention different signal IDs on every scan.
+            # New risk categories still bypass cooldown immediately.
+            risks = risk_codes((event.details or {}).get("risks"), event.message)
+            return (f"{event.event_key}|{event.symbol}|{_combo_label(event.combo)}|"
+                    + "|".join(sorted(risks)))
         if event.event_key == "L1.DATA.CANDLE_STALE":
-            # expected_open_time rotates each candle, even for one incident.
             return f"{event.event_key}|{event.symbol}"
         if event.event_key == "L1.DATA.RECOVERY_FAIL":
             return f"{event.event_key}|{event.symbol}|{event.message}"
@@ -656,44 +643,35 @@ class EventReporter:
 
     @staticmethod
     def _system_discord_content(event: SystemEvent) -> str:
-        if event.event_key == "L3.EXEC.MERGED_RECONCILE_REQUIRED":
-            risks = (event.details or {}).get("risks") or []
-            categories = sorted({str(item).rsplit(":", 1)[-1] for item in risks})
-            lines = [
-                "🚨 **L3.EXEC.MERGED_RECONCILE_REQUIRED**",
-                f"Symbol: {event.symbol or '-'}",
-                f"Signal combo: {_combo_label(event.combo)}",
-                "Entry chưa được gửi (đã chặn vì thiếu bằng chứng an toàn).",
-                f"Đối chiếu vị thế gộp / TP / SL: {len(risks)} mục chưa xác minh.",
-                f"Loại rủi ro: {', '.join(categories)[:380] or '-'}",
-                "Chi tiết đầy đủ đã lưu trong system_events; đối chiếu BingX.",
-                "Nếu rủi ro không đổi, nhắc lại tối đa mỗi 60 phút.",
-            ]
-            return "\n".join(lines)[:1900]
-
-        icon = {
-            "INFO": "✅",
-            "WARNING": "⚠️",
-            "ERROR": "❌",
-            "CRITICAL": "🚨",
-        }[event.severity]
+        details = event.details or {}
+        title, explanation, action, risks = incident_view(event.event_key, event.message, details)
         lines = [
-            f"{icon} **{event.event_key}**",
-            f"Severity: {event.severity}",
+            f"**{title}**",
+            " · ".join(x for x in (event.symbol or "", _combo_label(event.combo)
+                      if event.combo is not None else "") if x) or "AutoTrade V2",
+            f"Vấn đề: {explanation}",
         ]
-        if event.symbol:
-            lines.append(f"Symbol: {event.symbol}")
-        if event.combo is not None:
-            lines.append(f"Combo: C{event.combo}")
-        if event.event_id:
-            lines.append(f"Event: {event.event_id}")
-        if event.order_id:
-            lines.append(f"Order: {event.order_id}")
-        if event.message:
-            lines.append(f"Message: {event.message}")
-        if event.details:
-            compact = json.dumps(event.details, ensure_ascii=False, default=str, separators=(",", ":"))
-            lines.append(f"Details: {compact[:900]}")
+        if risks:
+            lines.append("Chưa xác minh:")
+            lines.extend(risks)
+        affected = details.get("affected_combos")
+        if isinstance(affected, list) and affected:
+            lines.append("Combo liên quan: " + ", ".join(safe_line(x, 20) for x in affected[:12]))
+        if details.get("remaining_exposure") is not None:
+            lines.append("Khối lượng còn mở: " + safe_line(details["remaining_exposure"], 35))
+        closes = details.get("closes") or []
+        if isinstance(closes, list) and closes:
+            first = closes[0]
+            if isinstance(first, dict):
+                if first.get("requested_qty") is not None:
+                    lines.append("Yêu cầu đóng: " + safe_line(first["requested_qty"], 30))
+                if first.get("filled_qty") is not None:
+                    lines.append("Đã khớp đóng: " + safe_line(first["filled_qty"], 30))
+        lines.append(f"Cần làm: {action}")
+        event_time = _format_vn_time(event.created_at)
+        if event_time:
+            lines.append(f"Giờ VN: {event_time}")
+        lines.append("Mã tra cứu: " + safe_line(event.event_key, 70))
         return "\n".join(lines)[:1900]
 
     def _notify(self, event: SystemEvent) -> None:
