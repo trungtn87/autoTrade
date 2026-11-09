@@ -6,8 +6,9 @@ This phase **extends PR #87**; it does not change trading execution.
 
 1. 20FINAL continues to execute every signal without waiting for Gemini.
 2. A separate daemon thread (enabled only by `AI_BINGX_POST_ENABLED=true`
-   together with existing `AI_OBSERVE_ENABLED=true`) polls a maximum of 100
-   recent ALLOW/BLOCK signal reviews every >=180 seconds, never using live BingX APIs.
+   together with existing `AI_OBSERVE_ENABLED=true`) scans ALLOW/BLOCK
+   signal reviews in keyset-paginated batches of 100 every >=180 seconds,
+   cycling through history for late exits and corrections, never using live BingX APIs.
 3. Exact `event_id` to `signal_links.entry_order_id` mapping is required.
    The Dashboard's unchanged `load_results()` supplies closed results and
    the provenance label.
