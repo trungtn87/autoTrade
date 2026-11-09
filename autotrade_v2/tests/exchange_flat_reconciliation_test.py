@@ -55,6 +55,12 @@ def test_closed_manually_with_old_history_still_admits_fresh_entry():
         assert all(exchange.orders[x]["status"]=="CANCELLED" for x in old_protection)
         assert not any(x[0]=="cancel" for x in exchange.calls)
         assert exchange.amount==Decimal("0.0013")
+        # Flat retirement cannot allow a replay of the original old event,
+        # even when the old bingx_account idempotency marker was never written.
+        count=len(exchange.clients)
+        replay=service.execute(a)
+        assert replay.status=="historical_flat_skipped" and not replay.accepted
+        assert len(exchange.clients)==count
 
 
 def test_btc_exhausted_entry_recovers_when_exchange_is_flat():
