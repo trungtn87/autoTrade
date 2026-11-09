@@ -148,8 +148,64 @@ class BingxPostLearningTests(unittest.TestCase):
         sql = con.execute.call_args_list[1].args[0]
         self.assertIn("closed_ms < %s", sql)
         self.assertIn("completed_at <= to_timestamp(%s / 1000.0)", sql)
+        self.assertIn("DISTINCT ON (event_id)", sql)
         self.assertEqual(con.execute.call_args_list[1].args[1],
-                         ("ETH-USDT", "C15", 1700000000000, 1700000000000))
+                         ("ETH-USDT", "C15", 1700000000000,
+                          1700000000000, 1700000000000))
+
+    def test_ai_page_uses_dict_row_and_revision_fingerprint(self):
+        from datetime import datetime, timezone
+        from app.ai import page
+        review = {**_review(), "bingx_post": _evidence()}
+        payload = evidence_payload(review, review["bingx_post"])
+        record = {
+            "event_id": review["event_id"],
+            "evidence_hash": evidence_hash(payload),
+            "assessment": "CORRECT",
+            "analysis_json": {"lessons": ["Cẩn thận khi short"]},
+            "evidence_quality": "BINGX_VERIFIED_EXIT",
+            "completed_at": datetime(2026, 11, 9, tzinfo=timezone.utc),
+        }
+        conn = MagicMock()
+        table = Mock()
+        table.fetchone.return_value = {"table_ref": "autotrade_analytics.ai_bingx_post_reviews"}
+        rows = Mock()
+        rows.fetchall.return_value = [record]
+        conn.execute.side_effect = [table, rows]
+        ready = page._attach_bingx_learning(conn, [review])[0]
+        self.assertEqual(ready["post_learning"]["assessment"], "CORRECT")
+        self.assertIn("2026-11-09", ready["post_learning"]["completed_at"])
+        self.assertEqual(conn.execute.call_count, 2)
+        self.assertIn("AS table_ref", conn.execute.call_args_list[0].args[0])
+        # A corrected ROI must invalidate the old lesson's fingerprint.
+        conn.execute.reset_mock()
+        conn.execute.side_effect = [table, rows]
+        revised = {**_review(), "bingx_post": {**_evidence(), "roi": 99}}
+        self.assertIsNone(page._attach_bingx_learning(conn, [revised])[0]["post_learning"])
+
+    def test_scans_older_signal_pages_instead_of_latest_100_forever(self):
+        obs = GeminiObserver("fake", enabled=True, client=Mock())
+        conn = MagicMock()
+        conn.__enter__.return_value = conn
+        exists = Mock()
+        exists.fetchone.return_value = ("autotrade_analytics.ai_bingx_post_reviews",)
+        conn.execute.return_value = exists
+        cur = MagicMock()
+        conn.cursor.return_value.__enter__.return_value = cur
+        old = {**_review(), "event_id": "E2", "signal_close_ms": 1600000000000}
+        new = {**_review(), "event_id": "E3", "signal_close_ms": 1700000000000}
+        cur.execute.return_value.fetchall.side_effect = [[new], [old], []]
+        obs._connection = Mock(return_value=conn)
+        with patch("app.ai.observer.load_bingx_feedback",
+                   return_value={"E2": _evidence(), "E3": _evidence()}):
+            obs._bingx_candidates()
+            self.assertEqual(obs._bingx_scan_before, (1700000000000, "E3"))
+            obs._bingx_candidates()
+            self.assertEqual(obs._bingx_scan_before, (1600000000000, "E2"))
+            obs._bingx_candidates()
+        self.assertIsNone(obs._bingx_scan_before)
+        sql = cur.execute.call_args_list[0].args[0]
+        self.assertIn("(signal_close_ms,event_id) <", sql)
 
     def test_no_result_if_no_evidence(self):
         client = Mock()
