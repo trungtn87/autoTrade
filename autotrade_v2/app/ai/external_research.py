@@ -89,6 +89,64 @@ class BinanceFuturesPublic:
             out["status"] = "PARTIAL"
         return out
 
+    def derivatives_as_of(self, symbol, signal_close_ms):
+        """Historical OI/funding timestamps <= Entry, never substitute live values."""
+        target = _SYMBOLS.get(str(symbol).upper())
+        end = int(signal_close_ms)
+        result = {"source": "Binance USD-M historical derivatives",
+                  "as_of_ms": end, "status": "UNAVAILABLE",
+                  "publication_lag_unknown": True,
+                  "open_interest": None, "funding": None}
+        if not target:
+            return result
+        try:
+            history = self._fetch("/futures/data/openInterestHist", {
+                "symbol": target, "period": "15m", "endTime": end, "limit": 3,
+            })
+            rows = sorted((r for r in history if isinstance(r, dict)
+                           and _timestamp(r.get("timestamp"))
+                           and int(r["timestamp"]) <= end),
+                          key=lambda r: int(r["timestamp"])) if isinstance(history, list) else []
+            if rows:
+                latest = rows[-1]
+                value = _number(latest.get("sumOpenInterestValue"))
+                if value is not None and value >= 0:
+                    previous = (_number(rows[-2].get("sumOpenInterestValue"))
+                                if len(rows) >= 2 else None)
+                    change = (100.0 * (value / previous - 1)
+                              if previous is not None and previous > 0 else None)
+                    result["open_interest"] = {
+                        "notional_usdt": value, "source_ms": int(latest["timestamp"]),
+                        "previous_source_ms": int(rows[-2]["timestamp"]) if len(rows)>1 else None,
+                        "change_pct_from_previous": change,
+                    }
+        except (requests.RequestException, ValueError, TypeError, AttributeError):
+            pass
+        try:
+            history = self._fetch("/fapi/v1/fundingRate", {
+                "symbol": target, "endTime": end, "limit": 2,
+            })
+            rows = sorted((r for r in history if isinstance(r, dict)
+                           and _timestamp(r.get("fundingTime"))
+                           and int(r["fundingTime"]) <= end),
+                          key=lambda r: int(r["fundingTime"])) if isinstance(history, list) else []
+            if rows:
+                latest = rows[-1]
+                rate = _number(latest.get("fundingRate"))
+                if rate is not None:
+                    result["funding"] = {
+                        "last_settled_rate": rate,
+                        "source_ms": int(latest["fundingTime"]),
+                        "not_current_predicted_rate": True,
+                    }
+        except (requests.RequestException, ValueError, TypeError, AttributeError):
+            pass
+        if result["open_interest"] and result["funding"]:
+            result["status"] = "AVAILABLE"
+        elif result["open_interest"] or result["funding"]:
+            result["status"] = "PARTIAL"
+        return result
+
     def structure_as_of(self, symbol, signal_close_ms):
         """Independently compute BOS/CHoCH/FVG on Binance closed bars as-of Entry.
 
