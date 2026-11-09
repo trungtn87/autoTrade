@@ -21,8 +21,9 @@ This phase **extends PR #87**; it does not change trading execution.
    explanation and <=3 lessons. The worker enforces a deterministic
    `pre_trade_assessment` regardless of the model's requested label.
 6. On success, only the new row is marked READY, a plainly labelled BTC/ETH
-   Discord INFO summary is sent through existing Layer-4 routing, and the
-   private `/ai` page shows lessons if the evidence hash still matches.
+   Discord INFO summary is sent through existing Layer-4 routing **only
+   when Exit is no more than 12 hours old** (historical backfills stay silent),
+   and the private `/ai` page shows lessons if the evidence hash still matches.
    Prior lessons may inform *future* Gemini shadow reviews, but only if
    `completed_at <= signal_close_ms` — no hindsight from future data.
 
