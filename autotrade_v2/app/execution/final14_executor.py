@@ -3,7 +3,7 @@ from __future__ import annotations
 from autotrade_v2.analytics.evidence import capture_entry
 
 import hashlib
-from decimal import Decimal, ROUND_DOWN
+from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 import logging
 import time
 
@@ -366,8 +366,25 @@ class Final14Executor:
                 raise RuntimeError(f"{kind} protection quantity unverified")
             if expected_trigger is not None:
                 trigger=detail.get("activationPrice") if kind=="trailing" else detail.get("stopPrice")
-                if Decimal(str(trigger))!=Decimal(str(expected_trigger)):
+                actual=Decimal(str(trigger))
+                requested=Decimal(str(expected_trigger))
+                if not actual.is_finite() or not requested.is_finite() or actual<=0 or requested<=0:
                     raise RuntimeError(f"{kind} trigger price unverified")
+                if actual!=requested:
+                    # Some BingX contracts normalize the submitted stopPrice
+                    # to their documented pricePrecision. Only accept that ONE
+                    # deterministic rounding, for an exact acknowledged orderId
+                    # with independently verified symbol/side/type/quantity.
+                    # Never apply a generic epsilon to a shape-only candidate.
+                    rules=self.client.get_contract_rules(symbol)
+                    precision=rules.get("pricePrecision")
+                    if (isinstance(precision,bool) or not isinstance(precision,int)
+                            or not 0<=precision<=12):
+                        raise RuntimeError(f"{kind} contract price precision unverified")
+                    step=Decimal(1).scaleb(-precision)
+                    rounded=requested.quantize(step,rounding=ROUND_HALF_UP)
+                    if actual!=rounded:
+                        raise RuntimeError(f"{kind} trigger price unverified: exchange={actual} expected={requested}")
             if kind=="trailing" and expected_callback is not None:
                 if Decimal(str(detail.get("priceRate")))!=Decimal(str(expected_callback)):
                     raise RuntimeError("trailing callback unverified")
