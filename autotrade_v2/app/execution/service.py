@@ -171,6 +171,15 @@ class ExecutionService:
             )
         return len(to_save)
 
+    @staticmethod
+    def _has_blocking_reconciliation(state):
+        """Exit-budget-only diagnostic does not block a safe same-side Entry."""
+        return bool(
+            state.get("safety_status") not in (None, "", "EXIT_BUDGET_UNVERIFIED")
+            or not state.get("terminal")
+            or state.get("stage")=="protection_reconcile_required"
+        )
+
     def _alert_stuck_reconciliation(self,symbol,side,states,reason):
         key=f"{symbol}|{side}"
         now=time.monotonic()
@@ -178,8 +187,7 @@ class ExecutionService:
             return
         self._last_reconciliation_alert[key]=now
         pending=[eid for eid,state in states
-                 if state.get("safety_status") or not state.get("terminal")
-                 or state.get("stage")=="protection_reconcile_required"]
+                 if self._has_blocking_reconciliation(state)]
         self._emit_operational(
             "L3.EXEC.RECONCILIATION_STUCK","CRITICAL",
             "Trading may be blocked by unresolved live/historical reconciliation; "
@@ -210,8 +218,7 @@ class ExecutionService:
             # Do not add polling of healthy historical states. The signal path
             # independently checks flatness when creating its next entry.
             needs_reconcile=any(
-                state.get("safety_status") or not state.get("terminal")
-                or state.get("stage")=="protection_reconcile_required"
+                self._has_blocking_reconciliation(state)
                 for _,state in siblings
             )
             emergency=self._emergency(symbol,side)
