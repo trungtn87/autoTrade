@@ -70,9 +70,8 @@ def main():
     assert reporter.status()["processed"]>=1
     reporter.stop()
 
-    # Trading-critical data WARNINGs must reach the error webhook once per
-    # 15m candle cycle. A second recovery attempt in the same cycle is muted,
-    # while the next expected candle alerts again even if it occurs soon.
+    # First missing candle is retried without Discord. Persistent misses alert
+    # at most once per hour even as expected_open_time advances.
     posts=[]
     original_post=events_module.requests.post
 
@@ -99,15 +98,16 @@ def main():
             symbol="BTC-USDT",
         )
         warning_reporter._notify(SystemEvent(
-            **base,details={"expected_open_time":100},
+            **base,details={"expected_open_time":100,"attempt":1},
+        ).normalized())
+        assert len(posts)==0,posts
+        warning_reporter._notify(SystemEvent(
+            **base,details={"expected_open_time":100,"attempt":2},
         ).normalized())
         warning_reporter._notify(SystemEvent(
-            **base,details={"expected_open_time":100},
+            **base,details={"expected_open_time":200,"attempt":2},
         ).normalized())
-        warning_reporter._notify(SystemEvent(
-            **base,details={"expected_open_time":200},
-        ).normalized())
-        assert len(posts)==2,posts
+        assert len(posts)==1,posts
 
         # Cleanup polling failures are logged for diagnosis, not presented as
         # failed trades in Discord. Actual unsafe cleanup remains critical.
@@ -118,14 +118,14 @@ def main():
             symbol="BTC-USDT",
             details={"error":"BingX error 1094000: timestamp is invalid"},
         ).normalized())
-        assert len(posts)==2,posts
+        assert len(posts)==1,posts
         warning_reporter._notify(SystemEvent(
             event_key="L3.EXEC.EXIT_CLEANUP_RISK",
             layer="L3",severity="CRITICAL",
             message="exit cleanup verification failed; no orders mutated",
             symbol="BTC-USDT",
         ).normalized())
-        assert len(posts)==3,posts
+        assert len(posts)==2,posts
         # Whole-container emergency reports must use the system/error channel,
         # with all affected combos and quantities, not a single failed-trade card.
         for key,severity in (("FORCE_CLOSE_UNRESOLVED","CRITICAL"),("FORCE_CLOSE_CONFIRMED","WARNING")):
@@ -137,7 +137,7 @@ def main():
             ).normalized())
             assert posts[-1][0]=="https://discord.invalid/error"
             assert all(value in posts[-1][1]['content'] for value in ('C7','C16','0.0026','0.0013'))
-        assert len(posts)==5,posts
+        assert len(posts)==4,posts
     finally:
         warning_reporter.stop()
         events_module.requests.post=original_post
