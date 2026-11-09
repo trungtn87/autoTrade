@@ -7,7 +7,7 @@ import pandas as pd
 
 from app.ai.observer import (
     GeminiObserver, _candles_at_signal, _resample_complete,
-    _validated_output, build_pre_context,
+    _validated_output, build_pre_context, _pre_prompt, _post_prompt,
 )
 from app.contracts import TradeIntent, MarketSnapshot, ExecutionResult
 from app.orchestrator import Orchestrator
@@ -49,6 +49,19 @@ class AiObserverTests(unittest.TestCase):
         _validated_output({"decision":"BLOCK","risk_flags":[{"evidence_ids":["15m-SMC"]}]},context)
         with self.assertRaisesRegex(ValueError,"unverified_evidence"):
             _validated_output({"decision":"BLOCK","risk_flags":[{"evidence_ids":["made-up"]}]},context)
+
+    def test_observer_prompts_require_vietnamese_prose_and_keep_enums(self):
+        pre = _pre_prompt({"features": [], "candles": {}, "news_status": "UNAVAILABLE"})
+        post = _post_prompt({"verified_result": {"status": "CLOSED"}, "pre_review": {}})
+        for field in ("reasoning_verified", "reasoning_ai_opinion", "watch_points"):
+            self.assertIn(field, pre)
+        for field in ("primary_cause", "contributing_factors", "explanation", "lessons"):
+            self.assertIn(field, post)
+        for prompt in (pre, post):
+            self.assertIn("Vietnamese (vi-VN)", prompt)
+            self.assertIn("Preserve JSON keys", prompt)
+        self.assertIn("ALLOW, BLOCK or UNSURE", pre)
+        self.assertIn("CORRECT|INCORRECT|INCONCLUSIVE", post)
 
     def test_observer_retries_503_once_and_not_other_errors(self):
         from app.ai.observer import GeminiClient

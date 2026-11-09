@@ -242,7 +242,12 @@ def _ai_discord_content(event: "SystemEvent") -> str:
         lines = [
             "🤖 **GEMINI · ĐÁNH GIÁ TRƯỚC ENTRY**", header, verdict,
             "🔒 AutoTrade vẫn giao dịch theo 20FINAL; AI không chặn lệnh.",
-            f"SMC: {_ai_one_line(details.get('smc_alignment'), 60)}",
+            "SMC: " + {
+                "ALIGNED": "ĐỒNG THUẬN",
+                "MIXED": "HỖN HỢP",
+                "CONFLICT": "XUNG ĐỘT",
+                "UNKNOWN": "CHƯA XÁC ĐỊNH",
+            }.get(str(details.get("smc_alignment") or "").upper(), "CHƯA XÁC ĐỊNH"),
             f"Tin tức: {news_text}",
             f"Entry: {_fmt_trade_number(details.get('entry'))} | "
             f"TP: {_fmt_trade_number(details.get('tp'))} | "
