@@ -796,6 +796,7 @@ class ExecutionService:
         siblings=[s for eid,s in self.store.list_states() if eid!=intent.event_id
                   and (s.get("intent") or {}).get("symbol")==intent.symbol
                   and (s.get("intent") or {}).get("side")==intent.side
+                  and not s.get("exchange_flat_reconciled")
                   and (s.get("entry_filled") or not s.get("terminal"))
                   and not ((s.get("exit_cleanup") or {}).get("fills_verified")
                            and Decimal(str((s.get("exit_cleanup") or {}).get("remaining_qty","-1")))==0)]
