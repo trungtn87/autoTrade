@@ -233,9 +233,10 @@ def _attach_bingx_learning(conn, reviews: list[dict]) -> list[dict]:
         return reviews
     try:
         with conn.transaction():
+            # /ai uses psycopg dict_row: never access a result by [0].
             exists = conn.execute(
-                "SELECT to_regclass('autotrade_analytics.ai_bingx_post_reviews')"
-            ).fetchone()[0]
+                "SELECT to_regclass('autotrade_analytics.ai_bingx_post_reviews') AS table_ref"
+            ).fetchone()["table_ref"]
             records = []
             if exists is not None:
                 ids = [row["event_id"] for row in reviews]
