@@ -118,6 +118,37 @@ class ExecutionStore:
     def save_state(self,event_id:str,payload:dict)->None:
         self.upsert(event_id,payload,"bingx_state")
 
+    def save_states_atomic(self, states:list[tuple[str,dict]])->None:
+        """Commit a new flat-state boundary for all old combos together.
+
+        Never permit partial history retirement: after a crash either the
+        entire old side is excluded from active risk or none of it is.
+        """
+        if not states:
+            return
+        encoded=[
+            (json.dumps(state,ensure_ascii=False,sort_keys=True,default=str),
+             event_id,"bingx_state")
+            for event_id,state in states
+        ]
+        with self._lock,self._connection() as con:
+            try:
+                with con.cursor() as cur:
+                    for payload,event_id,target in encoded:
+                        cur.execute(self._sql("""
+                            UPDATE processed_targets
+                               SET payload=?,processed_at=CURRENT_TIMESTAMP
+                             WHERE event_id=? AND target=?
+                        """),(payload,event_id,target))
+                        if cur.rowcount!=1:
+                            raise RuntimeError(
+                                f"flat reconciliation state missing: {event_id}"
+                            )
+                con.commit()
+            except Exception:
+                con.rollback()
+                raise
+
     def list_states(self)->list[tuple[str,dict]]:
         with self._lock,self._connection() as con:
             cur=con.cursor()
