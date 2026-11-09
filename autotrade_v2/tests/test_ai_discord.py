@@ -37,6 +37,7 @@ class GeminiDiscordTests(unittest.TestCase):
         body = _ai_discord_content(evt)
         self.assertIn("GIẢ ĐỊNH: KHÔNG NÊN VÀO", body)
         self.assertIn("AI không chặn lệnh", body)
+        self.assertIn("SMC: XUNG ĐỘT", body)
         self.assertIn("Chưa có dữ liệu tin tức kiểm chứng", body)
         self.assertNotIn("@everyone", body)
         self.assertLessEqual(len(body), 1900)
