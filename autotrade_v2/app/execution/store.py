@@ -137,7 +137,7 @@ class ExecutionStore:
                 for payload,event_id,target in encoded:
                     cur.execute(self._sql("""
                         UPDATE processed_targets
-                           SET payload=?,processed_at=CURRENT_TIMESTAMP
+                           SET payload=?
                          WHERE event_id=? AND target=?
                     """),(payload,event_id,target))
                     if cur.rowcount!=1:
