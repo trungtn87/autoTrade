@@ -51,6 +51,8 @@ _EMAIL_ALERT_KEYS = {
 
 _DISCORD_SYSTEM_WARNING_KEYS = {
     "L3.EXEC.FORCE_CLOSE_CONFIRMED",
+    # Notify when a previously stuck execution history is safely retired.
+    "L3.EXEC.EXCHANGE_FLAT_RECONCILED",
     # Data freshness is trading-critical even when the process is otherwise alive.
     # Route exactly these WARNING events to the error webhook.
     "L1.DATA.CANDLE_STALE",

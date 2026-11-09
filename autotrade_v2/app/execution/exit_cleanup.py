@@ -72,7 +72,10 @@ def own_orders(state, require_complete=True):
 
 def eligible(state):
     return bool(
-        state.get("entry_filled")
+        # A twice-verified exchange-flat history boundary belongs to an older
+        # epoch. Never let cleanup polling mutate its former conditional IDs.
+        not state.get("exchange_flat_reconciled")
+        and state.get("entry_filled")
         and re.fullmatch(r"[1-9][0-9]*", str(state.get("position_id") or ""))
         and str(state.get("intent", {}).get("symbol") or "")
         and state.get("executed_qty") is not None

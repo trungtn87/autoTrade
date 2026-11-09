@@ -61,7 +61,8 @@ class ForceClose:
             all_states=self.store.list_states()
             side_states=[(eid,s) for eid,s in all_states
                 if (s.get("intent") or {}).get("symbol")==intent.symbol
-                and (s.get("intent") or {}).get("side")==intent.side]
+                and (s.get("intent") or {}).get("side")==intent.side
+                and not s.get("exchange_flat_reconciled")]
             save(affected=sorted(eid for eid,_ in side_states))
             if any(not s.get("entry_filled") and not s.get("terminal") for _,s in side_states):
                 raise CleanupUncertain("another entry outcome on this side is unverified")
@@ -70,6 +71,7 @@ class ForceClose:
             states={eid:s for eid,s in all_states
                     if (s.get("intent") or {}).get("symbol")==intent.symbol
                     and (s.get("intent") or {}).get("side")==intent.side
+                    and not s.get("exchange_flat_reconciled")
                     and str(s.get("position_id"))==epoch["position_id"] and s.get("entry_filled")
                     and (not s.get("force_close_allocation") or s.get("force_close_epoch")==epoch["epoch"])}
             if not states or intent.event_id not in states:
