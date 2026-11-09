@@ -966,6 +966,8 @@ class ExecutionService:
                 entry_filled=bool(result.get("entry_filled")),
                 executed_qty=result.get("executed_qty"),
                 status=result.get("status"),
+                sl_protected=bool(result.get("sl_protected")),
+                protection=result.get("protection"),
             )
 
         return ExecutionResult(
