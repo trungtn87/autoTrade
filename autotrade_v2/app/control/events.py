@@ -630,7 +630,7 @@ class EventReporter:
             # Same incident can mention different signal IDs on every scan.
             # New risk categories still bypass cooldown immediately.
             risks = risk_codes((event.details or {}).get("risks"), event.message)
-            return (f"{event.event_key}|{event.symbol}|{_combo_label(event.combo)}|"
+            return (f"{event.event_key}|{event.symbol}|"
                     + "|".join(sorted(risks)))
         if event.event_key == "L1.DATA.CANDLE_STALE":
             return f"{event.event_key}|{event.symbol}"
