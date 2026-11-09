@@ -152,6 +152,25 @@ def test_reconcile_incident_alert_once_per_hour():
         assert stuck[0][1]=="CRITICAL"
 
 
+def test_flat_recovery_works_with_exit_cleanup_disabled():
+    # Reconciliation watchdog must not depend on the orphan-cleanup toggle.
+    with TemporaryDirectory() as tmp:
+        service,store,exchange=setup(tmp)
+        old=signal()
+        assert service.execute(old).status=="complete"
+        remove_all_exposure(exchange)
+        saved=store.get_state(old.event_id)
+        saved["stage"]="protection_reconcile_required"
+        saved["safety_status"]="RECONCILE_REQUIRED"
+        store.save_state(old.event_id,saved)
+        from dataclasses import replace
+        service.settings=replace(service.settings,exit_cleanup_enabled=False)
+        results=service.reconcile_flat_history()
+        assert results and results[0]["status"]=="EXCHANGE_FLAT_RECONCILED",results
+        assert store.get_state(old.event_id).get("exchange_flat_reconciled")
+        assert service.reconcile_flat_history()==[]  # minute-level poll throttle
+
+
 def test_atomic_history_marker_rolls_back_on_missing_state():
     with TemporaryDirectory() as tmp:
         store=ExecutionStore(str(Path(tmp)/"state.db"))
@@ -175,6 +194,7 @@ def main():
     test_unknown_inflight_entry_must_not_be_flattened()
     test_two_snapshot_race_must_not_clear_history()
     test_reconcile_incident_alert_once_per_hour()
+    test_flat_recovery_works_with_exit_cleanup_disabled()
     test_atomic_history_marker_rolls_back_on_missing_state()
     print({"ok":True,"exchange_flat_unblocks":True,"old_history_preserved":True,
            "existing_sl_blocks":True,"unknown_post_blocks":True,
