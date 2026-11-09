@@ -255,6 +255,16 @@ def _ai_discord_content(event: "SystemEvent") -> str:
             f"Bằng chứng: {_ai_one_line(details.get('reasoning_verified'), 390)}",
             f"Ý kiến AI: {_ai_one_line(details.get('reasoning_ai_opinion'), 390)}",
         ]
+        if details.get("independent_smc_summary"):
+            lines.append("SMC Binance độc lập: " +
+                         _ai_one_line(details["independent_smc_summary"], 175))
+        if details.get("news_source_count"):
+            lines.append("Tin ngoài: Đã tra cứu sau tín hiệu; chưa xác minh thời điểm công bố.")
+            sources = details.get("news_sources") or []
+            if sources and isinstance(sources[0], dict):
+                uri = str(sources[0].get("url") or "")
+                if uri.startswith("https://"):
+                    lines.append("Nguồn tra cứu: " + _ai_one_line(uri, 170))
     else:
         outcome = str(details.get("outcome") or "").upper()
         label = {"WIN": "✅ THẮNG", "LOSS": "❌ THUA",
@@ -283,6 +293,12 @@ def _ai_discord_content(event: "SystemEvent") -> str:
             f"Bài học: {_ai_one_line(lesson, 360)}",
             "🔒 Chỉ gửi khi ledger xác nhận combo đã CLOSED.",
         ]
+        ext = details.get("external_exit_window") or {}
+        if isinstance(ext, dict) and ext.get("status") == "AVAILABLE":
+            lines.append(
+                f"Giá Binance tham khảo: thấp {_fmt_trade_number(ext.get('lowest'))}"
+                f", cao {_fmt_trade_number(ext.get('highest'))} (nến 1H; không phải giá khớp BingX)."
+            )
     lines.append(f"Mã tín hiệu: {_ai_one_line(event.event_id, 120)}")
     if details.get("revision") is not None:
         lines.append(f"Revision: {_ai_one_line(details['revision'], 12)}")
