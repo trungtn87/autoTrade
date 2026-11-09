@@ -86,6 +86,26 @@ class DiscordAlertNoiseTests(unittest.TestCase):
         self.reporter._notify(changed)
         self.assertEqual(self.post.call_count, 3)
 
+    def test_cleanup_risks_dedupe_across_signal_ids_but_not_new_risks(self):
+        key = "L3.EXEC.EXIT_CLEANUP_RISK"
+        first = event(key, symbol="BTC-USDT", combo=104,
+                      event_id="BTC-USDT|1h|C14|SELL|1",
+                      risks=["BTC-USDT|1h|C14|SELL|1:NO_VERIFIED_ACTIVE_SL"])
+        second = event(key, symbol="BTC-USDT", combo=106,
+                       event_id="BTC-USDT|1h|C16|SELL|2",
+                       risks=["BTC-USDT|1h|C16|SELL|2:NO_VERIFIED_ACTIVE_SL"])
+        self.reporter._notify(first)
+        self.reporter._notify(second)
+        self.assertEqual(self.post.call_count, 1)
+        changed = event(key, symbol="BTC-USDT", combo=104,
+                        risks=["BTC-USDT|1h|C14|SELL|1:NO_VERIFIED_ACTIVE_TP"])
+        self.reporter._notify(changed)
+        self.assertEqual(self.post.call_count, 2)
+        new_category = event(key, symbol="BTC-USDT", combo=104,
+                             risks=["BTC-USDT|1h|C14|SELL|1:NEW_BINGX_FAILURE"])
+        self.reporter._notify(new_category)
+        self.assertEqual(self.post.call_count, 3)
+
     def test_new_emergency_stays_immediate(self):
         key = "L3.EXEC.FORCE_CLOSE_UNRESOLVED"
         self.reporter._notify(event(key, event_id="emergency-1"))
