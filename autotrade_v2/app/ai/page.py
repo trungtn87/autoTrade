@@ -210,7 +210,11 @@ def _serialize(row: dict) -> dict:
 def _attach_bingx_feedback(conn, reviews: list[dict]) -> list[dict]:
     """Never turn absent BingX evidence into a fake closed trade."""
     try:
-        evidence = load_bingx_feedback(conn, reviews)
+        # The parent request already has an implicit psycopg transaction.
+        # Use a nested transaction (SAVEPOINT) so an optional missing
+        # signal_links table does not abort subsequent /ai reads.
+        with conn.transaction():
+            evidence = load_bingx_feedback(conn, reviews)
     except Exception as exc:
         log.warning("AI_BINGX_EVIDENCE_READ_FAIL error_class=%s", type(exc).__name__)
         evidence = {}
