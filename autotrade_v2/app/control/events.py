@@ -51,12 +51,20 @@ _EMAIL_ALERT_KEYS = {
 
 _DISCORD_SYSTEM_WARNING_KEYS = {
     "L3.EXEC.FORCE_CLOSE_CONFIRMED",
-    # Successful recovery of exchange-flat historical blocks must be visible.
+    # Notify when a previously stuck execution history is safely retired.
     "L3.EXEC.EXCHANGE_FLAT_RECONCILED",
     # Data freshness is trading-critical even when the process is otherwise alive.
     # Route exactly these WARNING events to the error webhook.
     "L1.DATA.CANDLE_STALE",
     "L1.DATA.STARTUP_RECOVERY",
+}
+
+# Recurring incidents can generate a new candle/signal ID every 15m.
+# Rate-limit notification delivery only; keep all audit events.
+_DISCORD_ALERT_COOLDOWN_SEC = {
+    "L1.DATA.CANDLE_STALE": 3600.0,
+    "L1.DATA.RECOVERY_FAIL": 1800.0,
+    "L3.EXEC.MERGED_RECONCILE_REQUIRED": 3600.0,
 }
 
 _AI_REPORT_KEYS = {"L4.AI.PRE_REVIEW", "L4.AI.POST_REVIEW"}
@@ -566,10 +574,11 @@ class EventReporter:
         if not self._email_configured() or not self._should_email(event):
             return
 
-        dedupe_key = f"{event.event_key}|{event.symbol}|{event.event_id}|{event.message}"
+        dedupe_key = self._discord_dedupe_key(event)
         now = time.monotonic()
         last = self._last_email.get(dedupe_key)
-        if last is not None and now - last < 900.0:
+        cooldown = _DISCORD_ALERT_COOLDOWN_SEC.get(event.event_key, 900.0)
+        if last is not None and now - last < cooldown:
             return
 
         subject_parts = [f"[AutoTrade {event.severity}]", event.event_key]
@@ -624,6 +633,69 @@ class EventReporter:
                 exc,
             )
 
+    @staticmethod
+    def _discord_dedupe_key(event: SystemEvent) -> str:
+        if event.event_key == "L3.EXEC.MERGED_RECONCILE_REQUIRED":
+            # New signals are repeatedly blocked by the same old risks.
+            # New risk sets bypass the cooldown immediately.
+            risks = (event.details or {}).get("risks") or []
+            fingerprint = json.dumps(
+                sorted({str(risk) for risk in risks}), ensure_ascii=True,
+                separators=(",", ":"),
+            )
+            return f"{event.event_key}|{event.symbol}|{fingerprint}"
+        if event.event_key == "L1.DATA.CANDLE_STALE":
+            # expected_open_time rotates each candle, even for one incident.
+            return f"{event.event_key}|{event.symbol}"
+        if event.event_key == "L1.DATA.RECOVERY_FAIL":
+            return f"{event.event_key}|{event.symbol}|{event.message}"
+        return (
+            f"{event.event_key}|{event.symbol}|{event.event_id}|"
+            f"{event.message}"
+        )
+
+    @staticmethod
+    def _system_discord_content(event: SystemEvent) -> str:
+        if event.event_key == "L3.EXEC.MERGED_RECONCILE_REQUIRED":
+            risks = (event.details or {}).get("risks") or []
+            categories = sorted({str(item).rsplit(":", 1)[-1] for item in risks})
+            lines = [
+                "🚨 **L3.EXEC.MERGED_RECONCILE_REQUIRED**",
+                f"Symbol: {event.symbol or '-'}",
+                f"Signal combo: {_combo_label(event.combo)}",
+                "Entry chưa được gửi (đã chặn vì thiếu bằng chứng an toàn).",
+                f"Đối chiếu vị thế gộp / TP / SL: {len(risks)} mục chưa xác minh.",
+                f"Loại rủi ro: {', '.join(categories)[:380] or '-'}",
+                "Chi tiết đầy đủ đã lưu trong system_events; đối chiếu BingX.",
+                "Nếu rủi ro không đổi, nhắc lại tối đa mỗi 60 phút.",
+            ]
+            return "\n".join(lines)[:1900]
+
+        icon = {
+            "INFO": "✅",
+            "WARNING": "⚠️",
+            "ERROR": "❌",
+            "CRITICAL": "🚨",
+        }[event.severity]
+        lines = [
+            f"{icon} **{event.event_key}**",
+            f"Severity: {event.severity}",
+        ]
+        if event.symbol:
+            lines.append(f"Symbol: {event.symbol}")
+        if event.combo is not None:
+            lines.append(f"Combo: C{event.combo}")
+        if event.event_id:
+            lines.append(f"Event: {event.event_id}")
+        if event.order_id:
+            lines.append(f"Order: {event.order_id}")
+        if event.message:
+            lines.append(f"Message: {event.message}")
+        if event.details:
+            compact = json.dumps(event.details, ensure_ascii=False, default=str, separators=(",", ":"))
+            lines.append(f"Details: {compact[:900]}")
+        return "\n".join(lines)[:1900]
+
     def _notify(self, event: SystemEvent) -> None:
         # Email is an independent Layer-4 path. A broken Discord webhook must
         # not suppress severe system alerts.
@@ -654,16 +726,19 @@ class EventReporter:
         if not url:
             return
 
-        cycle_key = ""
-        if event.event_key == "L1.DATA.CANDLE_STALE":
-            cycle_key = str((event.details or {}).get("expected_open_time") or "")
-        dedupe_key = (
-            f"{event.event_key}|{event.symbol}|{event.event_id}|"
-            f"{event.message}|{cycle_key}"
-        )
+        # Let the immediate REST gap recovery run before notifying. A failed
+        # recovery has its own independent ERROR event and still alerts.
+        if (
+            event.event_key == "L1.DATA.CANDLE_STALE"
+            and str((event.details or {}).get("attempt") or "") == "1"
+        ):
+            return
+
+        dedupe_key = self._discord_dedupe_key(event)
         now = time.monotonic()
         last = self._last_discord.get(dedupe_key)
-        if last is not None and now - last < 120.0:
+        cooldown = _DISCORD_ALERT_COOLDOWN_SEC.get(event.event_key, 120.0)
+        if last is not None and now - last < cooldown:
             return
 
         if event.event_key in _ORDER_RESULT_KEYS:
@@ -671,30 +746,7 @@ class EventReporter:
         elif event.event_key in _AI_REPORT_KEYS:
             content = _ai_discord_content(event)
         else:
-            icon = {
-                "INFO": "✅",
-                "WARNING": "⚠️",
-                "ERROR": "❌",
-                "CRITICAL": "🚨",
-            }[event.severity]
-            lines = [
-                f"{icon} **{event.event_key}**",
-                f"Severity: {event.severity}",
-            ]
-            if event.symbol:
-                lines.append(f"Symbol: {event.symbol}")
-            if event.combo is not None:
-                lines.append(f"Combo: C{event.combo}")
-            if event.event_id:
-                lines.append(f"Event: {event.event_id}")
-            if event.order_id:
-                lines.append(f"Order: {event.order_id}")
-            if event.message:
-                lines.append(f"Message: {event.message}")
-            if event.details:
-                compact = json.dumps(event.details, ensure_ascii=False, default=str, separators=(",", ":"))
-                lines.append(f"Details: {compact[:900]}")
-            content = "\n".join(lines)[:1900]
+            content = self._system_discord_content(event)
 
         try:
             response = None
