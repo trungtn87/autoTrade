@@ -51,6 +51,7 @@ def test_closed_manually_with_old_history_still_admits_fresh_entry():
         assert service.execute(b).status=="complete"
         new=store.get_state(b.event_id)
         assert not new.get("exchange_flat_reconciled")
+        assert not new["shared_position"],"retired old combo must not be counted as a live peer"
         assert set(state_ids(store,b).values()).isdisjoint(old_protection)
         assert all(exchange.orders[x]["status"]=="CANCELLED" for x in old_protection)
         assert not any(x[0]=="cancel" for x in exchange.calls)
