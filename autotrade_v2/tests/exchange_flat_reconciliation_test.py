@@ -178,6 +178,31 @@ def test_flat_recovery_works_with_exit_cleanup_disabled():
         assert service.reconcile_flat_history()==[]  # minute-level poll throttle
 
 
+def test_nonblocking_exit_budget_does_not_raise_critical_stuck():
+    # Multiple resting native conditionals can exceed open quantity without
+    # being a blocker. This is diagnostic only, not a stalled Entry incident.
+    with TemporaryDirectory() as tmp:
+        service,store,exchange=setup(tmp)
+        old=signal()
+        assert service.execute(old).status=="complete"
+        saved=store.get_state(old.event_id)
+        saved["safety_status"]="EXIT_BUDGET_UNVERIFIED"
+        saved["stage"]="complete"
+        store.save_state(old.event_id,saved)
+        alerts=[]
+        service.event_cb=lambda key,sev,msg,**kw:alerts.append((key,sev,kw))
+        assert service.reconcile_flat_history()==[]
+        assert not any(key=="L3.EXEC.RECONCILIATION_STUCK" for key,_,_ in alerts)
+        # A genuine state-level protection problem on the same record must
+        # still produce a CRITICAL warning.
+        saved["stage"]="protection_reconcile_required"
+        store.save_state(old.event_id,saved)
+        service._last_reconciliation_check.pop("BTC-USDT|SELL",None)
+        assert service._reconcile_idle_flat_locked()==[]
+        assert any(key=="L3.EXEC.RECONCILIATION_STUCK" and sev=="CRITICAL"
+                   for key,sev,_ in alerts)
+
+
 def test_force_close_does_not_include_prior_flat_epoch():
     # BingX may reuse a positionId for the next same-side container.
     # A new emergency must not cancel/close any of the retired old combos.
@@ -233,6 +258,7 @@ def main():
     test_two_snapshot_race_must_not_clear_history()
     test_reconcile_incident_alert_once_per_hour()
     test_flat_recovery_works_with_exit_cleanup_disabled()
+    test_nonblocking_exit_budget_does_not_raise_critical_stuck()
     test_force_close_does_not_include_prior_flat_epoch()
     test_atomic_history_marker_rolls_back_on_missing_state()
     print({"ok":True,"exchange_flat_unblocks":True,"old_history_preserved":True,
