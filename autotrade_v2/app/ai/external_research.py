@@ -11,6 +11,8 @@ from time import time
 
 import requests
 
+from .independent_smc import analyze_structure
+
 _SYMBOLS = {"BTC-USDT": "BTCUSDT", "ETH-USDT": "ETHUSDT"}
 _BASE = "https://fapi.binance.com"
 
@@ -86,6 +88,49 @@ class BinanceFuturesPublic:
         elif out["mark"] or out["open_interest"]:
             out["status"] = "PARTIAL"
         return out
+
+    def structure_as_of(self, symbol, signal_close_ms):
+        """Independently compute BOS/CHoCH/FVG on Binance closed bars as-of Entry.
+
+        No future n-bars after the signal are used to confirm a swing.
+        """
+        target = _SYMBOLS.get(str(symbol).upper())
+        result = {"source": "Binance USD-M historical 15m/1h/4h",
+                  "as_of_ms": int(signal_close_ms), "status": "UNAVAILABLE",
+                  "timeframes": {}}
+        if not target:
+            return result
+        for tf in ("15m", "1h", "4h"):
+            try:
+                data = self._fetch("/fapi/v1/klines", {
+                    "symbol": target, "interval": tf,
+                    "endTime": int(signal_close_ms), "limit": 120,
+                })
+                bars = []
+                if not isinstance(data, list):
+                    continue
+                for row in data:
+                    if not isinstance(row, list) or len(row) < 7:
+                        continue
+                    close_ms = _timestamp(row[6])
+                    if not close_ms or close_ms > int(signal_close_ms):
+                        continue
+                    bars.append({
+                        "open_ms": row[0], "close_ms": close_ms,
+                        "open": row[1], "high": row[2], "low": row[3],
+                        "close": row[4], "volume": row[5],
+                    })
+                structure = analyze_structure(bars, timeframe=tf,
+                                              as_of_ms=int(signal_close_ms))
+                if structure["status"] == "AVAILABLE":
+                    result["timeframes"][tf] = structure
+            except (requests.RequestException, ValueError, TypeError, AttributeError):
+                continue
+        if len(result["timeframes"]) == 3:
+            result["status"] = "AVAILABLE"
+        elif result["timeframes"]:
+            result["status"] = "PARTIAL"
+        return result
 
     def exit_window(self, symbol, signal_close_ms, closed_ms):
         """Historical 1H Binance candles for qualitative post review, not fill proof."""
