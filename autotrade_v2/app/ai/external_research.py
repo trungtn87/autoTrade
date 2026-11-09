@@ -232,35 +232,3 @@ class BinanceFuturesPublic:
         except (requests.RequestException, ValueError, TypeError, AttributeError):
             pass
         return result
-
-    def shadow_closed_15m(self, symbol, signal_close_ms, now_ms):
-        """Read only future CLOSED candles; no exchange fills or positions."""
-        target = _SYMBOLS.get(str(symbol).upper())
-        start = int(signal_close_ms) + 1
-        end = min(int(now_ms), int(signal_close_ms) + 72 * 3600 * 1000)
-        if not target or end < start:
-            return {"status": "UNAVAILABLE", "bars": []}
-        try:
-            data = self._fetch("/fapi/v1/klines", {
-                "symbol": target, "interval": "15m",
-                "startTime": start, "endTime": end, "limit": 300,
-            })
-            if not isinstance(data, list):
-                return {"status": "UNAVAILABLE", "bars": []}
-            bars = []
-            for row in data:
-                if not isinstance(row, list) or len(row) < 7:
-                    continue
-                open_ms, close_ms = _timestamp(row[0]), _timestamp(row[6])
-                if not open_ms or not close_ms or open_ms < start or close_ms > end:
-                    continue
-                bars.append({
-                    "open_ms": open_ms, "close_ms": close_ms,
-                    "open": row[1], "high": row[2], "low": row[3],
-                    "close": row[4],
-                })
-            return {"status": "AVAILABLE" if bars else "UNAVAILABLE",
-                    "source": "Binance USD-M closed 15m klines",
-                    "bars": bars}
-        except (requests.RequestException, ValueError, TypeError, AttributeError):
-            return {"status": "UNAVAILABLE", "bars": []}
