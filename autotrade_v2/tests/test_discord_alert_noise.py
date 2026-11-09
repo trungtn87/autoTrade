@@ -70,8 +70,10 @@ class DiscordAlertNoiseTests(unittest.TestCase):
         summary = self.post.call_args.kwargs["json"]["content"]
         self.assertIn("Entry chưa được gửi", summary)
         self.assertIn("C15", summary)
-        self.assertIn("NO_VERIFIED_ACTIVE_SL", summary)
+        self.assertIn("Chưa xác minh được Stop Loss (SL)", summary)
         self.assertNotIn("ETH-USDT|15m|C7|SELL|100:", summary)
+        self.assertIn("Cần làm:", summary)
+        self.assertIn("Mã tra cứu:", summary)
 
         changed = event(key, event_id="third", risks=risks + [
             "ETH-USDT|15m|C7|SELL|100:NO_VERIFIED_ACTIVE_TP"
@@ -82,6 +84,26 @@ class DiscordAlertNoiseTests(unittest.TestCase):
             time.monotonic() - 3601
         )
         self.reporter._notify(changed)
+        self.assertEqual(self.post.call_count, 3)
+
+    def test_cleanup_risks_dedupe_across_signal_ids_but_not_new_risks(self):
+        key = "L3.EXEC.EXIT_CLEANUP_RISK"
+        first = event(key, symbol="BTC-USDT", combo=104,
+                      event_id="BTC-USDT|1h|C14|SELL|1",
+                      risks=["BTC-USDT|1h|C14|SELL|1:NO_VERIFIED_ACTIVE_SL"])
+        second = event(key, symbol="BTC-USDT", combo=106,
+                       event_id="BTC-USDT|1h|C16|SELL|2",
+                       risks=["BTC-USDT|1h|C16|SELL|2:NO_VERIFIED_ACTIVE_SL"])
+        self.reporter._notify(first)
+        self.reporter._notify(second)
+        self.assertEqual(self.post.call_count, 1)
+        changed = event(key, symbol="BTC-USDT", combo=104,
+                        risks=["BTC-USDT|1h|C14|SELL|1:NO_VERIFIED_ACTIVE_TP"])
+        self.reporter._notify(changed)
+        self.assertEqual(self.post.call_count, 2)
+        new_category = event(key, symbol="BTC-USDT", combo=104,
+                             risks=["BTC-USDT|1h|C14|SELL|1:NEW_BINGX_FAILURE"])
+        self.reporter._notify(new_category)
         self.assertEqual(self.post.call_count, 3)
 
     def test_new_emergency_stays_immediate(self):

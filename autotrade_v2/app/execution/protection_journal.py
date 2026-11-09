@@ -152,20 +152,34 @@ class ProtectionJournal:
         if journal is not None:
             if journal.get("spec")!=spec:
                 raise ProtectionReconcilePending(f"{kind}: prepared order parameters changed across restart")
-            # Never re-POST a conditional order whose status is uncertain.
-            candidates=self._candidates(spec)
-            previous=set(map(str,journal.get("baseline_ids") or []))
-            delta=[o for o in candidates if str(o.get("orderID") or o.get("orderId")) not in previous]
+            # Once our own POST response/orderId is durably acknowledged, query
+            # THAT exact ID. openOrders may omit conditional orders or format
+            # stopPrice differently; a new price/quantity candidate is not proof.
             acknowledged=str(journal.get("acknowledged_order_id") or "")
-            # Price/quantity/position equality is not ownership: a manual order
-            # or another combo may have identical parameters during a timeout.
-            delta=[o for o in delta if str(o.get("orderID") or o.get("orderId"))==acknowledged]
-            if not acknowledged or len(delta)!=1:
-                raise ProtectionReconcilePending(
-                    f"{kind}: unresolved conditional POST, {len(delta)} new exact matches; "
-                    "manual/exchange reconciliation required, no duplicate sent"
-                )
-            return self._confirm(kind,{"code":0,"data":{"order":delta[0]}},position_id)
+            previous=set(map(str,journal.get("baseline_ids") or []))
+            if acknowledged:
+                if acknowledged in previous:
+                    raise ProtectionReconcilePending(f"{kind}: acknowledged order existed before POST")
+                try:
+                    raw=self.client.get_order_detail(symbol,order_id=acknowledged)
+                    row=(raw.get("data") or {}).get("order") or raw.get("data") or {}
+                    if str(row.get("orderID") or row.get("orderId") or "")!=acknowledged:
+                        raise ProtectionReconcilePending(f"{kind}: acknowledged order lookup ID mismatch")
+                    return self._confirm(kind,raw,position_id)
+                except Exception as exc:
+                    raise ProtectionReconcilePending(
+                        f"{kind}: acknowledged order {acknowledged} not strictly verified; "
+                        f"no replacement sent: {type(exc).__name__}: {exc}"
+                    ) from exc
+            # NO acknowledgement: another combo/manual order could match exactly.
+            # Keep WAL unresolved; never adopt a shape-only candidate or re-POST.
+            candidates=self._candidates(spec)
+            delta=[o for o in candidates
+                   if str(o.get("orderID") or o.get("orderId")) not in previous]
+            raise ProtectionReconcilePending(
+                f"{kind}: unresolved conditional POST, {len(delta)} new exact matches; "
+                "manual/exchange reconciliation required, no duplicate sent"
+            )
 
         if posts>=2:
             raise ProtectionAttemptsExhausted(kind)

@@ -108,7 +108,7 @@ class TradeBatchTests(unittest.TestCase):
             "🕒 Giờ xác nhận lệnh (VN): 22:00:24 24/10/2026\n\n"
             "✅ Đặt lệnh thành công")
 
-    def test_failure_preserves_old_error_layout(self):
+    def test_failure_is_actionable_in_vietnamese(self):
         content, ids = _one_message("ETH-USDT", [
             (1, {"event_key": "L3.EXEC.ORDER_FAIL", "combo": 104,
                  "side": "SELL", "entry": 2400, "tp": 2300, "sl": 2450,
@@ -119,7 +119,23 @@ class TradeBatchTests(unittest.TestCase):
         self.assertIn("❌ Đặt lệnh\nETH-USDT SELL", content)
         self.assertIn("📊 Combo C14", content)
         self.assertIn("🕒 Giờ xử lý lệnh (VN): 22:00:24 24/10/2026", content)
-        self.assertIn("❌ Đặt lệnh thất bại\nLý do: BingX không khớp lệnh", content)
+        self.assertIn("❌ KHÔNG ĐẶT ĐƯỢC ENTRY", content)
+        self.assertIn("Cần làm:", content)
+        self.assertNotIn("Lý do: BingX không khớp lệnh", content)
+
+    def test_filled_entry_with_unverified_sl_does_not_claim_no_entry(self):
+        content, ids = _one_message("BTC-USDT", [
+            (1, {"event_key": "L3.EXEC.ORDER_FAIL", "combo": 104,
+                 "side": "SELL", "entry": 75129.2, "tp": 73626.616,
+                 "sl": 75630.0613333, "entry_filled": True,
+                 "stage": "protection_sl_reconcile_pending",
+                 "error": "sl: unresolved conditional POST, 0 new exact matches"}),
+        ])
+        self.assertEqual(ids, [1])
+        self.assertIn("🚨 ENTRY ĐÃ KHỚP", content)
+        self.assertIn("SL/TP chưa được xác minh", content)
+        self.assertIn("📊 Combo C14", content)
+        self.assertNotIn("unresolved conditional POST", content)
 
     def test_long_batch_does_not_drop_unformatted_rows(self):
         rows = [(i, {"event_key":"L3.EXEC.ORDER_FAIL","combo":i,

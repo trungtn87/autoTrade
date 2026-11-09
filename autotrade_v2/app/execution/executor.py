@@ -34,6 +34,9 @@ class LegacyStyleBingXClient:
         self.settings=settings
         self.http=httpx.Client(timeout=20.0)
         self.guard=request_guard or BingXRequestGuard()
+        # The public contracts endpoint is rate-limited per IP. Reuse one
+        # recent rules snapshot across SL/TP/trailing verification in an entry.
+        self._contract_rules_cache={}
 
     @staticmethod
     def _fmt_qty(qty:float)->str:
@@ -68,7 +71,10 @@ class LegacyStyleBingXClient:
         params["positionId"]=value
 
     def get_contract_rules(self,symbol:str)->dict:
-        """Read live contract precision and minimum order size from BingX."""
+        """Read BingX contract rules with a short per-symbol, fail-closed cache."""
+        cached=self._contract_rules_cache.get(symbol)
+        if cached and time.monotonic()-cached[0]<30:
+            return dict(cached[1])
         with self.guard.request_slot():
             response=self.http.get(
                 f"{self.settings.bingx_base_url}{self.CONTRACTS_PATH}",
@@ -101,7 +107,9 @@ class LegacyStyleBingXClient:
         rule=matching[0]
         if "quantityPrecision" not in rule or "tradeMinQuantity" not in rule:
             raise RuntimeError("BingX contract rules missing quantity precision/minimum")
-        return rule
+        # Cache only complete, validated rules; never reuse a failed response.
+        self._contract_rules_cache[symbol]=(time.monotonic(),dict(rule))
+        return dict(rule)
 
     def get_positions(self,symbol:str)->list[dict]:
         """Exchange positionAmt is authoritative remaining quantity (not local subtraction)."""
