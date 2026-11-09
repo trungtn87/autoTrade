@@ -95,7 +95,7 @@ def incident_view(key: str, message: str, details: dict) -> tuple[str, str, str,
     risks = risk_lines(details.get("risks"), message)
     if key == "L3.EXEC.MERGED_RECONCILE_REQUIRED":
         return ("⛔ ENTRY TẠM CHẶN",
-                "BingX và database chưa khớp bằng chứng bảo vệ vị thế.",
+                "Entry chưa được gửi vì BingX và database chưa khớp bằng chứng bảo vệ vị thế.",
                 "Không mở thêm lệnh cùng chiều; kiểm tra SL/TP và các vị thế đang mở.", risks)
     if key == "L3.EXEC.EXIT_CLEANUP_RISK":
         if any(code in codes for code in (
