@@ -693,6 +693,15 @@ class ExecutionService:
                     status="force_close_side_blocked",details={"epoch":emergency["epoch"]})
             result=ForceClose(self).run(intent,state,emergency["failed_kind"])
             return ExecutionResult(event_id=intent.event_id,accepted=True,status=result["stage"],details=result)
+        if state and state.get("exchange_flat_reconciled"):
+            # Some legacy states did not reach bingx_account/seen before a
+            # manual close. Never resend an old signal after retirement.
+            return ExecutionResult(
+                event_id=intent.event_id,accepted=False,
+                status="historical_flat_skipped",
+                details={"network_called":False,
+                         "reconciled_at_ms":(state["exchange_flat_reconciled"] or {}).get("at_ms")},
+            )
         pending=bool(state and not state.get("terminal"))
         if pending:
             recovery=state.get("recovery") or {}
