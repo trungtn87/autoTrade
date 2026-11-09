@@ -791,8 +791,13 @@ class GeminiObserver:
                 break
             payload = evidence_payload(review, evidence)
             fingerprint = evidence_hash(payload)
-            if not self._try_budget():
-                return
+            # Check budget before claiming without consuming quota for
+            # evidence revisions that already have an immutable result.
+            day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            with self._daily_lock:
+                d, n = self._daily
+                if d == day and n >= self.max_calls_per_day:
+                    return
             try:
                 attempt = self._claim_bingx(review, payload, fingerprint)
             except Exception as exc:
@@ -801,6 +806,10 @@ class GeminiObserver:
             if attempt is None:
                 continue
             reviewed_this_cycle += 1
+            if not self._try_budget():
+                self._finish_bingx(review["event_id"], fingerprint, attempt,
+                                   None, "daily_call_cap")
+                return
             result, error = None, None
             try:
                 response, _, _ = self.client.ask(prompt_for_review(review, payload))
