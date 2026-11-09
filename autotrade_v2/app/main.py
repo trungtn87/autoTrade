@@ -318,6 +318,9 @@ def _execution_reconcile_loop()->None:
     while not _execution_reconcile_stop.wait(EXECUTION_RECONCILE_POLL_SEC):
         _execution_recovery_busy.set()
         try:
+            # Reconcile historically stalled exposure even if the orphan
+            # cleanup worker is disabled. This never mutates BingX orders.
+            flat_results=execution_service.reconcile_flat_history()
             pending=sum(
                 1 for _,state in execution_store.list_states()
                 if not bool(state.get("terminal"))
@@ -330,6 +333,7 @@ def _execution_reconcile_loop()->None:
                 runtime["execution_recovery_last"]={
                     "checked_at_ms":int(time.time()*1000),
                     "pending_before":pending,
+                    "flat_reconciliation":flat_results,
                     "results":results,
                 }
             if pending:
