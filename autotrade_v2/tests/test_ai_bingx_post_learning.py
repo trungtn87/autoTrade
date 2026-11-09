@@ -128,6 +128,30 @@ class BingxPostLearningTests(unittest.TestCase):
         client.ask.assert_not_called()
         obs._try_budget.assert_not_called()
 
+    def test_prior_lessons_sql_excludes_future_feedback(self):
+        from types import SimpleNamespace
+        obs = GeminiObserver("fake", enabled=True, client=Mock())
+        con = Mock()
+        con.execute.side_effect = [
+            Mock(fetchone=Mock(return_value=("autotrade_analytics.ai_bingx_post_reviews",))),
+            Mock(fetchall=Mock(return_value=[
+                ("INCONCLUSIVE", ["Xem lại OB"], "MERGED_POSITION_ESTIMATE")
+            ])),
+        ]
+        manager = Mock()
+        manager.__enter__ = Mock(return_value=con)
+        manager.__exit__ = Mock(return_value=False)
+        obs._connection = Mock(return_value=manager)
+        lessons = obs._prior_lessons(SimpleNamespace(
+            symbol="ETH-USDT", combo=105, close_time=1700000000000
+        ))
+        self.assertEqual(lessons[0]["quality"], "MERGED_POSITION_ESTIMATE")
+        sql = con.execute.call_args_list[1].args[0]
+        self.assertIn("closed_ms < %s", sql)
+        self.assertIn("completed_at <= to_timestamp(%s / 1000.0)", sql)
+        self.assertEqual(con.execute.call_args_list[1].args[1],
+                         ("ETH-USDT", "C15", 1700000000000, 1700000000000))
+
     def test_no_result_if_no_evidence(self):
         client = Mock()
         obs = GeminiObserver("fake", enabled=True, client=client)
