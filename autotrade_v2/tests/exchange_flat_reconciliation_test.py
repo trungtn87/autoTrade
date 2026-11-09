@@ -55,6 +55,12 @@ def test_closed_manually_with_old_history_still_admits_fresh_entry():
         assert all(exchange.orders[x]["status"]=="CANCELLED" for x in old_protection)
         assert not any(x[0]=="cancel" for x in exchange.calls)
         assert exchange.amount==Decimal("0.0013")
+        # Later cleanup must also exclude the retired history. Otherwise the
+        # original 57 missing exit IDs would immediately re-block this Entry.
+        service.cleanup_closed_exits()
+        after_scan=store.get_state(b.event_id)
+        assert after_scan["stage"]=="complete",after_scan
+        assert after_scan.get("safety_status")!="RECONCILE_REQUIRED"
         # Flat retirement cannot allow a replay of the original old event,
         # even when the old bingx_account idempotency marker was never written.
         count=len(exchange.clients)
