@@ -629,7 +629,21 @@ class EventReporter:
                                "L3.EXEC.EXIT_CLEANUP_RISK"}:
             # Same incident can mention different signal IDs on every scan.
             # New risk categories still bypass cooldown immediately.
-            risks = risk_codes((event.details or {}).get("risks"), event.message)
+            raw_risks = (event.details or {}).get("risks") or []
+            risks = set(risk_codes(raw_risks, event.message))
+            # Unknown *new* risk codes must also bypass cooldown. We can
+            # fingerprint their stable suffix without exposing it to Discord.
+            sources = list(raw_risks) if isinstance(raw_risks, (list, tuple)) else [raw_risks]
+            sources.append(event.message)
+            for source in sources:
+                for segment in str(source or "").split("|"):
+                    code = segment.rsplit(":", 1)[-1].strip()
+                    if re.fullmatch(r"[A-Z][A-Z0-9_]{4,}", code):
+                        risks.add(code)
+            if not risks:
+                # Never coalesce unrelated CRITICAL events just because the
+                # formatter doesn't yet know their technical categories.
+                return f"{event.event_key}|{event.symbol}|{safe_line(event.message, 240)}"
             return (f"{event.event_key}|{event.symbol}|"
                     + "|".join(sorted(risks)))
         if event.event_key == "L1.DATA.CANDLE_STALE":
