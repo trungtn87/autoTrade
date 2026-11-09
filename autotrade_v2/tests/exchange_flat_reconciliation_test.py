@@ -178,6 +178,32 @@ def test_flat_recovery_works_with_exit_cleanup_disabled():
         assert service.reconcile_flat_history()==[]  # minute-level poll throttle
 
 
+def test_force_close_does_not_include_prior_flat_epoch():
+    # BingX may reuse a positionId for the next same-side container.
+    # A new emergency must not cancel/close any of the retired old combos.
+    from protection_retry_abort_test import FailureExchange
+    from app.execution.force_close import side_key,TARGET
+    with TemporaryDirectory() as tmp:
+        service,store,_=setup(tmp)
+        ex=FailureExchange("tp",0)
+        service.executor.client=ex
+        old,new=signal(),signal(7)
+        assert service.execute(old).status=="complete"
+        remove_all_exposure(ex)
+        previous=store.get_state(old.event_id)
+        previous["stage"]="protection_reconcile_required"
+        previous["safety_status"]="RECONCILE_REQUIRED"
+        store.save_state(old.event_id,previous)
+        assert service.reconcile_flat_history()
+        ex.failures=2
+        result=service.execute(new)
+        assert result.status=="force_close_confirmed",result
+        epoch=store.get(side_key(new.symbol,new.side),TARGET)
+        assert epoch["affected"]==[new.event_id],epoch
+        assert ex.close_count==1 and ex.amount==0
+        assert store.get_state(old.event_id).get("exchange_flat_reconciled")
+
+
 def test_atomic_history_marker_rolls_back_on_missing_state():
     with TemporaryDirectory() as tmp:
         store=ExecutionStore(str(Path(tmp)/"state.db"))
@@ -202,6 +228,7 @@ def main():
     test_two_snapshot_race_must_not_clear_history()
     test_reconcile_incident_alert_once_per_hour()
     test_flat_recovery_works_with_exit_cleanup_disabled()
+    test_force_close_does_not_include_prior_flat_epoch()
     test_atomic_history_marker_rolls_back_on_missing_state()
     print({"ok":True,"exchange_flat_unblocks":True,"old_history_preserved":True,
            "existing_sl_blocks":True,"unknown_post_blocks":True,
