@@ -512,6 +512,12 @@ class GeminiObserver:
                     "independent_smc_status": ctx.get("independent_smc", {}).get("status"),
                     "external_market_status": ctx.get("external_market", {}).get("status"),
                     "news_source_count": len(ctx.get("external_news", {}).get("sources", [])),
+                    "independent_smc_summary": " | ".join(
+                        f"{tf}: {data.get('trend', 'UNKNOWN')}"
+                        for tf, data in ctx.get("independent_smc", {}).get(
+                            "timeframes", {}).items()
+                    ),
+                    "news_sources": ctx.get("external_news", {}).get("sources", [])[:2],
                     "reasoning_verified": output.get("reasoning_verified"),
                     "reasoning_ai_opinion": output.get("reasoning_ai_opinion"),
                     "entry": intent.entry, "tp": intent.tp, "sl": intent.sl,
@@ -627,6 +633,7 @@ class GeminiObserver:
                         "pre_trade_assessment": result.get("pre_trade_assessment"),
                         "explanation": result.get("explanation"),
                         "lessons": result.get("lessons"),
+                        "external_exit_window": ctx.get("external_exit_window"),
                     })
             except Exception as exc:
                 LOG.warning("AI_POST_REVIEW_FAIL event_id=%s error_class=%s",
