@@ -195,11 +195,16 @@ def test_force_close_does_not_include_prior_flat_epoch():
         previous["safety_status"]="RECONCILE_REQUIRED"
         store.save_state(old.event_id,previous)
         assert service.reconcile_flat_history()
+        # One newly opened combo on a flat account is NOT a merged Force
+        # Close case. Add a live same-side peer, then fail the next TP.
+        assert service.execute(new).status=="complete"
         ex.failures=2
-        result=service.execute(new)
+        peer=signal(7,2)
+        result=service.execute(peer)
         assert result.status=="force_close_confirmed",result
-        epoch=store.get(side_key(new.symbol,new.side),TARGET)
-        assert epoch["affected"]==[new.event_id],epoch
+        epoch=store.get(side_key(peer.symbol,peer.side),TARGET)
+        assert epoch["affected"]==sorted([new.event_id,peer.event_id]),epoch
+        assert old.event_id not in epoch["affected"]
         assert ex.close_count==1 and ex.amount==0
         assert store.get_state(old.event_id).get("exchange_flat_reconciled")
 
