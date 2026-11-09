@@ -13,6 +13,8 @@ from datetime import datetime, timedelta, timezone
 import psycopg
 import requests
 
+from .discord_format import trade_status, safe_line
+
 log = logging.getLogger(__name__)
 
 QUIET_SECONDS = 25
@@ -68,11 +70,13 @@ def _batch_key(event) -> str:
 
 
 def _row_text(data: dict, symbol: str) -> str:
-    """Keep the classic Discord trade layout, including for grouped trades."""
+    """Keep strategy prices; distinguish a filled Entry from protection failure."""
     successful = data.get("event_key") == "L3.EXEC.ORDER_COMPLETE"
+    filled = bool(data.get("entry_filled") or data.get("entry_accepted"))
+    title, status, action = trade_status(data)
     side = str(data.get("side") or "").upper()
     lines = [
-        f"{'✅' if successful else '❌'} Đặt lệnh",
+        f"{'✅' if successful else '🚨' if filled else '❌'} Đặt lệnh",
         " ".join(part for part in (symbol, side) if part) or "-",
         "",
         f"📊 Combo {_combo(data.get('combo'))}",
@@ -89,10 +93,9 @@ def _row_text(data: dict, symbol: str) -> str:
     if successful:
         lines.append("✅ Đặt lệnh thành công")
     else:
-        # Preserve the old failed-order layout without leaking multiline details.
-        reason = str(data.get("error") or "Không rõ lý do")
-        reason = reason.replace("\r", " ").replace("\n", " ")[:160]
-        lines.extend(("❌ Đặt lệnh thất bại", f"Lý do: {reason}"))
+        lines.extend((title, f"Trạng thái: {status}", f"Cần làm: {action}"))
+        code = safe_line(data.get("stage") or data.get("event_key"), 70)
+        lines.append(f"Mã tra cứu: {code}")
     return "\n".join(lines)
 
 
@@ -149,6 +152,10 @@ class DiscordTradeOutbox:
             "sl": details.get("sl"),
             "order_id": event.order_id or details.get("order_id"),
             "error": details.get("error") or event.message,
+            "stage": details.get("stage"),
+            "entry_accepted": details.get("entry_accepted"),
+            "entry_filled": details.get("entry_filled"),
+            "sl_protected": details.get("sl_protected"),
             "timeframe": parts[1] if len(parts) >= 5 else "",
             # Persist when the trade outcome was confirmed, not when Discord retries.
             "order_time": details.get("order_time") or event.created_at,
