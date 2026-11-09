@@ -243,6 +243,9 @@ def _pre_prompt(ctx: dict) -> str:
         "Never invent liquidity zones: label estimated pools as hypotheses. "
         "Respect actual per-combo strategy_config: for example, a 4h OB cannot "
         "be characterized as the mandatory filter for a 1h-only OB strategy. "
+        "Historical_derivatives has source timestamps <= signal close; "
+        "recognize publication lag as unknown and do NOT pretend this data "
+        "was necessarily available in real time at Entry. "
         "Live funding, open interest and mark prices captured AFTER the signal "
         "are research-time context ONLY, not verified entry-time conditions. "
         "External_news is grounded at RESEARCH time, not necessarily signal time; "
@@ -408,6 +411,28 @@ class GeminiObserver:
                 LOG.warning("AI_INDEPENDENT_SMC_FAIL error_class=%s", type(exc).__name__)
                 structure = {"status": "UNAVAILABLE"}
         ctx["external_market"] = market
+        historical = {"status": "DISABLED"}
+        if self.market_enabled:
+            try:
+                historical = self.market.derivatives_as_of(intent.symbol, intent.close_time)
+            except Exception as exc:
+                LOG.warning("AI_HISTORICAL_DERIVATIVES_FAIL error_class=%s",
+                            type(exc).__name__)
+                historical = {"status": "UNAVAILABLE"}
+        ctx["historical_derivatives"] = historical
+        for kind, datum in (
+            ("FUNDING", historical.get("funding")),
+            ("OI", historical.get("open_interest")),
+        ):
+            if datum:
+                ctx["features"].append({
+                    "id": f"EXT-BINANCE-{kind}-ASOF",
+                    "kind": f"HISTORICAL_{kind}_ASOF",
+                    "source": "Binance historical public REST",
+                    "as_of_ms": intent.close_time,
+                    "publication_lag_unknown": True,
+                    "data": datum,
+                })
         ctx["independent_smc"] = structure
         for tf, evidence in structure.get("timeframes", {}).items():
             ctx["features"].append({
