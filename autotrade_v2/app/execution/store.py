@@ -133,17 +133,17 @@ class ExecutionStore:
         ]
         with self._lock,self._connection() as con:
             try:
-                with con.cursor() as cur:
-                    for payload,event_id,target in encoded:
-                        cur.execute(self._sql("""
-                            UPDATE processed_targets
-                               SET payload=?,processed_at=CURRENT_TIMESTAMP
-                             WHERE event_id=? AND target=?
-                        """),(payload,event_id,target))
-                        if cur.rowcount!=1:
-                            raise RuntimeError(
-                                f"flat reconciliation state missing: {event_id}"
-                            )
+                cur=con.cursor()
+                for payload,event_id,target in encoded:
+                    cur.execute(self._sql("""
+                        UPDATE processed_targets
+                           SET payload=?,processed_at=CURRENT_TIMESTAMP
+                         WHERE event_id=? AND target=?
+                    """),(payload,event_id,target))
+                    if cur.rowcount!=1:
+                        raise RuntimeError(
+                            f"flat reconciliation state missing: {event_id}"
+                        )
                 con.commit()
             except Exception:
                 con.rollback()
