@@ -492,7 +492,8 @@ class ExecutionService:
                 for side in {s["intent"]["side"] for _,s in states}:
                     siblings=[(eid,s) for eid,s in all_states
                               if (s.get("intent") or {}).get("symbol")==symbol
-                              and (s.get("intent") or {}).get("side")==side]
+                              and (s.get("intent") or {}).get("side")==side
+                              and not s.get("exchange_flat_reconciled")]
                     try:
                         side_reports[side]=reconcile_side(siblings,positions,by_id,history_by_id)
                     except Exception as exc:
