@@ -46,6 +46,7 @@ class ExecutionService:
         self._exit_cleanup_scan_errors = {}
         self._last_reconciliation_check = {}
         self._last_reconciliation_alert = {}
+        self._next_flat_reconciliation_poll = 0.0
 
     def _emit(self, key: str, severity: str, message: str, intent: TradeIntent | None = None, **extra) -> None:
         if not self.event_cb:
@@ -365,6 +366,20 @@ class ExecutionService:
                 "accepted":result.accepted,
             })
         return recovered
+
+    def reconcile_flat_history(self)->list[dict]:
+        """Read-only exchange checks even when orphan cleanup is disabled.
+
+        Runs no more than once per minute unless a fresh Entry asks directly.
+        """
+        now=time.monotonic()
+        if now < self._next_flat_reconciliation_poll:
+            return []
+        with self._execution_lock, self._trade_lock() as acquired:
+            if not acquired:
+                return []
+            self._next_flat_reconciliation_poll=time.monotonic()+60.0
+            return self._reconcile_idle_flat_locked()
 
     def cleanup_closed_exits(self)->list[dict]:
         with self._execution_lock, self._trade_lock() as acquired:
