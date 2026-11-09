@@ -96,12 +96,27 @@ class BingxPostLearningTests(unittest.TestCase):
         obs._claim_bingx = Mock(return_value=1)
         obs._finish_bingx = Mock(return_value=True)
         obs._try_budget = Mock(return_value=True)
-        obs._observe_bingx_closed()
+        with patch("app.ai.observer.time", return_value=_evidence()["closed_ms"] / 1000 + 10):
+            obs._observe_bingx_closed()
         obs._finish_bingx.assert_called_once()
         cb.assert_called_once()
         self.assertEqual(cb.call_args.args[0], "L4.AI.BINGX_POST_REVIEW")
         self.assertEqual(cb.call_args.kwargs["details"]["pre_trade_assessment"], "CORRECT")
         client.ask.assert_called_once()
+
+    def test_historical_backfill_writes_db_without_discord_spam(self):
+        client = Mock()
+        client.ask.return_value = (_response(), {}, 25)
+        cb = Mock()
+        obs = GeminiObserver("fake", enabled=True, client=client, event_cb=cb)
+        obs._bingx_candidates = Mock(return_value=[(_review(), _evidence())])
+        obs._claim_bingx = Mock(return_value=1)
+        obs._finish_bingx = Mock(return_value=True)
+        obs._try_budget = Mock(return_value=True)
+        with patch("app.ai.observer.time", return_value=_evidence()["closed_ms"] / 1000 + 86400):
+            obs._observe_bingx_closed()
+        obs._finish_bingx.assert_called_once()
+        cb.assert_not_called()
 
     def test_existing_hash_skips_and_does_not_consume_budget(self):
         client = Mock()
