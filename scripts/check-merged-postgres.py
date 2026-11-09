@@ -88,6 +88,43 @@ with TemporaryDirectory(prefix='merged-pg-') as tmp:
         restarted.credentials_verified=True;restarted.executor.client=exchange
         assert restarted.execute(second).status=='duplicate_skipped'
         assert len(exchange.clients)==2
+        # Exchange is now flat (for example: a user manually closed BTC C7).
+        # Old execution flags must not lock a new independent entry. Persist the
+        # boundary across new Postgres sessions and reject half-committed epochs.
+        with psycopg.connect(uri) as con:
+            con.execute('TRUNCATE processed_targets')  # isolated test server
+        flat_old,flat_new=signal(),signal(7)
+        ex=Exchange();service.executor.client=ex
+        assert service.execute(flat_old).status=='complete'
+        old=a.get_state(flat_old.event_id)
+        old.update({'terminal':False,'stage':'position_identification_pending',
+                    'safety_status':'RECONCILE_REQUIRED',
+                    'recovery':{'attempts':8,'manual_required':True}})
+        a.save_state(flat_old.event_id,old)
+        ex.amount=__import__('decimal').Decimal('0')
+        for row in ex.orders.values():
+            if row.get('type') in {'STOP_MARKET','TAKE_PROFIT_MARKET','TRAILING_STOP_MARKET'}:
+                if row.get('status')=='NEW':
+                    row['status']='CANCELLED'
+        assert service.execute(flat_new).status=='complete'
+        historical=ExecutionStore('',database_url=uri).get_state(flat_old.event_id)
+        assert historical['terminal'] and historical['exchange_flat_reconciled']
+        assert historical['exchange_flat_reconciled']['previous_safety_status']=='RECONCILE_REQUIRED'
+        try:
+            a.save_states_atomic([
+                (flat_old.event_id,{'stage':'corrupted-partial-epoch'}),
+                ('no-such-event',{'stage':'should-fail'}),
+            ])
+            raise AssertionError('missing history row must cause atomic rollback')
+        except RuntimeError as exc:
+            if str(exc)=='missing history row must cause atomic rollback':
+                raise
+            assert 'state missing' in str(exc)
+        historical=ExecutionStore('',database_url=uri).get_state(flat_old.event_id)
+        assert historical['exchange_flat_reconciled']
+        assert historical['stage']!='corrupted-partial-epoch'
+        print('PASS PostgreSQL: 2-snapshot exchange-flat history, durable epoch and rollback')
+
         from protection_retry_abort_test import FailureExchange
         for kind in ('sl','tp','trailing'):
             with psycopg.connect(uri) as con:
