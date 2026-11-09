@@ -46,6 +46,31 @@ class IndependentResearchTests(unittest.TestCase):
         self.assertTrue(all(c.kwargs["params"]["endTime"] == end
                             for c in transport.call_args_list))
 
+    def test_as_of_derivatives_ignore_future_records(self):
+        now_ms = 10_000_000
+        def fake_get(url, *, params, timeout):
+            resp = Mock()
+            if url.endswith("openInterestHist"):
+                resp.json.return_value = [
+                    {"timestamp": now_ms-900_000, "sumOpenInterestValue": "200"},
+                    {"timestamp": now_ms+900_000, "sumOpenInterestValue": "9000"},
+                    {"timestamp": now_ms-1_800_000, "sumOpenInterestValue": "100"},
+                ]
+            else:
+                resp.json.return_value = [
+                    {"fundingTime": now_ms+1, "fundingRate": "0.9"},
+                    {"fundingTime": now_ms-1000, "fundingRate": "-0.002"},
+                ]
+            return resp
+        market = BinanceFuturesPublic(get=fake_get)
+        data = market.derivatives_as_of("BTC-USDT", now_ms)
+        self.assertEqual(data["status"], "AVAILABLE")
+        self.assertEqual(data["open_interest"]["notional_usdt"], 200.0)
+        self.assertAlmostEqual(data["open_interest"]["change_pct_from_previous"], 100.0)
+        self.assertEqual(data["funding"]["last_settled_rate"], -0.002)
+        self.assertLessEqual(data["funding"]["source_ms"], now_ms)
+        self.assertTrue(data["publication_lag_unknown"])
+
     def test_binance_timeout_keeps_partial_or_unavailable_and_never_blocks(self):
         transport = Mock(side_effect=requests.Timeout("network"))
         public = BinanceFuturesPublic(get=transport)
@@ -86,6 +111,7 @@ class IndependentResearchTests(unittest.TestCase):
         ai.news_enabled = False
         ai.market = Mock()
         ai.market.capture.return_value = {"status": "UNAVAILABLE"}
+        ai.market.derivatives_as_of.return_value = {"status": "UNAVAILABLE"}
         ai.market.structure_as_of.return_value = {
             "status": "PARTIAL", "timeframes": {"1h": {
                 "status": "AVAILABLE", "trend": "BEARISH", "last_break": None,
