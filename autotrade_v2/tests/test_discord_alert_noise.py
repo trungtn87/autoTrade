@@ -70,8 +70,10 @@ class DiscordAlertNoiseTests(unittest.TestCase):
         summary = self.post.call_args.kwargs["json"]["content"]
         self.assertIn("Entry chưa được gửi", summary)
         self.assertIn("C15", summary)
-        self.assertIn("NO_VERIFIED_ACTIVE_SL", summary)
+        self.assertIn("Chưa xác minh được Stop Loss (SL)", summary)
         self.assertNotIn("ETH-USDT|15m|C7|SELL|100:", summary)
+        self.assertIn("Cần làm:", summary)
+        self.assertIn("Mã tra cứu:", summary)
 
         changed = event(key, event_id="third", risks=risks + [
             "ETH-USDT|15m|C7|SELL|100:NO_VERIFIED_ACTIVE_TP"
