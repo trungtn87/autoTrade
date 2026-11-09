@@ -819,7 +819,11 @@ class GeminiObserver:
             try:
                 inserted = self._finish_bingx(review["event_id"], fingerprint,
                                               attempt, result, error)
-                if inserted and result:
+                # Backfill old lessons silently: never flood BTC/ETH Discord
+                # with historical reports when the feature is first enabled.
+                recent_exit = (0 <= int(time() * 1000) - int(payload["closed_ms"])
+                               <= 12 * 3600 * 1000)
+                if inserted and result and recent_exit:
                     self._announce("L4.AI.BINGX_POST_REVIEW", review["event_id"],
                                    review["symbol"], None, {
                         "combo": review["combo"], "side": review["side"],
