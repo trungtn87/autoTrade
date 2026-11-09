@@ -20,12 +20,14 @@ import pandas as pd
 import requests
 
 from .gemini_config import generation_config
+from .external_research import BinanceFuturesPublic
+from ..strategy.final14_config import get_case
 from ..strategy.final14_research.smc_ob import OBConfig, ob_context
 from ..strategy.final14_research.smc_structure import smc_direction
 
 LOG = logging.getLogger(__name__)
-PROMPT_VERSION = "observe.pre.vi.v2"
-POST_PROMPT_VERSION = "observe.post.vi.v2"
+PROMPT_VERSION = "observe.pre.research.v3"
+POST_PROMPT_VERSION = "observe.post.research.v3"
 RULES_VERSION = "observe.only.v1"
 VALID_DECISIONS = {"ALLOW", "BLOCK", "UNSURE"}
 
@@ -164,6 +166,47 @@ class GeminiClient:
         self.timeout_sec = timeout_sec
         self.transport = transport or requests.post
 
+    def research_news(self, symbol: str, signal_close_ms: int) -> dict:
+        """Google Search grounding with source URLs, never pre-signal verified news."""
+        observed_ms = int(time() * 1000)
+        message = (
+            f"Tìm nguồn tin tài chính mới về {symbol}, crypto, Fed, CPI, ETF. "
+            "Viết tối đa 4 câu tiếng Việt, chỉ đưa sự kiện có nguồn. "
+            "Không có tin kiểm chứng thì nói rõ. Thời điểm tín hiệu (milliseconds UTC) "
+            f"{signal_close_ms}. Đây là nghiên cứu SAU tín hiệu. Không được khẳng định "
+            "một tin đã tồn tại trước tín hiệu nếu không có published_ms xác minh."
+        )
+        response = self.transport(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent",
+            headers={"x-goog-api-key": self.key, "Content-Type": "application/json"},
+            json={"contents": [{"parts": [{"text": message}]}],
+                  "tools": [{"google_search": {}}],
+                  "generationConfig": generation_config(self.model, 1024)},
+            timeout=self.timeout_sec,
+        )
+        response.raise_for_status()
+        candidate = (response.json().get("candidates") or [{}])[0]
+        grounding = candidate.get("groundingMetadata") or {}
+        refs = []
+        for item in grounding.get("groundingChunks") or []:
+            web = item.get("web") or {}
+            uri = web.get("uri")
+            if isinstance(uri, str) and uri.startswith("https://"):
+                refs.append({"url": uri[:700], "title": str(web.get("title") or "")[:140],
+                             "published_ms": None})
+            if len(refs) == 5:
+                break
+        summary = "".join(p.get("text", "") for p in
+                          (candidate.get("content") or {}).get("parts", [])
+                          if isinstance(p, dict))
+        if not refs:
+            return {"status": "UNAVAILABLE", "observed_ms": observed_ms,
+                    "sources": [], "summary": ""}
+        return {"status": "GROUNDED_REVIEW_TIME", "observed_ms": observed_ms,
+                "observed_after_signal": observed_ms > int(signal_close_ms),
+                "publication_time_verified": False, "sources": refs,
+                "summary": summary[:1600]}
+
     def ask(self, prompt: str) -> tuple[dict, dict, int]:
         started = monotonic()
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
@@ -193,7 +236,18 @@ def _pre_prompt(ctx: dict) -> str:
         "Do not repeat the existing combo SMC veto as a new finding. "
         "BOS, CHoCH, FVG, liquidity not explicitly computed are interpretations, "
         "never verified features. Cite feature ids in risk_flags evidence_ids. "
-        "News is UNAVAILABLE: news_risk must be UNKNOWN and never invent headlines. "
+        "Use independent Binance SMC (independent_smc) to compare against bot SMC. "
+        "External SMC must be based on independently fetched closed Binance candles "
+        "as of the actual signal close; describe BOS, CHoCH and FVG levels precisely "
+        "and distinguish algorithmic heuristic findings from AI opinions. "
+        "Never invent liquidity zones: label estimated pools as hypotheses. "
+        "Respect actual per-combo strategy_config: for example, a 4h OB cannot "
+        "be characterized as the mandatory filter for a 1h-only OB strategy. "
+        "Live funding, open interest and mark prices captured AFTER the signal "
+        "are research-time context ONLY, not verified entry-time conditions. "
+        "External_news is grounded at RESEARCH time, not necessarily signal time; "
+        "without trustworthy published_ms <= signal close, news_risk MUST be UNKNOWN. "
+        "Do not invent headlines, liquidation events or unproven causal relationships. "
         "Return ONLY JSON object with decision ALLOW, BLOCK or UNSURE, confidence 0..1, "
         "smc_alignment ALIGNED, MIXED, CONFLICT or UNKNOWN, news_risk UNKNOWN, "
         "risk_flags as array of {code,severity,evidence_ids}, "
@@ -214,6 +268,10 @@ def _post_prompt(ctx: dict) -> str:
         "the reconciliation ledger. Never assume outcome from merged BingX symbol positions. "
         "Compare immutable signal-time AI review with verified results; avoid hindsight bias. "
         "Do not invent SMC events, money values, exit motives, fees or news. "
+        "Use external_exit_window only as Binance historical price context, "
+        "never as verified BingX entry/exit prices or TP/SL evidence. "
+        "Do not infer the cause of wins or losses from correlation alone, "
+        "and never retroactively treat research-time news as pre-signal knowledge. "
         "If evidence inadequate choose INCONCLUSIVE. Return ONLY a JSON object with keys "
         "primary_cause, contributing_factors (array), pre_trade_assessment "
         "(CORRECT|INCORRECT|INCONCLUSIVE), explanation, lessons (array). "
@@ -244,6 +302,11 @@ class GeminiObserver:
         self._queue: Queue = Queue(maxsize=32)
         self._daily_lock = Lock()
         self._daily = ("", 0)
+        self._news_daily = ("", 0)
+        self.market_enabled = os.getenv("AI_EXTERNAL_MARKET_ENABLED", "false").lower() in ("1", "true", "yes")
+        self.news_enabled = os.getenv("AI_NEWS_GROUNDING_ENABLED", "false").lower() in ("1", "true", "yes")
+        self.max_news_per_day = min(30, max(0, int(os.getenv("AI_NEWS_MAX_CALLS_PER_DAY", "8"))))
+        self.market = BinanceFuturesPublic()
         self.max_calls_per_day = min(500, max(0, int(os.getenv("AI_DAILY_MAX_CALLS", "50"))))
         self.poll_seconds = poll_seconds
         self._last_post_check = 0.0
@@ -313,6 +376,73 @@ class GeminiObserver:
             self._daily = (d, n + 1)
             return True
 
+    def _try_news_budget(self):
+        day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        with self._daily_lock:
+            d, count = self._news_daily
+            if d != day:
+                d, count = day, 0
+            if count >= self.max_news_per_day:
+                self._news_daily = (d, count)
+                return False
+            self._news_daily = (d, count + 1)
+            return True
+
+    def _external_pre(self, intent, ctx):
+        """Enrichment in observer daemon only, never in the executor path."""
+        cfg = get_case(intent.symbol, intent.combo)
+        ctx["strategy_config"] = {
+            "combo_config": dict(cfg) if cfg else None,
+            "note": "Locked thresholds; no independent recalculation of all entry indicators.",
+        }
+        market, structure = {"status": "DISABLED"}, {"status": "DISABLED"}
+        if self.market_enabled:
+            try:
+                market = self.market.capture(intent.symbol, intent.close_time)
+            except Exception as exc:
+                LOG.warning("AI_EXTERNAL_MARKET_FAIL error_class=%s", type(exc).__name__)
+                market = {"status": "UNAVAILABLE"}
+            try:
+                structure = self.market.structure_as_of(intent.symbol, intent.close_time)
+            except Exception as exc:
+                LOG.warning("AI_INDEPENDENT_SMC_FAIL error_class=%s", type(exc).__name__)
+                structure = {"status": "UNAVAILABLE"}
+        ctx["external_market"] = market
+        ctx["independent_smc"] = structure
+        for tf, evidence in structure.get("timeframes", {}).items():
+            ctx["features"].append({
+                "id": f"EXT-BINANCE-SMC-{tf}", "kind": "INDEPENDENT_SMC_HEURISTIC",
+                "source": "Binance USD-M historical klines",
+                "as_of_ms": intent.close_time, "data": evidence,
+            })
+        if market.get("mark"):
+            ctx["features"].append({
+                "id": "EXT-BINANCE-MARK", "kind": "RESEARCH_TIME_MARK",
+                "data": market["mark"], "observed_after_signal": True,
+            })
+        if market.get("open_interest"):
+            ctx["features"].append({
+                "id": "EXT-BINANCE-OI", "kind": "RESEARCH_TIME_OPEN_INTEREST",
+                "data": market["open_interest"], "observed_after_signal": True,
+            })
+        news = {"status": "UNAVAILABLE", "sources": []}
+        if (self.news_enabled and self.client is not None
+                and callable(getattr(self.client, "research_news", None))
+                and self._try_news_budget() and self._try_budget()):
+            try:
+                news = self.client.research_news(intent.symbol, intent.close_time)
+            except Exception as exc:
+                LOG.warning("AI_NEWS_GROUNDING_FAIL error_class=%s", type(exc).__name__)
+        ctx["external_news"] = news
+        ctx["news_status"] = news.get("status", "UNAVAILABLE")
+        if news.get("status") == "GROUNDED_REVIEW_TIME":
+            for i, source in enumerate(news.get("sources", [])[:5]):
+                ctx["features"].append({
+                    "id": f"EXT-NEWS-{i+1}", "kind": "RESEARCH_TIME_NEWS",
+                    "url": source.get("url"), "published_ms": source.get("published_ms"),
+                    "observed_after_signal": True,
+                })
+
     def _pre_exists(self, event_id):
         with self._connection() as con:
             return con.execute(
@@ -332,7 +462,7 @@ class GeminiObserver:
                     model,prompt_version,rules_version,latency_ms,tokens_in,tokens_out,error_code
                 ) VALUES (
                     %s,%s,%s,%s,%s,%s,'OBSERVE',%s,'NO_INTERVENTION',%s,%s,%s,
-                    'UNAVAILABLE',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
+                    %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
                 ) ON CONFLICT (event_id) DO NOTHING RETURNING event_id
             """, (
                 intent.event_id,intent.symbol,
@@ -341,6 +471,7 @@ class GeminiObserver:
                 output.get("confidence") if output else None,
                 output.get("smc_alignment") if output else None,
                 output.get("news_risk", "UNKNOWN") if output else "UNKNOWN",
+                ctx.get("news_status", "UNAVAILABLE"),
                 Jsonb(output.get("risk_flags", [])) if output else Jsonb([]),
                 Jsonb(ctx),_digest(ctx),Jsonb(output) if output else None,
                 self.model,PROMPT_VERSION,RULES_VERSION,latency_ms,
@@ -357,6 +488,7 @@ class GeminiObserver:
             if self._try_budget():
                 started = monotonic()
                 try:
+                    self._external_pre(intent, ctx)
                     response, usage, elapsed = self.client.ask(_pre_prompt(ctx))
                     output = _validated_output(_candidate_output(response), ctx)
                     decision = output["decision"]
@@ -375,8 +507,11 @@ class GeminiObserver:
                                int(intent.combo), {
                     "side": intent.side, "ai_decision": decision,
                     "smc_alignment": output.get("smc_alignment"),
-                    "news_status": "UNAVAILABLE",
+                    "news_status": ctx.get("news_status", "UNAVAILABLE"),
                     "news_risk": output.get("news_risk"),
+                    "independent_smc_status": ctx.get("independent_smc", {}).get("status"),
+                    "external_market_status": ctx.get("external_market", {}).get("status"),
+                    "news_source_count": len(ctx.get("external_news", {}).get("sources", [])),
                     "reasoning_verified": output.get("reasoning_verified"),
                     "reasoning_ai_opinion": output.get("reasoning_ai_opinion"),
                     "entry": intent.entry, "tp": intent.tp, "sl": intent.sl,
@@ -446,6 +581,17 @@ class GeminiObserver:
                 ctx = {"contract_version": "observe.post.v1", "event_id": event_id,
                        "revision": int(revision), "pre": pre, "pre_review": review,
                        "verified_result": payload}
+                if self.market_enabled:
+                    try:
+                        orig = pre.get("signal") if isinstance(pre, dict) else {}
+                        ctx["external_exit_window"] = self.market.exit_window(
+                            orig.get("symbol") or payload.get("symbol"),
+                            orig.get("close_time"),
+                            payload.get("closed_ms"),
+                        )
+                    except Exception as exc:
+                        LOG.warning("AI_EXTERNAL_EXIT_FAIL error_class=%s", type(exc).__name__)
+                        ctx["external_exit_window"] = {"status": "UNAVAILABLE"}
                 if not self._try_budget():
                     return
                 started = monotonic()
