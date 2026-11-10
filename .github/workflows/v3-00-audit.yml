@@ -1,0 +1,28 @@
+name: V3-00 Offline Evidence Audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'autotrade_v3/**'
+      - '.github/workflows/v3-00-audit.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'autotrade_v3/**'
+      - '.github/workflows/v3-00-audit.yml'
+
+jobs:
+  offline-audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Stdlib-only V3 audit tests
+        run: python -m unittest discover -s autotrade_v3/tests -v
+      - name: Compile audit in isolation
+        run: python -m compileall -q autotrade_v3
