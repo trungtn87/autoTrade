@@ -1,0 +1,44 @@
+name: V3-04 Offline Live Evidence Reconciliation
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'autotrade_v3/**'
+      - '.github/workflows/v3-04-reconcile.yml'
+      - 'scripts/v3-04-export-readonly.psql'
+  push:
+    branches: [main]
+    paths:
+      - 'autotrade_v3/**'
+      - '.github/workflows/v3-04-reconcile.yml'
+      - 'scripts/v3-04-export-readonly.psql'
+jobs:
+  offline:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run offline evidence tests
+        run: python -m unittest autotrade_v3.tests.test_reconcile_live -v
+      - name: Python compilation
+        run: python -m compileall -q autotrade_v3/data_backtest/reconcile_live.py autotrade_v3/tests/test_reconcile_live.py
+      - name: Static network/client boundary
+        run: |
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          tree = ast.parse(Path('autotrade_v3/data_backtest/reconcile_live.py').read_text())
+          forbidden = {'requests','httpx','urllib','socket','psycopg','supabase','subprocess','ccxt'}
+          imported = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imported.update(alias.name.split('.')[0] for alias in node.names)
+              if isinstance(node, ast.ImportFrom) and node.module:
+                  imported.add(node.module.split('.')[0])
+          assert not (imported & forbidden), imported & forbidden
+          print('PASS — no network, trading or database client imports in offline V3-04')
+          PY
