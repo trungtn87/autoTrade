@@ -1,0 +1,19 @@
+name: V3 Temporary Source Handoff
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/v3-02-source-handoff.yml'
+jobs:
+  sources:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: tar -czf /tmp/autotrade_v3_source.tar.gz autotrade_v2/app autotrade_v3/data_backtest/replay_20final.py autotrade_v3/data_backtest/run17_reference.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v3-02-local-replay-source
+          path: /tmp/autotrade_v3_source.tar.gz
+          retention-days: 1
