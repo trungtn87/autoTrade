@@ -100,3 +100,34 @@ class TestExisting(unittest.TestCase):
            "price_type":"LAST"} for f in self.files]}))
         with self.assertRaisesRegex(ValueError,"per-row venue"):
             inspect(self.root,self.out,self.sm,self.hashes,"2023-11-01","2023-11-02")
+
+    def test_invalid_candle_price_basis_rejected(self):
+        f=self.files[0]
+        c=duckdb.connect()
+        c.execute(f"""COPY (
+          SELECT '{f.stem}' AS symbol, x AS open_ms, 100 AS open, 101 AS high,
+                 99 AS low, 100 AS close, 2 AS volume, 'binance' AS provider,
+                 'USD-M perpetual' AS market, 'mark' AS price_basis
+          FROM unnest([1698796800000::BIGINT,1698796860000::BIGINT]) AS t(x)
+        ) TO '{str(f)}' (FORMAT PARQUET)""")
+        c.close()
+        self.hashes.write_text(json.dumps({f.name:hashlib.sha256(f.read_bytes()).hexdigest()
+                                           for f in self.files}))
+        r=inspect(self.root,self.out,self.sm,self.hashes,"2023-11-01","2023-11-02")
+        self.assertEqual(r["metrics"][0]["bad_provenance"],2)
+        self.assertEqual(r["hybrid_gate"],"FAIL")
+
+    def test_invalid_candle_market_rejected(self):
+        f=self.files[0]
+        c=duckdb.connect()
+        c.execute(f"""COPY (
+          SELECT '{f.stem}' AS symbol, x AS open_ms, 100 AS open, 101 AS high,
+                 99 AS low, 100 AS close, 2 AS volume, 'binance' AS provider,
+                 'SPOT' AS market, 'last' AS price_basis
+          FROM unnest([1698796800000::BIGINT,1698796860000::BIGINT]) AS t(x)
+        ) TO '{str(f)}' (FORMAT PARQUET)""")
+        c.close()
+        self.hashes.write_text(json.dumps({f.name:hashlib.sha256(f.read_bytes()).hexdigest()
+                                           for f in self.files}))
+        r=inspect(self.root,self.out,self.sm,self.hashes,"2023-11-01","2023-11-02")
+        self.assertEqual(r["metrics"][0]["bad_provenance"],2)

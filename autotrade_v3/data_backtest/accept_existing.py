@@ -56,7 +56,7 @@ def inspect(root:Path, out:Path, source_map:Path, checksums:Path,
             for name,path in zip(names,raw)])
         paths=[str(x) for x in raw]
         nameset={row[0] for row in db.execute(
-          "DESCRIBE SELECT * FROM read_parquet(?,union_by_name=true,filename=true)",
+          "DESCRIBE SELECT * FROM read_parquet(?,union_by_name=true,filename=true,hive_partitioning=false)",
           [paths]).fetchall()}
         # A mixed-provider Parquet requires per-row venue attribution.
         row_venue=next((v for v in nameset if v.lower() in
@@ -73,6 +73,12 @@ def inspect(root:Path, out:Path, source_map:Path, checksums:Path,
                        if row_expr else "0")
         price_basis_verified=all(row.get("price_type","").upper()=="LAST"
                                 for row in catalog["files"])
+        basis_key=next((v for v in nameset if v.lower()=="price_basis"),None)
+        market_key=next((v for v in nameset if v.lower()=="market"),None)
+        basis_expr=("lower(trim(cast(p."+column(nameset,basis_key)+" AS VARCHAR)))"
+                    if basis_key else "NULL")
+        market_expr=("trim(cast(p."+column(nameset,market_key)+" AS VARCHAR))"
+                     if market_key else "NULL")
         ts=column(nameset,"open_ms","open_time_ms","open_time","timestamp_ms","timestamp")
         o=column(nameset,"open","o");h=column(nameset,"high","h")
         l=column(nameset,"low","l");c=column(nameset,"close","c")
@@ -85,15 +91,22 @@ def inspect(root:Path, out:Path, source_map:Path, checksums:Path,
                  try_cast(p.{o} AS DOUBLE) open, try_cast(p.{h} AS DOUBLE) high,
                  try_cast(p.{l} AS DOUBLE) low, try_cast(p.{c} AS DOUBLE) AS "close",
                  try_cast(p.{v} AS DOUBLE) volume, {provider_expr} AS provider, s.market_type,
-                 {conflict_expr} AS provider_conflict, p.filename source_file
-          FROM read_parquet({filesql},union_by_name=true,filename=true) p
+                 {conflict_expr} AS provider_conflict,
+                 {basis_expr} AS recorded_price_basis, {market_expr} AS recorded_market,
+                 p.filename source_file
+          FROM read_parquet({filesql},union_by_name=true,filename=true,hive_partitioning=false) p
           JOIN v3_sources s ON p.filename=s.file""")
         result=db.execute("""SELECT symbol, count(*) AS row_count, count(DISTINCT open_ms) AS minute_count,
           count(*) FILTER(WHERE open_ms IS NULL OR open_ms<? OR open_ms>=? OR open_ms%60000<>0) bad_time,
           count(*) FILTER(WHERE provider IS NULL OR provider NOT IN ('BINANCE','BINGX')
-                OR market_type <> 'USDT_PERP' OR provider_conflict <> 0) AS bad_provenance,
+                OR market_type <> 'USDT_PERP' OR provider_conflict <> 0
+                OR (recorded_price_basis IS NOT NULL AND recorded_price_basis <> 'last')
+                OR (recorded_market IS NOT NULL AND recorded_market NOT IN ('USD-M perpetual','USDT perpetual'))
+                ) AS bad_provenance,
           count(*) FILTER(WHERE open IS NULL OR high IS NULL OR low IS NULL OR "close" IS NULL
-                 OR volume IS NULL OR open<=0 OR low<=0 OR high<=0 OR "close"<=0
+                 OR volume IS NULL OR NOT isfinite(open) OR NOT isfinite(high)
+                 OR NOT isfinite(low) OR NOT isfinite("close") OR NOT isfinite(volume)
+                 OR open<=0 OR low<=0 OR high<=0 OR "close"<=0
                  OR high<greatest(open,"close",low) OR low<0
                  OR low>least(open,"close",high) OR volume<0) bad_ohlcv
           FROM v3_m1 GROUP BY symbol ORDER BY symbol""",
