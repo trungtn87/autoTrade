@@ -1,0 +1,32 @@
+{
+  "run_id": "RUN_20261110_073545_20FINAL_BASELINE_ONE_TRADE_PER_COMBO_20231101_20261101",
+  "strategy_id": "20FINAL_BASELINE",
+  "strategy_version": "1.0.0",
+  "config_hash": "d33b4d5a949cc98e6abf037a40447d42789f442b9986fae5e615e468eaff9dd2",
+  "data_manifest_hash": "a18fc2e1bf5985945fee6609847cce753cd319da74415dc23d4f4bae231487be",
+  "git_sha": "0543ba0aa13b02d39c42806ecac3396757de4f39",
+  "execution_mode": "ONE_TRADE_PER_COMBO",
+  "time_window": {
+    "start": "2023-11-01",
+    "end": "2026-11-01"
+  },
+  "symbols": [
+    "BTC-USDT",
+    "ETH-USDT"
+  ],
+  "fee_rate_taker": 0.0005,
+  "slippage_rate": 0.0,
+  "initial_equity": 1000.0,
+  "notional_per_trade": 100.0,
+  "total_signals": 5984,
+  "accepted_entries": 4156,
+  "total_legs": 6273,
+  "skipped_signals_count": 1828,
+  "rejected_signals_count": 0,
+  "ambiguity_stats": {
+    "intrabar_tp_sl_ambiguous_count": 3,
+    "intrabar_trailing_ambiguous_count": 459
+  },
+  "validation_status": "PASS",
+  "created_at_utc": "2026-11-10T07:35:45.006054+00:00"
+}

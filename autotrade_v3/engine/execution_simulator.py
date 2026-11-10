@@ -72,6 +72,33 @@ class TradeRecord:
         return d
 
 
+@dataclass
+class SimulationResult:
+    """Encapsulates execution output across research modes (A, B, C)."""
+    mode: str
+    trades: list[TradeRecord]
+    events: list[ExecutionEvent]
+    accepted_signals: list[Signal]
+    skipped_signals: list[dict[str, Any]]
+    rejected_signals: list[dict[str, Any]]
+    snapshots: pd.DataFrame
+    ambiguity_stats: dict[str, int]
+    summary_dict: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def total_signals_count(self) -> int:
+        return len(self.accepted_signals) + len(self.skipped_signals) + len(self.rejected_signals)
+
+    @property
+    def accepted_trades_count(self) -> int:
+        return len({t.trade_id for t in self.trades})
+
+    @property
+    def total_legs_count(self) -> int:
+        return len(self.trades)
+
+
+
 
 @dataclass
 class _PortfolioActiveLeg:
@@ -124,6 +151,8 @@ class ExecutionSimulator:
         self.trailing_act_pct = trailing_act_pct
         self.trailing_cb_pct = trailing_cb_pct
         self.execution_events: list[ExecutionEvent] = []
+        self.last_skipped_signals: list[dict[str, Any]] = []
+        self.last_rejected_signals: list[dict[str, Any]] = []
 
     def get_execution_events(self) -> list[ExecutionEvent]:
         return list(self.execution_events)
@@ -132,8 +161,22 @@ class ExecutionSimulator:
         self,
         signals: list[Signal],
         df_bars: pd.DataFrame,
+        allow_concurrency: bool = False,
+        clear_skipped: bool = True,
     ) -> list[TradeRecord]:
-        """Simulate trades in Virtual Combo Isolated mode where each combo manages its own trade."""
+        """Simulate trades in Virtual Combo Isolated mode where each combo manages its own trade.
+        
+        Args:
+            signals: List of signals to simulate.
+            df_bars: Continuous M1 bars.
+            allow_concurrency: If True (MODE A: ALL_SIGNALS), every valid signal enters as an
+                independent trade regardless of active combo positions. If False (MODE B:
+                ONE_TRADE_PER_COMBO), overlapping signals are skipped with SKIPPED_BY_CONCURRENCY.
+            clear_skipped: Whether to reset last_skipped_signals before simulating.
+        """
+        if clear_skipped:
+            self.last_skipped_signals = []
+
         if not signals or df_bars.empty:
             return []
 
@@ -174,8 +217,19 @@ class ExecutionSimulator:
             if entry_idx < 0 or entry_idx >= n_bars:
                 continue
 
-            # Concurrency check: if combo is already in an open trade, skip
-            if combo_free_bar.get(sig.combo_id, -1) > entry_idx:
+            # Concurrency check: if not allowing concurrency and combo already in trade, skip
+            if not allow_concurrency and combo_free_bar.get(sig.combo_id, -1) > entry_idx:
+                self.last_skipped_signals.append({
+                    "signal_id": f"{sig.symbol}_{sig.combo_id}_{sig.signal_close_ms}",
+                    "symbol": sig.symbol,
+                    "combo_id": sig.combo_id,
+                    "combo_name": sig.combo_name,
+                    "timeframe": sig.timeframe,
+                    "side": sig.side,
+                    "signal_close_ms": sig.signal_close_ms,
+                    "signal_close_dt": str(sig.signal_close_dt),
+                    "reason": "SKIPPED_BY_CONCURRENCY",
+                })
                 continue
 
             trade_counter += 1
@@ -911,6 +965,7 @@ class ExecutionSimulator:
 
         closed_trades: list[TradeRecord] = []
         rejected_signals: list[dict[str, Any]] = []
+        skipped_signals: list[dict[str, Any]] = []
         snapshots: list[dict[str, Any]] = []
         active_combos: dict[tuple[str, int], list[str]] = {}
 
@@ -931,6 +986,17 @@ class ExecutionSimulator:
                 combo_key = (sig.symbol, sig.combo_id)
                 if active_combos.get(combo_key):
                     # Combo already in trade
+                    skipped_signals.append({
+                        "signal_id": f"{sig.symbol}_{sig.combo_id}_{sig.signal_close_ms}",
+                        "symbol": sig.symbol,
+                        "combo_id": sig.combo_id,
+                        "combo_name": sig.combo_name,
+                        "timeframe": sig.timeframe,
+                        "side": sig.side,
+                        "signal_close_ms": sig.signal_close_ms,
+                        "signal_close_dt": str(sig.signal_close_dt),
+                        "reason": "SKIPPED_BY_CONCURRENCY",
+                    })
                     continue
 
                 if sig.symbol not in bar_data:
@@ -1235,12 +1301,14 @@ class ExecutionSimulator:
             "m2m_max_drawdown_dollars": round(max_m2m_dd_dollars, 4),
             "m2m_max_drawdown_pct": round(max_m2m_dd_pct, 2),
             "rejected_signals_count": len(rejected_signals),
+            "skipped_signals_count": len(skipped_signals),
             "intrabar_tp_sl_ambiguous_count": intrabar_tp_sl_count,
             "intrabar_trailing_ambiguous_count": intrabar_trail_count,
         }
 
         self.last_portfolio_summary = m2m_summary
         self.last_rejected_signals = rejected_signals
+        self.last_skipped_signals = skipped_signals
 
         return closed_trades, pd.DataFrame(snapshots), rejected_signals, m2m_summary
 
@@ -1252,3 +1320,126 @@ class ExecutionSimulator:
         """Simulate Exchange Hedge Mode with BingX Merged Positions using true independent event loop."""
         closed_trades, df_snapshots, rejected, summary = self.simulate_portfolio_independent(signals, df_bars)
         return closed_trades, df_snapshots
+
+    def simulate_research_mode(
+        self,
+        mode: Literal["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"] | str,
+        signals: list[Signal],
+        candle_dict: dict[str, pd.DataFrame],
+    ) -> SimulationResult:
+        """Run standardized simulation for one of the three research modes.
+
+        MODE A (ALL_SIGNALS):
+            - No concurrency skipping.
+            - Every valid approved signal enters an independent trade.
+            - No margin limitations applied.
+        MODE B (ONE_TRADE_PER_COMBO):
+            - At most one open trade per combo at any given time.
+            - Overlapping signals for the same combo are skipped (SKIPPED_BY_CONCURRENCY).
+            - No margin limitations applied.
+        MODE C (BINGX_PORTFOLIO):
+            - Hedge-mode merged positions by symbol and side with VWAP.
+            - Strict margin enforcement (INSUFFICIENT_MARGIN).
+            - Continuous M2M equity snapshots and drawdown.
+        """
+        mode_clean = mode.upper().strip()
+        if mode_clean in ("A", "MODE_A", "ALL_SIGNALS"):
+            canonical_mode = "ALL_SIGNALS"
+        elif mode_clean in ("B", "MODE_B", "ONE_TRADE_PER_COMBO", "VIRTUAL_ISOLATED"):
+            canonical_mode = "ONE_TRADE_PER_COMBO"
+        elif mode_clean in ("C", "MODE_C", "BINGX_PORTFOLIO", "PORTFOLIO", "EXCHANGE_HEDGE_MERGED"):
+            canonical_mode = "BINGX_PORTFOLIO"
+        else:
+            raise ValueError(f"Unknown research simulation mode: {mode}. Expected ALL_SIGNALS, ONE_TRADE_PER_COMBO, or BINGX_PORTFOLIO")
+
+        self.execution_events = []
+
+        if canonical_mode in ("ALL_SIGNALS", "ONE_TRADE_PER_COMBO"):
+            allow_concurrency = (canonical_mode == "ALL_SIGNALS")
+            all_trades: list[TradeRecord] = []
+            all_skipped: list[dict[str, Any]] = []
+
+            for sym, df_sym in candle_dict.items():
+                sym_sigs = [s for s in signals if s.symbol == sym]
+                trades = self.simulate_virtual_trades(
+                    signals=sym_sigs,
+                    df_bars=df_sym,
+                    allow_concurrency=allow_concurrency,
+                    clear_skipped=True,
+                )
+                all_trades.extend(trades)
+                all_skipped.extend(self.last_skipped_signals)
+
+            all_trades.sort(key=lambda t: (t.exit_time_ms, t.trade_id, t.leg_id))
+            events = self.get_execution_events()
+
+            # Ambiguity stats
+            tp_sl_amb = sum(1 for t in all_trades if t.intrabar_ambiguous)
+            trail_amb = sum(1 for t in all_trades if getattr(t, "intrabar_trailing_ambiguous", False))
+
+            accepted_trade_ids = {t.trade_id for t in all_trades}
+            # For virtual modes, accepted signals map to distinct trades
+            accepted_sigs = [s for s in signals if not any(
+                sk["symbol"] == s.symbol and sk["combo_id"] == s.combo_id and sk["signal_close_ms"] == s.signal_close_ms
+                for sk in all_skipped
+            )]
+
+            return SimulationResult(
+                mode=canonical_mode,
+                trades=all_trades,
+                events=events,
+                accepted_signals=accepted_sigs,
+                skipped_signals=all_skipped,
+                rejected_signals=[],
+                snapshots=pd.DataFrame(),
+                ambiguity_stats={
+                    "intrabar_tp_sl_ambiguous_count": tp_sl_amb,
+                    "intrabar_trailing_ambiguous_count": trail_amb,
+                },
+                summary_dict={
+                    "total_signals": len(signals),
+                    "accepted_entries": len({t.trade_id for t in all_trades}),
+                    "total_legs": len(all_trades),
+                    "skipped_signals": len(all_skipped),
+                    "rejected_signals": 0,
+                },
+            )
+
+        else:
+            # MODE C: BINGX_PORTFOLIO
+            closed_trades, df_snaps, rejected_sigs, m2m_summary = self.simulate_portfolio_independent(
+                signals=signals,
+                candle_dict=candle_dict,
+            )
+            closed_trades.sort(key=lambda t: (t.exit_time_ms, t.trade_id, t.leg_id))
+            events = self.get_execution_events()
+
+            skipped_sigs = list(self.last_skipped_signals)
+            accepted_sigs = [
+                s for s in signals
+                if not any(sk["symbol"] == s.symbol and sk["combo_id"] == s.combo_id and sk["signal_close_ms"] == s.signal_close_ms for sk in skipped_sigs)
+                and not any(rj["symbol"] == s.symbol and rj["combo_id"] == s.combo_id and rj["timestamp_ms"] == s.signal_close_ms + 1 for rj in rejected_sigs)
+            ]
+
+            return SimulationResult(
+                mode="BINGX_PORTFOLIO",
+                trades=closed_trades,
+                events=events,
+                accepted_signals=accepted_sigs,
+                skipped_signals=skipped_sigs,
+                rejected_signals=rejected_sigs,
+                snapshots=df_snaps,
+                ambiguity_stats={
+                    "intrabar_tp_sl_ambiguous_count": m2m_summary.get("intrabar_tp_sl_ambiguous_count", 0),
+                    "intrabar_trailing_ambiguous_count": m2m_summary.get("intrabar_trailing_ambiguous_count", 0),
+                },
+                summary_dict={
+                    "total_signals": len(signals),
+                    "accepted_entries": len({t.trade_id for t in closed_trades}),
+                    "total_legs": len(closed_trades),
+                    "skipped_signals": len(skipped_sigs),
+                    "rejected_signals": len(rejected_sigs),
+                    **m2m_summary,
+                },
+            )
+

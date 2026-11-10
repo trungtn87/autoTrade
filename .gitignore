@@ -17,5 +17,8 @@ data/
 *portfolio_snapshots.csv
 runs/v3_audited_1m/
 runs/v3_audited_6m/
+runs/lab/**/*.parquet
+runs/lab/**/*.csv
+runs/lab/**/snapshots.parquet
 
 

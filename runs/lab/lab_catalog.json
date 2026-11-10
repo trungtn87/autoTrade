@@ -1,0 +1,71 @@
+[
+  {
+    "run_id": "RUN_20261110_073426_20FINAL_BASELINE_ALL_SIGNALS_20231101_20261101",
+    "created_at_utc": "2026-11-10T07:34:26.481082+00:00",
+    "strategy_id": "20FINAL_BASELINE",
+    "strategy_version": "1.0.0",
+    "execution_mode": "ALL_SIGNALS",
+    "window_start": "2023-11-01",
+    "window_end": "2026-11-01",
+    "symbols": [
+      "BTC-USDT",
+      "ETH-USDT"
+    ],
+    "total_signals": 5984,
+    "accepted_entries": 5984,
+    "total_legs": 8258,
+    "net_pnl": 410.7007,
+    "roi_pct": 41.07,
+    "profit_factor": 1.37,
+    "trade_win_rate_pct": 38.72,
+    "leg_win_rate_pct": 42.75,
+    "max_drawdown_dollars": 74.3941,
+    "validation_status": "PASS"
+  },
+  {
+    "run_id": "RUN_20261110_073545_20FINAL_BASELINE_ONE_TRADE_PER_COMBO_20231101_20261101",
+    "created_at_utc": "2026-11-10T07:35:45.006054+00:00",
+    "strategy_id": "20FINAL_BASELINE",
+    "strategy_version": "1.0.0",
+    "execution_mode": "ONE_TRADE_PER_COMBO",
+    "window_start": "2023-11-01",
+    "window_end": "2026-11-01",
+    "symbols": [
+      "BTC-USDT",
+      "ETH-USDT"
+    ],
+    "total_signals": 5984,
+    "accepted_entries": 4156,
+    "total_legs": 6273,
+    "net_pnl": 284.1945,
+    "roi_pct": 28.42,
+    "profit_factor": 1.39,
+    "trade_win_rate_pct": 39.61,
+    "leg_win_rate_pct": 44.3,
+    "max_drawdown_dollars": 44.8927,
+    "validation_status": "PASS"
+  },
+  {
+    "run_id": "RUN_20261110_073724_20FINAL_BASELINE_BINGX_PORTFOLIO_20231101_20261101",
+    "created_at_utc": "2026-11-10T07:37:24.193748+00:00",
+    "strategy_id": "20FINAL_BASELINE",
+    "strategy_version": "1.0.0",
+    "execution_mode": "BINGX_PORTFOLIO",
+    "window_start": "2023-11-01",
+    "window_end": "2026-11-01",
+    "symbols": [
+      "BTC-USDT",
+      "ETH-USDT"
+    ],
+    "total_signals": 5984,
+    "accepted_entries": 4149,
+    "total_legs": 6265,
+    "net_pnl": 282.1935,
+    "roi_pct": 28.22,
+    "profit_factor": 1.4,
+    "trade_win_rate_pct": 40.85,
+    "leg_win_rate_pct": 45.06,
+    "max_drawdown_dollars": 49.0136,
+    "validation_status": "PASS"
+  }
+]

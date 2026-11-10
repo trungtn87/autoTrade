@@ -1,0 +1,261 @@
+"""Unified CLI for AutoTrade V3 Offline Research Lab Core."""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+import sys
+from typing import Any
+
+from autotrade_v3.analysis.research_analyzer import ResearchAnalyzer
+from autotrade_v3.data_layer import DataLayer
+from autotrade_v3.lab.experiment import ExperimentRunner
+from autotrade_v3.lab.run_manager import RunManager
+from autotrade_v3.strategy.registry import StrategyRegistry
+
+SUPPORTED_MODES = [
+    {
+        "mode": "ALL_SIGNALS",
+        "alias": ["MODE_A", "A"],
+        "description": "Unconstrained signal evaluation. Every approved signal is entered as an independent trade (no concurrency skips, no margin limit).",
+    },
+    {
+        "mode": "ONE_TRADE_PER_COMBO",
+        "alias": ["MODE_B", "B", "VIRTUAL_ISOLATED"],
+        "description": "Combo-isolated execution. Each combo can have at most one active trade. Overlapping signals are recorded as SKIPPED_BY_CONCURRENCY.",
+    },
+    {
+        "mode": "BINGX_PORTFOLIO",
+        "alias": ["MODE_C", "C", "EXCHANGE_HEDGE_MERGED"],
+        "description": "Exchange hedge mode merged positions with VWAP entry blending, strict account margin checks, and continuous M2M intra-trade equity tracking.",
+    },
+]
+
+
+def cmd_datasets(args: argparse.Namespace) -> None:
+    """List available offline datasets and verify integrity."""
+    dl = DataLayer(catalog_path=args.catalog)
+    manifest = dl.get_manifest()
+    print("=== AutoTrade V3 Offline Research Datasets ===")
+    print(f"Name:             {manifest.name}")
+    print(f"Catalog Path:     {manifest.catalog_path}")
+    print(f"QA Manifest:      {manifest.qa_path}")
+    print(f"Time Range:       {manifest.start_utc} to {manifest.end_utc} (3 Years)")
+    print(f"Total Candles:    {manifest.total_candles:,} M1 bars")
+    print(f"Partitions:       {manifest.partition_count} Parquet files")
+    print(f"Data SHA256:      {manifest.data_manifest_hash}")
+    print(f"Integrity Status: {manifest.status}")
+    print("\nSymbols:")
+    for sym, count in manifest.symbol_candle_counts.items():
+        print(f"  - {sym}: {count:,} M1 candles")
+
+    if args.verify:
+        print("\nRunning comprehensive integrity audit (Gate A)...")
+        res = dl.verify_integrity()
+        if res["passed"]:
+            print("  -> Audit Passed: 0 gaps, 0 duplicates, 0 OHLC violations.")
+        else:
+            print("  -> Audit FAILED:", res.get("issues"))
+
+
+def cmd_strategies(args: argparse.Namespace) -> None:
+    """List registered strategies."""
+    strategies = StrategyRegistry.list_strategies()
+    print("=== AutoTrade V3 Registered Strategies ===")
+    for s in strategies:
+        print(f"- Strategy ID: {s['strategy_id']} (v{s['version']})")
+        print(f"  Required Timeframes: {s['required_timeframes']}")
+        print(f"  Config Hash:         {s['config_hash']}")
+
+
+def cmd_modes(args: argparse.Namespace) -> None:
+    """List available execution modes."""
+    print("=== AutoTrade V3 Execution Modes ===")
+    for m in SUPPORTED_MODES:
+        print(f"\n[{m['mode']}] (Aliases: {', '.join(m['alias'])})")
+        print(f"  {m['description']}")
+
+
+def cmd_backtest(args: argparse.Namespace) -> None:
+    """Execute backtest in selected mode."""
+    dl = DataLayer(catalog_path=args.catalog)
+    rm = RunManager(runs_dir=args.out_dir)
+    runner = ExperimentRunner(data_layer=dl, run_manager=rm)
+
+    symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
+    modes_to_run = [args.mode] if args.mode.upper() != "ALL" else ["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"]
+
+    for m in modes_to_run:
+        print(f"\n=======================================================")
+        print(f"Starting Backtest | Mode: {m} | Strategy: {args.strategy}")
+        print(f"Window: {args.start} to {args.end} | Symbols: {symbols}")
+        print(f"=======================================================")
+
+        res = runner.run_experiment(
+            strategy_id=args.strategy,
+            mode=m,
+            symbols=symbols,
+            start=args.start,
+            end=args.end,
+            initial_equity=args.initial_equity,
+            notional_per_trade=args.notional,
+            slippage_rate=args.slippage,
+            smoke_test=args.smoke_test,
+        )
+
+        pnl = res.analysis["pnl"]
+        acct = res.analysis["accounting"]
+        wr = res.analysis["win_rate"]
+        risk = res.analysis["risk"]
+
+        print(f"\nRun Complete: {res.run_id}")
+        print(f"Artifacts Saved: {res.run_dir}")
+        print(f"- Total Signals:  {acct['total_signals']:,}")
+        print(f"- Accepted Trades: {acct['accepted_entries']:,} ({acct['total_legs']:,} legs)")
+        print(f"- Skipped:        {acct['skipped_by_concurrency']:,} (concurrency)")
+        print(f"- Rejected:       {acct['rejected_by_margin']:,} (margin)")
+        print(f"- Net PnL:        ${pnl['net_pnl']:,.2f} (ROI: {pnl['roi_pct']:+.2f}%)")
+        print(f"- Profit Factor:  {pnl['profit_factor']:.2f}")
+        print(f"- Win Rate:       {wr['trade_win_rate_pct']:.1f}% (Trade), {wr['leg_win_rate_pct']:.1f}% (Leg)")
+        print(f"- Max Drawdown:   ${risk.get('m2m_max_drawdown_dollars', risk.get('closed_trade_max_drawdown_dollars', 0.0)):,.2f}")
+
+
+def cmd_runs(args: argparse.Namespace) -> None:
+    """List historical backtest runs."""
+    rm = RunManager(runs_dir=args.out_dir)
+    runs = rm.list_runs()
+    if not runs:
+        print("No lab backtest runs found.")
+        return
+
+    print("=== AutoTrade V3 Research Lab Runs ===")
+    fmt = "{:<32} {:<18} {:<18} {:<10} {:<10} {:<8} {:<8}"
+    print(fmt.format("Run ID", "Strategy", "Mode", "Net PnL", "ROI", "WinRate", "PF"))
+    print("-" * 110)
+    for r in runs:
+        print(fmt.format(
+            r.get("run_id", "")[:31],
+            r.get("strategy_id", "")[:17],
+            r.get("execution_mode", "")[:17],
+            f"${r.get('net_pnl', 0.0):,.2f}",
+            f"{r.get('roi_pct', 0.0):+.2f}%",
+            f"{r.get('trade_win_rate_pct', 0.0):.1f}%",
+            f"{r.get('profit_factor', 0.0):.2f}",
+        ))
+
+
+def cmd_compare(args: argparse.Namespace) -> None:
+    """Compare multiple backtest runs."""
+    rm = RunManager(runs_dir=args.out_dir)
+    run_dicts = []
+    for rid in args.run_ids:
+        r = rm.get_run(rid)
+        if not r:
+            print(f"Warning: Run ID '{rid}' not found in catalog.", file=sys.stderr)
+            continue
+        run_dicts.append(r)
+
+    if not run_dicts:
+        print("No valid runs to compare.")
+        return
+
+    comp = ResearchAnalyzer.compare_runs(run_dicts)
+    table = comp["comparison_table"]
+
+    print("=== AutoTrade V3 Research Lab Cross-Run Comparison ===")
+    fmt = "{:<28} {:<18} {:<8} {:<8} {:<8} {:<10} {:<9} {:<8} {:<10}"
+    print(fmt.format("Run ID", "Mode", "Signals", "Trades", "Legs", "Net PnL", "ROI", "WinRate", "Max DD"))
+    print("-" * 115)
+    for row in table:
+        print(fmt.format(
+            row["run_id"][:27],
+            row["mode"][:17],
+            str(row["total_signals"]),
+            str(row["accepted_entries"]),
+            str(row["total_legs"]),
+            f"${row['net_pnl']:,.2f}",
+            f"{row['roi_pct']:+.2f}%",
+            f"{row['win_rate_trade_pct']:.1f}%",
+            f"${row['max_drawdown_dollars']:,.2f}",
+        ))
+
+
+def cmd_report(args: argparse.Namespace) -> None:
+    """View report for a specific run."""
+    rm = RunManager(runs_dir=args.out_dir)
+    r = rm.get_run(args.run_id)
+    if not r:
+        print(f"Error: Run '{args.run_id}' not found.", file=sys.stderr)
+        sys.exit(1)
+
+    rep_file = Path(r["path"]) / "report.md"
+    if rep_file.exists():
+        print(rep_file.read_text(encoding="utf-8"))
+    else:
+        print(json.dumps(r["analysis"], indent=2, default=str))
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="autotrade_v3",
+        description="AutoTrade V3 Offline Research Lab Core CLI",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # Datasets
+    p_ds = subparsers.add_parser("datasets", help="List available offline datasets")
+    p_ds.add_argument("--catalog", default="catalog/research.duckdb", help="DuckDB catalog path")
+    p_ds.add_argument("--verify", action="store_true", help="Run deep integrity audit")
+    p_ds.set_defaults(func=cmd_datasets)
+
+    # Strategies
+    p_st = subparsers.add_parser("strategies", help="List registered strategies")
+    p_st.set_defaults(func=cmd_strategies)
+
+    # Modes
+    p_md = subparsers.add_parser("modes", help="List execution simulation modes")
+    p_md.set_defaults(func=cmd_modes)
+
+    # Backtest
+    p_bt = subparsers.add_parser("backtest", help="Execute simulation backtest")
+    p_bt.add_argument("--strategy", default="20FINAL_BASELINE", help="Strategy ID")
+    p_bt.add_argument("--mode", default="ALL_SIGNALS", choices=["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO", "all", "ALL"], help="Execution mode")
+    p_bt.add_argument("--symbols", default="BTC-USDT,ETH-USDT", help="Comma-separated symbols")
+    p_bt.add_argument("--start", default="2023-11-01", help="Start date (UTC)")
+    p_bt.add_argument("--end", default="2026-11-01", help="End date (UTC)")
+    p_bt.add_argument("--initial-equity", type=float, default=1000.0, help="Initial account equity")
+    p_bt.add_argument("--notional", type=float, default=100.0, help="Notional position size per trade ($)")
+    p_bt.add_argument("--slippage", type=float, default=0.0, help="Per-side slippage rate (e.g. 0.0001 = 0.01%)")
+    p_bt.add_argument("--catalog", default="catalog/research.duckdb", help="DuckDB catalog path")
+    p_bt.add_argument("--out-dir", default="runs/lab", help="Directory to store run artifacts")
+    p_bt.add_argument("--smoke-test", action="store_true", help="Use synthetic fixture for fast verification")
+    p_bt.set_defaults(func=cmd_backtest)
+
+    # Runs
+    p_rn = subparsers.add_parser("runs", help="List historical research runs")
+    p_rn.add_argument("--out-dir", default="runs/lab", help="Directory where runs are stored")
+    p_rn.set_defaults(func=cmd_runs)
+
+    # Compare
+    p_cp = subparsers.add_parser("compare", help="Compare multiple runs")
+    p_cp.add_argument("run_ids", nargs="+", help="Run IDs to compare")
+    p_cp.add_argument("--out-dir", default="runs/lab", help="Directory where runs are stored")
+    p_cp.set_defaults(func=cmd_compare)
+
+    # Report
+    p_rp = subparsers.add_parser("report", help="Display run report")
+    p_rp.add_argument("run_id", help="Run ID to display")
+    p_rp.add_argument("--out-dir", default="runs/lab", help="Directory where runs are stored")
+    p_rp.set_defaults(func=cmd_report)
+
+    return parser
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()
