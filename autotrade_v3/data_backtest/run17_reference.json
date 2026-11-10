@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "dataset": "RUN17 hybrid 15m 2021-01-01..2026-09-20",
+  "source_commit": "11c215db8cc1be1c0872360291f308bba7582cf7",
+  "source_run": 35623101331,
+  "reference_type": "Old research vs current V2 exact on identical RUN17 M15",
+  "results": {
+    "BTC-USDT": {
+      "C1": {
+        "raw_events": 546,
+        "passed_events": 438,
+        "raw_sha256": "4a3b0675a75687dcc4dd2dcc9561d16dc1ce38407888cba89c0000b7e3e414d6",
+        "passed_sha256": "41226ab93088f0775b97987e9076cbffceeddd31dc1432689c5d360911eba5b7"
+      },
+      "C10": {
+        "raw_events": 99,
+        "passed_events": 83,
+        "raw_sha256": "99891e873ac919275e6ce37f6a0f09beb8c58f6bcf50f3b50244eb7ca9be4f5b",
+        "passed_sha256": "9044d8c26e9aeb003093376e7eab21ef437cb623ecb081c1b4762432cb307a36"
+      },
+      "C2": {
+        "raw_events": 193,
+        "passed_events": 166,
+        "raw_sha256": "1b454b4d24c97b250306c9b8a3a07663a65538b432a8c1fd01e81a365325f945",
+        "passed_sha256": "d0547ba9ae2a6ccc2018fd6d1831b4a076093ccc145672bc837427f35afb3498"
+      },
+      "C4": {
+        "raw_events": 510,
+        "passed_events": 508,
+        "raw_sha256": "4bc1898aea1ce5c91e62c08d1b9a808380d22b8ff167c6c0697097e22e7a5476",
+        "passed_sha256": "dca9852cd70163f0cf007d67a1fb561eb689cc459072588d1fe46786b55a8222"
+      },
+      "C6": {
+        "raw_events": 241,
+        "passed_events": 228,
+        "raw_sha256": "7ce15fa949222049b4ca9e4e90f7b2d361f61599161388a32127d336b5bbb234",
+        "passed_sha256": "7f5c250a9fd8b973bd63c8b84ad554944dd891dee975eb19e28ae5bd84b4d3f2"
+      },
+      "C7": {
+        "raw_events": 380,
+        "passed_events": 380,
+        "raw_sha256": "932a4f3c8b38eb4a2dbc42e1d89d554969afabfefc53241713853b5c517d9717",
+        "passed_sha256": "932a4f3c8b38eb4a2dbc42e1d89d554969afabfefc53241713853b5c517d9717"
+      },
+      "C9": {
+        "raw_events": 212,
+        "passed_events": 183,
+        "raw_sha256": "68806b146f9187e2c68d6c49f2688fc73e4e001f6f926199cc20c9b92d5f080a",
+        "passed_sha256": "2a0f38e0e0d61e6d05c8e6567b7ba3ed2f735e9d1af016ffa2eb171693c405fb"
+      },
+      "TIER": {
+        "raw_events": 373,
+        "passed_events": 373,
+        "raw_sha256": "5680b27b77035d71491a44c71c3bc9b5c561f64fd1c74d8c5f9dab560023191c",
+        "passed_sha256": "5680b27b77035d71491a44c71c3bc9b5c561f64fd1c74d8c5f9dab560023191c"
+      },
+      "C11": {
+        "raw_events": 2421,
+        "passed_events": 1873,
+        "raw_sha256": "6b70de5e557677b08b4e1a22b74ea8a61e9af85ef0080f2fcf44d02a56ce02b1",
+        "passed_sha256": "2b4760176d0c460452a6d8b451a68a91daffd10fdbc61fdccc83f4e15f6a679a"
+      },
+      "C14": {
+        "raw_events": 711,
+        "passed_events": 631,
+        "raw_sha256": "325db355787cd66f26de151ae01a6c2d38edfe40a23b66e97da4830184dd72e5",
+        "passed_sha256": "5cce10257a5547f0ded2e16783e3df4cb2bd94e3a512d0d919fa0d53f0654311"
+      },
+      "C16": {
+        "raw_events": 407,
+        "passed_events": 352,
+        "raw_sha256": "f4e2d70d8a07863c92ad1966f303c196ecea5e134208460090d60d2a55826ff3",
+        "passed_sha256": "e23edc85a914059d764c564bccdead21d76417c0347ae4c398143ac685ab7de8"
+      }
+    },
+    "ETH-USDT": {
+      "C1": {
+        "raw_events": 517,
+        "passed_events": 513,
+        "raw_sha256": "6cbdf36430cae6482fdaf22faedfa6c03b530551c2b8425e652c47e70f96b286",
+        "passed_sha256": "d37f6b7f269be437b898d3800273e868bd7fdc0bd793cab6d5b719713d3ff72e"
+      },
+      "C10": {
+        "raw_events": 80,
+        "passed_events": 23,
+        "raw_sha256": "2e20e1f5e084a46e02654fc443845e0e56689ba3b3cfff381485752e98d984a8",
+        "passed_sha256": "f60d103bcbb6f546dea086bc52f2d1692fa5a8dee8a908d9f35c21ffa37fb8d1"
+      },
+      "C3": {
+        "raw_events": 246,
+        "passed_events": 184,
+        "raw_sha256": "4b2d71b7010b5e8ca9fc62dd0568863806f78019efdd71e32e94a8bafa251c38",
+        "passed_sha256": "62ad7b89eb6cfef8a845f5b85dfbb15b1cad76abf56165415a579ec2689b8fc9"
+      },
+      "C4": {
+        "raw_events": 538,
+        "passed_events": 535,
+        "raw_sha256": "e3e804370cfd81a970bdbf6ca368dcf3bd30e4a443a4d23f399c948f0e444e7d",
+        "passed_sha256": "4a048c96ad02af9ca09d5a8ca09e82ed5db14a1f45f42264becf4b60ae5b6a32"
+      },
+      "C6": {
+        "raw_events": 151,
+        "passed_events": 150,
+        "raw_sha256": "c87d4b3b7d30766ef2fb84e6479c66b155961090cdd2b8e88fb7b24ca474f2b7",
+        "passed_sha256": "81f077ff0c03a7478cb94d26c7a15923b382d93c6e7826fdd2887f1b2a5fad3d"
+      },
+      "C7": {
+        "raw_events": 493,
+        "passed_events": 492,
+        "raw_sha256": "5543b789943c9127249b7e90eacf339662eb45434547105d0377491f74bde698",
+        "passed_sha256": "b5755cb7f1f17880edf8e5fe64732c81946f0a0b6516ff76b55669cf2cbed083"
+      },
+      "C12": {
+        "raw_events": 1142,
+        "passed_events": 938,
+        "raw_sha256": "9e027b4065931f1796c314a95fb7d82a6f336bea19b7ce3284b9559b5d6e0d4c",
+        "passed_sha256": "f02f8dc0011c7249a0f441b43eed96a66d5679c8d36be546473489aaf5a5e8af"
+      },
+      "C13": {
+        "raw_events": 615,
+        "passed_events": 615,
+        "raw_sha256": "2405e837f252b952b11a95da2ea773f0ec1840ec561c77cd952dfc378f39bec4",
+        "passed_sha256": "2405e837f252b952b11a95da2ea773f0ec1840ec561c77cd952dfc378f39bec4"
+      },
+      "C15": {
+        "raw_events": 3072,
+        "passed_events": 3048,
+        "raw_sha256": "205da32260a4ead62404416f5090ce40fbb16feabd852ad70ddf9c4298dfd777",
+        "passed_sha256": "b775d9b27dd3eb359325666130e959b9748b0e0dbe6b751aaca7becb26f0de8b"
+      }
+    }
+  }
+}
