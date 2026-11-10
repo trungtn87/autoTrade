@@ -1,0 +1,58 @@
+Pre-Run Started at 2026-11-10T14:23:40.000000+00:00
+Command: .venv/Scripts/python -m autotrade_v3.cli backtest --strategy 20FINAL_BASELINE --mode ALL --start 2023-11-01 --end 2026-11-01 --initial-equity 1000 --notional 100 --slippage 0 --out-dir C:\Users\TCGamingCB\AppData\Local\Temp\autotrade_pre_v308
+
+=======================================================
+Starting Backtest | Mode: ALL_SIGNALS | Strategy: 20FINAL_BASELINE
+Window: 2023-11-01 to 2026-11-01 | Symbols: ['BTC-USDT', 'ETH-USDT']
+=======================================================
+
+Run Complete: RUN_20261110_142341_20FINAL_BASELINE_ALL_SIGNALS_20231101_20261101
+Artifacts Saved: C:\Users\TCGamingCB\AppData\Local\Temp\autotrade_pre_v308\RUN_20261110_142341_20FINAL_BASELINE_ALL_SIGNALS_20231101_20261101
+- Validation:     REAL_DATA_PASS
+- Total Signals:  5,984
+- Accepted Trades: 5,984 (8,258 legs)
+- Skipped:        0 (concurrency)
+- Rejected:       0 (margin)
+- Net PnL:        $410.70 (ROI: +41.07%)
+- Net Profit Factor:   1.13
+- Gross Profit Factor: 1.37
+- Win Rate:       38.7% (Trade), 42.8% (Leg)
+- Max Drawdown:   $74.39 (Closed-trade)
+
+=======================================================
+Starting Backtest | Mode: ONE_TRADE_PER_COMBO | Strategy: 20FINAL_BASELINE
+Window: 2023-11-01 to 2026-11-01 | Symbols: ['BTC-USDT', 'ETH-USDT']
+=======================================================
+
+Run Complete: RUN_20261110_142524_20FINAL_BASELINE_ONE_TRADE_PER_COMBO_20231101_20261101
+Artifacts Saved: C:\Users\TCGamingCB\AppData\Local\Temp\autotrade_pre_v308\RUN_20261110_142524_20FINAL_BASELINE_ONE_TRADE_PER_COMBO_20231101_20261101
+- Validation:     REAL_DATA_PASS
+- Total Signals:  5,984
+- Accepted Trades: 4,156 (6,273 legs)
+- Skipped:        1,828 (concurrency)
+- Rejected:       0 (margin)
+- Net PnL:        $284.19 (ROI: +28.42%)
+- Net Profit Factor:   1.14
+- Gross Profit Factor: 1.39
+- Win Rate:       39.6% (Trade), 44.3% (Leg)
+- Max Drawdown:   $44.89 (Closed-trade)
+
+=======================================================
+Starting Backtest | Mode: BINGX_PORTFOLIO | Strategy: 20FINAL_BASELINE
+Window: 2023-11-01 to 2026-11-01 | Symbols: ['BTC-USDT', 'ETH-USDT']
+=======================================================
+
+Run Complete: RUN_20261110_142731_20FINAL_BASELINE_BINGX_PORTFOLIO_20231101_20261101
+Artifacts Saved: C:\Users\TCGamingCB\AppData\Local\Temp\autotrade_pre_v308\RUN_20261110_142731_20FINAL_BASELINE_BINGX_PORTFOLIO_20231101_20261101
+- Validation:     REAL_DATA_PASS
+- Total Signals:  5,984
+- Accepted Trades: 4,149 (6,265 legs)
+- Skipped:        1,835 (concurrency)
+- Rejected:       0 (margin)
+- Net PnL:        $282.19 (ROI: +28.22%)
+- Net Profit Factor:   1.14
+- Gross Profit Factor: 1.41
+- Win Rate:       40.9% (Trade), 45.1% (Leg)
+- Max Drawdown:   $49.01 (Continuous M2M)
+
+Pre-Run Finished at 2026-11-10T14:28:45.000000+00:00 with exit code 0

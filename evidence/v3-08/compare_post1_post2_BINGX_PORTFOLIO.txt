@@ -1,0 +1,13 @@
+=== V3-08 Post-1 vs Post-2 Idempotency Comparison: Mode BINGX_PORTFOLIO ===
+
+Post-1 Directory: runs\golden\v3-08\BINGX_PORTFOLIO
+Post-2 Directory: C:\Users\TCGamingCB\AppData\Local\Temp\autotrade_post2_v308\BINGX_PORTFOLIO
+
+Artifact                     Post-1 Content Hash                                                Post-2 Content Hash                                                Match?
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+signals.parquet              52ed9b559dfba7521fe7bbe0801c485ae8ac7c4e692eb7517643ac9594999e8b   52ed9b559dfba7521fe7bbe0801c485ae8ac7c4e692eb7517643ac9594999e8b   MATCH (100% IDENTICAL)
+trades.parquet               779fac41367787ecaacddd60e6c3904c5f86888db0ade06ecc76de3495919ae9   779fac41367787ecaacddd60e6c3904c5f86888db0ade06ecc76de3495919ae9   MATCH (100% IDENTICAL)
+skipped_signals.parquet      b585ce8eb2c9ecd2f369942475ce79dd27edeabb5c1b44007990770962828621   b585ce8eb2c9ecd2f369942475ce79dd27edeabb5c1b44007990770962828621   MATCH (100% IDENTICAL)
+rejected_signals.parquet     245de4d472e8c3ee29935fc7a6ba1a5ab8a6da6c50c9ad485ed70237f50a2aa7   245de4d472e8c3ee29935fc7a6ba1a5ab8a6da6c50c9ad485ed70237f50a2aa7   MATCH (100% IDENTICAL)
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Mode BINGX_PORTFOLIO Idempotency Verification: PASS

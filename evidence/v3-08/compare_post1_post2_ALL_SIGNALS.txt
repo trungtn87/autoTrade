@@ -1,0 +1,13 @@
+=== V3-08 Post-1 vs Post-2 Idempotency Comparison: Mode ALL_SIGNALS ===
+
+Post-1 Directory: runs\golden\v3-08\ALL_SIGNALS
+Post-2 Directory: C:\Users\TCGamingCB\AppData\Local\Temp\autotrade_post2_v308\ALL_SIGNALS
+
+Artifact                     Post-1 Content Hash                                                Post-2 Content Hash                                                Match?
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+signals.parquet              52ed9b559dfba7521fe7bbe0801c485ae8ac7c4e692eb7517643ac9594999e8b   52ed9b559dfba7521fe7bbe0801c485ae8ac7c4e692eb7517643ac9594999e8b   MATCH (100% IDENTICAL)
+trades.parquet               9ca9215cd1c9f32ed4445e3c652708293acb0fe3f0511692820135fbfc8ab5de   9ca9215cd1c9f32ed4445e3c652708293acb0fe3f0511692820135fbfc8ab5de   MATCH (100% IDENTICAL)
+skipped_signals.parquet      206e84787e2cc2d0550e43c2f61690999abb7f7164e582c9b91162d3a4667823   206e84787e2cc2d0550e43c2f61690999abb7f7164e582c9b91162d3a4667823   MATCH (100% IDENTICAL)
+rejected_signals.parquet     245de4d472e8c3ee29935fc7a6ba1a5ab8a6da6c50c9ad485ed70237f50a2aa7   245de4d472e8c3ee29935fc7a6ba1a5ab8a6da6c50c9ad485ed70237f50a2aa7   MATCH (100% IDENTICAL)
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Mode ALL_SIGNALS Idempotency Verification: PASS

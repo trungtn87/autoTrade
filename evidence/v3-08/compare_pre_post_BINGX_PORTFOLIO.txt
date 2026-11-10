@@ -1,0 +1,44 @@
+=== AutoTrade V3 Ledger Comparison Report ===
+Table A: C:/Users/TCGamingCB/AppData/Local/Temp/autotrade_pre_v308/RUN_20261110_142731_20FINAL_BASELINE_BINGX_PORTFOLIO_20231101_20261101/trades.parquet (6,265 rows)
+Table B: runs/golden/v3-08/BINGX_PORTFOLIO/trades.parquet (6,265 rows)
+Join Keys: trade_id, leg_id
+Matched Rows: 6,265
+Rows only in A: 0
+Rows only in B: 0
+Columns only in B (New columns): signal_id
+
+--- Column-by-Column Divergence Analysis ---
+Column                           Status       Diff Count   Max Abs Diff        
+--------------------------------------------------------------------------------
+symbol                           IDENTICAL    0            -                   
+combo_id                         IDENTICAL    0            0                   
+combo_name                       IDENTICAL    0            -                   
+timeframe                        IDENTICAL    0            -                   
+side                             IDENTICAL    0            -                   
+leg_type                         IDENTICAL    0            -                   
+entry_time_ms                    IDENTICAL    0            0                   
+entry_time_dt                    IDENTICAL    0            -                   
+entry_price                      IDENTICAL    0            0                   
+exit_time_ms                     IDENTICAL    0            0                   
+exit_time_dt                     IDENTICAL    0            -                   
+exit_price                       IDENTICAL    0            0                   
+exit_reason                      IDENTICAL    0            -                   
+qty                              IDENTICAL    0            0                   
+notional                         IDENTICAL    0            0                   
+margin                           IDENTICAL    0            0                   
+gross_pnl                        IDENTICAL    0            0                   
+fee_total                        IDENTICAL    0            0                   
+net_pnl                          IDENTICAL    0            0                   
+return_pct                       IDENTICAL    0            0                   
+intrabar_ambiguous               IDENTICAL    0            -                   
+bars_held                        IDENTICAL    0            0                   
+provider                         IDENTICAL    0            -                   
+intrabar_trailing_ambiguous      IDENTICAL    0            -                   
+exit_policy_hash                 IDENTICAL    0            -                   
+tp_pct                           IDENTICAL    0            0                   
+sl_pct                           IDENTICAL    0            0                   
+trailing_act_pct                 IDENTICAL    0            0                   
+trailing_cb_pct                  IDENTICAL    0            0                   
+max_bars_held                    IDENTICAL    0            -                   
+--------------------------------------------------------------------------------
+RESULT: ALL MATCHED ROWS AND COMMON COLUMNS ARE 100% IDENTICAL.

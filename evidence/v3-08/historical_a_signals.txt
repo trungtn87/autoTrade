@@ -1,0 +1,9 @@
+=== V3-08 Historical Reconciliation: Input Signals ===
+Source 1: runs/3year_replay/signal_events.csv (filtered approved=True, warmup_ready=True)
+Source 2: runs/golden/v3-08/ALL_SIGNALS/signals.parquet
+
+Total historical filtered signals: 5,984
+Total golden input signals:       5,984
+Set difference (historical - golden): 0
+Set difference (golden - historical): 0
+Reconciliation Status: PASS (100% Exact Match)

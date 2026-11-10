@@ -1,0 +1,35 @@
+=== AutoTrade V3 Ledger Comparison Report ===
+Table A: runs/v3_audited/portfolio_trades.csv (6,265 rows)
+Table B: runs/golden/v3-08/BINGX_PORTFOLIO/trades.parquet (6,265 rows)
+Join Keys: symbol, combo_id, side, entry_time_ms, leg_type
+Matched Rows: 6,265
+Rows only in A: 0
+Rows only in B: 0
+Columns only in B (New columns): exit_policy_hash, max_bars_held, signal_id, sl_pct, tp_pct, trailing_act_pct, trailing_cb_pct
+
+--- Column-by-Column Divergence Analysis ---
+Column                           Status       Diff Count   Max Abs Diff        
+--------------------------------------------------------------------------------
+trade_id                         IDENTICAL    0            -                   
+leg_id                           IDENTICAL    0            -                   
+combo_name                       IDENTICAL    0            -                   
+timeframe                        IDENTICAL    0            -                   
+entry_time_dt                    IDENTICAL    0            -                   
+entry_price                      IDENTICAL    0            1.455191523e-11     
+exit_time_ms                     IDENTICAL    0            0                   
+exit_time_dt                     IDENTICAL    0            -                   
+exit_price                       IDENTICAL    0            1.455191523e-11     
+exit_reason                      IDENTICAL    0            -                   
+qty                              IDENTICAL    0            9.990923019e-17     
+notional                         IDENTICAL    0            0                   
+margin                           IDENTICAL    0            0                   
+gross_pnl                        IDENTICAL    0            4.440892099e-16     
+fee_total                        IDENTICAL    0            9.714451465e-17     
+net_pnl                          IDENTICAL    0            4.440892099e-16     
+return_pct                       IDENTICAL    0            9.990923019e-17     
+intrabar_ambiguous               IDENTICAL    0            -                   
+bars_held                        IDENTICAL    0            0                   
+provider                         IDENTICAL    0            -                   
+intrabar_trailing_ambiguous      IDENTICAL    0            -                   
+--------------------------------------------------------------------------------
+RESULT: ALL MATCHED ROWS AND COMMON COLUMNS ARE 100% IDENTICAL.

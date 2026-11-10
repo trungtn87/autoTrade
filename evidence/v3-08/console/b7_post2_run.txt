@@ -1,0 +1,57 @@
+Post-2 Run Started at 2026-11-10T15:00:27.472679+00:00
+
+=======================================================
+Starting Backtest | Mode: ALL_SIGNALS | Strategy: 20FINAL_BASELINE
+Window: 2023-11-01 to 2026-11-01 | Symbols: ['BTC-USDT', 'ETH-USDT']
+=======================================================
+
+Run Complete: ALL_SIGNALS
+Artifacts Saved: C:\Users\TCGamingCB\AppData\Local\Temp\autotrade_post2_v308\ALL_SIGNALS
+- Validation:     REAL_DATA_PASS
+- Total Signals:  5,984
+- Accepted Trades: 5,984 (8,258 legs)
+- Skipped:        0 (concurrency)
+- Rejected:       0 (margin)
+- Net PnL:        $410.70 (ROI: +41.07%)
+- Net Profit Factor:   1.13
+- Gross Profit Factor: 1.37
+- Win Rate:       38.7% (Trade), 42.8% (Leg)
+- Max Drawdown:   $74.39 (Closed-trade)
+
+=======================================================
+Starting Backtest | Mode: ONE_TRADE_PER_COMBO | Strategy: 20FINAL_BASELINE
+Window: 2023-11-01 to 2026-11-01 | Symbols: ['BTC-USDT', 'ETH-USDT']
+=======================================================
+
+Run Complete: ONE_TRADE_PER_COMBO
+Artifacts Saved: C:\Users\TCGamingCB\AppData\Local\Temp\autotrade_post2_v308\ONE_TRADE_PER_COMBO
+- Validation:     REAL_DATA_PASS
+- Total Signals:  5,984
+- Accepted Trades: 4,156 (6,273 legs)
+- Skipped:        1,828 (concurrency)
+- Rejected:       0 (margin)
+- Net PnL:        $284.19 (ROI: +28.42%)
+- Net Profit Factor:   1.14
+- Gross Profit Factor: 1.39
+- Win Rate:       39.6% (Trade), 44.3% (Leg)
+- Max Drawdown:   $44.89 (Closed-trade)
+
+=======================================================
+Starting Backtest | Mode: BINGX_PORTFOLIO | Strategy: 20FINAL_BASELINE
+Window: 2023-11-01 to 2026-11-01 | Symbols: ['BTC-USDT', 'ETH-USDT']
+=======================================================
+
+Run Complete: BINGX_PORTFOLIO
+Artifacts Saved: C:\Users\TCGamingCB\AppData\Local\Temp\autotrade_post2_v308\BINGX_PORTFOLIO
+- Validation:     REAL_DATA_PASS
+- Total Signals:  5,984
+- Accepted Trades: 4,149 (6,265 legs)
+- Skipped:        1,835 (concurrency)
+- Rejected:       0 (margin)
+- Net PnL:        $282.19 (ROI: +28.22%)
+- Net Profit Factor:   1.14
+- Gross Profit Factor: 1.41
+- Win Rate:       40.9% (Trade), 45.1% (Leg)
+- Max Drawdown:   $49.01 (Continuous M2M)
+
+Post-2 Run Finished at 2026-11-10T15:05:34.514843+00:00 with exit code 0

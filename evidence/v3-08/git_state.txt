@@ -1,0 +1,41 @@
+=== Git State & Repository Diagnostics (V3-08) ===
+Captured At: 2026-11-10T15:14:36.984402+00:00
+
+HEAD Commit:
+b68933c131725f680eafc72640153b61af85741d
+
+origin/main Commit:
+940782a8a803be55f745b4338e8e4c420a07be3c
+
+origin/feat/v3-research-lab-core Commit:
+fa853e85608ae3a30cc2c1f2cb789a10d4a6700d
+
+PR #97 Status:
+Head is fa853e8 (Open; preserved as base of feat/v3-08-golden-baseline)
+
+Branch Commits on feat/v3-08-golden-baseline:
+b68933c feat(v3-08): add deterministic signal_id, validation manifests, and lab audit tools
+b7ffa5e Merge origin/main into feat/v3-08-golden-baseline
+fa853e8 feat(lab): harden research lab core and freeze baseline (V3-07.1)
+e9081b7 feat(v3-lab): build AutoTrade offline research lab core with 3 execution modes (V3-07)
+0543ba0 feat(v3-reconcile): cross-backtest reconciliation, mathematical parity, and fine-grained slippage verification (V3-06)
+
+Git Status Porcelain:
+?? evidence/v3-08/EVIDENCE_REPORT.md
+?? evidence/v3-08/compare_post1_post2_ALL_SIGNALS.txt
+?? evidence/v3-08/compare_post1_post2_BINGX_PORTFOLIO.txt
+?? evidence/v3-08/compare_post1_post2_ONE_TRADE_PER_COMBO.txt
+?? evidence/v3-08/compare_pre_post_ALL_SIGNALS.txt
+?? evidence/v3-08/compare_pre_post_BINGX_PORTFOLIO.txt
+?? evidence/v3-08/compare_pre_post_ONE_TRADE_PER_COMBO.txt
+?? evidence/v3-08/console/
+?? evidence/v3-08/git_state.txt
+?? evidence/v3-08/historical_a_signals.txt
+?? evidence/v3-08/historical_b_mode_b_trades.txt
+?? evidence/v3-08/historical_b_mode_c_trades.txt
+?? evidence/v3-08/historical_c_mode_a_metrics.txt
+?? evidence/v3-08/junit/
+?? evidence/v3-08/recompute_ALL_SIGNALS.txt
+?? evidence/v3-08/recompute_BINGX_PORTFOLIO.txt
+?? evidence/v3-08/recompute_ONE_TRADE_PER_COMBO.txt
+?? runs/golden/

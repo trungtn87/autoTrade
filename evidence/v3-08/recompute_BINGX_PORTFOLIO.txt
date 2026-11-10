@@ -1,0 +1,26 @@
+=== AutoTrade V3 Independent Metrics Recomputation ===
+Source Ledger: runs\golden\v3-08\BINGX_PORTFOLIO\trades.parquet
+Total Unique Signals: 4,149
+Total Accepted Trades (Entries): 4,149
+Total Executed Legs:            6,265
+
+--- Breakdown By Symbol ---
+Symbol       Signals    Entries    Legs       Gross PnL ($)   Fees ($)        Net PnL ($)    
+------------------------------------------------------------------------------------------
+BTC-USDT     1861       1,861      3,021      324.6725        186.1417        138.5309       
+ETH-USDT     2288       2,288      3,244      372.4663        228.8037        143.6626       
+------------------------------------------------------------------------------------------
+TOTAL        4,149      4,149      6,265      697.1388        414.9453        282.1935       
+
+--- Win Rate Statistics ---
+Trade-level Win Rate: 40.85% (1695/4149)
+Leg-level Win Rate:   45.06% (2823/6265)
+
+--- Exit Reason Distribution ---
+Exit Reason          Count        Percentage
+---------------------------------------------
+SL                   3,255        51.96%    
+TP                   1,626        25.95%    
+TRAIL                1,381        22.04%    
+SL_INTRABAR_AMBIGUOUS 3            0.05%     
+---------------------------------------------
