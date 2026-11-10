@@ -1,0 +1,32 @@
+name: V3-04B Offline BingX Exit Evidence
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'autotrade_v3/**'
+      - 'docs/autotrade-v3/**'
+      - 'scripts/v3-04b-order-candidates-readonly.psql'
+      - '.github/workflows/v3-04b-evidence.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'autotrade_v3/**'
+      - 'docs/autotrade-v3/**'
+      - 'scripts/v3-04b-order-candidates-readonly.psql'
+      - '.github/workflows/v3-04b-evidence.yml'
+
+jobs:
+  local-exit-evidence:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline exact lineage + saved JSON normalization
+        run: python -m unittest autotrade_v3.tests.test_verify_bingx_exits autotrade_v3.tests.test_normalize_bingx_history -v
+      - name: Compile V3 data modules without importing V2 runtime
+        run: python -m compileall -q autotrade_v3/data_backtest

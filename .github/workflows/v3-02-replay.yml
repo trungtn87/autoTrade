@@ -24,5 +24,5 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install -r autotrade_v3/requirements-replay.txt
-      - run: python -m unittest autotrade_v3.tests.test_replay_20final -v
+      - run: python -m unittest autotrade_v3.tests.test_replay_20final autotrade_v3.tests.test_compare_sources -v
       - run: python -m compileall -q autotrade_v3
