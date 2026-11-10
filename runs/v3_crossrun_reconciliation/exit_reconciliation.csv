@@ -1,0 +1,5 @@
+exit_reason,v3_03_count,v3_04_virtual_count,v3_04_portfolio_count,v3_05_virtual_count,v3_05_portfolio_count,notes
+SL,3261,3261,3261,3260,3255,Standard limit/market exit
+SL_INTRABAR_AMBIGUOUS,0,0,0,3,3,Triggered by intrabar stop check
+TP,1629,1629,1629,1629,1626,Standard limit/market exit
+TRAIL,1381,1381,1381,1381,1381,Standard limit/market exit

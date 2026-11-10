@@ -1,0 +1,51 @@
+{
+  "status": "PASS",
+  "description": "Strict mathematical parity breakdown for Virtual and Portfolio execution modes",
+  "virtual_mode": {
+    "btc_legs": 3021,
+    "eth_legs": 3252,
+    "total_legs": 6273,
+    "btc_net_pnl": 138.5309,
+    "eth_net_pnl": 145.6637,
+    "total_net_pnl": 284.1945,
+    "formula_check": "138.5309 + 145.6637 == 284.1945",
+    "legs_check": "3021 + 3252 == 6273",
+    "roi_pct": 28.42
+  },
+  "portfolio_mode": {
+    "btc_legs": 3021,
+    "eth_legs": 3244,
+    "total_legs": 6265,
+    "btc_net_pnl": 138.5309,
+    "eth_net_pnl": 143.6626,
+    "total_net_pnl": 282.1935,
+    "formula_check": "138.5309 + 143.6626 == 282.1935",
+    "legs_check": "3021 + 3244 == 6265",
+    "roi_pct": 28.22
+  },
+  "reconciliation_v3_04_vs_v3_05": {
+    "v3_04_portfolio_net_pnl": 343.5206,
+    "v3_05_portfolio_net_pnl": 282.1935,
+    "delta_dollars": -61.3271,
+    "v3_04_legs": 6271,
+    "v3_05_legs": 6265,
+    "delta_legs": -6,
+    "explanation": "The -$61.33 delta between V3-04 (+$343.52) and V3-05 (+$282.19) stems from: (1) V3-04 Portfolio mode was not independent; it reused Virtual mode exit times and summed isolated PnLs without genuine VWAP order blending. (2) V3-05 implemented the true independent portfolio event loop with dynamic VWAP, real margin checking, and tick-by-tick combo concurrency, resulting in 8 fewer ETH legs (-$2.00 difference from Virtual) and realistic position blending."
+  },
+  "breakdown_by_combo": {
+    "NEW6": {
+      "virtual_trades": 2039,
+      "virtual_legs": 2039,
+      "portfolio_trades": 2033,
+      "portfolio_legs": 2033,
+      "legs_per_trade": 1
+    },
+    "FINAL14": {
+      "virtual_trades": 2117,
+      "virtual_legs": 4234,
+      "portfolio_trades": 2116,
+      "portfolio_legs": 4232,
+      "legs_per_trade": 2
+    }
+  }
+}

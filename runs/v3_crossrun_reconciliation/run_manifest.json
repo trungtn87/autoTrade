@@ -1,0 +1,36 @@
+{
+  "run_id": "V3-06_CROSS_BACKTEST_RECONCILIATION",
+  "generated_at": "2026-11-10T06:25:48.078959+00:00",
+  "git_commit": "f6e87112ac806258b91f5cbe5046298b0fa41f97",
+  "environment": "Windows Local (D:\\AutoTrade)",
+  "catalog_path": "D:\\AutoTrade\\catalog\\research.duckdb",
+  "window": {
+    "start": "2023-11-01",
+    "end": "2026-11-01"
+  },
+  "symbols": [
+    "BTC-USDT",
+    "ETH-USDT"
+  ],
+  "total_signals": 5984,
+  "source_files": {
+    "v3_04_virtual_trades_sha256": "209583c3a03f84b90e4c84285f85d38bc653d19c211e4eb954f98a13e1f9f2da",
+    "v3_04_portfolio_trades_sha256": "9779b7ad8c31bff81507722cb9f5d2cbe9333fe017a93625c97259aff41d242b",
+    "v3_05_virtual_trades_sha256": "a4574dca5dfb1eec971dd022febba119d61538667fbef1307b4e60bb7ec13e46",
+    "v3_05_portfolio_trades_sha256": "38397d6942a8d626a9c4a7f02baddfe0a4fb85a0176482dcd70850577047744b",
+    "signal_events_sha256": "de96e120476ee3b96944da360c56805923e2f0f8a4c4970fd51d43d3bd63023c"
+  },
+  "artifacts_generated": [
+    "signal_reconciliation.csv",
+    "entry_reconciliation.csv",
+    "trade_reconciliation.csv",
+    "leg_reconciliation.csv",
+    "exit_reconciliation.csv",
+    "ambiguity_reconciliation.csv",
+    "pnl_reconciliation.json",
+    "slippage_verification.json",
+    "run_manifest.json",
+    "comparison_report.html",
+    "validation_report.md"
+  ]
+}

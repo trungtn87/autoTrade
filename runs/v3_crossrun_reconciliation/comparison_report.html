@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>AutoTrade V3 Cross-Backtest Reconciliation (V3-06)</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 20px 40px; background: #0f172a; color: #f8fafc; line-height: 1.5; }
+  h1, h2, h3 { color: #38bdf8; }
+  table { width: 100%; border-collapse: collapse; margin: 20px 0; background: #1e293b; border-radius: 8px; overflow: hidden; font-size: 14px; }
+  th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #334155; }
+  th { background: #0284c7; color: white; text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em; }
+  tr:hover { background: #334155; }
+  .metric-card { background: #1e293b; padding: 20px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #38bdf8; display: inline-block; min-width: 200px; margin-right: 20px; }
+  .metric-value { font-size: 24px; font-weight: bold; color: #38bdf8; }
+  .metric-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; }
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+  .badge-pass { background: #065f46; color: #34d399; }
+</style>
+</head>
+<body>
+  <h1>AutoTrade V3 — Cross-Backtest Reconciliation Report</h1>
+  <p>Comparative analysis between V3-03 (Signal Replay), V3-04 (Initial M1), and V3-05 (Audited Portfolio Event Loop).</p>
+
+  <div class="metric-card">
+    <div class="metric-label">Total Signals Reconciled</div>
+    <div class="metric-value">5,984</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Audited Portfolio ROI</div>
+    <div class="metric-value">+28.22%</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Net Realized PnL</div>
+    <div class="metric-value">$282.19</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">Simulated Breakeven Slippage</div>
+    <div class="metric-value">0.0334% / side</div>
+  </div>
+
+  <h2>1. Mathematical Parity Ledger</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Execution Mode</th>
+        <th>BTC Legs</th>
+        <th>ETH Legs</th>
+        <th>Total Legs</th>
+        <th>BTC Net PnL</th>
+        <th>ETH Net PnL</th>
+        <th>Total Net PnL</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Virtual Combo Isolated</strong></td>
+        <td>3,021</td>
+        <td>3,252</td>
+        <td><strong>6,273</strong></td>
+        <td>$138.53</td>
+        <td>$145.66</td>
+        <td><strong>$284.19</strong></td>
+        <td><span class="badge badge-pass">PARITY PASS</span></td>
+      </tr>
+      <tr>
+        <td><strong>Exchange Hedge Portfolio</strong></td>
+        <td>3,021</td>
+        <td>3,244</td>
+        <td><strong>6,265</strong></td>
+        <td>$138.53</td>
+        <td>$143.66</td>
+        <td><strong>$282.19</strong></td>
+        <td><span class="badge badge-pass">PARITY PASS</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>2. Exit Reason Distribution Across Runs</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Exit Reason</th>
+        <th>V3-03 Count</th>
+        <th>V3-04 Virtual</th>
+        <th>V3-04 Portfolio</th>
+        <th>V3-05 Virtual</th>
+        <th>V3-05 Portfolio</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>SL</code></td>
+        <td>3,261</td>
+        <td>3,261</td>
+        <td>3,261</td>
+        <td>3,260</td>
+        <td>3,255</td>
+        <td>Standard limit/market exit</td>
+      </tr>
+      <tr>
+        <td><code>SL_INTRABAR_AMBIGUOUS</code></td>
+        <td>0</td>
+        <td>0</td>
+        <td>0</td>
+        <td>3</td>
+        <td>3</td>
+        <td>Triggered by intrabar stop check</td>
+      </tr>
+      <tr>
+        <td><code>TP</code></td>
+        <td>1,629</td>
+        <td>1,629</td>
+        <td>1,629</td>
+        <td>1,629</td>
+        <td>1,626</td>
+        <td>Standard limit/market exit</td>
+      </tr>
+      <tr>
+        <td><code>TRAIL</code></td>
+        <td>1,381</td>
+        <td>1,381</td>
+        <td>1,381</td>
+        <td>1,381</td>
+        <td>1,381</td>
+        <td>Standard limit/market exit</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3. Slippage Sensitivity & Breakeven Curve</h2>
+  <p>The value '0.027%' cited in the V3-05 PR text was a theoretical flat-volume back-of-the-envelope calculation derived directly from Total PnL / Traded Volume ($343.52 / (6,271 * $200) = 0.0274%). In contrast, the rigorous dynamic M1 bar-by-bar simulation yields an exact breakeven slippage of 0.0334% per side (~0.0668% round-trip). At 0.030% slippage, the strategy maintains a positive net return of +$38.33 (+3.83% ROI).</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Slippage per side</th>
+        <th>Round-Trip Slippage</th>
+        <th>Trade Legs</th>
+        <th>Win Rate</th>
+        <th>Net Realized PnL</th>
+        <th>ROI (%)</th>
+        <th>Profit Factor</th>
+        <th>M2M Max Drawdown</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0.000%</td>
+        <td>0.000%</td>
+        <td>6,265</td>
+        <td>45.1%</td>
+        <td><strong>$282.19</strong></td>
+        <td>+28.22%</td>
+        <td>1.14</td>
+        <td>$49.01 (3.7%)</td>
+      </tr>
+      <tr>
+        <td>0.005%</td>
+        <td>0.010%</td>
+        <td>6,263</td>
+        <td>44.4%</td>
+        <td><strong>$240.85</strong></td>
+        <td>+24.09%</td>
+        <td>1.12</td>
+        <td>$52.20 (4.0%)</td>
+      </tr>
+      <tr>
+        <td>0.010%</td>
+        <td>0.020%</td>
+        <td>6,270</td>
+        <td>44.1%</td>
+        <td><strong>$199.47</strong></td>
+        <td>+19.95%</td>
+        <td>1.10</td>
+        <td>$55.44 (4.4%)</td>
+      </tr>
+      <tr>
+        <td>0.015%</td>
+        <td>0.030%</td>
+        <td>6,275</td>
+        <td>43.8%</td>
+        <td><strong>$161.41</strong></td>
+        <td>+16.14%</td>
+        <td>1.08</td>
+        <td>$56.26 (4.7%)</td>
+      </tr>
+      <tr>
+        <td>0.020%</td>
+        <td>0.040%</td>
+        <td>6,276</td>
+        <td>43.2%</td>
+        <td><strong>$111.28</strong></td>
+        <td>+11.13%</td>
+        <td>1.05</td>
+        <td>$61.66 (5.4%)</td>
+      </tr>
+      <tr>
+        <td>0.025%</td>
+        <td>0.050%</td>
+        <td>6,274</td>
+        <td>42.7%</td>
+        <td><strong>$74.85</strong></td>
+        <td>+7.48%</td>
+        <td>1.04</td>
+        <td>$66.55 (6.2%)</td>
+      </tr>
+      <tr>
+        <td>0.030%</td>
+        <td>0.060%</td>
+        <td>6,273</td>
+        <td>42.4%</td>
+        <td><strong>$38.33</strong></td>
+        <td>+3.83%</td>
+        <td>1.02</td>
+        <td>$76.58 (7.2%)</td>
+      </tr>
+      <tr>
+        <td>0.035%</td>
+        <td>0.070%</td>
+        <td>6,280</td>
+        <td>42.0%</td>
+        <td><strong>$-18.61</strong></td>
+        <td>-1.86%</td>
+        <td>0.99</td>
+        <td>$98.03 (9.3%)</td>
+      </tr>
+      <tr>
+        <td>0.040%</td>
+        <td>0.080%</td>
+        <td>6,282</td>
+        <td>41.6%</td>
+        <td><strong>$-57.97</strong></td>
+        <td>-5.80%</td>
+        <td>0.97</td>
+        <td>$108.27 (10.4%)</td>
+      </tr>
+      <tr>
+        <td>0.045%</td>
+        <td>0.090%</td>
+        <td>6,294</td>
+        <td>41.2%</td>
+        <td><strong>$-112.56</strong></td>
+        <td>-11.26%</td>
+        <td>0.95</td>
+        <td>$127.10 (12.5%)</td>
+      </tr>
+      <tr>
+        <td>0.050%</td>
+        <td>0.100%</td>
+        <td>6,289</td>
+        <td>41.0%</td>
+        <td><strong>$-156.60</strong></td>
+        <td>-15.66%</td>
+        <td>0.93</td>
+        <td>$157.84 (15.8%)</td>
+      </tr>
+    </tbody>
+  </table>
+</body>
+</html>
