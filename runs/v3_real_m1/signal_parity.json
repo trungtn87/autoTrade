@@ -1,0 +1,667 @@
+{
+  "gate_b1": {
+    "combos_checked": 20,
+    "data_csv_sha256": {
+      "BTCUSDT_RUN17_M15.csv": "6fe0d7127e4d37a6bc8c9d4e3a3fd31aea263bec39b18a9c3154747bd907c224",
+      "ETHUSDT_RUN17_M15.csv": "e70300d9f41a6395e0c4ab545ac1b4c89b4c81d3c305476b6c352fa4ec3e96fd"
+    },
+    "gate": "B1",
+    "note": "Same input only. This does not prove any live BingX fills.",
+    "reference_sha256": "d3ff626e45c3180b75e3a99e5b87c9d9bf7a513c870d2eb8e82b2de126c292dd",
+    "result": {
+      "differences": [],
+      "status": "PASS"
+    },
+    "same_input": "RUN17_M15_CSV"
+  },
+  "gate_b2": {
+    "baseline": "RUN17_M15_HYBRID",
+    "derived": "M1_BINANCE_PLUS_BINGX_DERIVED_M15",
+    "note": "Same-time event overlap is not win rate or trade count. Indicator inputs may remain cross-venue-mixed after switch.",
+    "periods": {
+      "all_overlap": {
+        "baseline": 5665,
+        "baseline_only": 75,
+        "common": 5590,
+        "derived": 5670,
+        "derived_only": 80,
+        "jaccard_pct": 97.302,
+        "per_combo": [
+          {
+            "baseline": 230,
+            "baseline_only": 6,
+            "combo": "C1",
+            "common": 224,
+            "derived": 230,
+            "derived_only": 6,
+            "jaccard_pct": 94.915,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 43,
+            "baseline_only": 1,
+            "combo": "C10",
+            "common": 42,
+            "derived": 44,
+            "derived_only": 2,
+            "jaccard_pct": 93.333,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 766,
+            "baseline_only": 0,
+            "combo": "C11",
+            "common": 766,
+            "derived": 769,
+            "derived_only": 3,
+            "jaccard_pct": 99.61,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 298,
+            "baseline_only": 6,
+            "combo": "C14",
+            "common": 292,
+            "derived": 297,
+            "derived_only": 5,
+            "jaccard_pct": 96.37,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 155,
+            "baseline_only": 1,
+            "combo": "C16",
+            "common": 154,
+            "derived": 155,
+            "derived_only": 1,
+            "jaccard_pct": 98.718,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 81,
+            "baseline_only": 1,
+            "combo": "C2",
+            "common": 80,
+            "derived": 80,
+            "derived_only": 0,
+            "jaccard_pct": 98.765,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 258,
+            "baseline_only": 0,
+            "combo": "C4",
+            "common": 258,
+            "derived": 262,
+            "derived_only": 4,
+            "jaccard_pct": 98.473,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 106,
+            "baseline_only": 0,
+            "combo": "C6",
+            "common": 106,
+            "derived": 107,
+            "derived_only": 1,
+            "jaccard_pct": 99.065,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 215,
+            "baseline_only": 9,
+            "combo": "C7",
+            "common": 206,
+            "derived": 212,
+            "derived_only": 6,
+            "jaccard_pct": 93.213,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 74,
+            "baseline_only": 0,
+            "combo": "C9",
+            "common": 74,
+            "derived": 74,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 184,
+            "baseline_only": 6,
+            "combo": "TIER",
+            "common": 178,
+            "derived": 183,
+            "derived_only": 5,
+            "jaccard_pct": 94.18,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 253,
+            "baseline_only": 6,
+            "combo": "C1",
+            "common": 247,
+            "derived": 257,
+            "derived_only": 10,
+            "jaccard_pct": 93.916,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 13,
+            "baseline_only": 0,
+            "combo": "C10",
+            "common": 13,
+            "derived": 13,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 427,
+            "baseline_only": 7,
+            "combo": "C12",
+            "common": 420,
+            "derived": 428,
+            "derived_only": 8,
+            "jaccard_pct": 96.552,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 288,
+            "baseline_only": 2,
+            "combo": "C13",
+            "common": 286,
+            "derived": 288,
+            "derived_only": 2,
+            "jaccard_pct": 98.621,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 1592,
+            "baseline_only": 3,
+            "combo": "C15",
+            "common": 1589,
+            "derived": 1591,
+            "derived_only": 2,
+            "jaccard_pct": 99.686,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 94,
+            "baseline_only": 10,
+            "combo": "C3",
+            "common": 84,
+            "derived": 90,
+            "derived_only": 6,
+            "jaccard_pct": 84.0,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 251,
+            "baseline_only": 3,
+            "combo": "C4",
+            "common": 248,
+            "derived": 255,
+            "derived_only": 7,
+            "jaccard_pct": 96.124,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 71,
+            "baseline_only": 1,
+            "combo": "C6",
+            "common": 70,
+            "derived": 72,
+            "derived_only": 2,
+            "jaccard_pct": 95.89,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 266,
+            "baseline_only": 13,
+            "combo": "C7",
+            "common": 253,
+            "derived": 263,
+            "derived_only": 10,
+            "jaccard_pct": 91.667,
+            "symbol": "ETH-USDT"
+          }
+        ],
+        "window_utc": [
+          "2024-01-01",
+          "2026-09-21"
+        ]
+      },
+      "different_venue": {
+        "baseline": 973,
+        "baseline_only": 75,
+        "common": 898,
+        "derived": 978,
+        "derived_only": 80,
+        "jaccard_pct": 85.28,
+        "per_combo": [
+          {
+            "baseline": 37,
+            "baseline_only": 6,
+            "combo": "C1",
+            "common": 31,
+            "derived": 37,
+            "derived_only": 6,
+            "jaccard_pct": 72.093,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 8,
+            "baseline_only": 1,
+            "combo": "C10",
+            "common": 7,
+            "derived": 9,
+            "derived_only": 2,
+            "jaccard_pct": 70.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 153,
+            "baseline_only": 0,
+            "combo": "C11",
+            "common": 153,
+            "derived": 156,
+            "derived_only": 3,
+            "jaccard_pct": 98.077,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 46,
+            "baseline_only": 6,
+            "combo": "C14",
+            "common": 40,
+            "derived": 45,
+            "derived_only": 5,
+            "jaccard_pct": 78.431,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 31,
+            "baseline_only": 1,
+            "combo": "C16",
+            "common": 30,
+            "derived": 31,
+            "derived_only": 1,
+            "jaccard_pct": 93.75,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 16,
+            "baseline_only": 1,
+            "combo": "C2",
+            "common": 15,
+            "derived": 15,
+            "derived_only": 0,
+            "jaccard_pct": 93.75,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 34,
+            "baseline_only": 0,
+            "combo": "C4",
+            "common": 34,
+            "derived": 38,
+            "derived_only": 4,
+            "jaccard_pct": 89.474,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 19,
+            "baseline_only": 0,
+            "combo": "C6",
+            "common": 19,
+            "derived": 20,
+            "derived_only": 1,
+            "jaccard_pct": 95.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 48,
+            "baseline_only": 9,
+            "combo": "C7",
+            "common": 39,
+            "derived": 45,
+            "derived_only": 6,
+            "jaccard_pct": 72.222,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 9,
+            "baseline_only": 0,
+            "combo": "C9",
+            "common": 9,
+            "derived": 9,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 24,
+            "baseline_only": 6,
+            "combo": "TIER",
+            "common": 18,
+            "derived": 23,
+            "derived_only": 5,
+            "jaccard_pct": 62.069,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 59,
+            "baseline_only": 6,
+            "combo": "C1",
+            "common": 53,
+            "derived": 63,
+            "derived_only": 10,
+            "jaccard_pct": 76.812,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 1,
+            "baseline_only": 0,
+            "combo": "C10",
+            "common": 1,
+            "derived": 1,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 82,
+            "baseline_only": 7,
+            "combo": "C12",
+            "common": 75,
+            "derived": 83,
+            "derived_only": 8,
+            "jaccard_pct": 83.333,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 39,
+            "baseline_only": 2,
+            "combo": "C13",
+            "common": 37,
+            "derived": 39,
+            "derived_only": 2,
+            "jaccard_pct": 90.244,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 247,
+            "baseline_only": 3,
+            "combo": "C15",
+            "common": 244,
+            "derived": 246,
+            "derived_only": 2,
+            "jaccard_pct": 97.992,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 15,
+            "baseline_only": 10,
+            "combo": "C3",
+            "common": 5,
+            "derived": 11,
+            "derived_only": 6,
+            "jaccard_pct": 23.81,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 39,
+            "baseline_only": 3,
+            "combo": "C4",
+            "common": 36,
+            "derived": 43,
+            "derived_only": 7,
+            "jaccard_pct": 78.261,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 15,
+            "baseline_only": 1,
+            "combo": "C6",
+            "common": 14,
+            "derived": 16,
+            "derived_only": 2,
+            "jaccard_pct": 82.353,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 51,
+            "baseline_only": 13,
+            "combo": "C7",
+            "common": 38,
+            "derived": 48,
+            "derived_only": 10,
+            "jaccard_pct": 62.295,
+            "symbol": "ETH-USDT"
+          }
+        ],
+        "window_utc": [
+          "2026-04-01",
+          "2026-09-21"
+        ]
+      },
+      "same_venue": {
+        "baseline": 4692,
+        "baseline_only": 0,
+        "common": 4692,
+        "derived": 4692,
+        "derived_only": 0,
+        "jaccard_pct": 100.0,
+        "per_combo": [
+          {
+            "baseline": 193,
+            "baseline_only": 0,
+            "combo": "C1",
+            "common": 193,
+            "derived": 193,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 35,
+            "baseline_only": 0,
+            "combo": "C10",
+            "common": 35,
+            "derived": 35,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 613,
+            "baseline_only": 0,
+            "combo": "C11",
+            "common": 613,
+            "derived": 613,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 252,
+            "baseline_only": 0,
+            "combo": "C14",
+            "common": 252,
+            "derived": 252,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 124,
+            "baseline_only": 0,
+            "combo": "C16",
+            "common": 124,
+            "derived": 124,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 65,
+            "baseline_only": 0,
+            "combo": "C2",
+            "common": 65,
+            "derived": 65,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 224,
+            "baseline_only": 0,
+            "combo": "C4",
+            "common": 224,
+            "derived": 224,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 87,
+            "baseline_only": 0,
+            "combo": "C6",
+            "common": 87,
+            "derived": 87,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 167,
+            "baseline_only": 0,
+            "combo": "C7",
+            "common": 167,
+            "derived": 167,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 65,
+            "baseline_only": 0,
+            "combo": "C9",
+            "common": 65,
+            "derived": 65,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 160,
+            "baseline_only": 0,
+            "combo": "TIER",
+            "common": 160,
+            "derived": 160,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "BTC-USDT"
+          },
+          {
+            "baseline": 194,
+            "baseline_only": 0,
+            "combo": "C1",
+            "common": 194,
+            "derived": 194,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 12,
+            "baseline_only": 0,
+            "combo": "C10",
+            "common": 12,
+            "derived": 12,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 345,
+            "baseline_only": 0,
+            "combo": "C12",
+            "common": 345,
+            "derived": 345,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 249,
+            "baseline_only": 0,
+            "combo": "C13",
+            "common": 249,
+            "derived": 249,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 1345,
+            "baseline_only": 0,
+            "combo": "C15",
+            "common": 1345,
+            "derived": 1345,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 79,
+            "baseline_only": 0,
+            "combo": "C3",
+            "common": 79,
+            "derived": 79,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 212,
+            "baseline_only": 0,
+            "combo": "C4",
+            "common": 212,
+            "derived": 212,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 56,
+            "baseline_only": 0,
+            "combo": "C6",
+            "common": 56,
+            "derived": 56,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "ETH-USDT"
+          },
+          {
+            "baseline": 215,
+            "baseline_only": 0,
+            "combo": "C7",
+            "common": 215,
+            "derived": 215,
+            "derived_only": 0,
+            "jaccard_pct": 100.0,
+            "symbol": "ETH-USDT"
+          }
+        ],
+        "window_utc": [
+          "2024-01-01",
+          "2026-04-01"
+        ]
+      }
+    },
+    "status": "B2_SOURCE_SENSITIVITY_ONLY_NOT_EXACT_PARITY"
+  }
+}

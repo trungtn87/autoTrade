@@ -10,3 +10,8 @@ __pycache__/
 browser-evidence/
 
 /supabase/.temp/
+catalog/
+data/
+*.duckdb
+*.zip
+

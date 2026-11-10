@@ -1,0 +1,15 @@
+{
+  "combos_checked": 20,
+  "data_csv_sha256": {
+    "BTCUSDT_RUN17_M15.csv": "6fe0d7127e4d37a6bc8c9d4e3a3fd31aea263bec39b18a9c3154747bd907c224",
+    "ETHUSDT_RUN17_M15.csv": "e70300d9f41a6395e0c4ab545ac1b4c89b4c81d3c305476b6c352fa4ec3e96fd"
+  },
+  "gate": "B1",
+  "note": "Same input only. This does not prove any live BingX fills.",
+  "reference_sha256": "d3ff626e45c3180b75e3a99e5b87c9d9bf7a513c870d2eb8e82b2de126c292dd",
+  "result": {
+    "differences": [],
+    "status": "PASS"
+  },
+  "same_input": "RUN17_M15_CSV"
+}

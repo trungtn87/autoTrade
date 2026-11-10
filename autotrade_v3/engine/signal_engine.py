@@ -44,7 +44,7 @@ class SignalEngine:
         self.new6_cases = self._m["NEW6_CASES"]
 
     def get_combo_config(self, symbol: str, combo_id: int) -> dict:
-        sym = symbol.upper()
+        sym = "BTC-USDT" if "BTC" in symbol.upper() else "ETH-USDT"
         if combo_id in self.final14_cases.get(sym, {}):
             cfg = dict(self.final14_cases[sym][combo_id])
             cfg["is_new6"] = False
@@ -63,7 +63,8 @@ class SignalEngine:
         only_warmup_ready: bool = True,
     ) -> list[Signal]:
         """Replay exact 20FINAL signals on M15 DataFrame and enrich with entry/TP/SL prices."""
-        events, counts = replay_symbol(symbol, df_m15, self._m)
+        sym_canonical = "BTC-USDT" if "BTC" in symbol.upper() else "ETH-USDT"
+        events, counts = replay_symbol(sym_canonical, df_m15, self._m)
         signals: list[Signal] = []
 
         for ev in events:

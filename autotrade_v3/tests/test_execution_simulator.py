@@ -109,7 +109,7 @@ class TestExecutionSimulator(unittest.TestCase):
         bars = make_test_bars([
             (100.0, 100.0, 100.0, 100.0),  # Bar 0: Entry close = 100.0
             (100.0, 100.8, 99.8, 100.7),   # Bar 1: Favorable move to 100.8 (+0.8% > +0.5% act)
-            (100.5, 100.6, 100.0, 100.1),   # Bar 2: Callback hit (peak 100.8 * 0.995 = 100.296; low 100.0 hits trail)
+            (100.5, 100.6, 100.0, 100.1),  # Bar 2: Callback hit (peak 100.8 * 0.995 = 100.296; low 100.0 hits trail)
         ])
         sig = Signal(
             symbol="BTC-USDT",
@@ -141,9 +141,12 @@ class TestExecutionSimulator(unittest.TestCase):
             trailing_cb_pct=0.005,
         )
         trades = sim.simulate_virtual_trades([sig], bars)
-        self.assertEqual(len(trades), 1)
-        t = trades[0]
-        self.assertIn("TRAIL", t.exit_reason)
+        # FIX P1-03: Two separate legs for 50TP_50TRAIL
+        self.assertEqual(len(trades), 2)
+        self.assertEqual(trades[0].trade_id, trades[1].trade_id)
+        self.assertNotEqual(trades[0].leg_id, trades[1].leg_id)
+        reasons = [t.exit_reason for t in trades]
+        self.assertTrue(any("TRAIL" in r for r in reasons))
 
     def test_hedge_mode_portfolio_merging(self):
         """Two concurrent BUY signals merge entry price according to volume-weighted average."""

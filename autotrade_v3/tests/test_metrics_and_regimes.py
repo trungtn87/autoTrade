@@ -22,11 +22,13 @@ def make_dummy_trade(
     dt_exit = pd.to_datetime(exit_ms, unit="ms", utc=True)
     return TradeRecord(
         trade_id=trade_id,
+        leg_id=f"{trade_id}_L1",
         symbol="BTC-USDT",
         combo_id=1,
         combo_name="C1",
         timeframe="1h",
         side="BUY",
+        leg_type="SINGLE",
         entry_time_ms=entry_ms,
         entry_time_dt=dt_entry,
         entry_price=100.0,
@@ -34,6 +36,7 @@ def make_dummy_trade(
         exit_time_dt=dt_exit,
         exit_price=102.0 if net_pnl > 0 else 98.0,
         exit_reason="TP" if net_pnl > 0 else "SL",
+        qty=1.0,
         notional=100.0,
         margin=1.0,
         gross_pnl=net_pnl + 0.1,
