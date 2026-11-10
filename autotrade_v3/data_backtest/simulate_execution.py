@@ -48,14 +48,17 @@ class Profile:
     def __post_init__(self):
         if self.exit_mode not in EXIT_MODES:
             raise ValueError("unsupported exit mode")
-        if self.notional_usdt <= 0 or self.leverage <= 0:
-            raise ValueError("notional and leverage must be positive")
+        if (not math.isfinite(self.notional_usdt) or self.notional_usdt <= 0
+                or not math.isfinite(self.leverage) or self.leverage < 1):
+            raise ValueError("finite positive notional and leverage >= 1 required")
         if not (0 <= self.quantity_precision <= 12):
             raise ValueError("quantity precision must be 0..12")
         for f in ("fee_bps_per_side", "entry_slippage_bps", "exit_slippage_bps",
                   "half_spread_bps", "funding_rate_per_8h"):
             x = getattr(self, f)
-            if not math.isfinite(x) or (f != "funding_rate_per_8h" and x < 0):
+            if (not math.isfinite(x) or
+                    (f != "funding_rate_per_8h" and not 0 <= x < 10000) or
+                    (f == "funding_rate_per_8h" and abs(x) >= 1)):
                 raise ValueError(f"invalid {f}")
         if not (0 < self.trailing_activation_pct < 1 and
                 0 < self.trailing_callback_rate < 1):
@@ -75,7 +78,8 @@ class Candle:
 
     def __post_init__(self):
         x = (self.open, self.high, self.low, self.close)
-        if (self.t % M1_MS or not all(math.isfinite(v) and v > 0 for v in x)
+        if (self.provider.upper() not in ('BINGX','BINANCE')
+                or self.t % M1_MS or not all(math.isfinite(v) and v > 0 for v in x)
                 or self.low > min(self.open, self.close) or
                 self.high < max(self.open, self.close)):
             raise ValueError("invalid M1 candle/time")
@@ -261,7 +265,8 @@ def simulate_one(event: dict, candles: list[Candle], times: list[int],
     if ((initial.low <= sl or initial.high >= tp) if long else
             (initial.high >= sl or initial.low <= tp)):
         ret.flags.append('ENTRY_MINUTE_TP_SL_ORDERING_UNOBSERVABLE')
-    if (initial.high >= activation) if long else (initial.low <= activation):
+    if used_mode == 'split_trailing' and (
+            (initial.high >= activation) if long else (initial.low <= activation)):
         ret.flags.append('ENTRY_MINUTE_TRAILING_ACTIVATION_UNOBSERVABLE')
     last_provider = initial.provider
     seen_liquidation = False

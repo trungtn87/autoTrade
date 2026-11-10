@@ -65,6 +65,11 @@ class ExecutionScenariosTest(unittest.TestCase):
         self.assertTrue(out['high_first']['legs'][1]['exit_reason'] in ('TRAILING','SL','SL_GAP','TRAILING_GAP'))
         self.assertEqual(out['scenario_quality'],'AMBIGUOUS')
 
+    def test_hard_tp_does_not_claim_nonexistent_trailing_activation(self):
+        out=self.simulate([bar(0,100,100.6,99.8,100),bar(1,100,100.2,99.8,100)])
+        self.assertNotIn('ENTRY_MINUTE_TRAILING_ACTIVATION_UNOBSERVABLE',out['flags'])
+        self.assertEqual(out['scenario_quality'],'SIMULATED')
+
     def test_short_split_trailing_activation(self):
         p=Profile(exit_mode='split_trailing',fee_bps_per_side=0,
                   entry_slippage_bps=0,exit_slippage_bps=0,half_spread_bps=0)

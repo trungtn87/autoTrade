@@ -51,7 +51,7 @@ The first run used the already-verified BTC/ETH M1 archive 2023-11-01..2026-11-0
 | Virtual entries after same-combo occupancy | 4,147 | 4,155 |
 | Signals skipped while same combo virtual position open | 1,837 | 1,829 |
 | Path-divergent trades | 454 | 0 |
-| Ambiguous including entry-minute/liquidation uncertainty | 555 | 121 |
+| Ambiguous including entry-minute/liquidation uncertainty | 555 | 38 |
 | Trades overlapping other same-side combo (virtual risk) | 2,574 | 2,569 |
 | Open/unresolved at 2026-11-01 end | 0 | 0 |
 
@@ -59,6 +59,6 @@ The first run used the already-verified BTC/ETH M1 archive 2023-11-01..2026-11-0
 
 ## C1 acceptance & next steps
 
-C1 test suite covers long/short, both same-minute TP+SL, trailing activation and reversal, 50/50 split vs hard mode, gap below stop, fee/slippage, entry latency and warmup, trailing after TP, candidate overlap, missing M1, open-end censor, funding signs, liquidation wick and offline-only report. A PASS means **scenario code behaves as specified on tests**, not that the BingX platform executes these exact fills.
+C1 24-test suite covers long/short, both same-minute TP+SL, trailing activation and reversal, 50/50 split vs hard mode, gap below stop, fee/slippage, entry latency and warmup, trailing after TP, candidate overlap, missing M1, open-end censor, funding signs, liquidation wick and offline-only report. A PASS means **scenario code behaves as specified on tests**, not that the BingX platform executes these exact fills.
 
 **V3-04 / Gate C2:** import the SELECT-only `processed_targets`, `signal_links`, orders/fills/income, reconcile exact order and leg identity, calibrate slippage/latency distributions on historical trades, split chronologically into calibration and untouched holdout, and measure `EXCHANGE_VERIFIED` versus `SIMULATED/AMBIGUOUS/UNRESOLVED`. No private BingX key by default; V2 production remains the sole trade writer.
