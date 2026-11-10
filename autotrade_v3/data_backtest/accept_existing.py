@@ -72,7 +72,7 @@ def inspect(root:Path, out:Path, source_map:Path, checksums:Path,
                  try_cast(p.{v} AS DOUBLE) volume, s.provider, s.market_type, p.filename source_file
           FROM read_parquet({filesql},union_by_name=true,filename=true) p
           JOIN v3_sources s ON p.filename=s.file""")
-        result=db.execute("""SELECT symbol, count(*) rows, count(DISTINCT open_ms) minutes,
+        result=db.execute("""SELECT symbol, count(*) AS row_count, count(DISTINCT open_ms) AS minute_count,
           count(*) FILTER(WHERE open_ms IS NULL OR open_ms<? OR open_ms>=? OR open_ms%60000<>0) bad_time,
           count(*) FILTER(WHERE open IS NULL OR high IS NULL OR low IS NULL OR "close" IS NULL
                  OR volume IS NULL OR open<=0 OR low<=0 OR high<=0 OR "close"<=0
