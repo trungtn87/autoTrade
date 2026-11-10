@@ -1,0 +1,4887 @@
+{
+  "approved_by_month": [
+    {
+      "combo": "C1",
+      "count": 5,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 9,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 7,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 19,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 10,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 4,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 8,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 8,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 9,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 1,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 9,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 7,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 15,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 12,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 5,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 1,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 2,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 9,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 14,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 4,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 6,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 7,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 5,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 11,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 2,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 10,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 8,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 14,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 11,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 10,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 6,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 6,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 2,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 2,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 3,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 2,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 2,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 3,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 3,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 2,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 2,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 2,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 3,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 3,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 4,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 2,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 12,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 35,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 61,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 17,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 105,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 6,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 7,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 10,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 17,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 67,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 21,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 51,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 14,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 2,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 6,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 63,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 2,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 20,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 26,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 6,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 32,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 20,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 14,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 27,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 4,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 17,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 24,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 35,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 8,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 66,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 1,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 62,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 32,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C11",
+      "count": 11,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 8,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 6,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 2,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 11,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 10,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 10,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 15,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 7,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 10,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 8,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 9,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 12,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 8,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 11,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 8,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 13,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 11,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 11,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 6,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 8,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 8,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 9,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 7,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 10,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 8,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 14,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 9,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 7,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 4,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 8,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 9,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 8,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 7,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 7,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 10,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 8,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C14",
+      "count": 9,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 13,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 6,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 2,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 6,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 7,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 7,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 6,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 5,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 4,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 9,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 6,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 9,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 3,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 2,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 11,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 2,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 2,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 1,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 4,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 6,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 4,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 5,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 1,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 3,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 4,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 7,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 4,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 3,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 3,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 8,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 8,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 4,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 4,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 5,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 4,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C16",
+      "count": 5,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 3,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 1,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 1,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 2,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 1,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 1,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 2,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 2,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 4,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 3,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 4,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 5,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 1,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 4,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 1,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 2,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 3,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 3,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 2,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 3,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 3,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 5,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 2,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 5,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 3,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 1,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 3,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 1,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 2,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 6,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 3,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 2,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 1,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C2",
+      "count": 3,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 2,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 6,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 2,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 11,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 11,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 9,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 8,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 9,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 8,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 13,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 7,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 6,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 12,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 1,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 10,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 7,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 8,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 9,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 6,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 5,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 10,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 7,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 9,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 5,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 13,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 6,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 7,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 14,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 5,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 8,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 6,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 7,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 7,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 6,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 8,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 6,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 8,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 4,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 4,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 5,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 6,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 6,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 6,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 4,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 4,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 4,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 6,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 1,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 5,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 5,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 5,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 5,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 5,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 2,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 3,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 6,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 6,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 7,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 6,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 7,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 7,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 3,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 6,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 7,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 4,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 7,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 7,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 7,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 11,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 4,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 1,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 1,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 3,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 2,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 2,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 5,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 3,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 1,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 2,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 3,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 3,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 4,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 3,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 6,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 1,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 3,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 2,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 4,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 3,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 3,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 2,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 4,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 1,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 1,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 2,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 2,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 3,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 2,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 1,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 2,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 1,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C9",
+      "count": 1,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 2,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 1,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 7,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 12,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 6,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 5,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 3,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 8,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 7,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 3,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 5,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 6,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 9,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 1,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 3,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 7,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 8,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 5,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 2,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 4,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 3,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 4,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 1,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 7,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 12,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 8,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 8,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 9,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 7,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 4,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 6,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 9,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 1,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 2,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 4,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "TIER",
+      "count": 5,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "BTC-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 1,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 9,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 5,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 10,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 20,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 7,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 4,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 8,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 4,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 9,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 1,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 7,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 5,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 12,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 7,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 7,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 2,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 3,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 13,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 9,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 19,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 14,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 4,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 7,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 2,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 12,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 8,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 19,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 5,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 1,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 17,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 13,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 11,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C1",
+      "count": 3,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 2,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C10",
+      "count": 1,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 16,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 13,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 4,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 12,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 8,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 18,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 16,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 13,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 18,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 9,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 12,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 15,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 14,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 13,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 16,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 13,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 18,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 12,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 14,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 14,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 14,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 11,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 10,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 9,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 11,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 11,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 14,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 8,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 8,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 14,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 20,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 13,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 9,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 16,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 15,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 14,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C12",
+      "count": 10,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 7,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 3,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 1,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 8,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 9,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 10,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 6,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 7,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 11,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 11,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 6,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 8,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 11,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 9,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 9,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 12,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 6,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 11,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 4,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 1,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 11,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 14,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 20,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 5,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 14,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 3,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 9,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 11,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 9,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 14,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 6,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 7,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 8,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 9,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 4,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 6,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C13",
+      "count": 5,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 25,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 8,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 5,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 27,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 25,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 19,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 63,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 53,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 43,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 82,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 63,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 30,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 26,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 67,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 11,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 51,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 50,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 33,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 37,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 52,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 52,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 69,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 88,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 53,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 40,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 8,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 41,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 110,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 88,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 64,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 35,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 32,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 29,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 56,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 52,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 49,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C15",
+      "count": 40,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 2,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 2,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 1,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 3,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 3,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 1,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 3,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 1,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 1,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 6,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 5,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 1,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 3,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 3,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 3,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 2,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 4,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 3,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 2,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 7,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 4,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 4,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 2,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 3,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 2,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 1,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 7,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 4,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 1,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 1,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 5,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 3,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 1,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 3,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C3",
+      "count": 1,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 5,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 6,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 3,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 8,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 12,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 5,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 7,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 11,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 9,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 10,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 8,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 5,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 11,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 6,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 8,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 7,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 11,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 6,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 5,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 5,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 9,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 12,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 12,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 4,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 8,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 4,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 3,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 14,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 7,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 5,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 7,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 10,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 8,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 7,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 6,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 7,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C4",
+      "count": 5,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 4,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 1,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 5,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 1,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 1,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 4,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 4,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 4,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 5,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 1,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 4,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 1,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 4,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 3,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 1,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C6",
+      "count": 2,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 4,
+      "month_utc": "2023-11",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 10,
+      "month_utc": "2023-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 1,
+      "month_utc": "2023-12",
+      "readiness": "WARMUP_ONLY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 9,
+      "month_utc": "2024-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 12,
+      "month_utc": "2024-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 6,
+      "month_utc": "2024-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2024-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 12,
+      "month_utc": "2024-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 6,
+      "month_utc": "2024-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 13,
+      "month_utc": "2024-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2024-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 2,
+      "month_utc": "2024-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 7,
+      "month_utc": "2024-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 7,
+      "month_utc": "2024-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 9,
+      "month_utc": "2024-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 11,
+      "month_utc": "2025-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 9,
+      "month_utc": "2025-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2025-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 10,
+      "month_utc": "2025-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 6,
+      "month_utc": "2025-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2025-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 7,
+      "month_utc": "2025-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 10,
+      "month_utc": "2025-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 10,
+      "month_utc": "2025-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 13,
+      "month_utc": "2025-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 5,
+      "month_utc": "2025-11",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2025-12",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 7,
+      "month_utc": "2026-01",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 6,
+      "month_utc": "2026-02",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 7,
+      "month_utc": "2026-03",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2026-04",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 8,
+      "month_utc": "2026-05",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 12,
+      "month_utc": "2026-06",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 6,
+      "month_utc": "2026-07",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 9,
+      "month_utc": "2026-08",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 9,
+      "month_utc": "2026-09",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    },
+    {
+      "combo": "C7",
+      "count": 11,
+      "month_utc": "2026-10",
+      "readiness": "READY",
+      "symbol": "ETH-USDT"
+    }
+  ],
+  "b1_same_run17_input": "NOT_EVALUATED_DIFFERENT_INPUT",
+  "caveat": "Candidates are not closed trades; M1 venue changes affect later rolling features.",
+  "counts": {
+    "BTC-USDT": {
+      "C1": {
+        "combo_id": 1,
+        "passed_events": 254,
+        "passed_sha256": "38887fcab8217b2d78aabf70273ac971cdeabd5105fb0893fcbcab24086260d5",
+        "raw_events": 318,
+        "raw_sha256": "0abfc8feda78eee9998238195b1afa5180c176a844832888e66e0b183e79cef8",
+        "timeframe": "1h"
+      },
+      "C10": {
+        "combo_id": 10,
+        "passed_events": 46,
+        "passed_sha256": "202bc1befa0dcb92c8330e2aa4b5ae356e62961779bb777bc31c49334af42d25",
+        "raw_events": 58,
+        "raw_sha256": "4c3a13da5808a54f5c698dd9b6622a53f17db2ca34bbcc0cdf26b95e2c0d3728",
+        "timeframe": "15m"
+      },
+      "C11": {
+        "combo_id": 101,
+        "passed_events": 901,
+        "passed_sha256": "46039c7c4eaddf88e3e75d73fd9cdd986511f331581e1ebe0e9b31a5d251b873",
+        "raw_events": 1101,
+        "raw_sha256": "56e10ea1e709ede2cd1d9a76ff1480326b95985d08a37d7e439da204ac32dbd1",
+        "timeframe": "1h"
+      },
+      "C14": {
+        "combo_id": 104,
+        "passed_events": 326,
+        "passed_sha256": "a4fd88dd1973f5c4e149d362c983efd73678d11a816b78cecdf0c114f410971f",
+        "raw_events": 370,
+        "raw_sha256": "7d43d9bf78d46c1938f4285145bef8d5cf93750ffe3c2dcb131f18705c079d44",
+        "timeframe": "1h"
+      },
+      "C16": {
+        "combo_id": 106,
+        "passed_events": 183,
+        "passed_sha256": "7fdc984d155efbe99cf2f1a0e5700abf3d1b6177804c85153fe2ffc0c34316ba",
+        "raw_events": 206,
+        "raw_sha256": "4d1002b56cbd5fc0b49beeafa31b3795afd9869cd7d24ca973d0b544bdf605d9",
+        "timeframe": "1h"
+      },
+      "C2": {
+        "combo_id": 2,
+        "passed_events": 88,
+        "passed_sha256": "a238c54a3b149500f609865480df901e1b9243e4069a36f06a1d8cbe5195bed7",
+        "raw_events": 102,
+        "raw_sha256": "376833f60c022ec13e240eeee59e0c78bcec2cf6e62bb9845c18e64f5663645d",
+        "timeframe": "1h"
+      },
+      "C4": {
+        "combo_id": 4,
+        "passed_events": 282,
+        "passed_sha256": "c00ab4894ec42a3089019b63d8f505a0b0c81ec9feb89618e5d6219e35387866",
+        "raw_events": 284,
+        "raw_sha256": "a7b7fea70a9869a14c07b805fabd161ddf0f34ad41c7bc3cb2d2a9122096f6a7",
+        "timeframe": "1h"
+      },
+      "C6": {
+        "combo_id": 6,
+        "passed_events": 120,
+        "passed_sha256": "bf7ace0cf3bdc728c552afd2428a1756d17ba20b9d665d2e4d4f5e0497ab095e",
+        "raw_events": 127,
+        "raw_sha256": "7e63c48adf38753bf1c481c13c6726292de3f7dcc6e4fea6c3b0c5749bce5c09",
+        "timeframe": "1h"
+      },
+      "C7": {
+        "combo_id": 7,
+        "passed_events": 229,
+        "passed_sha256": "29a05e724bdbf2919c5b123d3ed6894f2580e615e65231d37742b22c8ec2df64",
+        "raw_events": 229,
+        "raw_sha256": "29a05e724bdbf2919c5b123d3ed6894f2580e615e65231d37742b22c8ec2df64",
+        "timeframe": "15m"
+      },
+      "C9": {
+        "combo_id": 9,
+        "passed_events": 81,
+        "passed_sha256": "840a420f060b341fea8d6c1508c9cb6b563574691e2bb33446fd71c9f5108ebe",
+        "raw_events": 96,
+        "raw_sha256": "aa0cf0026270e3f5398262a166738c6c4992a032fe18e5ca4ac65ac44457671f",
+        "timeframe": "15m"
+      },
+      "TIER": {
+        "combo_id": 11,
+        "passed_events": 194,
+        "passed_sha256": "ce7c288f818849414176f30d040d46e1c1ad1ecf998a3c8f11db05149b8fc981",
+        "raw_events": 194,
+        "raw_sha256": "ce7c288f818849414176f30d040d46e1c1ad1ecf998a3c8f11db05149b8fc981",
+        "timeframe": "1h"
+      }
+    },
+    "ETH-USDT": {
+      "C1": {
+        "combo_id": 1,
+        "passed_events": 278,
+        "passed_sha256": "08b81f5dafcf8f74c7d61cb55848636596f246acc3b5696910ad32204a032839",
+        "raw_events": 281,
+        "raw_sha256": "21b6506acaf4da69c565866e9618a2916ecaf416a462806d829eee5190c09ad6",
+        "timeframe": "1h"
+      },
+      "C10": {
+        "combo_id": 10,
+        "passed_events": 13,
+        "passed_sha256": "380e8669f73dfdc5126c8c96efee7cc1412dd27d515cfde356179898b2b5d34c",
+        "raw_events": 39,
+        "raw_sha256": "7e2b44700f8f3bf830e6bc185e5271e16ab9f435c0d1e0a1806515a9856b8eb0",
+        "timeframe": "15m"
+      },
+      "C12": {
+        "combo_id": 102,
+        "passed_events": 475,
+        "passed_sha256": "9e7c92daede0e704136a79c64f1ec11e72f1aa6b0e0cbd9c725190d00be97403",
+        "raw_events": 574,
+        "raw_sha256": "a73a397f986e84b669b895bd66b75c55e36160c0de44e16fb481d8f07d40700d",
+        "timeframe": "1h"
+      },
+      "C13": {
+        "combo_id": 103,
+        "passed_events": 305,
+        "passed_sha256": "3b31fd837f9b65f4d8aa5c55d08c722937487ffb5c011624b08e268c812f7b0f",
+        "raw_events": 305,
+        "raw_sha256": "3b31fd837f9b65f4d8aa5c55d08c722937487ffb5c011624b08e268c812f7b0f",
+        "timeframe": "1h"
+      },
+      "C15": {
+        "combo_id": 105,
+        "passed_events": 1676,
+        "passed_sha256": "64e79116e3f433c1bdcf332682540389d05db63e02a80998210d36aa1f4672d8",
+        "raw_events": 1687,
+        "raw_sha256": "6267a7999f87bed45f4ab4f19011afe604d1a80ca814e321e8c4f1780436637d",
+        "timeframe": "1h"
+      },
+      "C3": {
+        "combo_id": 3,
+        "passed_events": 98,
+        "passed_sha256": "2cdf6d54de2d3cdcf5932924dae1a9aee7bab0af21c63b3b5f7474cd2e0ec25a",
+        "raw_events": 126,
+        "raw_sha256": "ba5d6d8a776055b0b3a0ee720e14f38364fc1db3fe2dfad9151f05c6be00b5e7",
+        "timeframe": "1h"
+      },
+      "C4": {
+        "combo_id": 4,
+        "passed_events": 276,
+        "passed_sha256": "a6c67558b18a29706b76d8e1be54b99aa5cecfc436b714d4050b1e10384173f4",
+        "raw_events": 277,
+        "raw_sha256": "2aea5ecbb4d22015846b6fab1a370c1c02fc6d3ff5a2d838b1a86f58072b06e8",
+        "timeframe": "1h"
+      },
+      "C6": {
+        "combo_id": 6,
+        "passed_events": 81,
+        "passed_sha256": "cb4f7f4c53e858666f448f7d8dc574c840e9aeeeec27344583cc92c087039a0e",
+        "raw_events": 82,
+        "raw_sha256": "ce1684e768fe6c066e8a589d1910ad62c797609aa4c367dfad26212e4b83b4dc",
+        "timeframe": "1h"
+      },
+      "C7": {
+        "combo_id": 7,
+        "passed_events": 293,
+        "passed_sha256": "ae1a95b5799e7ce544472d2e8655d4af338adfd143af4864e44bf1d87bea8b18",
+        "raw_events": 296,
+        "raw_sha256": "a8bfc1e0299fce863df2739c33bf2f1b82fd1e5f94328faea5a629644ff84505",
+        "timeframe": "15m"
+      }
+    }
+  },
+  "input": "M1_DERIVED_M15_HYBRID",
+  "source_code_sha256": {
+    "autotrade_v2\\app\\strategy\\final14_config.py": "6b51c2d79e8a6f538dc39526a5dc4f8ac3a4021147fce66fde3ff7344d1038f8",
+    "autotrade_v2\\app\\strategy\\final14_exact_strategy.py": "16590544c44f5fa5138f43ac61c82e1147bcb7415a380b61a4db7817fb7a8a68",
+    "autotrade_v2\\app\\strategy\\final14_research\\__init__.py": "6c515513d8d129cccdcb81e199e816a02e8a38bfcdade8fe6a0dfb0c0203cda0",
+    "autotrade_v2\\app\\strategy\\final14_research\\indicators.py": "f7139f6a2ecc3df1e03b1480a3b5762109b063d5bdab6f19d9aab02c0c0fc099",
+    "autotrade_v2\\app\\strategy\\final14_research\\layer3_long.py": "f664831c41b48fffd1c4e321c66338d8c7c0289814b27f108e77cb8bb410176f",
+    "autotrade_v2\\app\\strategy\\final14_research\\signals.py": "228a1241551dd17e384c56f0f0a8802d2971d23ed81ca885f23298a2534adb5f",
+    "autotrade_v2\\app\\strategy\\final14_research\\smc_ob.py": "610b8adc1c7fd94e68393e974832f7ac4f145e5e706b680809cde7221eea1428",
+    "autotrade_v2\\app\\strategy\\final14_research\\smc_structure.py": "0e3ba0118e9ec8fb6129912d73ed254a9c3e9c5c7a8f1d57ec260f2382363c4a",
+    "autotrade_v2\\app\\strategy\\final14_research\\two_trail_layer12.py": "069165bfbdc57befa7f907f3fc52a98620a3a0f309c11417cc580f696c84a5f8"
+  },
+  "source_git_sha": "2c11e4fa105051d41959c68f32e270eb89a14771",
+  "status": "SIGNAL_REPLAY_RESEARCH",
+  "window_utc": [
+    "2023-11-01",
+    "2026-11-01"
+  ]
+}

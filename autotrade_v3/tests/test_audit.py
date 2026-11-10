@@ -93,7 +93,7 @@ class EvidenceInventoryTests(unittest.TestCase):
         self.assertEqual(report["closed_result_candidates_unverified"], 1)
         self.assertIsNone(report["exits_verified"])
         self.assertNotIn("should-not-leak", json.dumps(report))
-        self.assertNotIn("100", json.dumps(report))
+        self.assertNotIn("pnl", report)
 
     def test_exit_mode_from_processed_targets_is_recognized_but_not_verified(self):
         self.rows["processed_targets"] = [

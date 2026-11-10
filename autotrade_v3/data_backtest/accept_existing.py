@@ -49,6 +49,7 @@ def inspect(root:Path, out:Path, source_map:Path, checksums:Path,
         raise ValueError("Invalid UTC range")
     out.mkdir(parents=True,exist_ok=True)
     db=duckdb.connect(str(out/"research.duckdb"))
+    db.execute("SET TimeZone = 'UTC'")
     try:
         db.execute("CREATE OR REPLACE TABLE v3_sources(file VARCHAR,provider VARCHAR,market_type VARCHAR,sha256 VARCHAR)")
         db.executemany("INSERT INTO v3_sources VALUES(?,?,?,?)",[

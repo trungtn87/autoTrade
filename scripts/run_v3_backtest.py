@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import pandas as pd
@@ -31,10 +32,13 @@ from autotrade_v3.engine.execution_simulator import ExecutionSimulator
 from autotrade_v3.engine.risk_manager import RiskConfig
 from autotrade_v3.engine.signal_engine import SignalEngine
 from autotrade_v3.reports.reporter import (
+    export_events_csv,
+    export_events_parquet,
     export_summary_json,
     export_trades_csv,
     export_trades_parquet,
     generate_html_report,
+    generate_validation_report_md,
 )
 
 
@@ -72,30 +76,50 @@ def run_backtest(
     sig_engine = SignalEngine()
 
     all_signals = []
-    symbol_frames = {}
+    symbol_frames_m1 = {}
+    symbol_frames_m15 = {}
 
     print(f"=== AutoTrade V3 Backtest Engine ===")
     print(f"Git commit: {git_sha}")
     print(f"Symbols: {symbols} | Window: {start} to {end} | Mode: {mode}")
 
+    # FIX P1-01: Disallow synthetic fallback in real historical backtest
+    data_source_type = "SYNTHETIC_M1_FIXTURE" if smoke_test else "REAL_M1_HYBRID_BINANCE_BINGX"
+
+    if not smoke_test:
+        if catalog_path is None:
+            print("[P1-01 ERROR] No DuckDB catalog path specified and --smoke-test not set.", file=sys.stderr)
+            sys.exit(1)
+        if not Path(catalog_path).exists():
+            print(f"[P1-01 ERROR] DuckDB catalog not found at: {catalog_path}", file=sys.stderr)
+            print("Historical backtest strictly forbids synthetic fallback. Aborting.", file=sys.stderr)
+            sys.exit(1)
+
     for sym in symbols:
         print(f"\nProcessing {sym}...")
-        if smoke_test or catalog_path is None or not catalog_path.exists():
-            print(f"  [Notice] Using deterministic synthetic M1 fixture for smoke test...")
+        if smoke_test:
+            print(f"  [Smoke Test Mode] Generating deterministic synthetic M1 fixture (seed=42)...")
             base_px = 65000.0 if "BTC" in sym else 3500.0
             # 5000 15m bars = 75,000 M1 bars (sufficient for WARMUP=3400)
             df_m1 = generate_synthetic_m1(sym, start=start, periods=75000, base_price=base_px, seed=42)
         else:
-            print(f"  Loading M1 from catalog {catalog_path}...")
-            df_m1 = load_m1_from_catalog(catalog_path, sym, start, end)
+            print(f"  Loading real M1 from DuckDB catalog '{catalog_path}'...")
+            df_m1 = load_m1_from_catalog(Path(catalog_path), sym, start, end)
+            if df_m1.empty:
+                print(f"[P1-01 ERROR] Zero M1 candles loaded for {sym} between {start} and {end}!", file=sys.stderr)
+                sys.exit(1)
+            print(f"  -> Loaded {len(df_m1):,} continuous M1 candles for {sym}")
 
+        symbol_frames_m1[sym] = df_m1
+
+        # FIX P1-02: Signal generation strictly on M15/H1 (resampled from M1)
         print(f"  Resampling M1 to M15 (strictly no-lookahead)...")
         df_m15 = resample_m1_to_timeframe(df_m1, timeframe_min=15)
-        symbol_frames[sym] = df_m15
+        symbol_frames_m15[sym] = df_m15
 
-        print(f"  Replaying 20FINAL signals on {len(df_m15)} M15 bars...")
+        print(f"  Replaying 20FINAL signals on {len(df_m15):,} M15 bars...")
         sigs = sig_engine.generate_signals(sym, df_m15, only_approved=True, only_warmup_ready=True)
-        print(f"  -> Generated {len(sigs)} approved & warmup-ready signals")
+        print(f"  -> Generated {len(sigs):,} approved & warmup-ready signals")
         all_signals.extend(sigs)
 
     all_signals.sort(key=lambda s: (s.signal_close_ms, s.combo_id, s.side))
@@ -107,6 +131,9 @@ def run_backtest(
         "symbols": symbols,
         "window": {"start": start, "end": end},
         "mode": mode,
+        "data_source": data_source_type,
+        "catalog_path": str(catalog_path) if catalog_path else None,
+        "smoke_test": smoke_test,
         "risk_config": {
             "initial_equity": initial_equity,
             "notional_per_trade": notional,
@@ -115,27 +142,36 @@ def run_backtest(
         "total_approved_signals": len(all_signals),
     }
 
-    # Execute simulation per symbol or combined
+    # FIX P1-02 & FIX P1-03: Execute trade simulations strictly on raw M1 candles
+    print(f"\n--- Simulating Trades on Raw M1 Bars ---")
     combined_virtual_trades = []
-    combined_portfolio_trades = []
 
     for sym in symbols:
         sym_sigs = [s for s in all_signals if s.symbol == sym]
-        df_bars = symbol_frames[sym]
+        df_m1_sym = symbol_frames_m1[sym]
+        print(f"  Simulating {len(sym_sigs)} signals on {sym} with {len(df_m1_sym):,} M1 candles...")
+        v_trades = simulator.simulate_virtual_trades(sym_sigs, df_m1_sym)
+        combined_virtual_trades.extend(v_trades)
+        print(f"  -> {sym}: generated {len(v_trades):,} trade legs")
 
-        if mode in ("virtual", "both"):
-            v_trades = simulator.simulate_virtual_trades(sym_sigs, df_bars)
-            combined_virtual_trades.extend(v_trades)
+    # Sort combined virtual trades by exit time
+    combined_virtual_trades.sort(key=lambda t: (t.exit_time_ms, t.trade_id, t.leg_id))
 
-        if mode in ("portfolio", "both"):
-            p_trades, _ = simulator.simulate_portfolio_trades(sym_sigs, df_bars)
-            combined_portfolio_trades.extend(p_trades)
+    # FIX P1-04: Exchange Hedge Merged Portfolio Mode
+    combined_portfolio_trades = []
+    df_portfolio_snaps = pd.DataFrame()
+    if mode in ("portfolio", "both"):
+        print(f"\n--- Simulating Exchange Hedge Merged Portfolio across all symbols ---")
+        combined_portfolio_trades, df_portfolio_snaps = simulator.simulate_portfolio_from_trades(combined_virtual_trades)
+        combined_portfolio_trades.sort(key=lambda t: (t.exit_time_ms, t.trade_id, t.leg_id))
+        print(f"  -> Reconciled {len(combined_portfolio_trades):,} portfolio trade legs")
 
-    # Sort combined trades by exit time
-    combined_virtual_trades.sort(key=lambda t: (t.exit_time_ms, t.trade_id))
-    combined_portfolio_trades.sort(key=lambda t: (t.exit_time_ms, t.trade_id))
+    # Retrieve all execution events (FIX P1-03 audit trail)
+    all_events = simulator.get_execution_events()
 
     # Evaluate Virtual Mode
+    v_metrics = None
+    v_regimes = {}
     if combined_virtual_trades:
         v_metrics = calculate_metrics(combined_virtual_trades, initial_equity=initial_equity)
         v_regimes = evaluate_regimes(combined_virtual_trades, initial_equity=initial_equity)
@@ -144,7 +180,7 @@ def run_backtest(
         export_summary_json(v_metrics, v_regimes, manifest, out_dir / "virtual_summary.json")
         generate_html_report(v_metrics, v_regimes, {**manifest, "mode": "VIRTUAL_ISOLATED"}, out_dir / "virtual_report.html")
 
-        print("\n--- Virtual Combo Isolated Results ---")
+        print("\n=== Virtual Combo Isolated Results ===")
         print(f"Total Trades: {v_metrics.total_trades}")
         print(f"Win Rate: {v_metrics.win_rate_pct:.1f}%")
         print(f"Net Realized PnL: ${v_metrics.net_pnl:,.2f} (ROI: {v_metrics.roi_pct:+.2f}%)")
@@ -154,6 +190,8 @@ def run_backtest(
         print(f"Intrabar Ambiguous Trades: {v_metrics.intrabar_ambiguous_trades} ({v_metrics.intrabar_ambiguous_pct:.1f}%)")
 
     # Evaluate Portfolio Mode
+    p_metrics = None
+    p_regimes = {}
     if combined_portfolio_trades:
         p_metrics = calculate_metrics(combined_portfolio_trades, initial_equity=initial_equity)
         p_regimes = evaluate_regimes(combined_portfolio_trades, initial_equity=initial_equity)
@@ -162,15 +200,54 @@ def run_backtest(
         export_summary_json(p_metrics, p_regimes, manifest, out_dir / "portfolio_summary.json")
         generate_html_report(p_metrics, p_regimes, {**manifest, "mode": "EXCHANGE_HEDGE_MERGED"}, out_dir / "portfolio_report.html")
 
-        print("\n--- Exchange Hedge Merged Portfolio Results ---")
+        print("\n=== Exchange Hedge Merged Portfolio Results ===")
         print(f"Total Trades: {p_metrics.total_trades}")
         print(f"Win Rate: {p_metrics.win_rate_pct:.1f}%")
         print(f"Net Realized PnL: ${p_metrics.net_pnl:,.2f} (ROI: {p_metrics.roi_pct:+.2f}%)")
         print(f"Profit Factor: {p_metrics.profit_factor:.2f}")
         print(f"Max Drawdown: ${p_metrics.max_drawdown_dollars:,.2f} ({p_metrics.max_drawdown_pct:.1f}%)")
+        print(f"Total Fees: ${p_metrics.total_fees:,.2f}")
+
+    # Export execution events
+    if all_events:
+        export_events_csv(all_events, out_dir / "execution_events.csv")
+        export_events_parquet(all_events, out_dir / "execution_events.parquet")
+        print(f"Exported {len(all_events):,} execution events to Parquet & CSV")
+
+    # Load Gate A and Gate B results for artifact bundle
+    qa_path = REPO_ROOT / "catalog" / "v3_m1_qa.json"
+    qa_data = None
+    if qa_path.exists():
+        qa_data = json.loads(qa_path.read_text(encoding="utf-8"))
+        (out_dir / "data_validation.json").write_text(json.dumps(qa_data, indent=2) + "\n", encoding="utf-8")
+
+    b1_path = REPO_ROOT / "reports" / "v3_b1_result.json"
+    b2_path = REPO_ROOT / "reports" / "v3_b2_result.json"
+    parity_bundle = {}
+    if b1_path.exists():
+        parity_bundle["gate_b1"] = json.loads(b1_path.read_text(encoding="utf-8"))
+    if b2_path.exists():
+        parity_bundle["gate_b2"] = json.loads(b2_path.read_text(encoding="utf-8"))
+    if parity_bundle:
+        (out_dir / "signal_parity.json").write_text(json.dumps(parity_bundle, indent=2) + "\n", encoding="utf-8")
+
+    # Export comprehensive validation report markdown
+    generate_validation_report_md(
+        v_metrics=v_metrics,
+        p_metrics=p_metrics,
+        manifest=manifest,
+        qa_data=qa_data,
+        parity_data=parity_bundle,
+        out_path=out_dir / "validation_report.md",
+    )
+
+    # Standard report.html
+    primary_html = out_dir / "portfolio_report.html" if p_metrics else out_dir / "virtual_report.html"
+    if primary_html.exists():
+        shutil.copyfile(primary_html, out_dir / "report.html")
 
     (out_dir / "run_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    print(f"\nAll reports generated successfully in {out_dir}")
+    print(f"\nAll deliverables generated successfully in: {out_dir}")
     return manifest
 
 
