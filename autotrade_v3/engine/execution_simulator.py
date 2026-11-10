@@ -32,6 +32,7 @@ class ExecutionEvent:
     fee: float
     realized_pnl: float
     exit_reason: str
+    signal_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -64,6 +65,7 @@ class TradeRecord:
     intrabar_ambiguous: bool
     bars_held: int
     provider: str
+    signal_id: str = ""
     intrabar_trailing_ambiguous: bool = False
     exit_policy_hash: str = ""
     tp_pct: float = 0.0
@@ -139,6 +141,7 @@ class _PortfolioActiveLeg:
     tp_pct: float = 0.0
     sl_pct: float = 0.0
     trailing_act_pct: float = 0.0
+    signal_id: str = ""
 
 
 @dataclass
@@ -233,8 +236,10 @@ class ExecutionSimulator:
 
             # Concurrency check: if not allowing concurrency and combo already in trade, skip
             if not allow_concurrency and combo_free_bar.get(sig.combo_id, -1) > entry_idx:
+                sym_clean = sig.symbol.replace("-", "").replace("_", "")
+                fallback_sig_id = f"SIG_{sym_clean}_{sig.combo_name}_{sig.timeframe}_{sig.side}_{sig.signal_close_ms}"
                 self.last_skipped_signals.append({
-                    "signal_id": f"{sig.symbol}_{sig.combo_id}_{sig.signal_close_ms}",
+                    "signal_id": getattr(sig, "signal_id", fallback_sig_id),
                     "symbol": sig.symbol,
                     "combo_id": sig.combo_id,
                     "combo_name": sig.combo_name,
@@ -528,6 +533,7 @@ class ExecutionSimulator:
             fee=entry_fee,
             realized_pnl=0.0,
             exit_reason="",
+            signal_id=getattr(sig, "signal_id", ""),
         )
         ev_close = ExecutionEvent(
             event_id=f"EV_{leg_id}_CLOSE",
@@ -548,6 +554,7 @@ class ExecutionSimulator:
             fee=exit_fee,
             realized_pnl=net_pnl,
             exit_reason=exit_reason,
+            signal_id=getattr(sig, "signal_id", ""),
         )
         self.execution_events.extend([ev_open, ev_close])
 
@@ -577,6 +584,7 @@ class ExecutionSimulator:
             intrabar_ambiguous=ambiguous,
             bars_held=exit_bar_idx - entry_idx,
             provider=provider,
+            signal_id=getattr(sig, "signal_id", ""),
             intrabar_trailing_ambiguous=False,
             exit_policy_hash=policy.get_policy_hash() if policy else "",
             tp_pct=policy.tp_pct if policy else sig.tp_pct,
@@ -784,6 +792,7 @@ class ExecutionSimulator:
             fee=entry_fee,
             realized_pnl=0.0,
             exit_reason="",
+            signal_id=getattr(sig, "signal_id", ""),
         )
         ev_close = ExecutionEvent(
             event_id=f"EV_{leg_id}_CLOSE",
@@ -804,6 +813,7 @@ class ExecutionSimulator:
             fee=exit_fee,
             realized_pnl=net_pnl,
             exit_reason=exit_reason,
+            signal_id=getattr(sig, "signal_id", ""),
         )
         self.execution_events.extend([ev_open, ev_close])
 
@@ -833,6 +843,7 @@ class ExecutionSimulator:
             intrabar_ambiguous=ambiguous,
             bars_held=exit_bar_idx - entry_idx,
             provider=provider,
+            signal_id=getattr(sig, "signal_id", ""),
             intrabar_trailing_ambiguous=trailing_ambiguous,
             exit_policy_hash=policy.get_policy_hash() if policy else "",
             tp_pct=policy.tp_pct if policy else sig.tp_pct,
@@ -944,6 +955,7 @@ class ExecutionSimulator:
                     intrabar_ambiguous=trade.intrabar_ambiguous,
                     bars_held=trade.bars_held,
                     provider=trade.provider,
+                    signal_id=trade.signal_id,
                 )
                 ledger.append(reconciled)
 
@@ -1052,8 +1064,10 @@ class ExecutionSimulator:
                 combo_key = (sig.symbol, sig.combo_id)
                 if active_combos.get(combo_key):
                     # Combo already in trade
+                    sym_clean = sig.symbol.replace("-", "").replace("_", "")
+                    fallback_sig_id = f"SIG_{sym_clean}_{sig.combo_name}_{sig.timeframe}_{sig.side}_{sig.signal_close_ms}"
                     skipped_signals.append({
-                        "signal_id": f"{sig.symbol}_{sig.combo_id}_{sig.signal_close_ms}",
+                        "signal_id": getattr(sig, "signal_id", fallback_sig_id),
                         "symbol": sig.symbol,
                         "combo_id": sig.combo_id,
                         "combo_name": sig.combo_name,
@@ -1092,12 +1106,16 @@ class ExecutionSimulator:
 
                 # Strict Margin Gate (FIX P1-04)
                 if free_margin < req_margin:
+                    sym_clean = sig.symbol.replace("-", "").replace("_", "")
+                    fallback_sig_id = f"SIG_{sym_clean}_{sig.combo_name}_{sig.timeframe}_{sig.side}_{sig.signal_close_ms}"
                     rejected_signals.append({
+                        "signal_id": getattr(sig, "signal_id", fallback_sig_id),
                         "timestamp_ms": ts,
                         "timestamp_dt": str(sym_bars["dt"][bar_idx]),
                         "symbol": sig.symbol,
                         "combo_id": sig.combo_id,
                         "side": sig.side,
+                        "signal_close_ms": sig.signal_close_ms,
                         "reason": "INSUFFICIENT_MARGIN",
                         "free_margin": round(free_margin, 4),
                         "req_margin": round(req_margin, 4),
@@ -1117,6 +1135,8 @@ class ExecutionSimulator:
 
                 trade_counter += 1
                 trade_id = f"PORT_{sig.symbol.replace('-', '')}_{sig.combo_id}_{trade_counter:05d}"
+                sym_clean = sig.symbol.replace("-", "").replace("_", "")
+                sig_id = getattr(sig, "signal_id", f"SIG_{sym_clean}_{sig.combo_name}_{sig.timeframe}_{sig.side}_{sig.signal_close_ms}")
 
                 is_buy = sig.side == "BUY"
                 policy = self.resolve_exit_policy(sig)
@@ -1146,6 +1166,7 @@ class ExecutionSimulator:
                         tp_pct=policy.tp_pct,
                         sl_pct=policy.sl_pct,
                         trailing_act_pct=policy.trailing_act_pct,
+                        signal_id=sig_id,
                     )
                     sig_legs.append(leg)
                 else:
@@ -1179,6 +1200,7 @@ class ExecutionSimulator:
                         tp_pct=policy.tp_pct,
                         sl_pct=policy.sl_pct,
                         trailing_act_pct=policy.trailing_act_pct,
+                        signal_id=sig_id,
                     )
                     # Leg 2: Trailing Stop
                     act_px = entry_px * (1.0 + policy.trailing_act_pct) if is_buy else entry_px * (1.0 - policy.trailing_act_pct)
@@ -1198,6 +1220,7 @@ class ExecutionSimulator:
                         tp_pct=policy.tp_pct,
                         sl_pct=policy.sl_pct,
                         trailing_act_pct=policy.trailing_act_pct,
+                        signal_id=sig_id,
                     )
                     sig_legs.extend([l1, l2])
 
@@ -1352,6 +1375,7 @@ class ExecutionSimulator:
                             intrabar_ambiguous=ambiguous,
                             bars_held=bar_idx - int(np.searchsorted(t_ms_array, leg.entry_time_ms)),
                             provider=leg.provider,
+                            signal_id=getattr(leg, "signal_id", ""),
                             intrabar_trailing_ambiguous=trailing_ambiguous,
                             exit_policy_hash=leg.exit_policy_hash,
                             tp_pct=leg.tp_pct,

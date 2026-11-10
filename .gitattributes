@@ -1,0 +1,3 @@
+# Ensure line endings in golden baseline and evidence are never altered
+runs/golden/** -text
+evidence/** -text

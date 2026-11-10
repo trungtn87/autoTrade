@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 from typing import Any, Literal
 import pandas as pd
@@ -16,9 +17,16 @@ from autotrade_v3.engine.candle_loader import (
 )
 from autotrade_v3.engine.execution_simulator import ExecutionSimulator, SimulationResult
 from autotrade_v3.engine.risk_manager import RiskConfig
-from autotrade_v3.lab.run_manager import RunManager, RunManifest, get_git_commit
+from autotrade_v3.lab.run_manager import (
+    RunManager,
+    RunManifest,
+    get_env_versions,
+    get_git_commit,
+    get_git_state,
+)
 from autotrade_v3.lab.validation_gates import ValidationGates, ValidationReport
 from autotrade_v3.strategy.registry import StrategyRegistry
+from autotrade_v3.tools.dataset_manifest import generate_dataset_manifest
 
 
 @dataclass
@@ -63,6 +71,7 @@ class ExperimentRunner:
         slippage_rate: float = 0.0,
         fee_rate_taker: float = 0.0005,
         smoke_test: bool = False,
+        is_golden: bool = False,
     ) -> ExperimentResult:
         """Execute a full research experiment and persist artifacts."""
         target_symbols = symbols or ["BTC-USDT", "ETH-USDT"]
@@ -70,9 +79,32 @@ class ExperimentRunner:
         start_ms = to_utc_ms(start)
         end_ms = to_utc_ms(end)
 
-        git_sha = get_git_commit()
+        code_sha, code_dirty, diff_sha256 = get_git_state()
+        if is_golden and code_dirty:
+            raise RuntimeError("Golden run rejected: working tree is dirty (code_dirty=True)")
+
+        env_versions = get_env_versions()
         data_manifest = self.data_layer.get_manifest()
         data_hash = data_manifest.data_manifest_hash if not smoke_test else "SYNTHETIC_SMOKE_HASH"
+
+        dataset_hash = "SYNTHETIC_SMOKE_HASH"
+        if not smoke_test:
+            gm_path = Path("runs/golden/v3-08/dataset_manifest.json")
+            if gm_path.exists():
+                try:
+                    with open(gm_path, "r", encoding="utf-8") as f:
+                        dataset_hash = json.load(f).get("dataset_hash", "")
+                except Exception:
+                    dataset_hash = ""
+            if not dataset_hash:
+                try:
+                    dm = generate_dataset_manifest(
+                        catalog_path=self.data_layer.catalog_path,
+                        data_dir=self.data_layer.data_dir,
+                    )
+                    dataset_hash = dm.get("dataset_hash", "")
+                except Exception:
+                    dataset_hash = data_hash
 
         # 1. Load Data
         candles_m1_eval: dict[str, pd.DataFrame] = {}
@@ -145,11 +177,15 @@ class ExperimentRunner:
         analysis["validation"] = val_report.to_dict()
 
         # 6. Build Manifest & Save Run
-        run_id = self.run_manager.generate_run_id(
-            strategy_id=strategy.strategy_id,
-            mode=sim_result.mode,
-            window_start=start,
-            window_end=end,
+        run_id = (
+            sim_result.mode
+            if is_golden
+            else self.run_manager.generate_run_id(
+                strategy_id=strategy.strategy_id,
+                mode=sim_result.mode,
+                window_start=start,
+                window_end=end,
+            )
         )
 
         acct = analysis["accounting"]
@@ -159,7 +195,7 @@ class ExperimentRunner:
             strategy_version=strategy.version,
             config_hash=strategy.get_config_hash(),
             data_manifest_hash=data_hash,
-            git_sha=git_sha,
+            git_sha=code_sha,
             execution_mode=sim_result.mode,
             time_window={"start": start, "end": end},
             symbols=target_symbols,
@@ -174,12 +210,23 @@ class ExperimentRunner:
             rejected_signals_count=acct["rejected_by_margin"],
             ambiguity_stats=sim_result.ambiguity_stats,
             validation_status=val_report.overall_status,
+            code_sha=code_sha,
+            code_dirty=code_dirty,
+            diff_sha256=diff_sha256,
+            python_version=env_versions["python_version"],
+            pandas_version=env_versions["pandas_version"],
+            numpy_version=env_versions["numpy_version"],
+            duckdb_version=env_versions["duckdb_version"],
+            pyarrow_version=env_versions["pyarrow_version"],
+            dataset_hash=dataset_hash,
+            is_golden=is_golden,
         )
 
         run_dir = self.run_manager.save_run(
             manifest=manifest,
             sim_result=sim_result,
             analysis=analysis,
+            signals=eval_signals,
         )
 
         return ExperimentResult(

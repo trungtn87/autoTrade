@@ -21,4 +21,10 @@ runs/lab/**/*.parquet
 runs/lab/**/*.csv
 runs/lab/**/snapshots.parquet
 
+# V3-08 Golden Baseline
+!runs/golden/**
+runs/golden/**/snapshots.parquet
+runs/golden/**/snapshots.csv
+
+
 

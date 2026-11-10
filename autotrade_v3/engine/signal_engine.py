@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 import sys
-from typing import Literal
+from typing import Any, Literal
 import pandas as pd
 
 from autotrade_v3.data_backtest.replay_20final import modules, replay_symbol
@@ -35,6 +35,16 @@ class Signal:
     is_new6: bool
     exit_policy: Any = None
     exit_policy_hash: str = ""
+    signal_id: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.signal_id:
+            sym_clean = self.symbol.replace("-", "").replace("_", "")
+            object.__setattr__(
+                self,
+                "signal_id",
+                f"SIG_{sym_clean}_{self.combo_name}_{self.timeframe}_{self.side}_{self.signal_close_ms}",
+            )
 
 
 class SignalEngine:

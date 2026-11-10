@@ -7,31 +7,86 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
+import platform
 import subprocess
 from typing import Any
+import duckdb
+import numpy as np
 import pandas as pd
+import pyarrow
 
 from autotrade_v3.engine.execution_simulator import ExecutionEvent, SimulationResult, TradeRecord
+from autotrade_v3.engine.signal_engine import Signal
 from autotrade_v3.reports.reporter import (
     export_events_csv,
     export_events_parquet,
     export_trades_csv,
     export_trades_parquet,
 )
+from autotrade_v3.tools.artifact_hash import compute_artifact_hashes
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LAB_RUNS_DIR = REPO_ROOT / "runs" / "lab"
 
 
-def get_git_commit() -> str:
+def get_git_commit(repo_dir: Path = REPO_ROOT) -> str:
     try:
         return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True, stderr=subprocess.DEVNULL
+            ["git", "rev-parse", "HEAD"], cwd=repo_dir, text=True, stderr=subprocess.DEVNULL
         ).strip()
     except Exception:
         return "UNKNOWN_COMMIT"
+
+
+def get_git_state(repo_dir: Path = REPO_ROOT) -> tuple[str, bool, str]:
+    """Inspect git state, returning (code_sha, code_dirty, diff_sha256)."""
+    try:
+        code_sha = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=repo_dir, text=True, stderr=subprocess.DEVNULL
+        ).strip()
+    except Exception:
+        code_sha = "UNKNOWN_COMMIT"
+
+    try:
+        status_out = subprocess.check_output(
+            ["git", "status", "--porcelain"], cwd=repo_dir, text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        filtered = [
+            line for line in status_out.splitlines()
+            if not line[3:].startswith("runs/") and not line[3:].startswith("runs\\")
+            and not line[3:].startswith("evidence/") and not line[3:].startswith("evidence\\")
+        ]
+        code_dirty = len(filtered) > 0
+    except Exception:
+        code_dirty = False
+
+    diff_sha256 = ""
+    if code_dirty:
+        try:
+            diff_bytes = subprocess.check_output(
+                ["git", "diff", "HEAD", "--", ":!runs", ":!evidence"],
+                cwd=repo_dir,
+                stderr=subprocess.DEVNULL,
+            )
+            diff_sha256 = hashlib.sha256(diff_bytes).hexdigest()
+        except Exception:
+            diff_sha256 = "UNKNOWN_DIFF"
+
+    return code_sha, code_dirty, diff_sha256
+
+
+def get_env_versions() -> dict[str, str]:
+    """Retrieve runtime library versions for manifest."""
+    return {
+        "python_version": platform.python_version(),
+        "pandas_version": pd.__version__,
+        "numpy_version": np.__version__,
+        "duckdb_version": duckdb.__version__,
+        "pyarrow_version": pyarrow.__version__,
+    }
 
 
 @dataclass
@@ -56,6 +111,16 @@ class RunManifest:
     rejected_signals_count: int
     ambiguity_stats: dict[str, int]
     validation_status: str  # "PASS", "FAIL"
+    code_sha: str = ""
+    code_dirty: bool = False
+    diff_sha256: str = ""
+    python_version: str = ""
+    pandas_version: str = ""
+    numpy_version: str = ""
+    duckdb_version: str = ""
+    pyarrow_version: str = ""
+    dataset_hash: str = ""
+    is_golden: bool = False
     created_at_utc: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
@@ -90,14 +155,17 @@ class RunManager:
         manifest: RunManifest,
         sim_result: SimulationResult,
         analysis: dict[str, Any],
+        signals: list[Signal] | None = None,
     ) -> Path:
         """Persist complete run artifacts without overwriting prior runs."""
-        run_dir = self.runs_dir / manifest.run_id
-        if run_dir.exists():
-            # If already exists, add nanosecond timestamp to ensure immutability
-            ns = datetime.now(timezone.utc).strftime("%f")
-            manifest.run_id = f"{manifest.run_id}_{ns}"
+        if manifest.is_golden:
+            run_dir = self.runs_dir / manifest.execution_mode
+        else:
             run_dir = self.runs_dir / manifest.run_id
+            if run_dir.exists():
+                ns = datetime.now(timezone.utc).strftime("%f")
+                manifest.run_id = f"{manifest.run_id}_{ns}"
+                run_dir = self.runs_dir / manifest.run_id
 
         run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -110,37 +178,131 @@ class RunManager:
         with open(run_dir / "analysis.json", "w", encoding="utf-8") as f:
             json.dump(analysis, f, indent=2, default=str)
 
-        # 3. Save Trades & Legs
+        # 3. Save Signals (Input Signals)
+        if signals:
+            sig_dicts = []
+            for s in signals:
+                d = asdict(s)
+                if "exit_policy" in d:
+                    d["exit_policy"] = str(d["exit_policy"]) if d["exit_policy"] is not None else ""
+                d["signal_close_dt"] = str(s.signal_close_dt)
+                sig_dicts.append(d)
+            df_sigs = pd.DataFrame(sig_dicts)
+            df_sigs.to_parquet(run_dir / "signals.parquet", index=False)
+            df_sigs.to_csv(run_dir / "signals.csv", index=False)
+        else:
+            # Fallback empty signals schema
+            df_sigs = pd.DataFrame(columns=[
+                "signal_id", "symbol", "combo_id", "combo_name", "timeframe", "side",
+                "signal_close_ms", "signal_close_dt", "entry_price", "tp_price", "sl_price"
+            ])
+            df_sigs.to_parquet(run_dir / "signals.parquet", index=False)
+
+        # 4. Save Trades & Legs
         trades = sim_result.trades
         if trades:
             export_trades_csv(trades, run_dir / "trades.csv")
             export_trades_parquet(trades, run_dir / "trades.parquet")
+        else:
+            df_empty_trades = pd.DataFrame(columns=["signal_id", "trade_id", "leg_id", "net_pnl"])
+            df_empty_trades.to_parquet(run_dir / "trades.parquet", index=False)
 
-        # 4. Save Execution Events
+        # 5. Save Execution Events
         events = sim_result.events
         if events:
             export_events_csv(events, run_dir / "execution_events.csv")
             export_events_parquet(events, run_dir / "execution_events.parquet")
+        else:
+            df_empty_events = pd.DataFrame(columns=[
+                "event_id", "signal_id", "timestamp_ms", "timestamp_dt", "trade_id", "leg_id",
+                "symbol", "combo_id", "combo_name", "timeframe", "event_type", "side",
+                "order_action", "price", "qty", "notional", "fee", "realized_pnl", "exit_reason"
+            ])
+            df_empty_events.to_parquet(run_dir / "execution_events.parquet", index=False)
 
-        # 5. Save Skipped and Rejected Signals
+        # 6. Save Skipped Signals (JSON & Parquet)
         with open(run_dir / "skipped_signals.json", "w", encoding="utf-8") as f:
             json.dump(sim_result.skipped_signals, f, indent=2, default=str)
+        if sim_result.skipped_signals:
+            df_skipped = pd.DataFrame(sim_result.skipped_signals)
+        else:
+            df_skipped = pd.DataFrame(columns=[
+                "signal_id", "symbol", "combo_id", "combo_name", "timeframe", "side",
+                "signal_close_ms", "signal_close_dt", "reason"
+            ])
+        df_skipped.to_parquet(run_dir / "skipped_signals.parquet", index=False)
 
+        # 7. Save Rejected Signals (JSON & Parquet)
+        with open(run_dir / "rejected_signals.json", "w", encoding="utf-8") as f:
+            json.dump(sim_result.rejected_signals, f, indent=2, default=str)
         if sim_result.rejected_signals:
-            with open(run_dir / "rejected_signals.json", "w", encoding="utf-8") as f:
-                json.dump(sim_result.rejected_signals, f, indent=2, default=str)
+            df_rejected = pd.DataFrame(sim_result.rejected_signals)
+        else:
+            df_rejected = pd.DataFrame(columns=[
+                "signal_id", "timestamp_ms", "timestamp_dt", "symbol", "combo_id",
+                "combo_name", "timeframe", "side", "signal_close_ms", "reason",
+                "free_margin", "req_margin"
+            ])
+        df_rejected.to_parquet(run_dir / "rejected_signals.parquet", index=False)
 
-        # 6. Save Equity Snapshots if present
+        # 8. Save Equity Snapshots if present
+        snapshots_meta = None
         if not sim_result.snapshots.empty:
-            sim_result.snapshots.to_csv(run_dir / "snapshots.csv", index=False)
-            sim_result.snapshots.to_parquet(run_dir / "snapshots.parquet", index=False)
+            snap_pq = run_dir / "snapshots.parquet"
+            snap_csv = run_dir / "snapshots.csv"
+            sim_result.snapshots.to_parquet(snap_pq, index=False)
+            sim_result.snapshots.to_csv(snap_csv, index=False)
+            snap_size = snap_pq.stat().st_size
+            snap_sha = compute_artifact_hashes(snap_pq)["sha256"]
+            is_over_20mb = snap_size > 20 * 1024 * 1024
+            snapshots_meta = {
+                "file_name": "snapshots.parquet",
+                "absolute_path": str(snap_pq.resolve()),
+                "size_bytes": snap_size,
+                "sha256": snap_sha,
+                "committed": not is_over_20mb,
+                "reason": "Exceeds 20 MB threshold; omitted from git" if is_over_20mb else "Committed",
+            }
 
-        # 7. Generate Markdown Report
+        # 9. Generate ARTIFACTS.json
+        artifacts_index: dict[str, Any] = {
+            "mode": manifest.execution_mode,
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            "artifacts": {},
+        }
+        target_artifacts = [
+            "run_manifest.json",
+            "analysis.json",
+            "signals.parquet",
+            "trades.parquet",
+            "execution_events.parquet",
+            "skipped_signals.parquet",
+            "rejected_signals.parquet",
+        ]
+        for art_name in target_artifacts:
+            art_file = run_dir / art_name
+            if art_file.exists():
+                h_info = compute_artifact_hashes(art_file)
+                artifacts_index["artifacts"][art_name] = {
+                    "file_name": art_name,
+                    "size_bytes": h_info["size_bytes"],
+                    "sha256": h_info["sha256"],
+                    "content_hash": h_info["content_hash"],
+                    "row_count": h_info.get("row_count"),
+                }
+        if snapshots_meta is not None:
+            artifacts_index["artifacts"]["snapshots.parquet"] = snapshots_meta
+
+        with open(run_dir / "ARTIFACTS.json", "w", encoding="utf-8") as f:
+            json.dump(artifacts_index, f, indent=2)
+
+        # 10. Generate Markdown Report
         md_report = self._render_markdown_report(manifest, analysis)
         (run_dir / "report.md").write_text(md_report, encoding="utf-8")
 
-        # 8. Update Catalog Index
-        self._update_catalog(manifest, analysis)
+        # 11. Update Catalog Index (only for non-golden runs to prevent catalog corruption)
+        if not manifest.is_golden:
+            self._update_catalog(manifest, analysis)
 
         return run_dir
 

@@ -1,0 +1,259 @@
+"""Unit and Integration Tests for V3-08 Golden Baseline & Reproducibility."""
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import tempfile
+import unittest
+from unittest import mock
+import numpy as np
+import pandas as pd
+
+from autotrade_v3.data_layer import DataLayer
+from autotrade_v3.engine.candle_loader import generate_synthetic_m1, resample_m1_to_timeframe
+from autotrade_v3.engine.execution_simulator import (
+    ExecutionEvent,
+    ExecutionSimulator,
+    TradeRecord,
+)
+from autotrade_v3.engine.risk_manager import RiskConfig
+from autotrade_v3.engine.signal_engine import Signal, SignalEngine
+from autotrade_v3.lab.experiment import ExperimentRunner
+from autotrade_v3.lab.run_manager import RunManager, get_git_state
+from autotrade_v3.strategy.registry import StrategyRegistry
+from autotrade_v3.tools.artifact_hash import compute_artifact_hashes, compute_content_hash
+from autotrade_v3.tools.compare_ledgers import compare_ledgers
+from autotrade_v3.tools.dataset_manifest import compute_file_sha256, generate_dataset_manifest
+from autotrade_v3.tools.recompute_metrics import recompute_metrics
+
+
+class TestSignalIdAndProvenance(unittest.TestCase):
+    def test_signal_id_format_and_properties(self):
+        sig = Signal(
+            symbol="BTC-USDT",
+            combo_id=1,
+            combo_name="C1",
+            timeframe="15m",
+            side="BUY",
+            signal_close_ms=1701856799999,
+            signal_close_dt=pd.to_datetime(1701856799999, unit="ms", utc=True),
+            bar_position=10,
+            bar_open_ms=1701855900000,
+            entry_price=42000.0,
+            tp_pct=0.05,
+            sl_pct=0.03,
+            tp_price=44100.0,
+            sl_price=40740.0,
+            approved=True,
+            warmup_ready=True,
+            smc_dir=1,
+            ob_blocked=False,
+            provider="BINANCE",
+            is_new6=False,
+        )
+        expected = "SIG_BTCUSDT_C1_15m_BUY_1701856799999"
+        self.assertEqual(sig.signal_id, expected)
+        # Regex check: SIG_{SYMBOL}_{combo_name}_{timeframe}_{side}_{signal_close_ms}
+        pattern = r"^SIG_[A-Z0-9]+_[A-Z0-9]+_[0-9]+[mh]_(BUY|SELL)_[0-9]+$"
+        self.assertRegex(sig.signal_id, pattern)
+
+    def test_signal_id_in_trades_and_events(self):
+        trade = TradeRecord(
+            trade_id="T_BTCUSDT_1_00001",
+            leg_id="T_BTCUSDT_1_00001_L1",
+            symbol="BTC-USDT",
+            combo_id=1,
+            combo_name="C1",
+            timeframe="15m",
+            side="BUY",
+            leg_type="SINGLE",
+            entry_time_ms=1701856800000,
+            entry_time_dt=pd.to_datetime(1701856800000, unit="ms", utc=True),
+            entry_price=42000.0,
+            exit_time_ms=1701860400000,
+            exit_time_dt=pd.to_datetime(1701860400000, unit="ms", utc=True),
+            exit_price=44100.0,
+            exit_reason="TP",
+            qty=0.002,
+            notional=100.0,
+            margin=100.0,
+            gross_pnl=5.0,
+            fee_total=0.1,
+            net_pnl=4.9,
+            return_pct=0.049,
+            intrabar_ambiguous=False,
+            bars_held=60,
+            provider="BINANCE",
+            signal_id="SIG_BTCUSDT_C1_15m_BUY_1701856799999",
+        )
+        self.assertEqual(trade.signal_id, "SIG_BTCUSDT_C1_15m_BUY_1701856799999")
+        d = trade.to_dict()
+        self.assertIn("signal_id", d)
+        self.assertEqual(d["signal_id"], "SIG_BTCUSDT_C1_15m_BUY_1701856799999")
+
+        ev = ExecutionEvent(
+            event_id="EV_L1_OPEN",
+            timestamp_ms=1701856800000,
+            timestamp_dt="2023-12-06 10:00:00+00:00",
+            trade_id="T_BTCUSDT_1_00001",
+            leg_id="T_BTCUSDT_1_00001_L1",
+            symbol="BTC-USDT",
+            combo_id=1,
+            combo_name="C1",
+            timeframe="15m",
+            event_type="ENTRY",
+            side="BUY",
+            order_action="OPEN",
+            price=42000.0,
+            qty=0.002,
+            notional=100.0,
+            fee=0.05,
+            realized_pnl=0.0,
+            exit_reason="",
+            signal_id="SIG_BTCUSDT_C1_15m_BUY_1701856799999",
+        )
+        self.assertEqual(ev.signal_id, "SIG_BTCUSDT_C1_15m_BUY_1701856799999")
+        self.assertEqual(ev.to_dict()["signal_id"], "SIG_BTCUSDT_C1_15m_BUY_1701856799999")
+
+
+class TestContentHashAndDatasetManifest(unittest.TestCase):
+    def test_content_hash_permutations_and_crlf_invariance(self):
+        data = {
+            "signal_id": ["SIG_BTC_1", "SIG_ETH_2", "SIG_BTC_3"],
+            "leg_id": ["L1", "L1", "L2"],
+            "net_pnl": [10.500000000000001, -2.1234567890123456, 0.0],
+            "exit_reason": ["TP", "SL", "TRAIL"],
+        }
+        df1 = pd.DataFrame(data)
+        # Permute rows and columns
+        df2 = df1.sample(frac=1.0, random_state=42)[["exit_reason", "net_pnl", "leg_id", "signal_id"]]
+
+        h1 = compute_content_hash(df1)
+        h2 = compute_content_hash(df2)
+        self.assertEqual(h1, h2, "Content hash must be invariant to row and column permutations")
+
+        # Mutate single value
+        df_mutated = df1.copy()
+        df_mutated.loc[0, "net_pnl"] = 11.5
+        h_mutated = compute_content_hash(df_mutated)
+        self.assertNotEqual(h1, h_mutated, "Content hash must change when value changes")
+
+    def test_dataset_hash_sensitivity_on_byte_mutation(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            data_sub = tmp_path / "data" / "m1_raw" / "symbol=TEST"
+            data_sub.mkdir(parents=True)
+            pf = data_sub / "test.parquet"
+
+            df = pd.DataFrame({"open": [1.0, 2.0], "close": [1.5, 2.5]})
+            df.to_parquet(pf)
+
+            dm1 = generate_dataset_manifest(
+                catalog_path=tmp_path / "nonexistent.duckdb",
+                data_dir=tmp_path / "data" / "m1_raw",
+                base_dir=tmp_path,
+            )
+            h1 = dm1["dataset_hash"]
+
+            # Mutate one byte in file
+            raw = pf.read_bytes()
+            mutated = bytearray(raw)
+            mutated[10] = (mutated[10] + 1) % 256
+            pf.write_bytes(bytes(mutated))
+
+            dm2 = generate_dataset_manifest(
+                catalog_path=tmp_path / "nonexistent.duckdb",
+                data_dir=tmp_path / "data" / "m1_raw",
+                base_dir=tmp_path,
+            )
+            h2 = dm2["dataset_hash"]
+
+            self.assertNotEqual(h1, h2, "dataset_hash must change when any file byte is mutated")
+
+
+class TestGitStateAndGoldenProtection(unittest.TestCase):
+    def test_dirty_working_tree_detection(self):
+        with tempfile.TemporaryDirectory() as tmp_git:
+            tpath = Path(tmp_git)
+            # Init git repo
+            subprocess.run(["git", "init"], cwd=tpath, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.name", "Test"], cwd=tpath, check=True)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tpath, check=True)
+
+            f = tpath / "file.txt"
+            f.write_text("initial", encoding="utf-8")
+            subprocess.run(["git", "add", "file.txt"], cwd=tpath, check=True)
+            subprocess.run(["git", "commit", "-m", "init"], cwd=tpath, check=True)
+
+            sha, dirty, diff_hash = get_git_state(tpath)
+            self.assertFalse(dirty)
+            self.assertEqual(diff_hash, "")
+
+            # Modify file
+            f.write_text("modified", encoding="utf-8")
+            sha_m, dirty_m, diff_hash_m = get_git_state(tpath)
+            self.assertTrue(dirty_m)
+            self.assertNotEqual(diff_hash_m, "")
+
+
+class TestEndToEndSyntheticGoldenArtifacts(unittest.TestCase):
+    def test_synthetic_three_modes_artifact_completeness(self):
+        with tempfile.TemporaryDirectory() as tmp_out:
+            rm = RunManager(runs_dir=tmp_out)
+            runner = ExperimentRunner(run_manager=rm)
+
+            modes = ["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"]
+            with unittest.mock.patch("autotrade_v3.lab.experiment.get_git_state", return_value=("mock_sha", False, "")):
+                for m in modes:
+                    res = runner.run_experiment(
+                        strategy_id="20FINAL_BASELINE",
+                        mode=m,
+                        symbols=["BTC-USDT"],
+                        start="2023-11-01",
+                        end="2026-11-01",
+                        smoke_test=True,
+                        is_golden=True,
+                    )
+
+                self.assertTrue(res.run_dir.exists())
+                # Verify required artifacts
+                required_files = [
+                    "run_manifest.json",
+                    "signals.parquet",
+                    "trades.parquet",
+                    "execution_events.parquet",
+                    "skipped_signals.parquet",
+                    "rejected_signals.parquet",
+                    "analysis.json",
+                    "ARTIFACTS.json",
+                ]
+                for rf in required_files:
+                    p = res.run_dir / rf
+                    self.assertTrue(p.exists(), f"Missing required artifact: {rf} in {m}")
+
+                # Check ARTIFACTS.json contents
+                with open(res.run_dir / "ARTIFACTS.json", "r", encoding="utf-8") as f:
+                    art_index = json.load(f)
+                self.assertIn("artifacts", art_index)
+                for rf in [f for f in required_files if f != "ARTIFACTS.json"]:
+                    self.assertIn(rf, art_index["artifacts"])
+                    meta = art_index["artifacts"][rf]
+                    self.assertIn("sha256", meta)
+                    self.assertIn("size_bytes", meta)
+
+                # Check manifest provenance
+                with open(res.run_dir / "run_manifest.json", "r", encoding="utf-8") as f:
+                    man = json.load(f)
+                self.assertTrue(man.get("is_golden"))
+                self.assertIn("code_sha", man)
+                self.assertIn("dataset_hash", man)
+                self.assertIn("python_version", man)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -78,8 +78,20 @@ def cmd_modes(args: argparse.Namespace) -> None:
 
 def cmd_backtest(args: argparse.Namespace) -> None:
     """Execute backtest in selected mode."""
+    is_golden = getattr(args, "golden", False)
+    out_dir = args.out_dir
+    if is_golden and out_dir == "runs/lab":
+        out_dir = "runs/golden/v3-08"
+
+    if is_golden:
+        from autotrade_v3.lab.run_manager import get_git_state
+        code_sha, code_dirty, diff_sha256 = get_git_state()
+        if code_dirty:
+            print("ERROR: --golden run rejected: git working tree is dirty (code_dirty=True).", file=sys.stderr)
+            sys.exit(1)
+
     dl = DataLayer(catalog_path=args.catalog)
-    rm = RunManager(runs_dir=args.out_dir)
+    rm = RunManager(runs_dir=out_dir)
     runner = ExperimentRunner(data_layer=dl, run_manager=rm)
 
     symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
@@ -101,6 +113,7 @@ def cmd_backtest(args: argparse.Namespace) -> None:
             notional_per_trade=args.notional,
             slippage_rate=args.slippage,
             smoke_test=args.smoke_test,
+            is_golden=is_golden,
         )
 
         pnl = res.analysis["pnl"]
@@ -233,10 +246,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_bt.add_argument("--end", default="2026-11-01", help="End date (UTC)")
     p_bt.add_argument("--initial-equity", type=float, default=1000.0, help="Initial account equity")
     p_bt.add_argument("--notional", type=float, default=100.0, help="Notional position size per trade ($)")
-    p_bt.add_argument("--slippage", type=float, default=0.0, help="Per-side slippage rate (e.g. 0.0001 = 0.01%)")
+    p_bt.add_argument("--slippage", type=float, default=0.0, help="Per-side slippage rate (e.g. 0.0001 = 0.01%%)")
     p_bt.add_argument("--catalog", default="catalog/research.duckdb", help="DuckDB catalog path")
     p_bt.add_argument("--out-dir", default="runs/lab", help="Directory to store run artifacts")
     p_bt.add_argument("--smoke-test", action="store_true", help="Use synthetic fixture for fast verification")
+    p_bt.add_argument("--golden", action="store_true", help="Enforce golden baseline run: require clean git working tree")
     p_bt.set_defaults(func=cmd_backtest)
 
     # Runs
