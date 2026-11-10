@@ -1,0 +1,20 @@
+name: V3 Existing M1 QA
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'autotrade_v3/**'
+      - '.github/workflows/v3-existing-m1.yml'
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r autotrade_v3/requirements-data.txt
+      - run: python -m unittest autotrade_v3.tests.test_existing_m1 -v
+      - run: python -m compileall -q autotrade_v3
