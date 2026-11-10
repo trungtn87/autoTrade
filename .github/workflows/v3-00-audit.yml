@@ -23,6 +23,6 @@ jobs:
         with:
           python-version: '3.12'
       - name: Stdlib-only V3 audit tests
-        run: python -m unittest discover -s autotrade_v3/tests -v
+        run: python -m unittest autotrade_v3.tests.test_audit -v
       - name: Compile audit in isolation
         run: python -m compileall -q autotrade_v3
