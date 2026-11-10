@@ -51,7 +51,7 @@ class EvidenceInventoryTests(unittest.TestCase):
         result = audit(self.root)
         self.assertEqual(result["signal_link_rows"], 1)
         self.assertEqual(result["entry_fill_supported"], 1)
-        self.assertEqual(result["exits_verified"], 0)
+        self.assertIsNone(result["exits_verified"])
         self.assertEqual(result["exit_mode_missing_rows"], 1)
         self.assertEqual(result["status"], "INCONCLUSIVE")
         self.assertIn("trade_results", result["missing_optional_tables"])
@@ -91,7 +91,7 @@ class EvidenceInventoryTests(unittest.TestCase):
         report = audit(self.root)
         self.assertEqual(report["exit_mode_missing_rows"], 0)
         self.assertEqual(report["closed_result_candidates_unverified"], 1)
-        self.assertEqual(report["exits_verified"], 0)
+        self.assertIsNone(report["exits_verified"])
         self.assertNotIn("should-not-leak", json.dumps(report))
         self.assertNotIn("100", json.dumps(report))
 
@@ -104,7 +104,7 @@ class EvidenceInventoryTests(unittest.TestCase):
         self._write()
         report = audit(self.root)
         self.assertEqual(report["exit_mode_missing_rows"], 0)
-        self.assertEqual(report["exits_verified"], 0)
+        self.assertIsNone(report["exits_verified"])
         self.assertIn("trade_results", report["missing_optional_tables"])
 
     def test_ai_review_no_link_is_not_no_trade_claim(self):

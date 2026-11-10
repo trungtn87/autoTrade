@@ -238,7 +238,8 @@ def audit(root: Path) -> dict:
         "exit_mode_missing_rows": exit_mode_missing,
         "closed_result_candidates_unverified": exit_evidence_candidates,
         "ai_reviews_without_confirmed_entry_link": no_link_reviews,
-        "exits_verified": 0,  # cannot be established by this tool; never infer
+        "exits_verified": None,  # not measured, NOT proof there were zero verified exits
+        "exit_verification_status": "NOT_EVALUATED_IN_G0"
         "per_symbol_combo_month": [
             {"symbol": symbol, "combo": combo, "month_utc": month,
              "total": sum(c.values()), "entry_status_counts": dict(sorted(c.items()))}

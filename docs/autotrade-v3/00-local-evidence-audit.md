@@ -55,7 +55,7 @@ The timestamp must match when you actually exported the data (UTC). Sealing writ
 
 - Exact counts: 132 signal_links, 432 bingx_orders, 134 bingx_fills, 497 bingx_income, 10 ai_reviews.
 - All 132 linked entries found a matching order with expected symbol/side/entry type.
-- Only **59 of 132** linked entries currently have at least one fill row by exact order ID (fill quantity consistency not yet assessed in this aggregate SQL audit).
+- **59 of 132** linked entries have exact-order fill records; a separate read-only aggregate check found complete matching fill quantities/side for all 59 (BTC 35/68, ETH 24/64). This still does not prove exit ownership.
 - Order raw JSON has **0 exit_mode fields**; trade_results and trade_result_receipts tables are not present. However **public.processed_targets** contains 263 rows/134 distinct event IDs; 73 rows have top-level exit_mode and **37 of 132** linked Entries have a processed-target payload with exit_mode. This is real evidence of mode presence, not proof of exit ownership or complete fill.
 - 295 stop/TP/trailing order rows and 72 corresponding fill rows exist, but must NOT be attributed to combos by symbol/time alone.
 - These aggregates are a *read-only point-in-time snapshot*, not a complete exported dataset, and are **not validation of exited trade outcomes**.
