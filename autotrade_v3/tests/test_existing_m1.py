@@ -18,7 +18,7 @@ class TestExisting(unittest.TestCase):
         for sym in ("BTCUSDT","ETHUSDT"):
             f=self.root/(sym+".parquet")
             c=duckdb.connect()
-            c.execute("COPY (SELECT ? AS symbol, x AS open_ms, 100 AS open, 101 AS high, 99 AS low, 100 AS close, 2 AS volume FROM unnest([1698796800000::BIGINT,1698796860000::BIGINT]) AS t(x)) TO ? (FORMAT PARQUET)",[sym,str(f)])
+            c.execute(f" COPY (SELECT '{sym}' AS symbol, x AS open_ms, 100 AS open, 101 AS high, 99 AS low, 100 AS close, 2 AS volume FROM unnest([1698796800000::BIGINT,1698796860000::BIGINT]) AS t(x)) TO '{str(f)}' (FORMAT PARQUET) ")
             c.close()
             self.files.append(f)
         self.sm=Path(self.tmp.name)/"sources.json"
