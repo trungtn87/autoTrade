@@ -77,3 +77,26 @@ class TestExisting(unittest.TestCase):
         self.assertEqual(len(r["monthly"]),2)
         self.assertEqual(r["monthly"][0]["bingx_supplement_unique"],1)
         self.assertEqual(r["monthly"][1]["binance_rows"],1439)
+
+    def test_explicit_file_provider_conflict_is_not_silently_relabelled(self):
+        f=self.files[0]
+        c=duckdb.connect()
+        c.execute(f"""COPY (
+          SELECT '{f.stem}' AS symbol, x AS open_ms, 100 AS open, 101 AS high,
+                 99 AS low, 100 AS close, 2 AS volume, 'BINGX' AS provider
+          FROM unnest([1698796800000::BIGINT,1698796860000::BIGINT]) AS t(x)
+        ) TO '{str(f)}' (FORMAT PARQUET)""")
+        c.close()
+        self.hashes.write_text(json.dumps({
+            f.name:hashlib.sha256(f.read_bytes()).hexdigest()
+            for f in self.files}))
+        r=inspect(self.root,self.out,self.sm,self.hashes,"2023-11-01","2023-11-02")
+        self.assertEqual(r["hybrid_gate"],"FAIL")
+        self.assertEqual(r["metrics"][0]["bad_provenance"],2)
+
+    def test_mixed_file_requires_candle_level_source(self):
+        self.sm.write_text(json.dumps({"files":[
+          {"path":f.name,"provider":"MIXED","market_type":"USDT_PERP",
+           "price_type":"LAST"} for f in self.files]}))
+        with self.assertRaisesRegex(ValueError,"per-row venue"):
+            inspect(self.root,self.out,self.sm,self.hashes,"2023-11-01","2023-11-02")

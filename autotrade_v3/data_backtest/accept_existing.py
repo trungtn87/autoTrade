@@ -60,7 +60,7 @@ def inspect(root:Path, out:Path, source_map:Path, checksums:Path,
           [paths]).fetchall()}
         # A mixed-provider Parquet requires per-row venue attribution.
         row_venue=next((v for v in nameset if v.lower() in
-                        ("provider","source_exchange","exchange","venue")),None)
+                        ("provider","source_exchange","exchange","venue","source")),None)
         if any(row["provider"].upper()=="MIXED" for row in catalog["files"]) and row_venue is None:
             raise ValueError("MIXED provider file requires a per-row venue column")
         row_expr=("upper(trim(cast(p."+column(nameset,row_venue)+" AS VARCHAR)))"
