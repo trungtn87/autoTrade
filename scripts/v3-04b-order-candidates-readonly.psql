@@ -1,0 +1,10 @@
+-- V3-04B: Read-only snapshot of candidate native trigger-order lineage in V2.
+-- Execute ONLY via dedicated TLS PostgreSQL SELECT-only account on user's PC.
+-- Never commit the CSV: order/client IDs and position IDs are private.
+-- This is NOT independent BingX evidence; it merely identifies what to request
+-- from BingX's GET order detail/history and fill-history endpoints.
+\set ON_ERROR_STOP on
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+\copy (SELECT l.symbol,l.combo,l.side,l.signal_id,l.entry_order_id,p.payload::jsonb #>> '{protection,sl,order_id}' AS sl_parent_id,p.payload::jsonb #>> '{protection,tp,order_id}' AS tp_parent_id,p.payload::jsonb #>> '{protection,trailing,order_id}' AS trailing_parent_id,p.payload::jsonb->>'exit_mode' AS exit_mode FROM autotrade_analytics.signal_links l LEFT JOIN public.processed_targets p ON p.event_id=l.signal_id AND p.target='bingx_state' ORDER BY l.signal_time_ms,l.symbol,l.entry_order_id) TO 'v2_native_parent_candidates.csv' WITH (FORMAT CSV, HEADER TRUE)
+\copy (SELECT order_id,symbol,type,status,side,position_side,filled_qty,NULLIF(raw::jsonb->>'positionID','') AS position_id,NULLIF(raw::jsonb->>'triggerOrderId','') AS trigger_order_id,NULLIF(raw::jsonb->>'mainOrderId','') AS main_order_id,NULLIF(raw::jsonb->>'workingType','') AS working_type FROM autotrade_analytics.bingx_orders ORDER BY symbol,created_ms,order_id) TO 'v2_order_trigger_candidates.csv' WITH (FORMAT CSV, HEADER TRUE)
+COMMIT;
