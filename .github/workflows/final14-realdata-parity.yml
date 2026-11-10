@@ -57,4 +57,11 @@ jobs:
         env:
           PYTHONPATH: autotrade_v2
         run: |
-          python autotrade_v2/tests/backtest_realdata_parity.py             --btc /tmp/run17/data/multisource/BTCUSDT_hybrid_15m.pkl             --eth /tmp/run17/data/multisource/ETHUSDT_hybrid_15m.pkl             --backtest-dir /tmp/backtest
+          python autotrade_v2/tests/backtest_realdata_parity.py             --btc /tmp/run17/data/multisource/BTCUSDT_hybrid_15m.pkl             --eth /tmp/run17/data/multisource/ETHUSDT_hybrid_15m.pkl             --backtest-dir /tmp/backtest --export-v3-m15-dir /tmp/v3-run17-safe
+
+      - name: Save safe converted RUN17 M15 CSV (one-time B1 gate)
+        uses: actions/upload-artifact@v4
+        with:
+          name: v3-02-run17-safe-m15-csv
+          path: /tmp/v3-run17-safe/*_RUN17_M15.csv
+          retention-days: 1

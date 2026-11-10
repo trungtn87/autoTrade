@@ -186,6 +186,7 @@ def main() -> None:
     ap.add_argument("--btc", required=True)
     ap.add_argument("--eth", required=True)
     ap.add_argument("--backtest-dir", required=True)
+    ap.add_argument("--export-v3-m15-dir", default=None)
     args = ap.parse_args()
 
     old = load_old(Path(args.backtest_dir))
@@ -197,6 +198,12 @@ def main() -> None:
         ("ETH-USDT", "ETHUSDT", args.eth),
     ):
         d = old.load(dataset)
+        if args.export_v3_m15_dir:
+            export_dir = Path(args.export_v3_m15_dir)
+            export_dir.mkdir(parents=True, exist_ok=True)
+            safe = d[["open", "high", "low", "close", "volume"]].copy()
+            safe.insert(0, "open_ms", d.index.asi8 // 1_000_000)
+            safe.to_csv(export_dir / f"{backtest_symbol}_RUN17_M15.csv", index=False)
 
         selected = {
             combo_name(combo): {cfg["entry_variant"]}
