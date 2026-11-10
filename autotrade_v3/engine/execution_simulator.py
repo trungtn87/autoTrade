@@ -1,7 +1,7 @@
 """Execution simulator supporting Virtual Combo Trade and Exchange Hedge Merged modes."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import math
 from typing import Any, Literal
 import numpy as np
@@ -63,6 +63,7 @@ class TradeRecord:
     intrabar_ambiguous: bool
     bars_held: int
     provider: str
+    intrabar_trailing_ambiguous: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -70,6 +71,43 @@ class TradeRecord:
         d["exit_time_dt"] = str(self.exit_time_dt)
         return d
 
+
+
+@dataclass
+class _PortfolioActiveLeg:
+    leg_id: str
+    trade_id: str
+    symbol: str
+    combo_id: int
+    combo_name: str
+    timeframe: str
+    side: Literal["BUY", "SELL"]
+    leg_type: str
+    entry_time_ms: int
+    entry_time_dt: pd.Timestamp
+    entry_price: float
+    qty: float
+    notional: float
+    margin: float
+    entry_fee: float
+    is_trailing: bool
+    tp_price: float
+    sl_price: float
+    act_price: float = 0.0
+    trailing_active: bool = False
+    trail_stop: float = 0.0
+    peak_price: float = 0.0
+    provider: str = "BINANCE"
+
+
+@dataclass
+class _PortfolioMergedPosition:
+    symbol: str
+    side: Literal["BUY", "SELL"]
+    qty: float = 0.0
+    avg_price: float = 0.0
+    used_margin: float = 0.0
+    legs: list[_PortfolioActiveLeg] = field(default_factory=list)
 
 class ExecutionSimulator:
     """Full lifecycle trade simulator with conservative intrabar ambiguity handling and M1 execution."""
@@ -442,6 +480,7 @@ class ExecutionSimulator:
             intrabar_ambiguous=ambiguous,
             bars_held=exit_bar_idx - entry_idx,
             provider=provider,
+            intrabar_trailing_ambiguous=False,
         )
 
     def _simulate_trailing_leg(
@@ -508,29 +547,86 @@ class ExecutionSimulator:
             else:
                 hit_stop = h >= effective_stop
 
-            if hit_stop:
-                exit_price = effective_stop
-                exit_reason = "TRAIL" if trail_active else "SL"
-                exit_bar_idx = i
-                break
-
-            # Update trailing stop for subsequent bars
+            trailing_ambiguous = False
             if is_buy:
-                if not trail_active and h >= act_price:
-                    trail_active = True
-                    peak_price = h
-                    trail_stop = max(sl_price, peak_price * (1.0 - self.trailing_cb_pct))
-                elif trail_active and h > peak_price:
-                    peak_price = h
-                    trail_stop = max(trail_stop, peak_price * (1.0 - self.trailing_cb_pct))
-            else:
-                if not trail_active and l <= act_price:
-                    trail_active = True
-                    peak_price = l
-                    trail_stop = min(sl_price, peak_price * (1.0 + self.trailing_cb_pct))
-                elif trail_active and l < peak_price:
-                    peak_price = l
-                    trail_stop = min(trail_stop, peak_price * (1.0 + self.trailing_cb_pct))
+                if not trail_active:
+                    # Check if both SL and activation touched in the same M1 bar
+                    if l <= sl_price and h >= act_price:
+                        ambiguous = True
+                        exit_price = sl_price
+                        exit_reason = "SL_INTRABAR_AMBIGUOUS"
+                        exit_bar_idx = i
+                        break
+                    elif h >= act_price:
+                        trail_active = True
+                        peak_price = h
+                        trail_stop = max(sl_price, peak_price * (1.0 - self.trailing_cb_pct))
+                        if l <= trail_stop:
+                            trailing_ambiguous = True
+                            exit_price = trail_stop
+                            exit_reason = "TRAIL"
+                            exit_bar_idx = i
+                            break
+                    elif l <= sl_price:
+                        exit_price = sl_price
+                        exit_reason = "SL"
+                        exit_bar_idx = i
+                        break
+                else:
+                    if l <= trail_stop:
+                        exit_price = trail_stop
+                        exit_reason = "TRAIL"
+                        exit_bar_idx = i
+                        break
+                    elif h > peak_price:
+                        peak_price = h
+                        new_stop = max(trail_stop, peak_price * (1.0 - self.trailing_cb_pct))
+                        trail_stop = new_stop
+                        if l <= new_stop:
+                            trailing_ambiguous = True
+                            exit_price = new_stop
+                            exit_reason = "TRAIL"
+                            exit_bar_idx = i
+                            break
+            else:  # SELL
+                if not trail_active:
+                    if h >= sl_price and l <= act_price:
+                        ambiguous = True
+                        exit_price = sl_price
+                        exit_reason = "SL_INTRABAR_AMBIGUOUS"
+                        exit_bar_idx = i
+                        break
+                    elif l <= act_price:
+                        trail_active = True
+                        peak_price = l
+                        trail_stop = min(sl_price, peak_price * (1.0 + self.trailing_cb_pct))
+                        if h >= trail_stop:
+                            trailing_ambiguous = True
+                            exit_price = trail_stop
+                            exit_reason = "TRAIL"
+                            exit_bar_idx = i
+                            break
+                    elif h >= sl_price:
+                        exit_price = sl_price
+                        exit_reason = "SL"
+                        exit_bar_idx = i
+                        break
+                else:
+                    if h >= trail_stop:
+                        exit_price = trail_stop
+                        exit_reason = "TRAIL"
+                        exit_bar_idx = i
+                        break
+                    elif l < peak_price:
+                        peak_price = l
+                        new_stop = min(trail_stop, peak_price * (1.0 + self.trailing_cb_pct))
+                        trail_stop = new_stop
+                        if h >= new_stop:
+                            trailing_ambiguous = True
+                            exit_price = new_stop
+                            exit_reason = "TRAIL"
+                            exit_bar_idx = i
+                            break
         else:
             exit_bar_idx = n_bars - 1
             exit_price = float(closes[exit_bar_idx])
@@ -623,6 +719,7 @@ class ExecutionSimulator:
             intrabar_ambiguous=ambiguous,
             bars_held=exit_bar_idx - entry_idx,
             provider=provider,
+            intrabar_trailing_ambiguous=trailing_ambiguous,
         )
 
     def simulate_portfolio_from_trades(
@@ -753,11 +850,405 @@ class ExecutionSimulator:
         df_snapshots = pd.DataFrame(portfolio_snapshots)
         return ledger, df_snapshots
 
+    def simulate_portfolio_independent(
+        self,
+        signals: list[Signal],
+        candle_dict: dict[str, pd.DataFrame] | pd.DataFrame,
+        sample_snapshot_interval_m1: int = 15,
+    ) -> tuple[list[TradeRecord], pd.DataFrame, list[dict[str, Any]], dict[str, Any]]:
+        """True independent portfolio event loop (FIX P1-04 & V3-05 Audit).
+
+        - Runs directly from 20FINAL signals and M1 bar price action.
+        - Does NOT depend on virtual mode exit outcomes.
+        - Enforces strict account margin constraints (rejects signals if free margin < required margin).
+        - Correctly manages merged hedge-mode positions per (symbol, side) using volume-weighted average price (VWAP).
+        - Closes individual combo legs on fixed TP/SL and trailing stop triggers.
+        - Recomputes realized PnL against current blended VWAP entry price at exit moment.
+        - Continuous Mark-to-Market equity tracking and true intra-trade Max Drawdown.
+        """
+        if isinstance(candle_dict, pd.DataFrame):
+            if not signals:
+                return [], pd.DataFrame(), [], {}
+            candle_dict = {signals[0].symbol: candle_dict}
+
+        if not candle_dict:
+            return [], pd.DataFrame(), [], {}
+
+        first_sym = next(iter(candle_dict.keys()))
+        t_ms_array = candle_dict[first_sym].index.asi8 // 1_000_000
+        n_bars = len(t_ms_array)
+
+        # Pre-extract numpy arrays for fast lookups
+        bar_data = {}
+        for sym, df in candle_dict.items():
+            bar_data[sym] = {
+                "open": df["open"].to_numpy(dtype=float) if "open" in df else df["close"].to_numpy(dtype=float),
+                "high": df["high"].to_numpy(dtype=float),
+                "low": df["low"].to_numpy(dtype=float),
+                "close": df["close"].to_numpy(dtype=float),
+                "dt": df.index,
+                "provider": df["provider"].to_numpy() if "provider" in df else np.array(["BINANCE"] * len(df)),
+            }
+
+        # Map signals to earliest entry bar within this candle range
+        signals_by_bar: dict[int, list[Signal]] = {}
+        first_ts = int(t_ms_array[0])
+        last_ts = int(t_ms_array[-1])
+        for sig in sorted(signals, key=lambda s: (s.signal_close_ms, s.combo_id, s.side)):
+            earliest_exec_ms = sig.signal_close_ms + 1
+            if earliest_exec_ms < first_ts or earliest_exec_ms > last_ts:
+                continue
+            idx = int(np.searchsorted(t_ms_array, earliest_exec_ms))
+            if 0 <= idx < n_bars:
+                signals_by_bar.setdefault(idx, []).append(sig)
+
+        # Account state
+        balance = self.risk.initial_equity
+        positions: dict[tuple[str, str], _PortfolioMergedPosition] = {}
+        for sym in candle_dict:
+            positions[(sym, "BUY")] = _PortfolioMergedPosition(symbol=sym, side="BUY")
+            positions[(sym, "SELL")] = _PortfolioMergedPosition(symbol=sym, side="SELL")
+
+        closed_trades: list[TradeRecord] = []
+        rejected_signals: list[dict[str, Any]] = []
+        snapshots: list[dict[str, Any]] = []
+        active_combos: dict[tuple[str, int], list[str]] = {}
+
+        peak_equity = balance
+        max_m2m_dd_dollars = 0.0
+        max_m2m_dd_pct = 0.0
+
+        trade_counter = 0
+        intrabar_tp_sl_count = 0
+        intrabar_trail_count = 0
+
+        for bar_idx in range(n_bars):
+            ts = int(t_ms_array[bar_idx])
+
+            # 1. Process new signals scheduled for this bar
+            new_sigs = signals_by_bar.get(bar_idx, [])
+            for sig in new_sigs:
+                combo_key = (sig.symbol, sig.combo_id)
+                if active_combos.get(combo_key):
+                    # Combo already in trade
+                    continue
+
+                if sig.symbol not in bar_data:
+                    continue
+
+                notional = self.risk.notional_per_trade
+                sym_bars = bar_data[sig.symbol]
+                raw_open_px = float(sym_bars["open"][bar_idx])
+                entry_px = self.risk.apply_slippage(raw_open_px, sig.side, is_entry=True)
+                req_margin = self.risk.calc_margin(sig.symbol, notional)
+                entry_fee = self.risk.calc_fee(notional, is_taker=True)
+
+                # Real-time equity and free margin check
+                unrealized_now = 0.0
+                total_used_margin = 0.0
+                for pos in positions.values():
+                    if pos.qty > 1e-9:
+                        total_used_margin += pos.used_margin
+                        cur_px = float(bar_data[pos.symbol]["open"][bar_idx])
+                        if pos.side == "BUY":
+                            unrealized_now += (cur_px - pos.avg_price) * pos.qty
+                        else:
+                            unrealized_now += (pos.avg_price - cur_px) * pos.qty
+
+                current_eq = balance + unrealized_now
+                free_margin = current_eq - total_used_margin
+
+                # Strict Margin Gate (FIX P1-04)
+                if free_margin < req_margin:
+                    rejected_signals.append({
+                        "timestamp_ms": ts,
+                        "timestamp_dt": str(sym_bars["dt"][bar_idx]),
+                        "symbol": sig.symbol,
+                        "combo_id": sig.combo_id,
+                        "side": sig.side,
+                        "reason": "INSUFFICIENT_MARGIN",
+                        "free_margin": round(free_margin, 4),
+                        "req_margin": round(req_margin, 4),
+                    })
+                    continue
+
+                # Deduct fee from cash balance
+                balance -= entry_fee
+                pos = positions[(sig.symbol, sig.side)]
+                leg_total_qty = notional / entry_px
+
+                new_qty = pos.qty + leg_total_qty
+                if new_qty > 1e-9:
+                    pos.avg_price = (pos.avg_price * pos.qty + notional) / new_qty
+                pos.qty = new_qty
+                pos.used_margin += req_margin
+
+                trade_counter += 1
+                trade_id = f"PORT_{sig.symbol.replace('-', '')}_{sig.combo_id}_{trade_counter:05d}"
+
+                is_buy = sig.side == "BUY"
+                use_trailing = (not sig.is_new6) and (self.final14_exit_mode == "50TP_50TRAIL")
+
+                sig_legs = []
+                if not use_trailing:
+                    tp_px = entry_px * (1.0 + sig.tp_pct) if is_buy else entry_px * (1.0 - sig.tp_pct)
+                    sl_px = entry_px * (1.0 - sig.sl_pct) if is_buy else entry_px * (1.0 + sig.sl_pct)
+                    leg = _PortfolioActiveLeg(
+                        leg_id=f"{trade_id}_L1", trade_id=trade_id, symbol=sig.symbol,
+                        combo_id=sig.combo_id, combo_name=sig.combo_name, timeframe=sig.timeframe,
+                        side=sig.side, leg_type="SINGLE", entry_time_ms=ts,
+                        entry_time_dt=sym_bars["dt"][bar_idx], entry_price=entry_px,
+                        qty=leg_total_qty, notional=notional, margin=req_margin,
+                        entry_fee=entry_fee, is_trailing=False, tp_price=tp_px, sl_price=sl_px,
+                        provider=str(sym_bars["provider"][bar_idx]),
+                    )
+                    sig_legs.append(leg)
+                else:
+                    half_notional = notional * 0.5
+                    half_qty = leg_total_qty * 0.5
+                    half_margin = req_margin * 0.5
+                    half_fee = entry_fee * 0.5
+
+                    # Leg 1: Fixed TP
+                    tp_px = entry_px * (1.0 + sig.tp_pct) if is_buy else entry_px * (1.0 - sig.tp_pct)
+                    sl_px = entry_px * (1.0 - sig.sl_pct) if is_buy else entry_px * (1.0 + sig.sl_pct)
+                    l1 = _PortfolioActiveLeg(
+                        leg_id=f"{trade_id}_L1", trade_id=trade_id, symbol=sig.symbol,
+                        combo_id=sig.combo_id, combo_name=sig.combo_name, timeframe=sig.timeframe,
+                        side=sig.side, leg_type="TP_HALF", entry_time_ms=ts,
+                        entry_time_dt=sym_bars["dt"][bar_idx], entry_price=entry_px,
+                        qty=half_qty, notional=half_notional, margin=half_margin,
+                        entry_fee=half_fee, is_trailing=False, tp_price=tp_px, sl_price=sl_px,
+                        provider=str(sym_bars["provider"][bar_idx]),
+                    )
+                    # Leg 2: Trailing Stop
+                    act_px = entry_px * (1.0 + self.trailing_act_pct) if is_buy else entry_px * (1.0 - self.trailing_act_pct)
+                    l2 = _PortfolioActiveLeg(
+                        leg_id=f"{trade_id}_L2", trade_id=trade_id, symbol=sig.symbol,
+                        combo_id=sig.combo_id, combo_name=sig.combo_name, timeframe=sig.timeframe,
+                        side=sig.side, leg_type="TRAIL_HALF", entry_time_ms=ts,
+                        entry_time_dt=sym_bars["dt"][bar_idx], entry_price=entry_px,
+                        qty=half_qty, notional=half_notional, margin=half_margin,
+                        entry_fee=half_fee, is_trailing=True, tp_price=0.0, sl_price=sl_px,
+                        act_price=act_px, trailing_active=False, trail_stop=sl_px, peak_price=entry_px,
+                        provider=str(sym_bars["provider"][bar_idx]),
+                    )
+                    sig_legs.extend([l1, l2])
+
+                pos.legs.extend(sig_legs)
+                active_combos.setdefault(combo_key, []).extend([l.leg_id for l in sig_legs])
+
+            # 2. Check price action across all open positions
+            for (sym, side), pos in positions.items():
+                if not pos.legs:
+                    continue
+
+                sym_bars = bar_data[sym]
+                op = float(sym_bars["open"][bar_idx])
+                hi = float(sym_bars["high"][bar_idx])
+                lo = float(sym_bars["low"][bar_idx])
+                cl = float(sym_bars["close"][bar_idx])
+                is_buy = side == "BUY"
+
+                is_final_bar = (bar_idx == n_bars - 1)
+                remaining_legs = []
+
+                for leg in pos.legs:
+                    exit_price = 0.0
+                    exit_reason = ""
+                    ambiguous = False
+                    trailing_ambiguous = False
+
+                    if is_final_bar:
+                        exit_price = cl
+                        exit_reason = "FORCE_CLOSE"
+                    elif not leg.is_trailing:
+                        # Fixed TP/SL check
+                        if is_buy and op <= leg.sl_price:
+                            exit_price = op; exit_reason = "SL"
+                        elif is_buy and op >= leg.tp_price:
+                            exit_price = op; exit_reason = "TP"
+                        elif not is_buy and op >= leg.sl_price:
+                            exit_price = op; exit_reason = "SL"
+                        elif not is_buy and op <= leg.tp_price:
+                            exit_price = op; exit_reason = "TP"
+                        else:
+                            hit_tp = (hi >= leg.tp_price) if is_buy else (lo <= leg.tp_price)
+                            hit_sl = (lo <= leg.sl_price) if is_buy else (hi >= leg.sl_price)
+                            if hit_tp and hit_sl:
+                                ambiguous = True
+                                intrabar_tp_sl_count += 1
+                                exit_price = leg.sl_price
+                                exit_reason = "SL_INTRABAR_AMBIGUOUS"
+                            elif hit_sl:
+                                exit_price = leg.sl_price; exit_reason = "SL"
+                            elif hit_tp:
+                                exit_price = leg.tp_price; exit_reason = "TP"
+                    else:
+                        # Trailing Stop check
+                        eff_stop = leg.trail_stop if leg.trailing_active else leg.sl_price
+                        if is_buy and op <= eff_stop:
+                            exit_price = op; exit_reason = "TRAIL" if leg.trailing_active else "SL"
+                        elif not is_buy and op >= eff_stop:
+                            exit_price = op; exit_reason = "TRAIL" if leg.trailing_active else "SL"
+                        else:
+                            if is_buy:
+                                if not leg.trailing_active:
+                                    if lo <= leg.sl_price and hi >= leg.act_price:
+                                        ambiguous = True; intrabar_tp_sl_count += 1
+                                        exit_price = leg.sl_price; exit_reason = "SL_INTRABAR_AMBIGUOUS"
+                                    elif hi >= leg.act_price:
+                                        leg.trailing_active = True
+                                        leg.peak_price = hi
+                                        leg.trail_stop = max(leg.sl_price, hi * (1.0 - self.trailing_cb_pct))
+                                        if lo <= leg.trail_stop:
+                                            trailing_ambiguous = True; intrabar_trail_count += 1
+                                            exit_price = leg.trail_stop; exit_reason = "TRAIL"
+                                    elif lo <= leg.sl_price:
+                                        exit_price = leg.sl_price; exit_reason = "SL"
+                                else:
+                                    if lo <= leg.trail_stop:
+                                        exit_price = leg.trail_stop; exit_reason = "TRAIL"
+                                    elif hi > leg.peak_price:
+                                        leg.peak_price = hi
+                                        new_stop = max(leg.trail_stop, hi * (1.0 - self.trailing_cb_pct))
+                                        leg.trail_stop = new_stop
+                                        if lo <= new_stop:
+                                            trailing_ambiguous = True; intrabar_trail_count += 1
+                                            exit_price = new_stop; exit_reason = "TRAIL"
+                            else:  # SELL
+                                if not leg.trailing_active:
+                                    if hi >= leg.sl_price and lo <= leg.act_price:
+                                        ambiguous = True; intrabar_tp_sl_count += 1
+                                        exit_price = leg.sl_price; exit_reason = "SL_INTRABAR_AMBIGUOUS"
+                                    elif lo <= leg.act_price:
+                                        leg.trailing_active = True
+                                        leg.peak_price = lo
+                                        leg.trail_stop = min(leg.sl_price, lo * (1.0 + self.trailing_cb_pct))
+                                        if hi >= leg.trail_stop:
+                                            trailing_ambiguous = True; intrabar_trail_count += 1
+                                            exit_price = leg.trail_stop; exit_reason = "TRAIL"
+                                    elif hi >= leg.sl_price:
+                                        exit_price = leg.sl_price; exit_reason = "SL"
+                                else:
+                                    if hi >= leg.trail_stop:
+                                        exit_price = leg.trail_stop; exit_reason = "TRAIL"
+                                    elif lo < leg.peak_price:
+                                        leg.peak_price = lo
+                                        new_stop = min(leg.trail_stop, lo * (1.0 + self.trailing_cb_pct))
+                                        leg.trail_stop = new_stop
+                                        if hi >= new_stop:
+                                            trailing_ambiguous = True; intrabar_trail_count += 1
+                                            exit_price = new_stop; exit_reason = "TRAIL"
+
+                    if exit_price > 0.0:
+                        exec_exit_px = self.risk.apply_slippage(exit_price, leg.side, is_entry=False)
+                        exit_fee = self.risk.calc_fee(leg.qty * exec_exit_px, is_taker=True)
+
+                        # Compute realized PnL against the current blended VWAP of the merged position
+                        effective_entry = pos.avg_price if pos.avg_price > 0 else leg.entry_price
+                        if is_buy:
+                            gross_pnl = (exec_exit_px - effective_entry) * leg.qty
+                        else:
+                            gross_pnl = (effective_entry - exec_exit_px) * leg.qty
+
+                        total_fee = leg.entry_fee + exit_fee
+                        net_pnl = gross_pnl - total_fee
+                        balance += (gross_pnl - exit_fee)
+
+                        # Update position
+                        pos.qty = max(0.0, pos.qty - leg.qty)
+                        pos.used_margin = max(0.0, pos.used_margin - leg.margin)
+                        if pos.qty <= 1e-9:
+                            pos.qty = 0.0; pos.avg_price = 0.0; pos.used_margin = 0.0
+
+                        combo_key = (leg.symbol, leg.combo_id)
+                        if combo_key in active_combos and leg.leg_id in active_combos[combo_key]:
+                            active_combos[combo_key].remove(leg.leg_id)
+                            if not active_combos[combo_key]:
+                                del active_combos[combo_key]
+
+                        rec = TradeRecord(
+                            trade_id=leg.trade_id, leg_id=leg.leg_id, symbol=leg.symbol,
+                            combo_id=leg.combo_id, combo_name=leg.combo_name, timeframe=leg.timeframe,
+                            side=leg.side, leg_type=leg.leg_type, entry_time_ms=leg.entry_time_ms,
+                            entry_time_dt=leg.entry_time_dt, entry_price=effective_entry,
+                            exit_time_ms=ts, exit_time_dt=sym_bars["dt"][bar_idx],
+                            exit_price=exec_exit_px, exit_reason=exit_reason,
+                            qty=leg.qty, notional=leg.notional, margin=leg.margin,
+                            gross_pnl=gross_pnl, fee_total=total_fee, net_pnl=net_pnl,
+                            return_pct=net_pnl / leg.notional if leg.notional > 0 else 0.0,
+                            intrabar_ambiguous=ambiguous,
+                            bars_held=bar_idx - int(np.searchsorted(t_ms_array, leg.entry_time_ms)),
+                            provider=leg.provider,
+                            intrabar_trailing_ambiguous=trailing_ambiguous,
+                        )
+                        closed_trades.append(rec)
+                    else:
+                        remaining_legs.append(leg)
+
+                pos.legs = remaining_legs
+
+            # 3. Mark-to-Market Equity & Drawdown
+            unrealized_total = 0.0
+            used_margin_total = 0.0
+            for pos in positions.values():
+                if pos.qty > 1e-9:
+                    used_margin_total += pos.used_margin
+                    cl_px = float(bar_data[pos.symbol]["close"][bar_idx])
+                    if pos.side == "BUY":
+                        unrealized_total += (cl_px - pos.avg_price) * pos.qty
+                    else:
+                        unrealized_total += (pos.avg_price - cl_px) * pos.qty
+
+            m2m_equity = balance + unrealized_total
+            if m2m_equity > peak_equity:
+                peak_equity = m2m_equity
+
+            dd_dollars = peak_equity - m2m_equity
+            dd_pct = (dd_dollars / peak_equity) * 100.0 if peak_equity > 0 else 0.0
+            if dd_dollars > max_m2m_dd_dollars:
+                max_m2m_dd_dollars = dd_dollars
+            if dd_pct > max_m2m_dd_pct:
+                max_m2m_dd_pct = dd_pct
+
+            # Snapshot sampling: record when positions are open or at periodic interval
+            has_open_pos = used_margin_total > 0.0
+            if has_open_pos or (bar_idx % sample_snapshot_interval_m1 == 0) or (bar_idx == n_bars - 1):
+                snapshots.append({
+                    "timestamp_ms": ts,
+                    "timestamp_dt": str(candle_dict[first_sym].index[bar_idx]),
+                    "balance": round(balance, 4),
+                    "unrealized_pnl": round(unrealized_total, 4),
+                    "equity": round(m2m_equity, 4),
+                    "used_margin": round(used_margin_total, 4),
+                    "free_margin": round(max(0.0, m2m_equity - used_margin_total), 4),
+                    "peak_equity": round(peak_equity, 4),
+                    "drawdown_dollars": round(dd_dollars, 4),
+                    "drawdown_pct": round(dd_pct, 2),
+                })
+
+        m2m_summary = {
+            "initial_equity": self.risk.initial_equity,
+            "final_equity": round(m2m_equity, 4),
+            "peak_equity": round(peak_equity, 4),
+            "m2m_max_drawdown_dollars": round(max_m2m_dd_dollars, 4),
+            "m2m_max_drawdown_pct": round(max_m2m_dd_pct, 2),
+            "rejected_signals_count": len(rejected_signals),
+            "intrabar_tp_sl_ambiguous_count": intrabar_tp_sl_count,
+            "intrabar_trailing_ambiguous_count": intrabar_trail_count,
+        }
+
+        self.last_portfolio_summary = m2m_summary
+        self.last_rejected_signals = rejected_signals
+
+        return closed_trades, pd.DataFrame(snapshots), rejected_signals, m2m_summary
+
     def simulate_portfolio_trades(
         self,
         signals: list[Signal],
-        df_bars: pd.DataFrame,
+        df_bars: pd.DataFrame | dict[str, pd.DataFrame],
     ) -> tuple[list[TradeRecord], pd.DataFrame]:
-        """Simulate Exchange Hedge Mode with BingX Merged Positions (FIX P1-04)."""
-        virtual_trades = self.simulate_virtual_trades(signals, df_bars)
-        return self.simulate_portfolio_from_trades(virtual_trades)
+        """Simulate Exchange Hedge Mode with BingX Merged Positions using true independent event loop."""
+        closed_trades, df_snapshots, rejected, summary = self.simulate_portfolio_independent(signals, df_bars)
+        return closed_trades, df_snapshots
