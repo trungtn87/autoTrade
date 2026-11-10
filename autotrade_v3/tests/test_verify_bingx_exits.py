@@ -186,6 +186,19 @@ class ExitLineageTests(unittest.TestCase):
         _, rows=self.audit()
         self.assertIn("EXIT_EXIT_FILL_BEFORE_ENTRY_OR_INVALID_TIME",rows[0]["reason_codes"])
 
+    def test_zero_position_id_cannot_claim_execution_owner(self):
+        self.v2rows["bingx_orders"][0]["position_id"]="0"
+        self.exrows["orders"][0]["position_id"]="0"
+        _, rows=self.audit()
+        self.assertIn("ENTRY_POSITION_ID_MISSING",rows[0]["reason_codes"])
+        self.assertFalse(rows[0]["full_exit_qty_supported"])
+
+    def test_empty_protective_ids_not_implicitly_proven(self):
+        self.state["protection"]["sl"]["order_id"]=""
+        _, rows=self.audit()
+        self.assertIn("MISSING_PROTECTIVE_SL",rows[0]["reason_codes"])
+        self.assertFalse(rows[0]["full_exit_qty_supported"])
+
     def test_shared_position_blocks_even_with_perfect_child(self):
         self.state["shared_position"]=True
         _, rows=self.audit()

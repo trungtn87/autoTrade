@@ -356,10 +356,14 @@ def reconcile(v2_dir: Path, exchange_dir: Path | None, output: Path) -> dict:
         entry = ex_orders.get(key)
         if key in duplicated_v2 or not old_order:
             issues.add("V2_ENTRY_ORDER_UNRESOLVED")
+        if old_order and not _nonempty(old_order.get("position_id")):
+            issues.add("ENTRY_POSITION_ID_MISSING")
         if entry is None:
             issues.add("EXCHANGE_ENTRY_ORDER_MISSING")
         if key in duplicated_ex:
             issues.add("DUPLICATED_EXCHANGE_ENTRY_ORDER")
+        if entry and not _nonempty(entry.get("position_id")):
+            issues.add("ENTRY_POSITION_ID_MISSING")
         if entry and old_order:
             for field in ("side", "position_side", "position_id", "type"):
                 if entry.get(field) != old_order.get(field):
@@ -388,6 +392,7 @@ def reconcile(v2_dir: Path, exchange_dir: Path | None, output: Path) -> dict:
         # Sanitized V3-04 state emits {"shared": null} for absent merge evidence.
         # The mere presence of this container does NOT establish shared position.
         if shared is True or (isinstance(shared, str) and shared.lower()=="true") or (
+            isinstance(shared,dict) and bool(shared)) or (
             isinstance(merged,dict) and (merged.get("shared") is True or
                                          str(merged.get("shared")).lower()=="true")
         ):
