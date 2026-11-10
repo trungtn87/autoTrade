@@ -23,7 +23,7 @@ M1_START = 1698796800000  # 2023-11-01T00:00:00Z
 M1_END = 1793491200000  # 2026-11-01T00:00:00Z
 REQUIRED = {
     "signal_links": {"entry_order_id", "signal_id", "symbol", "side", "combo", "signal_time_ms"},
-    "bingx_orders": {"order_id", "symbol", "side", "position_side", "type", "status", "filled_qty"},
+    "bingx_orders": {"order_id", "symbol", "side", "position_side", "type", "status", "filled_qty", "position_id"},
     "bingx_fills": {"trade_id", "order_id", "symbol", "side", "position_side", "qty", "price", "fee", "realized_pnl", "timestamp_ms"},
     "bingx_income": {"income_key", "symbol", "income_type", "amount", "asset", "timestamp_ms", "trade_id"},
     "processed_targets": {"event_id", "target", "payload"},
@@ -288,6 +288,8 @@ def reconcile(root: Path, output: Path, *, scenario_split: Path | None = None,
         if order and (order["side"] != link["side"] or order["type"] not in ("MARKET","LIMIT")
                       or order["position_side"] != ("LONG" if link["side"]=="BUY" else "SHORT")):
             reasons.add("ENTRY_ORDER_IDENTITY_INVALID")
+        if order and not order.get("position_id"):
+            reasons.add("ENTRY_POSITION_ID_MISSING")
         entry_fills = fills.get(order_key, [])
         entry_qty = Decimal(0)
         if order:
@@ -320,6 +322,9 @@ def reconcile(root: Path, output: Path, *, scenario_split: Path | None = None,
                 or ch["side"] == link["side"] or ch["symbol"]!=symbol
                 or ch["position_side"] != ("LONG" if link["side"]=="BUY" else "SHORT")):
                 reasons.add("EXIT_ORDER_IDENTITY_INVALID")
+                continue
+            if not ch.get("position_id") or (order and ch["position_id"] != order.get("position_id")):
+                reasons.add("EXIT_POSITION_ID_MISMATCH")
                 continue
             leg_fills = fills.get(k,[])
             if leg_fills:

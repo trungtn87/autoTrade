@@ -9,7 +9,7 @@ V3-04 sử dụng CSV đã rút gọn bằng câu lệnh `SELECT` (không xuất
 | File bắt buộc | Nguồn V2 | Mục đích |
 |---|---|---|
 | `signal_links.csv` | `autotrade_analytics.signal_links` | `signal_id`, symbol, side, combo, thời điểm nến đóng và Entry order ID |
-| `bingx_orders.csv` | `autotrade_analytics.bingx_orders` | order ID, loại lệnh, trạng thái, khối lượng và positionSide |
+| `bingx_orders.csv` | `autotrade_analytics.bingx_orders` | order ID, loại lệnh, trạng thái, khối lượng, positionSide và positionID từ BingX raw |
 | `bingx_fills.csv` | `autotrade_analytics.bingx_fills` | trade ID, order ID, khối lượng, giá, fee, realized PnL, timestamp |
 | `bingx_income.csv` | `autotrade_analytics.bingx_income` | đối chiếu fee/funding/income theo exact trade ID (không ghép theo thời gian) |
 | `processed_targets.csv` | `public.processed_targets` | `exit_mode`, `protection.sl/tp/trailing.order_id` và cờ vị thế gộp; **payload đã lọc** |
@@ -35,7 +35,7 @@ Timestamp của manifest phải là thời gian **thực tế** xuất dữ li�
 ## 2. Nguyên tắc ghép và chống sai kết quả
 
 - Ghép `signal_links → orders → fills` theo **exact order_id + symbol**. `FILLED` status không đồng nghĩa có dữ liệu fill; fill không được tự lấy từ OHLC M1 hoặc các order cùng giá.
-- Lấy ID lệnh bảo vệ từ `processed_targets.protection.sl/tp/trailing.order_id`; phải đối chiếu đúng order ID, loại `STOP_MARKET`/`TAKE_PROFIT_MARKET`/`TRAILING_STOP_MARKET`, side ngược Entry, cùng positionSide, có fill đầy đủ và không duplicate/qty conflict.
+- Lấy ID lệnh bảo vệ từ `processed_targets.protection.sl/tp/trailing.order_id`; phải đối chiếu đúng order ID, loại `STOP_MARKET`/`TAKE_PROFIT_MARKET`/`TRAILING_STOP_MARKET`, side ngược Entry, cùng positionSide **và positionID**, có fill đầy đủ và không duplicate/qty conflict.
 - Không dùng price/time proximity để suy `triggerOrderId → fill`. Với BingX native stop, order điều kiện và fill trigger có thể mang ID khác; V3 **không tự coi chúng thuộc cùng combo** nếu thiếu bằng chứng exact parent-child từ BingX.
 - Hai combo dùng cùng ID con, hoặc khoảng nắm giữ cùng symbol/cùng chiều chồng lấn, đều giữ trạng thái `MERGED_OR_SHARED_UNRESOLVED`. `positionID` là container sàn, **không phải ID combo**. Không cấm Entry cùng chiều trong V2.
 - Không nhân đôi thu nhập `bingx_income` và `bingx_fills`. Nếu `income.trade_id` không khớp exact `fills.trade_id`, không phân bổ funding/PnL theo combo. Trade net PnL và ROI vẫn **chưa xác minh**.

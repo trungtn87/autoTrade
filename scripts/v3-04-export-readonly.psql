@@ -4,7 +4,7 @@
 \set ON_ERROR_STOP on
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 \copy (SELECT entry_order_id, signal_id, symbol, side, combo, signal_time_ms FROM autotrade_analytics.signal_links ORDER BY signal_time_ms, symbol, signal_id) TO 'signal_links.csv' WITH (FORMAT CSV, HEADER TRUE)
-\copy (SELECT order_id, symbol, side, position_side, type, status, filled_qty, quantity, avg_price, price, created_ms, updated_ms FROM autotrade_analytics.bingx_orders ORDER BY created_ms, order_id) TO 'bingx_orders.csv' WITH (FORMAT CSV, HEADER TRUE)
+\copy (SELECT order_id, symbol, side, position_side, type, status, filled_qty, quantity, avg_price, price, created_ms, updated_ms, NULLIF(raw::jsonb->>'positionID','') AS position_id FROM autotrade_analytics.bingx_orders ORDER BY created_ms, order_id) TO 'bingx_orders.csv' WITH (FORMAT CSV, HEADER TRUE)
 \copy (SELECT trade_id, order_id, symbol, side, position_side, qty, price, fee, realized_pnl, timestamp_ms FROM autotrade_analytics.bingx_fills ORDER BY timestamp_ms, symbol, trade_id) TO 'bingx_fills.csv' WITH (FORMAT CSV, HEADER TRUE)
 \copy (SELECT income_key, symbol, income_type, amount, asset, timestamp_ms, trade_id FROM autotrade_analytics.bingx_income ORDER BY timestamp_ms, symbol, income_key) TO 'bingx_income.csv' WITH (FORMAT CSV, HEADER TRUE)
 -- Sanitize V2 state payload: only the fields required for exact ownership checks.

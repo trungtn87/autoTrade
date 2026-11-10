@@ -21,11 +21,11 @@ class EvidenceTests(unittest.TestCase):
                      "side":"BUY", "combo":"C15", "signal_time_ms":"1793145600000"}
         self.orders = [
             {"order_id":"entry1", "symbol":"BTC-USDT","side":"BUY","position_side":"LONG",
-             "type":"MARKET","status":"FILLED","filled_qty":"1"},
+             "type":"MARKET","status":"FILLED","filled_qty":"1","position_id":"position-1"},
             {"order_id":"sl1", "symbol":"BTC-USDT","side":"SELL","position_side":"LONG",
-             "type":"STOP_MARKET","status":"FILLED","filled_qty":"1"},
+             "type":"STOP_MARKET","status":"FILLED","filled_qty":"1","position_id":"position-1"},
             {"order_id":"tp1", "symbol":"BTC-USDT","side":"SELL","position_side":"LONG",
-             "type":"TAKE_PROFIT_MARKET","status":"CANCELLED","filled_qty":"0"},
+             "type":"TAKE_PROFIT_MARKET","status":"CANCELLED","filled_qty":"0","position_id":"position-1"},
         ]
         self.fills = [
             {"trade_id":"te1","order_id":"entry1","symbol":"BTC-USDT","side":"BUY",
@@ -86,6 +86,12 @@ class EvidenceTests(unittest.TestCase):
         self.orders[1]["position_side"]="SHORT"
         _,rows=self.report()
         self.assertIn("EXIT_ORDER_IDENTITY_INVALID",rows[0]["reason_codes"])
+
+    def test_child_position_id_mismatch_blocks(self):
+        self.orders[1]["position_id"]="different-position"
+        _,rows=self.report()
+        self.assertIn("EXIT_POSITION_ID_MISMATCH",rows[0]["reason_codes"])
+        self.assertEqual(rows[0]["evidence_status"],"EXIT_UNRESOLVED")
 
     def test_missing_protection_owner_unresolved(self):
         self.state["protection"].pop("tp")
