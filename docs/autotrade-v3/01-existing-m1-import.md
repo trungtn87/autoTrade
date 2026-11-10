@@ -13,3 +13,24 @@ Checksums JSON: {"BTCUSDT.parquet":"<sha256>"} cho mỗi file; lấy digest từ
 Đầu ra: catalog/research.duckdb (view v3_m1 đọc trực tiếp file Parquet), catalog/v3_m1_qa.json (coverage, duplicate, OHLCV, từng nguồn tháng). Không thay dữ liệu gốc. Gate A chỉ PASS nếu toàn bộ 2 mã đầy đủ đúng phạm vi; chưa kiểm chứng dữ liệu 3 năm thật do chưa có byte. Nếu manifest v4 có schema khác, cần adapter chuyển đổi. Chỉ cho phép nguồn USDT_PERP, UTC phút và checksum xác nhận.
 
 Tất cả chạy local; không có API key giao dịch, không chạm Supabase V2, không gọi mạng.
+
+## Source QA versus hybrid QA — owner-provided manifest v4 summary
+
+Reported dataset, not mounted in this workspace:
+
+| Metric | BTCUSDT | ETHUSDT |
+|---|---:|---:|
+| Hybrid M1 rows | 1,578,240 | 1,578,240 |
+| Binance USD-M | 1,576,800 | 1,576,800 |
+| BingX supplement | 1,440 | 1,440 |
+| Hybrid missing/duplicate | 0/0 | 0/0 |
+
+A-HYBRID: 100% contiguous minutes using the correct source per candle.
+A-BINANCE-SOURCE: 70/72 monthly source partitions PASS; Binance October 2026 is only 96.774% each symbol.
+BingX supplementary candles on 2026-10-28 must retain BingX source; price basis is LAST, not MARK.
+GO_RESEARCH (conditional on local revalidation) means M1 backtest can proceed on hybrid data, but NOT claim BingX-specific execution parity.
+
+Source-map items now require price_type=LAST for trusted research readiness; if missing, QA remains INCONCLUSIVE.
+For a single file containing both venues, set provider=MIXED and include per-candle provider (or exchange/venue) column. When a per-candle venue contradicts a file-level venue, QA marks bad_provenance and FAIL.
+The QA JSON separately exposes hybrid_gate, binance_source_gate, research_ready and each month's BingX supplementation.
+Original SHA256 evidence, source map and Parquet bytes still need to be accessed together on the user's PC for actual Gate A validation.

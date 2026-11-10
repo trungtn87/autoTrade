@@ -22,7 +22,7 @@ class TestExisting(unittest.TestCase):
             c.close()
             self.files.append(f)
         self.sm=Path(self.tmp.name)/"sources.json"
-        self.sm.write_text(json.dumps({"files":[{"path":f.name,"provider":"BINANCE","market_type":"USDT_PERP"} for f in self.files]}))
+        self.sm.write_text(json.dumps({"files":[{"path":f.name,"provider":"BINANCE","market_type":"USDT_PERP","price_type":"LAST"} for f in self.files]}))
         self.hashes=Path(self.tmp.name)/"hashes.json"
         self.hashes.write_text(json.dumps({f.name:hashlib.sha256(f.read_bytes()).hexdigest() for f in self.files}))
     def test_gap_detected_without_changing_inputs(self):
@@ -42,3 +42,38 @@ class TestExisting(unittest.TestCase):
         self.sm.write_text(json.dumps(obj))
         with self.assertRaisesRegex(ValueError,"provider"):
             inspect(self.root,self.out,self.sm,self.hashes)
+
+    def test_hybrid_complete_with_bingx_supplement_and_binance_incomplete(self):
+        # 1439 Binance minutes + BingX replacement minute, for both symbols.
+        original=list(self.files)
+        for f in original:
+            c=duckdb.connect()
+            c.execute(f"""COPY (
+              SELECT '{f.stem}' AS symbol,
+                     1698796800000::BIGINT + i * 60000::BIGINT AS open_ms,
+                     100 AS open, 101 AS high, 99 AS low, 100 AS close, 2 AS volume
+              FROM range(1439) AS t(i)
+            ) TO '{str(f)}' (FORMAT PARQUET)""")
+            c.close()
+            supplement=self.root/(f.stem+"-BINGX.parquet")
+            c=duckdb.connect()
+            c.execute(f"""COPY (
+              SELECT '{f.stem}' AS symbol, 1698796800000::BIGINT + 1439 * 60000::BIGINT AS open_ms,
+                     100 AS open, 101 AS high, 99 AS low, 100 AS close, 2 AS volume
+            ) TO '{str(supplement)}' (FORMAT PARQUET)""")
+            c.close()
+            self.files.append(supplement)
+        self.sm.write_text(json.dumps({"files":[
+          {"path":f.name,"provider":"BINGX" if "-BINGX" in f.name else "BINANCE",
+           "market_type":"USDT_PERP","price_type":"LAST"}
+          for f in self.files]}))
+        self.hashes.write_text(json.dumps({f.name:hashlib.sha256(f.read_bytes()).hexdigest()
+                                           for f in self.files}))
+        r=inspect(self.root,self.out,self.sm,self.hashes,"2023-11-01","2023-11-02")
+        self.assertEqual(r["hybrid_gate"],"PASS")
+        self.assertEqual(r["binance_source_gate"],"INCOMPLETE")
+        self.assertEqual(r["status"],"HYBRID_PASS_SOURCE_INCOMPLETE")
+        self.assertTrue(r["research_ready"])
+        self.assertEqual(len(r["monthly"]),2)
+        self.assertEqual(r["monthly"][0]["bingx_supplement_unique"],1)
+        self.assertEqual(r["monthly"][1]["binance_rows"],1439)
