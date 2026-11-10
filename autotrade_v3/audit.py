@@ -25,6 +25,7 @@ OPTIONAL = {
     "trade_results": {"event_id", "payload"},
     "v2_states": {"event_id", "payload"},
     "ai_reviews": {"event_id", "symbol"},
+    "processed_targets": {"event_id", "target", "payload"},
 }
 TABLES = {**REQUIRED, **OPTIONAL}
 ENTRY_TYPES = {"MARKET", "LIMIT"}
@@ -180,7 +181,7 @@ def audit(root: Path) -> dict:
         fills[(str(fill.get("symbol", "")), str(fill.get("order_id", "")))].append(fill)
     signals = Counter((r.get("symbol"), r.get("signal_id")) for r in links)
     results = defaultdict(list)
-    for name in ("trade_results", "v2_states"):
+    for name in ("trade_results", "v2_states", "processed_targets"):
         for row in tables.get(name, []):
             results[row.get("event_id")].append(_payload(row))
     result_exists = "trade_results" in tables

@@ -14,6 +14,7 @@ SCHEMA = {
     "trade_results": ["event_id", "payload"],
     "ai_reviews": ["event_id", "symbol"],
     "v2_states": ["event_id", "payload"],
+    "processed_targets": ["event_id", "target", "payload"],
 }
 
 
@@ -93,6 +94,18 @@ class EvidenceInventoryTests(unittest.TestCase):
         self.assertEqual(report["exits_verified"], 0)
         self.assertNotIn("should-not-leak", json.dumps(report))
         self.assertNotIn("100", json.dumps(report))
+
+    def test_exit_mode_from_processed_targets_is_recognized_but_not_verified(self):
+        self.rows["processed_targets"] = [
+            {"event_id": "s1", "target": "bingx_state",
+             "payload": json.dumps({"exit_mode": "SPLIT_TP_TRAILING",
+                                    "protection": {"tp": {"order_id": "p1"}}})}
+        ]
+        self._write()
+        report = audit(self.root)
+        self.assertEqual(report["exit_mode_missing_rows"], 0)
+        self.assertEqual(report["exits_verified"], 0)
+        self.assertIn("trade_results", report["missing_optional_tables"])
 
     def test_ai_review_no_link_is_not_no_trade_claim(self):
         self.rows["ai_reviews"] = [{"event_id": "s2", "symbol": "ETH-USDT"}]
