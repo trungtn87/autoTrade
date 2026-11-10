@@ -1,0 +1,25 @@
+name: V3 Temporary Wheel Handoff
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/v3-qa-wheel.yml'
+jobs:
+  wheel:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Download pinned Linux CPython wheel
+        run: |
+          mkdir -p wheelhouse
+          python -m pip download --only-binary=:all: --no-deps duckdb==1.4.2 -d wheelhouse
+      - uses: actions/upload-artifact@v4
+        with:
+          name: v3-duckdb-cp313-wheel
+          path: wheelhouse/*.whl
+          retention-days: 1
