@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 import math
 import numpy as np
 import pandas as pd
@@ -34,6 +34,13 @@ class BacktestMetrics:
     symbol_breakdown: dict[str, dict]
     monthly_pnl: dict[str, float]
     equity_curve: list[dict]
+    # V3-05 Independent Audit metrics
+    m2m_max_drawdown_dollars: float = 0.0
+    m2m_max_drawdown_pct: float = 0.0
+    intrabar_trailing_ambiguous_trades: int = 0
+    intrabar_trailing_ambiguous_pct: float = 0.0
+    rejected_signals_margin: int = 0
+    m2m_equity_curve: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -42,6 +49,8 @@ class BacktestMetrics:
 def calculate_metrics(
     trades: list[TradeRecord],
     initial_equity: float = 1000.0,
+    m2m_snapshots: pd.DataFrame | list[dict] | None = None,
+    rejected_signals_count: int = 0,
 ) -> BacktestMetrics:
     """Calculate comprehensive performance metrics from a list of simulated trade records."""
     if not trades:
@@ -127,6 +136,8 @@ def calculate_metrics(
     # Intrabar ambiguity stats
     ambiguous_count = sum(1 for t in sorted_trades if t.intrabar_ambiguous)
     ambiguous_pct = (ambiguous_count / total) * 100.0 if total > 0 else 0.0
+    trailing_ambig_count = sum(1 for t in sorted_trades if getattr(t, "intrabar_trailing_ambiguous", False))
+    trailing_ambig_pct = (trailing_ambig_count / total) * 100.0 if total > 0 else 0.0
 
     # Exit reason breakdown
     exit_reasons = defaultdict(int)
@@ -185,6 +196,32 @@ def calculate_metrics(
 
     rounded_monthly = {m: round(val, 4) for m, val in sorted(monthly_pnl.items())}
 
+    # Evaluate M2M continuous drawdown if snapshots provided
+    m2m_dd_dollars = max_dd_dollars
+    m2m_dd_pct = max_dd_pct
+    m2m_eq_curve = equity_curve
+
+    if m2m_snapshots is not None:
+        if isinstance(m2m_snapshots, pd.DataFrame):
+            if not m2m_snapshots.empty and "drawdown_dollars" in m2m_snapshots:
+                m2m_dd_dollars = float(m2m_snapshots["drawdown_dollars"].max())
+                m2m_dd_pct = float(m2m_snapshots["drawdown_pct"].max())
+                # Downsample curve points for lightweight summary export
+                if len(m2m_snapshots) > 500:
+                    step = len(m2m_snapshots) // 500
+                    sampled_snaps = m2m_snapshots.iloc[::step]
+                else:
+                    sampled_snaps = m2m_snapshots
+                m2m_eq_curve = sampled_snaps.to_dict(orient="records")
+        elif isinstance(m2m_snapshots, list) and m2m_snapshots:
+            m2m_dd_dollars = max(s.get("drawdown_dollars", 0.0) for s in m2m_snapshots)
+            m2m_dd_pct = max(s.get("drawdown_pct", 0.0) for s in m2m_snapshots)
+            if len(m2m_snapshots) > 500:
+                step = len(m2m_snapshots) // 500
+                m2m_eq_curve = m2m_snapshots[::step]
+            else:
+                m2m_eq_curve = m2m_snapshots
+
     return BacktestMetrics(
         total_trades=total,
         winning_trades=win_count,
@@ -208,4 +245,10 @@ def calculate_metrics(
         symbol_breakdown=symbol_stats,
         monthly_pnl=rounded_monthly,
         equity_curve=equity_curve,
+        m2m_max_drawdown_dollars=round(m2m_dd_dollars, 4),
+        m2m_max_drawdown_pct=round(m2m_dd_pct, 2),
+        intrabar_trailing_ambiguous_trades=trailing_ambig_count,
+        intrabar_trailing_ambiguous_pct=round(trailing_ambig_pct, 2),
+        rejected_signals_margin=rejected_signals_count,
+        m2m_equity_curve=m2m_eq_curve,
     )

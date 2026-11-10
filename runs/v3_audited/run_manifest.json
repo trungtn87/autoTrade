@@ -1,0 +1,23 @@
+{
+  "status": "COMPLETED",
+  "generated_at": "2026-11-10T05:29:27.076755+00:00",
+  "git_commit": "d6cc05ae645868d361e34ae6e468d050f5150a54",
+  "symbols": [
+    "BTC-USDT",
+    "ETH-USDT"
+  ],
+  "window": {
+    "start": "2023-11-01",
+    "end": "2026-11-01"
+  },
+  "mode": "both",
+  "data_source": "REAL_M1_HYBRID_BINANCE_BINGX",
+  "catalog_path": "catalog\\research.duckdb",
+  "smoke_test": false,
+  "risk_config": {
+    "initial_equity": 1000.0,
+    "notional_per_trade": 100.0,
+    "slippage_rate": 0.0
+  },
+  "total_approved_signals": 5984
+}

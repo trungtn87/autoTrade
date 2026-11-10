@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AutoTrade V3 Local Backtest Engine CLI.
+"""AutoTrade V3 Local Backtest Engine CLI (V3-05 Audited).
 
 Full simulation lifecycle: SIGNAL -> ENTRY -> POSITION OPEN -> TP / SL / TRAILING -> CLOSED.
 SIMULATION ONLY — STRICTLY NO LIVE TRADING ORDERS.
@@ -27,6 +27,7 @@ from autotrade_v3.engine.candle_loader import (
     generate_synthetic_m1,
     load_m1_from_catalog,
     resample_m1_to_timeframe,
+    to_utc_ms,
 )
 from autotrade_v3.engine.execution_simulator import ExecutionSimulator
 from autotrade_v3.engine.risk_manager import RiskConfig
@@ -62,6 +63,7 @@ def run_backtest(
     initial_equity: float = 1000.0,
     notional: float = 100.0,
     slippage: float = 0.0,
+    run_sensitivity: bool = False,
 ) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     git_sha = get_git_commit()
@@ -76,10 +78,11 @@ def run_backtest(
     sig_engine = SignalEngine()
 
     all_signals = []
-    symbol_frames_m1 = {}
+    symbol_frames_m1_full = {}
+    symbol_frames_m1_eval = {}
     symbol_frames_m15 = {}
 
-    print(f"=== AutoTrade V3 Backtest Engine ===")
+    print(f"=== AutoTrade V3 Backtest Engine (V3-05 Audited) ===")
     print(f"Git commit: {git_sha}")
     print(f"Symbols: {symbols} | Window: {start} to {end} | Mode: {mode}")
 
@@ -95,32 +98,51 @@ def run_backtest(
             print("Historical backtest strictly forbids synthetic fallback. Aborting.", file=sys.stderr)
             sys.exit(1)
 
+    # Calculate timestamps
+    start_ms = to_utc_ms(start)
+    end_ms = to_utc_ms(end)
+
+    # For sub-windows, load warm-up buffer if starting after dataset start
+    dataset_start_ms = to_utc_ms("2023-11-01")
+    if not smoke_test and start_ms > dataset_start_ms:
+        warmup_dt = pd.Timestamp(start, tz="UTC") - pd.Timedelta(days=36)
+        warmup_load_start = max(pd.Timestamp("2023-11-01", tz="UTC"), warmup_dt).strftime("%Y-%m-%d")
+        print(f"  [Warmup Buffer] Loading M1 from {warmup_load_start} to warm up 20FINAL indicators...")
+    else:
+        warmup_load_start = start
+
     for sym in symbols:
         print(f"\nProcessing {sym}...")
         if smoke_test:
             print(f"  [Smoke Test Mode] Generating deterministic synthetic M1 fixture (seed=42)...")
             base_px = 65000.0 if "BTC" in sym else 3500.0
-            # 5000 15m bars = 75,000 M1 bars (sufficient for WARMUP=3400)
-            df_m1 = generate_synthetic_m1(sym, start=start, periods=75000, base_price=base_px, seed=42)
+            df_m1_full = generate_synthetic_m1(sym, start=start, periods=75000, base_price=base_px, seed=42)
         else:
-            print(f"  Loading real M1 from DuckDB catalog '{catalog_path}'...")
-            df_m1 = load_m1_from_catalog(Path(catalog_path), sym, start, end)
-            if df_m1.empty:
-                print(f"[P1-01 ERROR] Zero M1 candles loaded for {sym} between {start} and {end}!", file=sys.stderr)
+            print(f"  Loading M1 from DuckDB catalog '{catalog_path}' ({warmup_load_start} to {end})...")
+            df_m1_full = load_m1_from_catalog(Path(catalog_path), sym, warmup_load_start, end)
+            if df_m1_full.empty:
+                print(f"[P1-01 ERROR] Zero M1 candles loaded for {sym} between {warmup_load_start} and {end}!", file=sys.stderr)
                 sys.exit(1)
-            print(f"  -> Loaded {len(df_m1):,} continuous M1 candles for {sym}")
+            print(f"  -> Loaded {len(df_m1_full):,} continuous M1 candles for {sym}")
 
-        symbol_frames_m1[sym] = df_m1
+        symbol_frames_m1_full[sym] = df_m1_full
+
+        # Slice evaluation M1 window: [start_ms, end_ms)
+        df_m1_eval = df_m1_full.loc[(df_m1_full.index.asi8 // 1_000_000 >= start_ms) & (df_m1_full.index.asi8 // 1_000_000 < end_ms)]
+        symbol_frames_m1_eval[sym] = df_m1_eval
+        print(f"  -> Evaluation window {start} to {end}: {len(df_m1_eval):,} M1 candles")
 
         # FIX P1-02: Signal generation strictly on M15/H1 (resampled from M1)
         print(f"  Resampling M1 to M15 (strictly no-lookahead)...")
-        df_m15 = resample_m1_to_timeframe(df_m1, timeframe_min=15)
+        df_m15 = resample_m1_to_timeframe(df_m1_full, timeframe_min=15)
         symbol_frames_m15[sym] = df_m15
 
         print(f"  Replaying 20FINAL signals on {len(df_m15):,} M15 bars...")
         sigs = sig_engine.generate_signals(sym, df_m15, only_approved=True, only_warmup_ready=True)
-        print(f"  -> Generated {len(sigs):,} approved & warmup-ready signals")
-        all_signals.extend(sigs)
+        # Filter signals whose earliest entry falls within the target evaluation window
+        eval_sigs = [s for s in sigs if s.signal_close_ms + 1 >= start_ms and s.signal_close_ms + 1 < end_ms]
+        print(f"  -> Generated {len(sigs):,} total signals; {len(eval_sigs):,} inside evaluation window")
+        all_signals.extend(eval_sigs)
 
     all_signals.sort(key=lambda s: (s.signal_close_ms, s.combo_id, s.side))
 
@@ -142,31 +164,39 @@ def run_backtest(
         "total_approved_signals": len(all_signals),
     }
 
-    # FIX P1-02 & FIX P1-03: Execute trade simulations strictly on raw M1 candles
-    print(f"\n--- Simulating Trades on Raw M1 Bars ---")
+    # FIX P1-02: Virtual Combo Isolated simulation
+    print(f"\n--- Simulating Trades on Raw M1 Bars (Virtual Mode) ---")
     combined_virtual_trades = []
 
     for sym in symbols:
         sym_sigs = [s for s in all_signals if s.symbol == sym]
-        df_m1_sym = symbol_frames_m1[sym]
-        print(f"  Simulating {len(sym_sigs)} signals on {sym} with {len(df_m1_sym):,} M1 candles...")
-        v_trades = simulator.simulate_virtual_trades(sym_sigs, df_m1_sym)
+        df_m1_sym_eval = symbol_frames_m1_eval[sym]
+        print(f"  Simulating {len(sym_sigs)} signals on {sym} with {len(df_m1_sym_eval):,} M1 candles...")
+        v_trades = simulator.simulate_virtual_trades(sym_sigs, df_m1_sym_eval)
         combined_virtual_trades.extend(v_trades)
         print(f"  -> {sym}: generated {len(v_trades):,} trade legs")
 
-    # Sort combined virtual trades by exit time
     combined_virtual_trades.sort(key=lambda t: (t.exit_time_ms, t.trade_id, t.leg_id))
 
-    # FIX P1-04: Exchange Hedge Merged Portfolio Mode
+    # FIX P1-04 & V3-05 Audit: True Independent Portfolio Event Loop
     combined_portfolio_trades = []
     df_portfolio_snaps = pd.DataFrame()
+    rejected_signals = []
+    portfolio_summary = {}
+
     if mode in ("portfolio", "both"):
-        print(f"\n--- Simulating Exchange Hedge Merged Portfolio across all symbols ---")
-        combined_portfolio_trades, df_portfolio_snaps = simulator.simulate_portfolio_from_trades(combined_virtual_trades)
+        print(f"\n--- Simulating True Independent Portfolio across all symbols ---")
+        p_trades, df_portfolio_snaps, rejected_signals, portfolio_summary = simulator.simulate_portfolio_independent(
+            signals=all_signals,
+            candle_dict=symbol_frames_m1_eval,
+        )
+        combined_portfolio_trades = p_trades
         combined_portfolio_trades.sort(key=lambda t: (t.exit_time_ms, t.trade_id, t.leg_id))
         print(f"  -> Reconciled {len(combined_portfolio_trades):,} portfolio trade legs")
+        print(f"  -> Rejected signals (margin): {len(rejected_signals)}")
+        print(f"  -> True M2M Max Drawdown: ${portfolio_summary.get('m2m_max_drawdown_dollars', 0.0):,.2f} ({portfolio_summary.get('m2m_max_drawdown_pct', 0.0):.1f}%)")
 
-    # Retrieve all execution events (FIX P1-03 audit trail)
+    # Retrieve all execution events
     all_events = simulator.get_execution_events()
 
     # Evaluate Virtual Mode
@@ -187,32 +217,80 @@ def run_backtest(
         print(f"Profit Factor: {v_metrics.profit_factor:.2f}")
         print(f"Max Drawdown: ${v_metrics.max_drawdown_dollars:,.2f} ({v_metrics.max_drawdown_pct:.1f}%)")
         print(f"Total Fees: ${v_metrics.total_fees:,.2f}")
-        print(f"Intrabar Ambiguous Trades: {v_metrics.intrabar_ambiguous_trades} ({v_metrics.intrabar_ambiguous_pct:.1f}%)")
+        print(f"Intrabar Ambiguous Trades (TP/SL): {v_metrics.intrabar_ambiguous_trades}")
+        print(f"Intrabar Ambiguous Trades (Trailing): {getattr(v_metrics, 'intrabar_trailing_ambiguous_trades', 0)}")
 
     # Evaluate Portfolio Mode
     p_metrics = None
     p_regimes = {}
     if combined_portfolio_trades:
-        p_metrics = calculate_metrics(combined_portfolio_trades, initial_equity=initial_equity)
+        p_metrics = calculate_metrics(
+            combined_portfolio_trades,
+            initial_equity=initial_equity,
+            m2m_snapshots=df_portfolio_snaps,
+            rejected_signals_count=len(rejected_signals),
+        )
         p_regimes = evaluate_regimes(combined_portfolio_trades, initial_equity=initial_equity)
         export_trades_csv(combined_portfolio_trades, out_dir / "portfolio_trades.csv")
         export_trades_parquet(combined_portfolio_trades, out_dir / "portfolio_trades.parquet")
         export_summary_json(p_metrics, p_regimes, manifest, out_dir / "portfolio_summary.json")
         generate_html_report(p_metrics, p_regimes, {**manifest, "mode": "EXCHANGE_HEDGE_MERGED"}, out_dir / "portfolio_report.html")
 
+        if not df_portfolio_snaps.empty:
+            df_portfolio_snaps.to_csv(out_dir / "portfolio_snapshots.csv", index=False)
+            df_portfolio_snaps.to_parquet(out_dir / "portfolio_snapshots.parquet", index=False)
+
         print("\n=== Exchange Hedge Merged Portfolio Results ===")
         print(f"Total Trades: {p_metrics.total_trades}")
         print(f"Win Rate: {p_metrics.win_rate_pct:.1f}%")
         print(f"Net Realized PnL: ${p_metrics.net_pnl:,.2f} (ROI: {p_metrics.roi_pct:+.2f}%)")
         print(f"Profit Factor: {p_metrics.profit_factor:.2f}")
-        print(f"Max Drawdown: ${p_metrics.max_drawdown_dollars:,.2f} ({p_metrics.max_drawdown_pct:.1f}%)")
+        print(f"Max Drawdown (Closed-trades): ${p_metrics.max_drawdown_dollars:,.2f} ({p_metrics.max_drawdown_pct:.1f}%)")
+        print(f"Max Drawdown (True M2M): ${p_metrics.m2m_max_drawdown_dollars:,.2f} ({p_metrics.m2m_max_drawdown_pct:.1f}%)")
         print(f"Total Fees: ${p_metrics.total_fees:,.2f}")
+        print(f"Rejected Signals (Margin): {p_metrics.rejected_signals_margin}")
 
     # Export execution events
     if all_events:
         export_events_csv(all_events, out_dir / "execution_events.csv")
         export_events_parquet(all_events, out_dir / "execution_events.parquet")
         print(f"Exported {len(all_events):,} execution events to Parquet & CSV")
+
+    # Run Sensitivity Analysis if requested or on full 3-year run
+    sensitivity_results = []
+    if run_sensitivity or (start == "2023-11-01" and end == "2026-11-01" and not smoke_test):
+        print(f"\n--- Running Sensitivity Analysis (Cost & Slippage Scenarios) ---")
+        scenarios = [
+            {"name": "Baseline", "slippage": 0.0, "fee": 0.0005},
+            {"name": "Scenario S1", "slippage": 0.0001, "fee": 0.0005},
+            {"name": "Scenario S2", "slippage": 0.0003, "fee": 0.0005},
+            {"name": "Scenario S3", "slippage": 0.0005, "fee": 0.0005},
+        ]
+        for sc in scenarios:
+            sc_risk = RiskConfig(
+                initial_equity=initial_equity,
+                notional_per_trade=notional,
+                slippage_rate=sc["slippage"],
+                taker_fee_rate=sc["fee"],
+            )
+            sc_sim = ExecutionSimulator(sc_risk)
+            sc_trades, sc_snaps, sc_rej, sc_sum = sc_sim.simulate_portfolio_independent(all_signals, symbol_frames_m1_eval)
+            sc_metrics = calculate_metrics(sc_trades, initial_equity=initial_equity, m2m_snapshots=sc_snaps)
+            sensitivity_results.append({
+                "name": sc["name"],
+                "fee_pct": sc["fee"],
+                "slippage_pct": sc["slippage"],
+                "total_trades": sc_metrics.total_trades,
+                "win_rate_pct": sc_metrics.win_rate_pct,
+                "net_pnl": sc_metrics.net_pnl,
+                "roi_pct": sc_metrics.roi_pct,
+                "profit_factor": sc_metrics.profit_factor,
+                "m2m_max_drawdown_dollars": sc_metrics.m2m_max_drawdown_dollars,
+                "m2m_max_drawdown_pct": sc_metrics.m2m_max_drawdown_pct,
+            })
+            print(f"  {sc['name']} (slip={sc['slippage']*100:.2f}%): Net PnL = ${sc_metrics.net_pnl:,.2f} | ROI = {sc_metrics.roi_pct:+.2f}% | PF = {sc_metrics.profit_factor:.2f}")
+
+        (out_dir / "sensitivity_analysis.json").write_text(json.dumps(sensitivity_results, indent=2) + "\n", encoding="utf-8")
 
     # Load Gate A and Gate B results for artifact bundle
     qa_path = REPO_ROOT / "catalog" / "v3_m1_qa.json"
@@ -231,6 +309,17 @@ def run_backtest(
     if parity_bundle:
         (out_dir / "signal_parity.json").write_text(json.dumps(parity_bundle, indent=2) + "\n", encoding="utf-8")
 
+    # V3-04 baseline reference
+    v3_04_ref = {
+        "signals": 5984,
+        "trade_legs": 6271,
+        "win_rate": "45.3%",
+        "net_pnl": "+343.52",
+        "roi": "+34.35%",
+        "profit_factor": "1.18",
+        "max_drawdown": "3.4%",
+    }
+
     # Export comprehensive validation report markdown
     generate_validation_report_md(
         v_metrics=v_metrics,
@@ -239,6 +328,8 @@ def run_backtest(
         qa_data=qa_data,
         parity_data=parity_bundle,
         out_path=out_dir / "validation_report.md",
+        sensitivity_results=sensitivity_results,
+        v3_04_baseline=v3_04_ref,
     )
 
     # Standard report.html
@@ -254,7 +345,7 @@ def run_backtest(
 def main():
     parser = argparse.ArgumentParser(description="AutoTrade V3 Local Backtest Engine")
     parser.add_argument("--catalog", type=Path, default=None, help="Path to DuckDB catalog file")
-    parser.add_argument("--out-dir", type=Path, default=Path("autotrade_v3_results"), help="Output directory")
+    parser.add_argument("--out-dir", type=Path, default=Path("runs/v3_audited"), help="Output directory")
     parser.add_argument("--symbols", nargs="+", default=["BTC-USDT", "ETH-USDT"], help="Symbols to test")
     parser.add_argument("--mode", choices=["virtual", "portfolio", "both"], default="both", help="Simulation mode")
     parser.add_argument("--start", default="2023-11-01", help="Start UTC date (YYYY-MM-DD)")
@@ -263,6 +354,7 @@ def main():
     parser.add_argument("--initial-equity", type=float, default=1000.0, help="Initial capital in USD")
     parser.add_argument("--notional", type=float, default=100.0, help="Notional position size in USD")
     parser.add_argument("--slippage", type=float, default=0.0, help="Slippage fraction (e.g. 0.0001 for 0.01%)")
+    parser.add_argument("--sensitivity", action="store_true", help="Run full slippage sensitivity suite")
     args = parser.parse_args()
 
     run_backtest(
@@ -276,6 +368,7 @@ def main():
         initial_equity=args.initial_equity,
         notional=args.notional,
         slippage=args.slippage,
+        run_sensitivity=args.sensitivity,
     )
 
 

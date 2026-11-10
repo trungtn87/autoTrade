@@ -14,4 +14,8 @@ catalog/
 data/
 *.duckdb
 *.zip
+*portfolio_snapshots.csv
+runs/v3_audited_1m/
+runs/v3_audited_6m/
+
 
