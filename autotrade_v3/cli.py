@@ -108,16 +108,24 @@ def cmd_backtest(args: argparse.Namespace) -> None:
         wr = res.analysis["win_rate"]
         risk = res.analysis["risk"]
 
+        pf_display = f"{pnl['net_profit_factor']:.2f}" if isinstance(pnl.get('net_profit_factor'), (int, float)) else str(pnl.get('net_profit_factor', pnl.get('profit_factor', 'N/A')))
+        gross_pf_display = f"{pnl['gross_profit_factor']:.2f}" if isinstance(pnl.get('gross_profit_factor'), (int, float)) else str(pnl.get('gross_profit_factor', 'N/A'))
+        closed_dd = risk.get('closed_trade_max_drawdown_dollars', 0.0)
+        m2m_dd = risk.get('m2m_max_drawdown_dollars')
+        dd_display = f"${m2m_dd:,.2f} (Continuous M2M)" if m2m_dd is not None else f"${closed_dd:,.2f} (Closed-trade)"
+
         print(f"\nRun Complete: {res.run_id}")
         print(f"Artifacts Saved: {res.run_dir}")
+        print(f"- Validation:     {res.manifest.validation_status}")
         print(f"- Total Signals:  {acct['total_signals']:,}")
         print(f"- Accepted Trades: {acct['accepted_entries']:,} ({acct['total_legs']:,} legs)")
         print(f"- Skipped:        {acct['skipped_by_concurrency']:,} (concurrency)")
         print(f"- Rejected:       {acct['rejected_by_margin']:,} (margin)")
         print(f"- Net PnL:        ${pnl['net_pnl']:,.2f} (ROI: {pnl['roi_pct']:+.2f}%)")
-        print(f"- Profit Factor:  {pnl['profit_factor']:.2f}")
+        print(f"- Net Profit Factor:   {pf_display}")
+        print(f"- Gross Profit Factor: {gross_pf_display}")
         print(f"- Win Rate:       {wr['trade_win_rate_pct']:.1f}% (Trade), {wr['leg_win_rate_pct']:.1f}% (Leg)")
-        print(f"- Max Drawdown:   ${risk.get('m2m_max_drawdown_dollars', risk.get('closed_trade_max_drawdown_dollars', 0.0)):,.2f}")
+        print(f"- Max Drawdown:   {dd_display}")
 
 
 def cmd_runs(args: argparse.Namespace) -> None:

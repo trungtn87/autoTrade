@@ -33,6 +33,8 @@ class Signal:
     ob_blocked: bool
     provider: str
     is_new6: bool
+    exit_policy: Any = None
+    exit_policy_hash: str = ""
 
 
 class SignalEngine:

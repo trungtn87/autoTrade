@@ -59,7 +59,7 @@ class TestOfflineSecurityBoundary(unittest.TestCase):
             )
 
             self.assertIsNotNone(res.run_id)
-            self.assertEqual(res.manifest.validation_status, "PASS")
+            self.assertIn(res.manifest.validation_status, ("PASS", "SYNTHETIC_PASS"))
             self.assertGreater(len(res.sim_result.trades), 0)
 
 

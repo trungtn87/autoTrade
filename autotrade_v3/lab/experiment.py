@@ -17,6 +17,7 @@ from autotrade_v3.engine.candle_loader import (
 from autotrade_v3.engine.execution_simulator import ExecutionSimulator, SimulationResult
 from autotrade_v3.engine.risk_manager import RiskConfig
 from autotrade_v3.lab.run_manager import RunManager, RunManifest, get_git_commit
+from autotrade_v3.lab.validation_gates import ValidationGates, ValidationReport
 from autotrade_v3.strategy.registry import StrategyRegistry
 
 
@@ -27,6 +28,7 @@ class ExperimentResult:
     manifest: RunManifest
     sim_result: SimulationResult
     analysis: dict[str, Any]
+    validation_report: ValidationReport | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -34,6 +36,7 @@ class ExperimentResult:
             "run_dir": str(self.run_dir),
             "manifest": self.manifest.to_dict(),
             "analysis": self.analysis,
+            "validation_report": self.validation_report.to_dict() if self.validation_report else None,
         }
 
 
@@ -126,7 +129,22 @@ class ExperimentRunner:
             initial_equity=initial_equity,
         )
 
-        # 5. Build Manifest & Save Run
+        # 5. Audit Run via Independent Validation Gates (P1-03)
+        val_report = ValidationGates.audit_run(
+            strategy=strategy,
+            mode=sim_result.mode,
+            symbols=target_symbols,
+            start=start,
+            end=end,
+            sim_result=sim_result,
+            analysis=analysis,
+            signals=eval_signals,
+            smoke_test=smoke_test,
+            data_layer=self.data_layer,
+        )
+        analysis["validation"] = val_report.to_dict()
+
+        # 6. Build Manifest & Save Run
         run_id = self.run_manager.generate_run_id(
             strategy_id=strategy.strategy_id,
             mode=sim_result.mode,
@@ -155,7 +173,7 @@ class ExperimentRunner:
             skipped_signals_count=acct["skipped_by_concurrency"],
             rejected_signals_count=acct["rejected_by_margin"],
             ambiguity_stats=sim_result.ambiguity_stats,
-            validation_status="PASS" if len(sim_result.trades) > 0 else "FAIL",
+            validation_status=val_report.overall_status,
         )
 
         run_dir = self.run_manager.save_run(
@@ -170,4 +188,5 @@ class ExperimentRunner:
             manifest=manifest,
             sim_result=sim_result,
             analysis=analysis,
+            validation_report=val_report,
         )

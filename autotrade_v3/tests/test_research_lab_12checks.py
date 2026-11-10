@@ -249,11 +249,11 @@ class TestResearchLab12Checks(unittest.TestCase):
                     strategy_id="20FINAL_BASELINE", mode="ONE_TRADE_PER_COMBO",
                     symbols=["BTC-USDT"], start="2023-11-01", end="2026-11-01", smoke_test=True,
                 )
-                self.assertEqual(res.manifest.validation_status, "PASS")
+                self.assertIn(res.manifest.validation_status, ("PASS", "SYNTHETIC_PASS"))
 
     # 12. Cross-window consistency
     def test_12_cross_window_consistency(self):
-        # Generate trades spanning multiple months
+        # Generate trades spanning Development (24M), Validation (6M), Holdout (6M)
         t1 = TradeRecord(
             trade_id="T1", leg_id="T1_L1", symbol="BTC-USDT", combo_id=1, combo_name="C1",
             timeframe="15m", side="BUY", leg_type="SINGLE",
@@ -268,27 +268,38 @@ class TestResearchLab12Checks(unittest.TestCase):
         t2 = TradeRecord(
             trade_id="T2", leg_id="T2_L1", symbol="ETH-USDT", combo_id=3, combo_name="C3",
             timeframe="15m", side="BUY", leg_type="SINGLE",
-            entry_time_ms=int(pd.Timestamp("2025-03-10", tz="UTC").value // 1_000_000),
-            entry_time_dt=pd.Timestamp("2025-03-10", tz="UTC"), entry_price=200.0,
-            exit_time_ms=int(pd.Timestamp("2025-03-10 01:00:00", tz="UTC").value // 1_000_000),
-            exit_time_dt=pd.Timestamp("2025-03-10 01:00:00", tz="UTC"), exit_price=202.0,
+            entry_time_ms=int(pd.Timestamp("2025-12-10", tz="UTC").value // 1_000_000),
+            entry_time_dt=pd.Timestamp("2025-12-10", tz="UTC"), entry_price=200.0,
+            exit_time_ms=int(pd.Timestamp("2025-12-10 01:00:00", tz="UTC").value // 1_000_000),
+            exit_time_dt=pd.Timestamp("2025-12-10 01:00:00", tz="UTC"), exit_price=202.0,
             exit_reason="TP", qty=0.5, notional=100.0, margin=2.0, gross_pnl=1.0,
+            fee_total=0.1, net_pnl=0.9, return_pct=0.009, intrabar_ambiguous=False,
+            bars_held=60, provider="BINANCE",
+        )
+        t3 = TradeRecord(
+            trade_id="T3", leg_id="T3_L1", symbol="BTC-USDT", combo_id=2, combo_name="C2",
+            timeframe="15m", side="BUY", leg_type="SINGLE",
+            entry_time_ms=int(pd.Timestamp("2026-06-10", tz="UTC").value // 1_000_000),
+            entry_time_dt=pd.Timestamp("2026-06-10", tz="UTC"), entry_price=300.0,
+            exit_time_ms=int(pd.Timestamp("2026-06-10 01:00:00", tz="UTC").value // 1_000_000),
+            exit_time_dt=pd.Timestamp("2026-06-10 01:00:00", tz="UTC"), exit_price=303.0,
+            exit_reason="TP", qty=0.33, notional=100.0, margin=2.0, gross_pnl=1.0,
             fee_total=0.1, net_pnl=0.9, return_pct=0.009, intrabar_ambiguous=False,
             bars_held=60, provider="BINANCE",
         )
         from autotrade_v3.engine.execution_simulator import SimulationResult
         sim_res = SimulationResult(
-            mode="ALL_SIGNALS", trades=[t1, t2], events=[],
+            mode="ALL_SIGNALS", trades=[t1, t2, t3], events=[],
             accepted_signals=[], skipped_signals=[], rejected_signals=[],
             snapshots=pd.DataFrame(), ambiguity_stats={},
         )
         analysis = ResearchAnalyzer.analyze_simulation(sim_res)
         subw = analysis["subwindows"]
-        # Y1 has t1, Y2 has t2, Y3 has 0
-        self.assertEqual(subw[0]["legs"], 1)  # Dev
-        self.assertEqual(subw[1]["legs"], 1)  # Val
-        self.assertEqual(subw[2]["legs"], 0)  # Holdout
-        self.assertEqual(sum(w["legs"] for w in subw), 2)
+        # Development (24M) has t1, Validation (6M) has t2, Holdout (6M) has t3
+        self.assertEqual(subw[0]["legs"], 1)  # Dev 24M
+        self.assertEqual(subw[1]["legs"], 1)  # Val 6M
+        self.assertEqual(subw[2]["legs"], 1)  # Holdout 6M
+        self.assertEqual(sum(w["legs"] for w in subw), 3)
 
 
 if __name__ == "__main__":

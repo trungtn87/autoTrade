@@ -19,11 +19,20 @@ class ExitPolicy:
     split_legs: bool = True  # True for 50% TP + 50% Trailing (FINAL14); False for 100% hard single (NEW6)
     trailing_act_pct: float = 0.005  # 0.5% favorable move to activate trailing
     trailing_cb_pct: float = 0.005   # 0.5% callback to trigger stop
+    leg_weights: tuple[float, ...] = (0.5, 0.5)  # Volume weight per leg (e.g. 50/50 or (1.0,))
     max_bars_held: int | None = None
     force_close_on_window_end: bool = False
 
+    def get_policy_hash(self) -> str:
+        """Deterministic SHA256 of the ExitPolicy parameters."""
+        data = asdict(self)
+        raw = json.dumps(data, sort_keys=True, default=str)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        d["policy_hash"] = self.get_policy_hash()
+        return d
 
 
 class BaseStrategy(ABC):

@@ -9,6 +9,7 @@ import pandas as pd
 
 from autotrade_v3.engine.risk_manager import RiskConfig
 from autotrade_v3.engine.signal_engine import Signal
+from autotrade_v3.strategy.base import ExitPolicy
 
 
 @dataclass
@@ -64,6 +65,12 @@ class TradeRecord:
     bars_held: int
     provider: str
     intrabar_trailing_ambiguous: bool = False
+    exit_policy_hash: str = ""
+    tp_pct: float = 0.0
+    sl_pct: float = 0.0
+    trailing_act_pct: float = 0.0
+    trailing_cb_pct: float = 0.0
+    max_bars_held: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -125,6 +132,13 @@ class _PortfolioActiveLeg:
     trail_stop: float = 0.0
     peak_price: float = 0.0
     provider: str = "BINANCE"
+    trailing_cb_pct: float = 0.005
+    max_bars_held: int | None = None
+    force_close_on_window_end: bool = False
+    exit_policy_hash: str = ""
+    tp_pct: float = 0.0
+    sl_pct: float = 0.0
+    trailing_act_pct: float = 0.0
 
 
 @dataclass
@@ -258,6 +272,25 @@ class ExecutionSimulator:
 
         return trades
 
+    def resolve_exit_policy(self, sig: Signal) -> ExitPolicy:
+        """Resolve and freeze ExitPolicy for the signal at entry time.
+        
+        Prioritizes sig.exit_policy provided by the strategy.
+        Falls back to backward-compatible defaults only if sig.exit_policy is None.
+        """
+        if getattr(sig, "exit_policy", None) is not None:
+            return sig.exit_policy
+
+        use_trailing = (not sig.is_new6) and (self.final14_exit_mode == "50TP_50TRAIL")
+        return ExitPolicy(
+            tp_pct=sig.tp_pct,
+            sl_pct=sig.sl_pct,
+            split_legs=use_trailing,
+            trailing_act_pct=self.trailing_act_pct,
+            trailing_cb_pct=self.trailing_cb_pct,
+            leg_weights=(0.5, 0.5) if use_trailing else (1.0,),
+        )
+
     def _simulate_one_virtual_trade(
         self,
         trade_id: str,
@@ -271,23 +304,22 @@ class ExecutionSimulator:
         t_ms_array: np.ndarray,
         df_bars: pd.DataFrame,
     ) -> list[TradeRecord]:
-        """Simulate single virtual trade, returning 1 leg for NEW6 or 2 legs for FINAL14 50/50 split."""
+        """Simulate single virtual trade using resolved ExitPolicy frozen at entry time."""
         notional = self.risk.notional_per_trade
+        policy = self.resolve_exit_policy(sig)
 
         # FIX P1-02: Executed at open of the entry M1 bar (plus slippage)
         raw_entry_px = float(opens[entry_idx]) if opens is not None else sig.entry_price
         entry_price = self.risk.apply_slippage(raw_entry_px, sig.side, is_entry=True)
 
         is_buy = sig.side == "BUY"
-        tp_price = entry_price * (1.0 + sig.tp_pct) if is_buy else entry_price * (1.0 - sig.tp_pct)
-        sl_price = entry_price * (1.0 - sig.sl_pct) if is_buy else entry_price * (1.0 + sig.sl_pct)
+        tp_price = entry_price * (1.0 + policy.tp_pct) if is_buy else entry_price * (1.0 - policy.tp_pct)
+        sl_price = entry_price * (1.0 - policy.sl_pct) if is_buy else entry_price * (1.0 + policy.sl_pct)
 
-        # Check exit mode: NEW6 is strictly 100% hard TP/SL.
-        # FINAL14 uses 50% TP + 50% Trailing if mode is 50TP_50TRAIL, else 100% hard TP/SL.
-        use_trailing = (not sig.is_new6) and (self.final14_exit_mode == "50TP_50TRAIL")
+        use_trailing = policy.split_legs
 
         if not use_trailing:
-            # 100% hard single leg
+            w = policy.leg_weights[0] if policy.leg_weights else 1.0
             leg = self._simulate_single_leg(
                 trade_id=trade_id,
                 leg_id=f"{trade_id}_L1",
@@ -295,7 +327,7 @@ class ExecutionSimulator:
                 sig=sig,
                 entry_idx=entry_idx,
                 entry_price=entry_price,
-                leg_notional=notional,
+                leg_notional=notional * w,
                 is_buy=is_buy,
                 tp_price=tp_price,
                 sl_price=sl_price,
@@ -306,11 +338,12 @@ class ExecutionSimulator:
                 n_bars=n_bars,
                 t_ms_array=t_ms_array,
                 df_bars=df_bars,
+                policy=policy,
             )
             return [leg]
         else:
-            # FIX P1-03: Separate Leg 1 (50% TP) and Leg 2 (50% Trailing)
-            half_notional = notional / 2.0
+            w1 = policy.leg_weights[0] if len(policy.leg_weights) > 0 else 0.5
+            w2 = policy.leg_weights[1] if len(policy.leg_weights) > 1 else 0.5
             leg1 = self._simulate_single_leg(
                 trade_id=trade_id,
                 leg_id=f"{trade_id}_L1",
@@ -318,7 +351,7 @@ class ExecutionSimulator:
                 sig=sig,
                 entry_idx=entry_idx,
                 entry_price=entry_price,
-                leg_notional=half_notional,
+                leg_notional=notional * w1,
                 is_buy=is_buy,
                 tp_price=tp_price,
                 sl_price=sl_price,
@@ -329,6 +362,7 @@ class ExecutionSimulator:
                 n_bars=n_bars,
                 t_ms_array=t_ms_array,
                 df_bars=df_bars,
+                policy=policy,
             )
 
             leg2 = self._simulate_trailing_leg(
@@ -338,7 +372,7 @@ class ExecutionSimulator:
                 sig=sig,
                 entry_idx=entry_idx,
                 entry_price=entry_price,
-                leg_notional=half_notional,
+                leg_notional=notional * w2,
                 is_buy=is_buy,
                 sl_price=sl_price,
                 opens=opens,
@@ -348,6 +382,7 @@ class ExecutionSimulator:
                 n_bars=n_bars,
                 t_ms_array=t_ms_array,
                 df_bars=df_bars,
+                policy=policy,
             )
             return [leg1, leg2]
 
@@ -370,6 +405,7 @@ class ExecutionSimulator:
         n_bars: int,
         t_ms_array: np.ndarray,
         df_bars: pd.DataFrame,
+        policy: ExitPolicy | None = None,
     ) -> TradeRecord:
         """Simulate single fixed TP/SL leg with conservative intrabar ambiguity handling and price gap detection."""
         leg_qty = leg_notional / entry_price
@@ -386,6 +422,13 @@ class ExecutionSimulator:
         start_eval_bar = entry_idx
 
         for i in range(start_eval_bar, n_bars):
+            # Check maximum holding period if configured in policy
+            if policy is not None and policy.max_bars_held is not None and (i - entry_idx) >= policy.max_bars_held:
+                exit_price = float(opens[i]) if opens is not None else float(closes[i])
+                exit_reason = "MAX_BARS_HELD"
+                exit_bar_idx = i
+                break
+
             # Check gap at open for bars after entry
             if i > entry_idx and opens is not None:
                 op = float(opens[i])
@@ -535,6 +578,12 @@ class ExecutionSimulator:
             bars_held=exit_bar_idx - entry_idx,
             provider=provider,
             intrabar_trailing_ambiguous=False,
+            exit_policy_hash=policy.get_policy_hash() if policy else "",
+            tp_pct=policy.tp_pct if policy else sig.tp_pct,
+            sl_pct=policy.sl_pct if policy else sig.sl_pct,
+            trailing_act_pct=policy.trailing_act_pct if policy else 0.0,
+            trailing_cb_pct=policy.trailing_cb_pct if policy else 0.0,
+            max_bars_held=policy.max_bars_held if policy else None,
         )
 
     def _simulate_trailing_leg(
@@ -555,16 +604,20 @@ class ExecutionSimulator:
         n_bars: int,
         t_ms_array: np.ndarray,
         df_bars: pd.DataFrame,
+        policy: ExitPolicy | None = None,
     ) -> TradeRecord:
-        """Simulate Trailing Stop leg (FIX P1-03) evaluated strictly across M1 bars."""
+        """Simulate Trailing Stop leg (FIX P1-03) evaluated strictly across M1 bars using resolved ExitPolicy."""
         leg_qty = leg_notional / entry_price
         leg_margin = self.risk.calc_margin(sig.symbol, leg_notional)
         entry_fee = self.risk.calc_fee(leg_notional, is_taker=True)
 
+        trailing_act_pct = policy.trailing_act_pct if policy is not None else self.trailing_act_pct
+        trailing_cb_pct = policy.trailing_cb_pct if policy is not None else self.trailing_cb_pct
+
         act_price = (
-            entry_price * (1.0 + self.trailing_act_pct)
+            entry_price * (1.0 + trailing_act_pct)
             if is_buy
-            else entry_price * (1.0 - self.trailing_act_pct)
+            else entry_price * (1.0 - trailing_act_pct)
         )
 
         trail_active = False
@@ -577,6 +630,13 @@ class ExecutionSimulator:
         ambiguous = False
 
         for i in range(entry_idx, n_bars):
+            # Check maximum holding period if configured in policy
+            if policy is not None and policy.max_bars_held is not None and (i - entry_idx) >= policy.max_bars_held:
+                exit_price = float(opens[i]) if opens is not None else float(closes[i])
+                exit_reason = "MAX_BARS_HELD"
+                exit_bar_idx = i
+                break
+
             effective_stop = trail_stop if trail_active else sl_price
 
             # Gap check on bar open
@@ -614,7 +674,7 @@ class ExecutionSimulator:
                     elif h >= act_price:
                         trail_active = True
                         peak_price = h
-                        trail_stop = max(sl_price, peak_price * (1.0 - self.trailing_cb_pct))
+                        trail_stop = max(sl_price, peak_price * (1.0 - trailing_cb_pct))
                         if l <= trail_stop:
                             trailing_ambiguous = True
                             exit_price = trail_stop
@@ -634,7 +694,7 @@ class ExecutionSimulator:
                         break
                     elif h > peak_price:
                         peak_price = h
-                        new_stop = max(trail_stop, peak_price * (1.0 - self.trailing_cb_pct))
+                        new_stop = max(trail_stop, peak_price * (1.0 - trailing_cb_pct))
                         trail_stop = new_stop
                         if l <= new_stop:
                             trailing_ambiguous = True
@@ -653,7 +713,7 @@ class ExecutionSimulator:
                     elif l <= act_price:
                         trail_active = True
                         peak_price = l
-                        trail_stop = min(sl_price, peak_price * (1.0 + self.trailing_cb_pct))
+                        trail_stop = min(sl_price, peak_price * (1.0 + trailing_cb_pct))
                         if h >= trail_stop:
                             trailing_ambiguous = True
                             exit_price = trail_stop
@@ -673,7 +733,7 @@ class ExecutionSimulator:
                         break
                     elif l < peak_price:
                         peak_price = l
-                        new_stop = min(trail_stop, peak_price * (1.0 + self.trailing_cb_pct))
+                        new_stop = min(trail_stop, peak_price * (1.0 + trailing_cb_pct))
                         trail_stop = new_stop
                         if h >= new_stop:
                             trailing_ambiguous = True
@@ -774,6 +834,12 @@ class ExecutionSimulator:
             bars_held=exit_bar_idx - entry_idx,
             provider=provider,
             intrabar_trailing_ambiguous=trailing_ambiguous,
+            exit_policy_hash=policy.get_policy_hash() if policy else "",
+            tp_pct=policy.tp_pct if policy else sig.tp_pct,
+            sl_pct=policy.sl_pct if policy else sig.sl_pct,
+            trailing_act_pct=trailing_act_pct,
+            trailing_cb_pct=trailing_cb_pct,
+            max_bars_held=policy.max_bars_held if policy else None,
         )
 
     def simulate_portfolio_from_trades(
@@ -1053,51 +1119,85 @@ class ExecutionSimulator:
                 trade_id = f"PORT_{sig.symbol.replace('-', '')}_{sig.combo_id}_{trade_counter:05d}"
 
                 is_buy = sig.side == "BUY"
-                use_trailing = (not sig.is_new6) and (self.final14_exit_mode == "50TP_50TRAIL")
+                policy = self.resolve_exit_policy(sig)
+                use_trailing = policy.split_legs
 
                 sig_legs = []
                 if not use_trailing:
-                    tp_px = entry_px * (1.0 + sig.tp_pct) if is_buy else entry_px * (1.0 - sig.tp_pct)
-                    sl_px = entry_px * (1.0 - sig.sl_pct) if is_buy else entry_px * (1.0 + sig.sl_pct)
+                    w = policy.leg_weights[0] if policy.leg_weights else 1.0
+                    leg_notional = notional * w
+                    leg_qty = leg_notional / entry_px
+                    leg_margin = req_margin * w
+                    leg_fee = entry_fee * w
+                    tp_px = entry_px * (1.0 + policy.tp_pct) if is_buy else entry_px * (1.0 - policy.tp_pct)
+                    sl_px = entry_px * (1.0 - policy.sl_pct) if is_buy else entry_px * (1.0 + policy.sl_pct)
                     leg = _PortfolioActiveLeg(
                         leg_id=f"{trade_id}_L1", trade_id=trade_id, symbol=sig.symbol,
                         combo_id=sig.combo_id, combo_name=sig.combo_name, timeframe=sig.timeframe,
                         side=sig.side, leg_type="SINGLE", entry_time_ms=ts,
                         entry_time_dt=sym_bars["dt"][bar_idx], entry_price=entry_px,
-                        qty=leg_total_qty, notional=notional, margin=req_margin,
-                        entry_fee=entry_fee, is_trailing=False, tp_price=tp_px, sl_price=sl_px,
+                        qty=leg_qty, notional=leg_notional, margin=leg_margin,
+                        entry_fee=leg_fee, is_trailing=False, tp_price=tp_px, sl_price=sl_px,
                         provider=str(sym_bars["provider"][bar_idx]),
+                        trailing_cb_pct=policy.trailing_cb_pct,
+                        max_bars_held=policy.max_bars_held,
+                        force_close_on_window_end=policy.force_close_on_window_end,
+                        exit_policy_hash=policy.get_policy_hash(),
+                        tp_pct=policy.tp_pct,
+                        sl_pct=policy.sl_pct,
+                        trailing_act_pct=policy.trailing_act_pct,
                     )
                     sig_legs.append(leg)
                 else:
-                    half_notional = notional * 0.5
-                    half_qty = leg_total_qty * 0.5
-                    half_margin = req_margin * 0.5
-                    half_fee = entry_fee * 0.5
+                    w1 = policy.leg_weights[0] if len(policy.leg_weights) > 0 else 0.5
+                    w2 = policy.leg_weights[1] if len(policy.leg_weights) > 1 else 0.5
+                    l1_notional = notional * w1
+                    l1_qty = l1_notional / entry_px
+                    l1_margin = req_margin * w1
+                    l1_fee = entry_fee * w1
+
+                    l2_notional = notional * w2
+                    l2_qty = l2_notional / entry_px
+                    l2_margin = req_margin * w2
+                    l2_fee = entry_fee * w2
 
                     # Leg 1: Fixed TP
-                    tp_px = entry_px * (1.0 + sig.tp_pct) if is_buy else entry_px * (1.0 - sig.tp_pct)
-                    sl_px = entry_px * (1.0 - sig.sl_pct) if is_buy else entry_px * (1.0 + sig.sl_pct)
+                    tp_px = entry_px * (1.0 + policy.tp_pct) if is_buy else entry_px * (1.0 - policy.tp_pct)
+                    sl_px = entry_px * (1.0 - policy.sl_pct) if is_buy else entry_px * (1.0 + policy.sl_pct)
                     l1 = _PortfolioActiveLeg(
                         leg_id=f"{trade_id}_L1", trade_id=trade_id, symbol=sig.symbol,
                         combo_id=sig.combo_id, combo_name=sig.combo_name, timeframe=sig.timeframe,
                         side=sig.side, leg_type="TP_HALF", entry_time_ms=ts,
                         entry_time_dt=sym_bars["dt"][bar_idx], entry_price=entry_px,
-                        qty=half_qty, notional=half_notional, margin=half_margin,
-                        entry_fee=half_fee, is_trailing=False, tp_price=tp_px, sl_price=sl_px,
+                        qty=l1_qty, notional=l1_notional, margin=l1_margin,
+                        entry_fee=l1_fee, is_trailing=False, tp_price=tp_px, sl_price=sl_px,
                         provider=str(sym_bars["provider"][bar_idx]),
+                        trailing_cb_pct=policy.trailing_cb_pct,
+                        max_bars_held=policy.max_bars_held,
+                        force_close_on_window_end=policy.force_close_on_window_end,
+                        exit_policy_hash=policy.get_policy_hash(),
+                        tp_pct=policy.tp_pct,
+                        sl_pct=policy.sl_pct,
+                        trailing_act_pct=policy.trailing_act_pct,
                     )
                     # Leg 2: Trailing Stop
-                    act_px = entry_px * (1.0 + self.trailing_act_pct) if is_buy else entry_px * (1.0 - self.trailing_act_pct)
+                    act_px = entry_px * (1.0 + policy.trailing_act_pct) if is_buy else entry_px * (1.0 - policy.trailing_act_pct)
                     l2 = _PortfolioActiveLeg(
                         leg_id=f"{trade_id}_L2", trade_id=trade_id, symbol=sig.symbol,
                         combo_id=sig.combo_id, combo_name=sig.combo_name, timeframe=sig.timeframe,
                         side=sig.side, leg_type="TRAIL_HALF", entry_time_ms=ts,
                         entry_time_dt=sym_bars["dt"][bar_idx], entry_price=entry_px,
-                        qty=half_qty, notional=half_notional, margin=half_margin,
-                        entry_fee=half_fee, is_trailing=True, tp_price=0.0, sl_price=sl_px,
+                        qty=l2_qty, notional=l2_notional, margin=l2_margin,
+                        entry_fee=l2_fee, is_trailing=True, tp_price=0.0, sl_price=sl_px,
                         act_price=act_px, trailing_active=False, trail_stop=sl_px, peak_price=entry_px,
                         provider=str(sym_bars["provider"][bar_idx]),
+                        trailing_cb_pct=policy.trailing_cb_pct,
+                        max_bars_held=policy.max_bars_held,
+                        force_close_on_window_end=policy.force_close_on_window_end,
+                        exit_policy_hash=policy.get_policy_hash(),
+                        tp_pct=policy.tp_pct,
+                        sl_pct=policy.sl_pct,
+                        trailing_act_pct=policy.trailing_act_pct,
                     )
                     sig_legs.extend([l1, l2])
 
@@ -1125,9 +1225,14 @@ class ExecutionSimulator:
                     ambiguous = False
                     trailing_ambiguous = False
 
+                    bars_held_so_far = bar_idx - int(np.searchsorted(t_ms_array, leg.entry_time_ms))
+
                     if is_final_bar:
                         exit_price = cl
                         exit_reason = "FORCE_CLOSE"
+                    elif leg.max_bars_held is not None and bars_held_so_far >= leg.max_bars_held:
+                        exit_price = op
+                        exit_reason = "MAX_BARS_HELD"
                     elif not leg.is_trailing:
                         # Fixed TP/SL check
                         if is_buy and op <= leg.sl_price:
@@ -1166,7 +1271,7 @@ class ExecutionSimulator:
                                     elif hi >= leg.act_price:
                                         leg.trailing_active = True
                                         leg.peak_price = hi
-                                        leg.trail_stop = max(leg.sl_price, hi * (1.0 - self.trailing_cb_pct))
+                                        leg.trail_stop = max(leg.sl_price, hi * (1.0 - leg.trailing_cb_pct))
                                         if lo <= leg.trail_stop:
                                             trailing_ambiguous = True; intrabar_trail_count += 1
                                             exit_price = leg.trail_stop; exit_reason = "TRAIL"
@@ -1177,7 +1282,7 @@ class ExecutionSimulator:
                                         exit_price = leg.trail_stop; exit_reason = "TRAIL"
                                     elif hi > leg.peak_price:
                                         leg.peak_price = hi
-                                        new_stop = max(leg.trail_stop, hi * (1.0 - self.trailing_cb_pct))
+                                        new_stop = max(leg.trail_stop, hi * (1.0 - leg.trailing_cb_pct))
                                         leg.trail_stop = new_stop
                                         if lo <= new_stop:
                                             trailing_ambiguous = True; intrabar_trail_count += 1
@@ -1190,7 +1295,7 @@ class ExecutionSimulator:
                                     elif lo <= leg.act_price:
                                         leg.trailing_active = True
                                         leg.peak_price = lo
-                                        leg.trail_stop = min(leg.sl_price, lo * (1.0 + self.trailing_cb_pct))
+                                        leg.trail_stop = min(leg.sl_price, lo * (1.0 + leg.trailing_cb_pct))
                                         if hi >= leg.trail_stop:
                                             trailing_ambiguous = True; intrabar_trail_count += 1
                                             exit_price = leg.trail_stop; exit_reason = "TRAIL"
@@ -1201,7 +1306,7 @@ class ExecutionSimulator:
                                         exit_price = leg.trail_stop; exit_reason = "TRAIL"
                                     elif lo < leg.peak_price:
                                         leg.peak_price = lo
-                                        new_stop = min(leg.trail_stop, lo * (1.0 + self.trailing_cb_pct))
+                                        new_stop = min(leg.trail_stop, lo * (1.0 + leg.trailing_cb_pct))
                                         leg.trail_stop = new_stop
                                         if hi >= new_stop:
                                             trailing_ambiguous = True; intrabar_trail_count += 1
@@ -1248,6 +1353,12 @@ class ExecutionSimulator:
                             bars_held=bar_idx - int(np.searchsorted(t_ms_array, leg.entry_time_ms)),
                             provider=leg.provider,
                             intrabar_trailing_ambiguous=trailing_ambiguous,
+                            exit_policy_hash=leg.exit_policy_hash,
+                            tp_pct=leg.tp_pct,
+                            sl_pct=leg.sl_pct,
+                            trailing_act_pct=leg.trailing_act_pct,
+                            trailing_cb_pct=leg.trailing_cb_pct,
+                            max_bars_held=leg.max_bars_held,
                         )
                         closed_trades.append(rec)
                     else:

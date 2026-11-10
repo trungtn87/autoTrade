@@ -5,6 +5,7 @@ in V2/V3-02 with no parameter tweaking or overfitting.
 """
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 import pandas as pd
 
@@ -48,6 +49,7 @@ class Baseline20FinalStrategy(BaseStrategy):
             split_legs=not is_new6,
             trailing_act_pct=0.005,
             trailing_cb_pct=0.005,
+            leg_weights=(0.5, 0.5) if not is_new6 else (1.0,),
         )
 
     def generate_signals(
@@ -78,7 +80,14 @@ class Baseline20FinalStrategy(BaseStrategy):
                 only_approved=only_approved,
                 only_warmup_ready=only_warmup_ready,
             )
-            all_signals.extend(sigs)
+            for s in sigs:
+                ep = self.get_exit_policy(sym, s.combo_id)
+                enriched = dataclasses.replace(
+                    s,
+                    exit_policy=ep,
+                    exit_policy_hash=ep.get_policy_hash(),
+                )
+                all_signals.append(enriched)
 
         all_signals.sort(key=lambda s: (s.signal_close_ms, s.combo_id, s.side))
         return all_signals

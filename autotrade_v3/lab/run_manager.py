@@ -152,6 +152,9 @@ class RunManager:
         amb = analysis.get("ambiguity", {})
         sym_stats = analysis.get("symbols", {})
 
+        val = analysis.get("validation", {})
+        gates_dict = val.get("gates", {})
+
         lines = [
             f"# AutoTrade V3 Research Lab Run Report: `{manifest.run_id}`",
             "",
@@ -160,8 +163,19 @@ class RunManager:
             f"- **Time Window:** `{manifest.time_window['start']}` to `{manifest.time_window['end']}`",
             f"- **Symbols:** {', '.join(manifest.symbols)}",
             f"- **Git SHA:** `{manifest.git_sha}`",
-            f"- **Validation Status:** **{manifest.validation_status}**",
+            f"- **Validation Status:** **{manifest.validation_status}** (Real Market Data: {val.get('is_real_data', False)})",
             f"- **Data Hash:** `{manifest.data_manifest_hash[:16]}...`",
+            "",
+            "## Validation Gates Audit",
+            "",
+            "| Gate | Status | Summary |",
+            "|:---|:---:|:---|",
+        ]
+
+        for g_key, g_res in gates_dict.items():
+            lines.append(f"| **{g_res.get('gate', g_key)}** | `{g_res.get('status', 'UNKNOWN')}` | {g_res.get('summary', '')} |")
+
+        lines.extend([
             "",
             "## 1. Accounting & Signals",
             "",
@@ -178,14 +192,19 @@ class RunManager:
             f"- **Net PnL:** **${pnl.get('net_pnl', 0.0):,.2f}**",
             f"- **ROI ({pnl.get('roi_denominator_name', 'Capital')}):** **{pnl.get('roi_pct', 0.0):+.2f}%**",
             f"- **Note on ROI:** {pnl.get('roi_note', '')}",
-            f"- **Profit Factor:** {pnl.get('profit_factor', 0.0):.2f}",
+            f"- **Net Profit Factor (Default):** {pnl.get('net_profit_factor', pnl.get('profit_factor', 'N/A'))}",
+            f"- **Gross Profit Factor:** {pnl.get('gross_profit_factor', 'N/A')}",
             f"- **Trade-level Win Rate:** {wr.get('trade_win_rate_pct', 0.0):.2f}% ({wr.get('winning_trades', 0)}/{acct.get('accepted_entries', 0)})",
             f"- **Leg-level Win Rate:** {wr.get('leg_win_rate_pct', 0.0):.2f}% ({wr.get('winning_legs', 0)}/{acct.get('total_legs', 0)})",
             "",
             "## 3. Risk & Drawdown",
             "",
             f"- **Closed-Trade Max Drawdown:** ${risk.get('closed_trade_max_drawdown_dollars', 0.0):,.2f} ({risk.get('closed_trade_max_drawdown_pct', 0.0):.2f}%)",
-            f"- **Continuous M2M Max Drawdown:** ${risk.get('m2m_max_drawdown_dollars', 0.0):,.2f} ({risk.get('m2m_max_drawdown_pct', 0.0):.2f}%)",
+            (
+                f"- **Continuous M2M Max Drawdown:** ${risk.get('m2m_max_drawdown_dollars', 0.0):,.2f} ({risk.get('m2m_max_drawdown_pct', 0.0):.2f}%)"
+                if risk.get("m2m_max_drawdown_dollars") is not None
+                else f"- **Continuous M2M Max Drawdown:** NOT_APPLICABLE ({risk.get('m2m_note', 'Only closed-trade drawdown applies in isolated/unconstrained modes')})"
+            ),
             "",
             "## 4. Intrabar Ambiguity",
             "",
@@ -195,13 +214,13 @@ class RunManager:
             "",
             "## 5. Performance by Symbol",
             "",
-            "| Symbol | Entries | Legs | Net PnL | Win Rate (Leg) | Profit Factor |",
-            "|:---|---:|---:|---:|---:|---:|",
-        ]
+            "| Symbol | Entries | Legs | Net PnL | Win Rate (Leg) | Net PF | Gross PF |",
+            "|:---|---:|---:|---:|---:|---:|---:|",
+        ])
 
         for sym, s_data in sym_stats.items():
             lines.append(
-                f"| **{sym}** | {s_data.get('entries', 0):,} | {s_data.get('legs', 0):,} | ${s_data.get('net_pnl', 0.0):,.2f} | {s_data.get('leg_win_rate_pct', 0.0):.1f}% | {s_data.get('profit_factor', 0.0):.2f} |"
+                f"| **{sym}** | {s_data.get('entries', 0):,} | {s_data.get('legs', 0):,} | ${s_data.get('net_pnl', 0.0):,.2f} | {s_data.get('leg_win_rate_pct', 0.0):.1f}% | {s_data.get('net_profit_factor', s_data.get('profit_factor', 'N/A'))} | {s_data.get('gross_profit_factor', 'N/A')} |"
             )
 
         return "\n".join(lines) + "\n"
@@ -228,7 +247,8 @@ class RunManager:
             "profit_factor": pnl.get("profit_factor", 0.0),
             "trade_win_rate_pct": wr.get("trade_win_rate_pct", 0.0),
             "leg_win_rate_pct": wr.get("leg_win_rate_pct", 0.0),
-            "max_drawdown_dollars": risk.get("m2m_max_drawdown_dollars", risk.get("closed_trade_max_drawdown_dollars", 0.0)),
+            "closed_trade_max_drawdown_dollars": risk.get("closed_trade_max_drawdown_dollars", 0.0),
+            "m2m_max_drawdown_dollars": risk.get("m2m_max_drawdown_dollars"),
             "validation_status": manifest.validation_status,
         }
 
