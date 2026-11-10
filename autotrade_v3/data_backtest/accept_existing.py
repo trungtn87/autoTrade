@@ -68,16 +68,16 @@ def inspect(root:Path, out:Path, source_map:Path, checksums:Path,
           SELECT upper(replace(cast(p.{symbol} AS VARCHAR),'-','')) symbol,
                  try_cast(p.{ts} AS BIGINT) open_ms,
                  try_cast(p.{o} AS DOUBLE) open, try_cast(p.{h} AS DOUBLE) high,
-                 try_cast(p.{l} AS DOUBLE) low, try_cast(p.{c} AS DOUBLE) close,
+                 try_cast(p.{l} AS DOUBLE) low, try_cast(p.{c} AS DOUBLE) AS "close",
                  try_cast(p.{v} AS DOUBLE) volume, s.provider, s.market_type, p.filename source_file
           FROM read_parquet({filesql},union_by_name=true,filename=true) p
           JOIN v3_sources s ON p.filename=s.file""")
         result=db.execute("""SELECT symbol, count(*) rows, count(DISTINCT open_ms) minutes,
           count(*) FILTER(WHERE open_ms IS NULL OR open_ms<? OR open_ms>=? OR open_ms%60000<>0) bad_time,
-          count(*) FILTER(WHERE open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL
-                 OR volume IS NULL OR open<=0 OR low<=0 OR high<=0 OR close<=0
-                 OR high<greatest(open,close,low) OR low<0
-                 OR low>least(open,close,high) OR volume<0) bad_ohlcv
+          count(*) FILTER(WHERE open IS NULL OR high IS NULL OR low IS NULL OR "close" IS NULL
+                 OR volume IS NULL OR open<=0 OR low<=0 OR high<=0 OR "close"<=0
+                 OR high<greatest(open,"close",low) OR low<0
+                 OR low>least(open,"close",high) OR volume<0) bad_ohlcv
           FROM v3_m1 GROUP BY symbol ORDER BY symbol""",
           [utc_ms(start),utc_ms(end)]).fetchall()
         exp=(utc_ms(end)-utc_ms(start))//MINUTE
