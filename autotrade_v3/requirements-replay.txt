@@ -1,0 +1,3 @@
+-r requirements-data.txt
+pandas==2.2.3
+numpy==2.3.5
