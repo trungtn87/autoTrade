@@ -25,7 +25,8 @@
 | **Commit 6 (Fix Audit Regression & Fail-Closed)** | `59f577d` — `fix(v3-09): restore audit validation data, enforce fail-closed verification, and add regression tests` |
 | **Commit 7 (Audit Verification & Ambiguity Hardening)** | `21a832d` — `fix(v3-09): harden analysis.json validation verification, distinguish golden origin, and derive ambiguity directly from ledger` |
 | **Commit 8 (AC5, M4 & Shared Scanner)** | `d301f02` — `fix(v3-09): resolve AC5 hardcoding, implement shared metric scanner, and migrate legacy reconciliation` |
-| **Commit 9 (Legacy Fix, AC5 Conclusion & CI Pipeline)** | *(Commit hiện tại)* — `fix(v3-09): fix legacy module REPO_ROOT, harden conclusion AC5, and complete CI evidence pipeline` |
+| **Commit 9 (Legacy Fix, AC5 Conclusion & CI Pipeline)** | `5913ad9` — `fix(v3-09): fix legacy module REPO_ROOT, harden conclusion AC5, and complete CI evidence pipeline` |
+| **Commit 10 (Fail-Closed Golden & Pytest CI Gates)** | *(Commit hiện tại)* — `fix(ci): enforce fail-closed golden checksum and pipefail pytest gates` |
 
 ---
 
@@ -304,8 +305,8 @@ Nhằm giải đáp thắc mắc về các commit SHA xuất hiện trong quá t
 | **Phân biệt Nguồn Gốc Validation** | Không phân biệt | Hiển thị rõ `INHERITED_GOLDEN_BASELINE` vs `RE_VERIFIED` | **VERIFIED** |
 | **Độ tin cậy giá trị 0 trong ambiguity_stats** | Tin tưởng giá trị 0 | Bác bỏ giá trị 0 nếu ledger có ambiguity | **HARDENED** |
 | **Số lượng chỉ số xác minh mỗi mode** | 179 metrics | 191 metrics (+12 chỉ số kiểm toán analysis) | **EXPANDED** |
-| **Số bài test V3-09** | 28 tests | 32 tests (+4 mutation, regression & CLI smoke tests) | **EXPANDED** |
-| **Toàn bộ test suite autotrade_v3** | 192 passed | 196 passed (0 failed, 100% pass) | **ALL PASSED** |
+| **Số bài test V3-09** | 28 tests | 34 tests (+6 mutation, regression & CI gate tests) | **EXPANDED** |
+| **Toàn bộ test suite autotrade_v3** | 192 passed | 198 passed (0 failed, 100% pass) | **ALL PASSED** |
 
 ---
 
@@ -352,9 +353,33 @@ Nhằm giải đáp thắc mắc về các commit SHA xuất hiện trong quá t
 - Bổ sung checkout với `ref: ${{ github.event.pull_request.head.sha || github.sha }}` và `fetch-depth: 0`.
 - Thêm bước kiểm tra tĩnh: `ruff check autotrade_v3 scripts` và `python -m compileall autotrade_v3 scripts`.
 - Thêm bước quét Hardcoded Metrics AC5 độc lập xuất log sang `evidence/ci_artifacts/hardcode_scan.log`.
-- Thêm bước xác minh Golden Invariants & SHA256 hashes xuất log sang `evidence/ci_artifacts/golden_parity.log`.
+- **Fail-Closed Golden Integrity Gate**: Thay thế bước in SHA256 bằng lệnh xác minh thực tế fail-closed:
+  ```bash
+  set -euo pipefail
+  (
+    cd runs/golden/v3-08
+    sha256sum --check SHA256SUMS.txt
+  ) | tee evidence/ci_artifacts/golden_parity.log
+  ```
+  Xác nhận 42/42 files golden pass. Bất kỳ sự thay đổi dù 1 byte trên file golden đều làm bước này trả về exit 1 và dừng CI ngay lập tức.
+- **Fail-Closed Pytest Gate**: Khắc phục hiện tượng `tee` che giấu mã lỗi bằng `set -euo pipefail`:
+  ```bash
+  set -euo pipefail
+  pytest autotrade_v3/tests \
+    --junitxml=evidence/ci_artifacts/junit.xml \
+    2>&1 | tee evidence/ci_artifacts/pytest_full.log
+  ```
+  Đảm bảo nếu pytest thất bại (exit 1), toàn bộ CI step bắt buộc thất bại (exit 1) ngay cả khi stream qua `tee`.
 - Lưu snapshot git state (`git_head.txt`, `git_status.txt`) và JUnit XML (`junit.xml`).
 - Upload toàn bộ minh chứng CI lên GitHub Actions artifact (`v3-09-ci-evidence-${{ github.sha }}`).
+
+### 5. Bổ Sung Kiểm Thử CI Gates Thực Chất
+- **`test_ci_golden_integrity_gate_42_passes_and_mutation_fails`**:
+  - Đối chiếu toàn bộ 42/42 file trong `runs/golden/v3-08/SHA256SUMS.txt`, xác nhận 100% khớp hash.
+  - Tạo bản sao golden trong thư mục tạm, cố tình sửa 1 file (`ALL_SIGNALS/analysis.json`), kiểm chứng quy trình xác minh và pipeline bash bắt buộc thất bại (`fail_count >= 1`, exit code != 0).
+- **`test_ci_pytest_pipefail_gate_fails_on_pytest_exit_1`**:
+  - Kiểm chứng rằng nếu không có `pipefail`, lệnh lỗi `(exit 1) | tee log` trả về exit 0 (che giấu lỗi).
+  - Kiểm chứng rằng với `set -euo pipefail`, lệnh lỗi `(exit 1) | tee log` bắt buộc trả về exit 1 (fail-closed bảo vệ CI).
 
 ---
 
@@ -363,8 +388,8 @@ Nhằm giải đáp thắc mắc về các commit SHA xuất hiện trong quá t
 Toàn bộ các yêu cầu trong Lệnh Hoàn tất PR #100 đã được thực thi hoàn tất:
 - 10 Nguyên tắc bất biến (N1-N10) được tuân thủ nghiêm ngặt: không sửa `autotrade_v2`, không sửa 20FINAL, không sửa Golden Baseline, không can thiệp ledger giao dịch, 100% offline, không có số liệu hay trạng thái gõ cứng trong active reporting code.
 - Cả 12 content hashes của 3 chế độ chạy đều trùng khớp tuyệt đối 100% với Golden Baseline V3-08.
-- Toàn bộ 196 bài kiểm thử tự động, linter Ruff và compiler đều đạt PASS 100%.
+- Toàn bộ 198 bài kiểm thử tự động, linter Ruff và compiler đều đạt PASS 100%.
 - File nhật ký quét `evidence/v3-09/hardcode_scan.log` xác nhận 0 vi phạm trên toàn bộ mã reporting hoạt động.
-- CI pipeline tự động thu thập và lưu trữ toàn bộ minh chứng nghiệm thu độc lập.
+- CI pipeline tự động thu thập và lưu trữ toàn bộ minh chứng nghiệm thu độc lập với cơ chế fail-closed chặt chẽ cho Golden checksum và pytest exit code.
 
 Kính chuyển Claude review độc lập và đề xuất Owner nghiệm thu, hợp nhất Pull Request #100 vào nhánh `main`.

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import hashlib
 import json
 import re
 import shutil
@@ -21,6 +22,19 @@ from autotrade_v3.engine.signal_engine import SignalEngine
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GOLDEN_V308_DIR = REPO_ROOT / "runs" / "golden" / "v3-08"
+
+
+def _find_functional_bash() -> str | None:
+    """Find a functional bash executable (avoiding WSL broken relay stubs)."""
+    for cand in [r"C:\Program Files\Git\bin\bash.exe", r"C:\Program Files\Git\usr\bin\bash.exe", "bash"]:
+        p = shutil.which(cand) or cand
+        try:
+            r = subprocess.run([p, "-c", "true"], capture_output=True, timeout=2)
+            if r.returncode == 0:
+                return p
+        except Exception:
+            pass
+    return None
 
 
 def _load_trades_parquet_as_records(parquet_path: Path) -> list[TradeRecord]:
@@ -1004,3 +1018,89 @@ class TestReportingAndPFCorrections:
 
         assert trade.exit_reason == "MAX_BARS_HELD"
         assert trade.intrabar_trailing_ambiguous is False
+
+    def test_ci_golden_integrity_gate_42_passes_and_mutation_fails(self, tmp_path):
+        """Verify CI Golden Integrity Gate: 42/42 files pass checksum, and mutating one fails."""
+        golden_src = REPO_ROOT / "runs" / "golden" / "v3-08"
+        sums_file = golden_src / "SHA256SUMS.txt"
+        assert sums_file.exists(), "SHA256SUMS.txt must exist"
+
+        lines = [line.strip() for line in sums_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+        assert len(lines) == 42, f"Expected exactly 42 golden files in SHA256SUMS.txt, found {len(lines)}"
+
+        # 1. Verify pristine files: all 42 match
+        passed_count = 0
+        for line in lines:
+            expected_hash, rel_path = line.split(maxsplit=1)
+            f_path = golden_src / rel_path
+            assert f_path.exists(), f"Golden file {rel_path} does not exist"
+            actual_hash = hashlib.sha256(f_path.read_bytes()).hexdigest()
+            assert actual_hash == expected_hash, f"Hash mismatch for {rel_path}"
+            passed_count += 1
+        assert passed_count == 42, "All 42 files must pass checksum"
+
+        # 2. Adversarial mutation: copy to tmp_path, mutate one file, assert gate fails
+        golden_copy = tmp_path / "golden_v308"
+        shutil.copytree(golden_src, golden_copy)
+
+        target_file = golden_copy / "ALL_SIGNALS" / "analysis.json"
+        assert target_file.exists()
+        orig_bytes = target_file.read_bytes()
+        target_file.write_bytes(orig_bytes + b"\n/* MUTATION */\n")
+
+        # Function simulating the sha256sum --check logic
+        def run_checksum_verification(directory: Path) -> tuple[int, int, list[str]]:
+            m_sums = directory / "SHA256SUMS.txt"
+            m_lines = [l.strip() for l in m_sums.read_text(encoding="utf-8").splitlines() if l.strip()]
+            ok_count = 0
+            fail_list = []
+            for m_line in m_lines:
+                exp_h, r_path = m_line.split(maxsplit=1)
+                p = directory / r_path
+                if not p.exists() or hashlib.sha256(p.read_bytes()).hexdigest() != exp_h:
+                    fail_list.append(r_path)
+                else:
+                    ok_count += 1
+            return ok_count, len(fail_list), fail_list
+
+        ok_c, fail_c, failures = run_checksum_verification(golden_copy)
+        assert fail_c >= 1, "Mutated golden copy must fail checksum verification"
+        assert "ALL_SIGNALS/analysis.json" in failures
+        assert ok_c == 41
+
+        # Also run bash command if bash/Git bash is present
+        bash_exec = _find_functional_bash()
+        if bash_exec:
+            res = subprocess.run(
+                [bash_exec, "-c", f"set -euo pipefail; (cd '{golden_copy.as_posix()}' && tr -d '\\r' < SHA256SUMS.txt | sha256sum --check -)"],
+                capture_output=True, text=True,
+            )
+            assert res.returncode != 0, "bash sha256sum --check pipeline must return non-zero on mutated file"
+            assert "FAILED" in res.stdout or "FAILED" in res.stderr
+
+    def test_ci_pytest_pipefail_gate_fails_on_pytest_exit_1(self, tmp_path):
+        """Verify that 'set -euo pipefail' ensures pytest exit 1 causes the CI step to fail even with tee."""
+        log_file = tmp_path / "pipeline.log"
+        bash_exec = _find_functional_bash()
+        if bash_exec:
+            # 1. Without pipefail, a failing command piped to tee exits 0 (masks failure!)
+            res_mask = subprocess.run(
+                [bash_exec, "-c", f"(exit 1) 2>&1 | tee '{log_file.as_posix()}'"],
+                capture_output=True, text=True,
+            )
+            assert res_mask.returncode == 0, "Without pipefail, tee masks failure with exit 0"
+
+            # 2. With 'set -euo pipefail', the failing command causes pipeline to exit with code 1
+            res_fail_closed = subprocess.run(
+                [bash_exec, "-c", f"set -euo pipefail\n(exit 1) 2>&1 | tee '{log_file.as_posix()}'"],
+                capture_output=True, text=True,
+            )
+            assert res_fail_closed.returncode != 0, "With set -euo pipefail, step MUST exit with non-zero code"
+            assert res_fail_closed.returncode == 1
+
+            # 3. Successful command with set -euo pipefail exits 0
+            res_success = subprocess.run(
+                [bash_exec, "-c", f"set -euo pipefail\n(exit 0) 2>&1 | tee '{log_file.as_posix()}'"],
+                capture_output=True, text=True,
+            )
+            assert res_success.returncode == 0

@@ -56,24 +56,18 @@ jobs:
 
       - name: Verify Golden Invariants & Hashes
         run: |
-          python -c "
-          import hashlib
-          from pathlib import Path
-          golden_dir = Path('runs/golden/v3-08')
-          lines = ['=== GOLDEN PARQUET AUDIT ===']
-          if golden_dir.exists():
-              for p in sorted(golden_dir.rglob('*.parquet')):
-                  h = hashlib.sha256(p.read_bytes()).hexdigest()
-                  lines.append(f'{p.relative_to(golden_dir)}: {p.stat().st_size} bytes, sha256={h}')
-          else:
-              lines.append('runs/golden/v3-08 not found')
-          Path('evidence/ci_artifacts/golden_parity.log').write_text('\n'.join(lines) + '\n', encoding='utf-8')
-          print('\n'.join(lines))
-          "
+          set -euo pipefail
+          (
+            cd runs/golden/v3-08
+            sha256sum --check SHA256SUMS.txt
+          ) | tee evidence/ci_artifacts/golden_parity.log
 
       - name: Run Test Suite (pytest)
         run: |
-          pytest autotrade_v3/tests --junitxml=evidence/ci_artifacts/junit.xml | tee evidence/ci_artifacts/pytest_full.log
+          set -euo pipefail
+          pytest autotrade_v3/tests \
+            --junitxml=evidence/ci_artifacts/junit.xml \
+            2>&1 | tee evidence/ci_artifacts/pytest_full.log
 
       - name: Upload CI Evidence Artifacts
         uses: actions/upload-artifact@v4
