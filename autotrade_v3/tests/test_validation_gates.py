@@ -66,6 +66,7 @@ class TestValidationGatesV310(unittest.TestCase):
     def test_golden_run_immutability_under_validation(self):
         """Proof that running validation on golden runs does NOT mutate runs/golden/v3-08/."""
         import hashlib
+        import tempfile
         from autotrade_v3.validation.runner import run_validation
 
         golden_dir = Path("runs/golden/v3-08")
@@ -75,26 +76,116 @@ class TestValidationGatesV310(unittest.TestCase):
                 h = hashlib.sha256(p.read_bytes()).hexdigest()
                 before_hashes[str(p.relative_to(golden_dir))] = h
 
-        # Run validation on golden run
-        rep = run_validation(
-            run_dir=golden_dir / "ALL_SIGNALS",
-            dataset_root=Path("."),
-            skip_gates=["B2"],
-            write_result=True,
+        # Run validation on golden run using an isolated TemporaryDirectory
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_out = Path(tmp_dir)
+            rep = run_validation(
+                run_dir=golden_dir / "ALL_SIGNALS",
+                dataset_root=Path("."),
+                skip_gates=["B2"],
+                write_result=True,
+                output_dir=tmp_out,
+            )
+
+            after_hashes: dict[str, str] = {}
+            for p in golden_dir.rglob("*"):
+                if p.is_file():
+                    h = hashlib.sha256(p.read_bytes()).hexdigest()
+                    after_hashes[str(p.relative_to(golden_dir))] = h
+
+            # Check no file added or removed
+            self.assertEqual(set(before_hashes.keys()), set(after_hashes.keys()))
+            # Check all file contents unchanged
+            for f, h_before in before_hashes.items():
+                self.assertEqual(h_before, after_hashes[f], f"File {f} was modified during validation!")
+
+            # Check validation output was written to the isolated temp directory
+            val_file = tmp_out / "validation.json"
+            self.assertTrue(val_file.exists(), "validation.json was not written to output_dir")
+
+    def test_b2_replay_cache_isolation(self):
+        """B2 replay cache must isolate by strat_id, config_hash, dataset_hash, symbols, start, end, cutoff."""
+        from unittest.mock import MagicMock, patch
+        from autotrade_v3.validation.gates_b import _REPLAY_CACHE, clear_replay_cache, gate_b2
+
+        clear_replay_cache()
+        self.assertEqual(len(_REPLAY_CACHE), 0)
+
+        mock_strat = MagicMock()
+        dummy_sig = MagicMock()
+        dummy_sig.signal_id = "test_sig"
+        dummy_sig.combo_id = 1
+        dummy_sig.side = "LONG"
+        dummy_sig.signal_close_ms = 1700000000000
+        dummy_sig.entry_price = 100.0
+        dummy_sig.tp_price = 110.0
+        dummy_sig.sl_price = 95.0
+        mock_strat.generate_signals.return_value = [dummy_sig]
+
+        manifest1 = {
+            "strategy_id": "20FINAL_BASELINE",
+            "config_hash": "hash_config_A",
+            "dataset_hash": "hash_dataset_A",
+            "symbols": ["BTC-USDT"],
+            "time_window": {"start": "2023-11-01", "end": "2026-11-01"},
+        }
+        manifest2 = {
+            "strategy_id": "20FINAL_BASELINE",
+            "config_hash": "hash_config_B",
+            "dataset_hash": "hash_dataset_A",
+            "symbols": ["BTC-USDT"],
+            "time_window": {"start": "2023-11-01", "end": "2026-11-01"},
+        }
+        manifest3 = {
+            "strategy_id": "20FINAL_BASELINE",
+            "config_hash": "hash_config_A",
+            "dataset_hash": "hash_dataset_C",
+            "symbols": ["BTC-USDT"],
+            "time_window": {"start": "2023-11-01", "end": "2026-11-01"},
+        }
+
+        ctx1 = VerifyContext(Path("runs/golden/v3-08/ALL_SIGNALS"), Path("."), Path("."))
+        ctx1.run._cache["run_manifest.json"] = manifest1
+        ctx1.run._cache["dataset_manifest"] = {"partitions": []}
+        ctx1.n_cutoffs = 1
+        ctx1.seed = 42
+
+        dummy_df = pd.DataFrame(
+            {"close": [100.0]},
+            index=pd.date_range("2024-01-01", periods=1, freq="15min", tz="UTC"),
         )
 
-        after_hashes: dict[str, str] = {}
-        for p in golden_dir.rglob("*"):
-            if p.is_file():
-                h = hashlib.sha256(p.read_bytes()).hexdigest()
-                after_hashes[str(p.relative_to(golden_dir))] = h
+        with patch("autotrade_v3.strategy.registry.StrategyRegistry.get", return_value=mock_strat), \
+             patch("autotrade_v3.data_layer.DataLayer.query_timeframe", return_value=dummy_df), \
+             patch.object(ctx1, "m1_store", return_value=MagicMock()):
+            # Run 1 on ctx1: cache miss -> generate_signals called
+            gate_b2(ctx1)
+            self.assertEqual(mock_strat.generate_signals.call_count, 1)
 
-        # Check no file added or removed
-        self.assertEqual(set(before_hashes.keys()), set(after_hashes.keys()))
-        # Check all file contents unchanged
-        for f, h_before in before_hashes.items():
-            self.assertEqual(h_before, after_hashes[f], f"File {f} was modified during validation!")
+            # Run 2 on ctx1 (same process, same config): cache hit -> no new call
+            gate_b2(ctx1)
+            self.assertEqual(mock_strat.generate_signals.call_count, 1)
 
-        # Check evidence was written to evidence directory instead
-        ev_file = Path("evidence/v3-10/golden_validation/ALL_SIGNALS/validation.json")
-        self.assertTrue(ev_file.exists(), "validation.json was not written to evidence directory")
+            # Run on ctx2 (different config_hash in same process): cache miss -> generate_signals called again
+            ctx2 = VerifyContext(Path("runs/golden/v3-08/ALL_SIGNALS"), Path("."), Path("."))
+            ctx2.run._cache["run_manifest.json"] = manifest2
+            ctx2.run._cache["dataset_manifest"] = {"partitions": []}
+            ctx2.n_cutoffs = 1
+            ctx2.seed = 42
+            with patch.object(ctx2, "m1_store", return_value=MagicMock()):
+                gate_b2(ctx2)
+                self.assertEqual(mock_strat.generate_signals.call_count, 2)
+
+            # Run on ctx3 (different dataset_hash in same process): cache miss -> generate_signals called again
+            ctx3 = VerifyContext(Path("runs/golden/v3-08/ALL_SIGNALS"), Path("."), Path("."))
+            ctx3.run._cache["run_manifest.json"] = manifest3
+            ctx3.run._cache["dataset_manifest"] = {"partitions": []}
+            ctx3.n_cutoffs = 1
+            ctx3.seed = 42
+            with patch.object(ctx3, "m1_store", return_value=MagicMock()):
+                gate_b2(ctx3)
+                self.assertEqual(mock_strat.generate_signals.call_count, 3)
+
+        # Calling clear_replay_cache() must empty the cache
+        clear_replay_cache()
+        self.assertEqual(len(_REPLAY_CACHE), 0)

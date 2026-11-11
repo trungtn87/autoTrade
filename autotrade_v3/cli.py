@@ -256,13 +256,30 @@ def cmd_verify(args: argparse.Namespace) -> None:
     if not no_write:
         if output_dir:
             out_target = Path(output_dir) / "validation.json"
+            print(f"\nValidation artifact written to: {out_target}")
         elif "runs/golden/v3-08" in str(run_dir).replace("\\", "/"):
-            out_target = Path("evidence/v3-10/golden_validation") / run_dir.name / "validation.json"
+            print("\nNote: Golden run validation artifact was not written to run_dir (golden runs are immutable). Pass --output-dir to save.")
         else:
             out_target = run_dir / "validation.json"
-        print(f"\nValidation artifact written to: {out_target}")
+            print(f"\nValidation artifact written to: {out_target}")
     else:
         print("\nRead-only mode (--no-write): validation artifact not written.")
+
+    if report.overall_status in ("FAILED", "UNVERIFIED_DIRTY"):
+        print(f"\nVerification FAILED with status: {report.overall_status}", file=sys.stderr)
+        sys.exit(1)
+    elif report.overall_status == "PARTIALLY_VERIFIED":
+        print(
+            "\nVerification Result: PARTIALLY_VERIFIED "
+            "(All executable gates passed; Gate B3 remains INCONCLUSIVE by design pending V3-11)."
+        )
+        sys.exit(0)
+    elif report.overall_status in ("VERIFIED", "SYNTHETIC"):
+        print(f"\nVerification Result: {report.overall_status}")
+        sys.exit(0)
+    else:
+        print(f"\nVerification Result: {report.overall_status}", file=sys.stderr)
+        sys.exit(1)
 
 
 def cmd_report(args: argparse.Namespace) -> None:

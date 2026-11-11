@@ -198,13 +198,14 @@ def run_validation(
             out_p.mkdir(parents=True, exist_ok=True)
             val_path = out_p / "validation.json"
         elif is_golden_run:
-            ev_dir = ctx.repo_root / "evidence" / "v3-10" / "golden_validation" / r_dir.name
-            ev_dir.mkdir(parents=True, exist_ok=True)
-            val_path = ev_dir / "validation.json"
+            # Golden runs are strictly immutable; do NOT write to official evidence
+            # or golden run directory without an explicit output_dir.
+            val_path = None
         else:
             val_path = r_dir / "validation.json"
 
-        with open(val_path, "w", encoding="utf-8") as f:
-            json.dump(report.to_dict(), f, indent=2)
+        if val_path is not None:
+            with open(val_path, "w", encoding="utf-8") as f:
+                json.dump(report.to_dict(), f, indent=2)
 
     return report

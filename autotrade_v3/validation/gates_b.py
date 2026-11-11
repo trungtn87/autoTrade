@@ -7,6 +7,7 @@ B3: Batch vs live equivalence (returns INCONCLUSIVE until V3-11).
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import hashlib
 import time
 from pathlib import Path
 from typing import Any
@@ -155,7 +156,13 @@ def gate_b1(ctx: VerifyContext) -> GateResult:
     )
 
 
-_REPLAY_CACHE: dict[tuple[str, str, str, int], list[Any]] = {}
+_REPLAY_CACHE: dict[tuple[Any, ...], list[Any]] = {}
+
+
+def clear_replay_cache() -> None:
+    """Clear in-memory strategy replay cache for Gate B2."""
+    global _REPLAY_CACHE
+    _REPLAY_CACHE.clear()
 
 
 def gate_b2(ctx: VerifyContext) -> GateResult:
@@ -223,6 +230,15 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
     start_date = tw.get("start", "2023-11-01")
     end_date = tw.get("end", "2026-11-01")
 
+    config_hash = str(manifest.get("config_hash") or "")
+    if not config_hash:
+        cfg_repr = f"{strat_id}_{getattr(strat, 'version', '1.0')}"
+        config_hash = hashlib.sha256(cfg_repr.encode("utf-8")).hexdigest()
+
+    dataset_hash = str(manifest.get("dataset_hash") or (dm.get("dataset_hash") if dm else "") or "")
+    symbols_tuple = tuple(sorted(symbols))
+    run_cache = ctx.cache.setdefault("b2_replay_cache", {})
+
     # Optimization: Query full M15 series once per symbol with warmup, then slice per cutoff
     full_data: dict[str, pd.DataFrame] = {}
     for sym in symbols:
@@ -260,9 +276,20 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
         sub_data = {sym: full_data[sym][full_data[sym].index < cutoff_dt] for sym in symbols}
 
         cutoff_viols: list[dict[str, Any]] = []
-        cache_key = (strat_id, start_date, end_date, int(cutoff_t))
-        if cache_key in _REPLAY_CACHE:
+        cache_key = (
+            strat_id,
+            config_hash,
+            dataset_hash,
+            symbols_tuple,
+            start_date,
+            end_date,
+            int(cutoff_t),
+        )
+        if cache_key in run_cache:
+            replayed_sigs = run_cache[cache_key]
+        elif cache_key in _REPLAY_CACHE:
             replayed_sigs = _REPLAY_CACHE[cache_key]
+            run_cache[cache_key] = replayed_sigs
         else:
             try:
                 replayed_sigs = strat.generate_signals(
@@ -271,6 +298,7 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
                     only_approved=True,
                     only_warmup_ready=True,
                 )
+                run_cache[cache_key] = replayed_sigs
                 _REPLAY_CACHE[cache_key] = replayed_sigs
             except Exception as e:
                 cutoff_viols.append({

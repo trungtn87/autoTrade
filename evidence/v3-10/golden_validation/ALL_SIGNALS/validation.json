@@ -1,6 +1,6 @@
 {
   "run_id": "ALL_SIGNALS",
-  "overall_status": "FAILED",
+  "overall_status": "PARTIALLY_VERIFIED",
   "execution_mode": "ALL_SIGNALS",
   "is_real_data": true,
   "code_dirty": false,
@@ -13,7 +13,7 @@
       "rows_total": 74,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.894,
+      "duration_s": 0.864,
       "reason": "",
       "details": {
         "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
@@ -29,7 +29,7 @@
       "rows_total": 3156480,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 4.62,
+      "duration_s": 4.039,
       "reason": "",
       "details": {
         "per_symbol": {
@@ -58,7 +58,7 @@
             "negative_volume": 0
           }
         },
-        "scan_seconds": 4.618
+        "scan_seconds": 4.036
       }
     },
     "B1": {
@@ -69,7 +69,7 @@
       "rows_total": 5984,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.89,
+      "duration_s": 0.885,
       "reason": "",
       "details": {
         "reference_file": "D:\\AutoTrade\\runs\\golden\\v3-08\\ALL_SIGNALS\\signals.parquet",
@@ -220,20 +220,184 @@
     },
     "B2": {
       "gate_id": "B2",
-      "name": "Gate B2",
-      "status": "FAIL",
-      "rows_checked": 0,
-      "rows_total": 0,
-      "violation_count": 1,
-      "violations": [
-        {
-          "kind": "SKIPPED",
-          "gate": "B2"
-        }
-      ],
-      "duration_s": 0.0,
-      "reason": "Gate B2 was skipped by caller option",
-      "details": {}
+      "name": "No-lookahead validation",
+      "status": "PASS",
+      "rows_checked": 20,
+      "rows_total": 20,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 691.284,
+      "reason": "",
+      "details": {
+        "seed": 20261110,
+        "n_cutoffs": 20,
+        "duration_s": 691.19,
+        "cutoffs_tested": [
+          {
+            "cutoff_ms": 1705919399999,
+            "cutoff_dt": "2024-01-22 10:29:59",
+            "expected_count": 218,
+            "replayed_count": 218,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1709045999999,
+            "cutoff_dt": "2024-02-27 14:59:59",
+            "expected_count": 489,
+            "replayed_count": 489,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1714337999999,
+            "cutoff_dt": "2024-04-28 20:59:59",
+            "expected_count": 832,
+            "replayed_count": 832,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1716065999999,
+            "cutoff_dt": "2024-05-18 20:59:59",
+            "expected_count": 934,
+            "replayed_count": 934,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1720173599999,
+            "cutoff_dt": "2024-07-05 09:59:59",
+            "expected_count": 1271,
+            "replayed_count": 1271,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1726829999999,
+            "cutoff_dt": "2024-09-20 10:59:59",
+            "expected_count": 1708,
+            "replayed_count": 1708,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1728932399999,
+            "cutoff_dt": "2024-10-14 18:59:59",
+            "expected_count": 1830,
+            "replayed_count": 1830,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1735914599999,
+            "cutoff_dt": "2025-01-03 14:29:59",
+            "expected_count": 2247,
+            "replayed_count": 2247,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1740506399999,
+            "cutoff_dt": "2025-02-25 17:59:59",
+            "expected_count": 2553,
+            "replayed_count": 2553,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1746701999999,
+            "cutoff_dt": "2025-05-08 10:59:59",
+            "expected_count": 2894,
+            "replayed_count": 2894,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1751839199999,
+            "cutoff_dt": "2025-07-06 21:59:59",
+            "expected_count": 3236,
+            "replayed_count": 3236,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1754564399999,
+            "cutoff_dt": "2025-08-07 10:59:59",
+            "expected_count": 3468,
+            "replayed_count": 3468,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1757596499999,
+            "cutoff_dt": "2025-09-11 13:14:59",
+            "expected_count": 3672,
+            "replayed_count": 3672,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1765707299999,
+            "cutoff_dt": "2025-12-14 10:14:59",
+            "expected_count": 4133,
+            "replayed_count": 4133,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1769943599999,
+            "cutoff_dt": "2026-02-01 10:59:59",
+            "expected_count": 4473,
+            "replayed_count": 4473,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1770811199999,
+            "cutoff_dt": "2026-02-11 11:59:59",
+            "expected_count": 4562,
+            "replayed_count": 4562,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1776607199999,
+            "cutoff_dt": "2026-04-19 13:59:59",
+            "expected_count": 4914,
+            "replayed_count": 4914,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1782309599999,
+            "cutoff_dt": "2026-06-24 13:59:59",
+            "expected_count": 5265,
+            "replayed_count": 5265,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1784224799999,
+            "cutoff_dt": "2026-07-16 17:59:59",
+            "expected_count": 5375,
+            "replayed_count": 5375,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1789779599999,
+            "cutoff_dt": "2026-09-19 00:59:59",
+            "expected_count": 5744,
+            "replayed_count": 5744,
+            "content_matched": true,
+            "pass": true
+          }
+        ],
+        "exit_code": 0,
+        "sampling_policy": "uniform_buckets_random_jitter",
+        "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+      }
     },
     "B3": {
       "gate_id": "B3",
@@ -258,7 +422,7 @@
       "rows_total": 8258,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.139,
+      "duration_s": 0.155,
       "reason": "",
       "details": {
         "mode": "ALL_SIGNALS",
@@ -273,7 +437,7 @@
       "rows_total": 8258,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 3.119,
+      "duration_s": 3.006,
       "reason": "",
       "details": {
         "policies_checked": 20
@@ -287,7 +451,7 @@
       "rows_total": 8258,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.404,
+      "duration_s": 0.461,
       "reason": "",
       "details": {
         "mode": "ALL_SIGNALS",
@@ -303,7 +467,7 @@
       "rows_total": 8258,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.097,
+      "duration_s": 0.096,
       "reason": "",
       "details": {
         "notes": [],
@@ -318,7 +482,7 @@
       "rows_total": 5984,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.025,
+      "duration_s": 0.024,
       "reason": "",
       "details": {
         "statuses": {
@@ -336,7 +500,7 @@
       "rows_total": 7,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 1.15,
+      "duration_s": 1.271,
       "reason": "",
       "details": {
         "undelivered_large_artifacts": []
@@ -350,7 +514,7 @@
       "rows_total": 650,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.348,
+      "duration_s": 0.346,
       "reason": "",
       "details": {
         "analysis_leaves_total": 610,
@@ -361,10 +525,8 @@
       }
     }
   },
-  "failure_reasons": [
-    "B2 (Gate B2): Gate B2 was skipped by caller option"
-  ],
-  "total_duration_s": 11.69,
+  "failure_reasons": [],
+  "total_duration_s": 702.43,
   "seed": 20261110,
   "n_cutoffs": 20
 }

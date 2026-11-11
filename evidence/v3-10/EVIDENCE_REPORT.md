@@ -17,7 +17,7 @@ Nhiệm vụ V3-10 Review Fix hoàn thành toàn diện việc khắc phục tri
 2. **Khôi phục hoàn toàn Golden Evidence ALL_SIGNALS:** Đã chạy xác minh đầy đủ 12 gate KHÔNG skip B2 trên `ALL_SIGNALS`. Kết quả đạt `PARTIALLY_VERIFIED` (11/11 cổng khả thi PASS 100%, B3 `INCONCLUSIVE` đúng đặc tả). File [`evidence/v3-10/golden_validation/ALL_SIGNALS/validation.json`](golden_validation/ALL_SIGNALS/validation.json) đã được cập nhật chính xác với B2 PASS.
 3. **Chạy Gate B2 đủ 20/20 Cutoffs trên cả 3 Golden Modes:** Đã kiểm thử 20 cutoffs ngẫu nhiên theo seed `20261110` trên cả 3 chế độ (`ALL_SIGNALS`, `BINGX_PORTFOLIO`, `ONE_TRADE_PER_COMBO`). Toàn bộ 20/20 điểm cutoff đều PASS 100%, bảo đảm không có tín hiệu lookahead, so sánh nội dung tín hiệu khớp chính xác, và nến được cắt strictly closed (`index < cutoff_dt`). Dữ liệu chi tiết 20 cutoffs được lưu tại [`evidence/v3-10/b2_20_cutoffs_audit.json`](b2_20_cutoffs_audit.json).
 4. **Bảo vệ tuyệt đối Immutability Golden Baseline:** Đã xóa bỏ các file `validation.json` tạm thời khỏi `runs/golden/v3-08/`. Khẳng định lệnh `git diff --stat origin/main..HEAD -- runs/golden/v3-08` hoàn toàn rỗng (0 file, 0 dòng thay đổi so với `main`). Toàn bộ kết quả hậu kiểm được lưu biệt lập tại `evidence/v3-10/`.
-5. **Full Regression Test Suite:** Chạy thành công toàn bộ 233/233 tests unit & integration test (bao gồm 4 test mới về post-save persistence và B2 properties), 100% PASS trong 449.38s. Kết quả JUnit XML đầy đủ được ghi tại [`evidence/v3-10/junit/all.xml`](junit/all.xml).
+5. **Full Regression Test Suite:** Chạy thành công toàn bộ 236/236 tests unit & integration test (bao gồm các test mới về CLI fail-closed subprocess, B2 replay cache isolation, post-save persistence và B2 properties), 100% PASS trong 491.53s (0 skipped, 0 failed). Kết quả JUnit XML đầy đủ được ghi tại [`evidence/v3-10/junit/all.xml`](junit/all.xml).
 6. **Code Quality & Invariants:** `ruff check autotrade_v3` sạch 100% không cảnh báo; `compileall` biên dịch thành công; ranh giới `autotrade_v2` rỗng 100% (`git diff origin/main..HEAD -- autotrade_v2` rỗng).
 
 ---
@@ -32,6 +32,9 @@ Nhiệm vụ V3-10 Review Fix hoàn thành toàn diện việc khắc phục tri
 | **FIX-04** | **P1 (Golden Immutability)** | File `validation.json` bị tạo trong `runs/golden/v3-08/`. | Xóa bỏ hoàn toàn 3 file `validation.json` khỏi `runs/golden/v3-08/` bằng `git rm`. Định tuyến kết quả kiểm định sang `evidence/v3-10/golden_validation/{mode}/`. `git diff origin/main..HEAD -- runs/golden/v3-08` rỗng. | **VERIFIED** |
 | **FIX-05** | **P2 (M-B2 Mutation)** | Thiếu mutation test chứng minh Gate B2 phát hiện lookahead thật sự. | Thêm test `test_m_b2_lookahead_detection` vào `test_validation_mutations.py`: cấy tín hiệu lookahead, Gate B2 trả về `FAIL` với vi phạm `LOOKAHEAD_DETECTED`. | **VERIFIED** |
 | **FIX-06** | **P2 (Gate B2 20 Cutoffs)** | B2 chạy 20 cutoffs bị skip trên ALL_SIGNALS hoặc seed không ảnh hưởng đến mẫu; thời gian chạy lâu. | Sửa B2: dùng `rng.choice()` theo từng bucket thời gian; so sánh nội dung tín hiệu; tối ưu hóa slice in-memory và cache replayed signals; chạy đủ 20/20 cutoffs trên cả 3 golden modes. | **VERIFIED** |
+| **FIX-07** | **P1 (Evidence Contamination)** | `test_golden_run_immutability_under_validation` chạy với `skip_gates=['B2']` và ghi đè vào `evidence/.../ALL_SIGNALS/validation.json`. | Cách ly test bằng `tempfile.TemporaryDirectory()`. Sửa `runner.py`: không tự động ghi kết quả golden nếu thiếu `output_dir`. Tái chạy full 12 gates 20 cutoffs trên `ALL_SIGNALS` đạt `PARTIALLY_VERIFIED`, xác nhận hash không đổi sau pytest. | **VERIFIED** |
+| **FIX-08** | **P1 (CLI Fail-Closed)** | Lệnh `cli verify` luôn trả về exit code 0 kể cả khi overall status là `FAILED`. | Sửa `autotrade_v3/cli.py`: thoát với exit code 1 khi trạng thái là `FAILED` hoặc `UNVERIFIED_DIRTY`; thoát 0 với `PARTIALLY_VERIFIED` (B3 INCONCLUSIVE đúng thiết kế). Thêm subprocess test chứng minh CI phát hiện được FAIL. | **VERIFIED** |
+| **FIX-09** | **P2 (B2 Cache Isolation)** | Cache B2 thiếu cách ly theo `dataset_hash`, `config_hash`, `symbols`. | Cập nhật `gates_b.py`: khóa cache gồm `(strat_id, config_hash, dataset_hash, symbols, start, end, cutoff)`. Thêm `clear_replay_cache()` và run-scoped cache trên context. Thêm test chứng minh không tái sử dụng cache khi cấu hình hoặc dữ liệu khác biệt trong cùng process. | **VERIFIED** |
 
 ---
 
@@ -159,5 +162,5 @@ Sau khi tích hợp PR #100 (`0e9ee21ec249820b403021caa8e446ae6b01000c`), toàn 
 ## 11. SIGN-OFF RECOMMENDATION
 
 - **Tự đánh giá:** **READY_FOR_REVIEW (PARTIALLY_VERIFIED)**
-- **Độ bao phủ kiểm thử:** 233/233 bài test unit & integration test PASS 100%. JUnit XML tại `evidence/v3-10/junit/all.xml`. Linting và compile check sạch sẽ.
+- **Độ bao phủ kiểm thử:** 236/236 bài test unit & integration test PASS 100% (0 skipped, 0 failed). JUnit XML tại `evidence/v3-10/junit/all.xml`. Linting và compile check sạch sẽ.
 - **Đề nghị:** Toàn bộ điểm chặn đã được giải quyết triệt để có bằng chứng kiểm chứng. Trân trọng kính chuyển Claude thực hiện Review độc lập và kính chuyển Owner xem xét nghiệm thu, merge PR vào nhánh `main`.

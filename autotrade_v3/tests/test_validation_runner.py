@@ -135,6 +135,75 @@ class TestValidationRunner(unittest.TestCase):
         self.assertEqual(status, "FAILED")
         self.assertTrue(any("invalid PASS" in f for f in failures))
 
+    def test_cli_verify_subprocess_fail_closed_on_failed_run(self):
+        """CLI verify must return non-zero exit code when overall status is FAILED."""
+        import subprocess
+        import sys
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            cmd = [sys.executable, "-m", "autotrade_v3.cli", "verify", tmp_dir, "--no-write"]
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            self.assertNotEqual(proc.returncode, 0, "CLI verify returned 0 on a failing run!")
+            combined_output = proc.stdout + proc.stderr
+            self.assertIn("FAILED", combined_output)
+
+    def test_cli_verify_exit_codes_by_status(self):
+        """CLI verify must exit 1 on FAILED/UNVERIFIED_DIRTY and exit 0 on PARTIALLY_VERIFIED/VERIFIED."""
+        import argparse
+        from unittest.mock import MagicMock, patch
+        from autotrade_v3.cli import cmd_verify
+
+        args = argparse.Namespace(
+            run_dir="runs/golden/v3-08/ALL_SIGNALS",
+            dataset_root=Path("."),
+            cutoffs=1,
+            seed=20261110,
+            no_write=True,
+            output_dir=None,
+        )
+
+        mock_report = MagicMock()
+        mock_report.run_id = "TEST_RUN"
+        mock_report.execution_mode = "ALL_SIGNALS"
+        mock_report.is_real_data = True
+        mock_report.total_duration_s = 1.0
+        mock_report.seed = 20261110
+        mock_report.n_cutoffs = 1
+        mock_report.gates = {}
+        mock_report.failure_reasons = []
+
+        # 1. FAILED -> exit 1
+        mock_report.overall_status = "FAILED"
+        mock_report.failure_reasons = ["Gate X failed"]
+        with patch("autotrade_v3.validation.runner.run_validation", return_value=mock_report):
+            with self.assertRaises(SystemExit) as cm:
+                cmd_verify(args)
+            self.assertEqual(cm.exception.code, 1)
+
+        # 2. UNVERIFIED_DIRTY -> exit 1
+        mock_report.overall_status = "UNVERIFIED_DIRTY"
+        mock_report.failure_reasons = ["Working tree dirty"]
+        with patch("autotrade_v3.validation.runner.run_validation", return_value=mock_report):
+            with self.assertRaises(SystemExit) as cm:
+                cmd_verify(args)
+            self.assertEqual(cm.exception.code, 1)
+
+        # 3. PARTIALLY_VERIFIED -> exit 0
+        mock_report.overall_status = "PARTIALLY_VERIFIED"
+        mock_report.failure_reasons = []
+        with patch("autotrade_v3.validation.runner.run_validation", return_value=mock_report):
+            with self.assertRaises(SystemExit) as cm:
+                cmd_verify(args)
+            self.assertEqual(cm.exception.code, 0)
+
+        # 4. VERIFIED -> exit 0
+        mock_report.overall_status = "VERIFIED"
+        with patch("autotrade_v3.validation.runner.run_validation", return_value=mock_report):
+            with self.assertRaises(SystemExit) as cm:
+                cmd_verify(args)
+            self.assertEqual(cm.exception.code, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
