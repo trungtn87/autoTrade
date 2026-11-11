@@ -1,0 +1,11 @@
+=== GIT REV-PARSE HEAD ===
+b3543df998295dcd8587a2b04aa10a526f091cf4
+
+=== GIT STATUS ===
+On branch feat/v3-09-reporting
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   evidence/v3-09/git_state.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")

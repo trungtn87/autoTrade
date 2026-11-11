@@ -25,6 +25,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -377,7 +378,7 @@ def run_cross_reconciliation(
     ambig_rows = []
 
     # Filter trades with ambiguity flags
-    v5_ambig = df_v5_v[(df_v5_v["intrabar_trailing_ambiguous"] == True) | (df_v5_v["intrabar_ambiguous"] == True)]
+    v5_ambig = df_v5_v[(df_v5_v["intrabar_trailing_ambiguous"].astype(bool)) | (df_v5_v["intrabar_ambiguous"].astype(bool))]
     print(f"  Found {len(v5_ambig)} ambiguity trade legs (459 trailing + 3 TP/SL)")
 
     # Pre-index M1 bars by timestamp for fast lookup
