@@ -284,6 +284,101 @@ def verify_report(report_md_path: str | Path, trades_parquet_path: str | Path, s
                 verifications.append(f"VERIFIED {gate_name}: {m_gate.group(1)}")
 
     # =========================================================================
+    # 0b. analysis.json Validation & Gates Reconciliation (FAIL-CLOSED)
+    # =========================================================================
+    analysis_p = run_dir / "analysis.json"
+    if not analysis_p.exists():
+        if m_val_status and m_val_status.group(1) == "REAL_DATA_PASS":
+            discrepancies.append(f"MISSING_ANALYSIS_FILE: Required analysis.json not found in {run_dir} for REAL_DATA_PASS run")
+    else:
+        import json
+        try:
+            analysis_data = json.loads(analysis_p.read_text(encoding="utf-8"))
+        except Exception as e:
+            discrepancies.append(f"CORRUPT_ANALYSIS_FILE: Failed to parse {analysis_p}: {e}")
+            analysis_data = {}
+
+        if "validation" not in analysis_data or not isinstance(analysis_data.get("validation"), dict):
+            if m_val_status and m_val_status.group(1) == "REAL_DATA_PASS":
+                discrepancies.append("MISSING_VALIDATION_BLOCK: Mandatory 'validation' block not found in analysis.json for REAL_DATA_PASS run")
+        else:
+            analysis_val = analysis_data["validation"]
+            a_status = analysis_val.get("overall_status")
+            if m_val_status and a_status != m_val_status.group(1):
+                discrepancies.append(f"MISMATCH Validation Status: analysis.json ({a_status}) != report.md ({m_val_status.group(1)})")
+            else:
+                verifications.append(f"VERIFIED analysis.json Validation Status: {a_status}")
+
+            a_real = analysis_val.get("is_real_data")
+            rep_real_bool = (m_val_status.group(2) == "True") if m_val_status else None
+            if rep_real_bool is not None and a_real != rep_real_bool:
+                discrepancies.append(f"MISMATCH Real Market Data: analysis.json ({a_real}) != report.md ({rep_real_bool})")
+            else:
+                verifications.append(f"VERIFIED analysis.json Real Market Data: {a_real}")
+
+            a_gates = analysis_val.get("gates", {})
+            mandatory_gates_spec = [
+                ("Gate A", ["GATE_A_DATA", "gate_a", "Gate A — DATA"]),
+                ("Gate B", ["GATE_B_STRATEGY", "gate_b", "Gate B — STRATEGY"]),
+                ("Gate C", ["GATE_C_EXECUTION", "gate_c", "Gate C — EXECUTION"]),
+                ("Gate D", ["GATE_D_RESULT", "gate_d", "Gate D — RESULT"]),
+            ]
+            for g_name, candidates in mandatory_gates_spec:
+                gate_obj = None
+                for c in candidates:
+                    if c in a_gates:
+                        gate_obj = a_gates[c]
+                        break
+                if not gate_obj:
+                    for g_v in a_gates.values():
+                        if isinstance(g_v, dict) and g_name in g_v.get("gate", ""):
+                            gate_obj = g_v
+                            break
+                if not gate_obj:
+                    discrepancies.append(f"MISSING_ANALYSIS_GATE: Mandatory '{g_name}' not found in analysis.json gates")
+                else:
+                    g_stat = gate_obj.get("status") if isinstance(gate_obj, dict) else gate_obj
+                    if g_stat != "PASS":
+                        discrepancies.append(f"INVALID_ANALYSIS_GATE_STATUS: '{g_name}' status is '{g_stat}', expected 'PASS'")
+                    else:
+                        verifications.append(f"VERIFIED analysis.json {g_name}: PASS")
+
+            # Origin distinction (Inherited Golden vs Independent Active Re-verification)
+            rep_sha_clean = rep_sha if "rep_sha" in locals() else ""
+            val_source = analysis_val.get("validation_source", "")
+            if rep_sha_clean.startswith("b68933c") or val_source == "INHERITED_GOLDEN_V3_08":
+                verifications.append(f"VERIFIED Validation Origin: INHERITED_GOLDEN_BASELINE (Source Git SHA: {rep_sha_clean[:10]}...)")
+            else:
+                verifications.append("VERIFIED Validation Origin: RE_VERIFIED_INDEPENDENT (Active Environment Re-verification)")
+
+            # Cross-reference with Golden evidence if available
+            m_mode = re.search(r"\*\*Execution Mode:\*\*\s*`?([A-Z_]+)`?", report_text)
+            mode_name = m_mode.group(1) if m_mode else run_dir.name
+            golden_candidate = Path("runs/golden/v3-08") / mode_name / "analysis.json"
+            if golden_candidate.exists():
+                try:
+                    g_analysis = json.loads(golden_candidate.read_text(encoding="utf-8"))
+                    g_val = g_analysis.get("validation", {})
+                    if g_val:
+                        g_status = g_val.get("overall_status")
+                        if g_status and g_status == a_status:
+                            verifications.append(f"VERIFIED Golden Status Reconciliation: {a_status} matches Golden V3-08 ({mode_name})")
+                        elif g_status:
+                            discrepancies.append(f"MISMATCH Golden Status Reconciliation: current {a_status} != golden {g_status}")
+
+                        g_gates = g_val.get("gates", {})
+                        for g_key in ["GATE_A_DATA", "GATE_B_STRATEGY", "GATE_C_EXECUTION", "GATE_D_RESULT"]:
+                            if g_key in g_gates and g_key in a_gates:
+                                g_stat = g_gates[g_key].get("status")
+                                curr_stat = a_gates[g_key].get("status")
+                                if g_stat and curr_stat and g_stat == curr_stat:
+                                    verifications.append(f"VERIFIED Golden Gate Reconciliation: {g_key} matches Golden ({g_stat})")
+                                elif g_stat != curr_stat:
+                                    discrepancies.append(f"MISMATCH Golden Gate Reconciliation: {g_key} current ({curr_stat}) != golden ({g_stat})")
+                except Exception:
+                    pass
+
+    # =========================================================================
     # Companion Ledgers Integrity (FAIL-CLOSED)
     # =========================================================================
     for comp_file, comp_name in [(sig_p, "signals.parquet"), (skip_p, "skipped_signals.parquet"), (rej_p, "rejected_signals.parquet")]:

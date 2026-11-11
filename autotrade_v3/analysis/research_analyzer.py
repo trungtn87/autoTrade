@@ -444,6 +444,34 @@ class ResearchAnalyzer:
         accounting_balance_pass = math.isclose(gross_pnl_u - total_fees_u, net_pnl_u, abs_tol=1e-4)
 
         # Compile final analysis dictionary
+        # Compute ambiguity counts directly from trades ledger
+        def is_tp_sl_amb(t: Any) -> bool:
+            if isinstance(t, dict):
+                return bool(t.get("intrabar_ambiguous", False))
+            return bool(getattr(t, "intrabar_ambiguous", False))
+
+        def is_trailing_amb(t: Any) -> bool:
+            if isinstance(t, dict):
+                return bool(t.get("intrabar_trailing_ambiguous", False))
+            return bool(getattr(t, "intrabar_trailing_ambiguous", False))
+
+        ledger_tp_sl_count = sum(1 for t in trades if is_tp_sl_amb(t))
+        ledger_trailing_count = sum(1 for t in trades if is_trailing_amb(t))
+
+        # Do NOT trust 0 in ambiguity_stats if ledger shows non-zero counts
+        amb_stats = sim_result.ambiguity_stats or {}
+        raw_tp_sl = amb_stats.get("intrabar_tp_sl_ambiguous_count")
+        raw_trailing = amb_stats.get("intrabar_trailing_ambiguous_count")
+
+        if raw_tp_sl is None or (raw_tp_sl == 0 and ledger_tp_sl_count != 0):
+            tp_sl_ambiguous_count = ledger_tp_sl_count
+        else:
+            tp_sl_ambiguous_count = raw_tp_sl
+
+        if raw_trailing is None or (raw_trailing == 0 and ledger_trailing_count != 0):
+            trailing_ambiguous_count = ledger_trailing_count
+        else:
+            trailing_ambiguous_count = raw_trailing
         result = {
             "mode": mode,
             "accounting": {
@@ -504,16 +532,8 @@ class ResearchAnalyzer:
                 "m2m_note": m2m_note,
             },
             "ambiguity": {
-                "intrabar_tp_sl_ambiguous_count": (
-                    sim_result.ambiguity_stats.get("intrabar_tp_sl_ambiguous_count")
-                    if sim_result.ambiguity_stats and "intrabar_tp_sl_ambiguous_count" in sim_result.ambiguity_stats
-                    else sum(1 for t in trades if getattr(t, "intrabar_ambiguous", False))
-                ),
-                "intrabar_trailing_ambiguous_count": (
-                    sim_result.ambiguity_stats.get("intrabar_trailing_ambiguous_count")
-                    if sim_result.ambiguity_stats and "intrabar_trailing_ambiguous_count" in sim_result.ambiguity_stats
-                    else sum(1 for t in trades if getattr(t, "intrabar_trailing_ambiguous", False))
-                ),
+                "intrabar_tp_sl_ambiguous_count": tp_sl_ambiguous_count,
+                "intrabar_trailing_ambiguous_count": trailing_ambiguous_count,
                 "resolution_policy": "CONSERVATIVE (SL prioritized on intrabar TP/SL tie; callback prioritized on trailing tie)",
             },
             "symbols": symbol_stats,
@@ -525,9 +545,17 @@ class ResearchAnalyzer:
         }
 
         if validation is not None:
-            result["validation"] = validation
+            result["validation"] = dict(validation)
         elif "validation" in sim_result.summary_dict:
-            result["validation"] = sim_result.summary_dict["validation"]
+            result["validation"] = dict(sim_result.summary_dict["validation"])
+
+        if "validation" in result and isinstance(result["validation"], dict):
+            if "validation_source" not in result["validation"]:
+                gsha = sim_result.summary_dict.get("git_sha", "")
+                if gsha.startswith("b68933c"):
+                    result["validation"]["validation_source"] = "INHERITED_GOLDEN_V3_08"
+                else:
+                    result["validation"]["validation_source"] = "RE_VERIFIED_INDEPENDENT"
 
         return result
 

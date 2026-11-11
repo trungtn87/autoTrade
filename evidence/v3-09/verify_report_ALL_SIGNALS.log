@@ -1,28 +1,28 @@
-=== VERIFY REPORT EXECUTION SUMMARY ===
-Report: evidence\v3-09\reports\ALL_SIGNALS\report.md
-Ledger: evidence\v3-09\reports\ALL_SIGNALS\trades.parquet
-Total metrics verified: 179
-  [OK] VERIFIED Validation Status: REAL_DATA_PASS (Real Market Data: True)
-  [OK] VERIFIED Git SHA in header: b68933c131725f680eafc72640153b61af85741d
-  [OK] VERIFIED Gate A — DATA: PASS
-  [OK] VERIFIED Gate B — STRATEGY: PASS
-  [OK] VERIFIED Gate C — EXECUTION: PASS
-  [OK] VERIFIED Gate D — RESULT: PASS
-  [OK] VERIFIED Total Signals Generated: 5,984
-  [OK] VERIFIED Accepted Entries: 5,984
-  [OK] VERIFIED Total Legs: 8,258
-  [OK] VERIFIED Skipped by Concurrency: 0
-  [OK] VERIFIED Rejected by Margin: 0
-  [OK] VERIFIED Gross PnL: 1009.09 (ledger 1009.09)
-  [OK] VERIFIED Total Fees: 598.39 (ledger 598.39)
-  [OK] VERIFIED Net PnL: 410.70 (ledger 410.70)
-  [OK] VERIFIED ROI: 41.07 (ledger 41.07)
-  [OK] VERIFIED Trade Win Rate: 38.72 (ledger 38.72)
-  [OK] VERIFIED Leg Win Rate: 42.75 (ledger 42.75)
-  [OK] VERIFIED Net Profit Factor (Trade): 1.14 (ledger 1.14)
-  [OK] VERIFIED Net Profit Factor (Leg): 1.13 (ledger 1.13)
-  [OK] VERIFIED Gross Profit Factor (Trade): 1.38 (ledger 1.38)
-  ... and 159 additional verified metrics.
-
-SUCCESS: All reported figures faithfully verified against ledger.
-
+=== VERIFY REPORT EXECUTION SUMMARY ===
+Report: evidence\v3-09\reports\ALL_SIGNALS\report.md
+Ledger: evidence\v3-09\reports\ALL_SIGNALS\trades.parquet
+Total metrics verified: 191
+  [OK] VERIFIED Validation Status: REAL_DATA_PASS (Real Market Data: True)
+  [OK] VERIFIED Git SHA in header: b68933c131725f680eafc72640153b61af85741d
+  [OK] VERIFIED Gate A — DATA: PASS
+  [OK] VERIFIED Gate B — STRATEGY: PASS
+  [OK] VERIFIED Gate C — EXECUTION: PASS
+  [OK] VERIFIED Gate D — RESULT: PASS
+  [OK] VERIFIED analysis.json Validation Status: REAL_DATA_PASS
+  [OK] VERIFIED analysis.json Real Market Data: True
+  [OK] VERIFIED analysis.json Gate A: PASS
+  [OK] VERIFIED analysis.json Gate B: PASS
+  [OK] VERIFIED analysis.json Gate C: PASS
+  [OK] VERIFIED analysis.json Gate D: PASS
+  [OK] VERIFIED Validation Origin: INHERITED_GOLDEN_BASELINE (Source Git SHA: b68933c131...)
+  [OK] VERIFIED Golden Status Reconciliation: REAL_DATA_PASS matches Golden V3-08 (ALL_SIGNALS)
+  [OK] VERIFIED Golden Gate Reconciliation: GATE_A_DATA matches Golden (PASS)
+  [OK] VERIFIED Golden Gate Reconciliation: GATE_B_STRATEGY matches Golden (PASS)
+  [OK] VERIFIED Golden Gate Reconciliation: GATE_C_EXECUTION matches Golden (PASS)
+  [OK] VERIFIED Golden Gate Reconciliation: GATE_D_RESULT matches Golden (PASS)
+  [OK] VERIFIED Total Signals Generated: 5,984
+  [OK] VERIFIED Accepted Entries: 5,984
+  ... and 171 additional verified metrics.
+
+SUCCESS: All reported figures faithfully verified against ledger.
+

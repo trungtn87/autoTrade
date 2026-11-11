@@ -22,7 +22,8 @@
 | **Commit 3 (Engine Bugfixes)** | `ba404fc` — `fix(engine): resolve trailing_ambiguous unbound state on max_bars_held zero and harden to_utc_ms` |
 | **Commit 4 (Evidence & Docs)** | `b737204` — `docs(v3-09): deliver evidence report, verification logs, and updated lab artifacts` |
 | **Commit 5 (Harden Verifier & Mutations)** | `ab65225` — `fix(v3-09): harden report verifier with strict tolerances, mandatory tables, and comprehensive mutation tests` |
-| **Commit 6 (Fix Audit Regression & Fail-Closed)** | `fix(v3-09): restore audit validation data, enforce fail-closed verification, and add regression tests` |
+| **Commit 6 (Fix Audit Regression & Fail-Closed)** | `59f577d` — `fix(v3-09): restore audit validation data, enforce fail-closed verification, and add regression tests` |
+| **Commit 7 (Audit Verification & Ambiguity Hardening)** | *(Commit hiện tại)* — `fix(v3-09): harden analysis.json validation verification, distinguish golden origin, and derive ambiguity directly from ledger` |
 
 ---
 
@@ -191,17 +192,20 @@ Bảng tổng hợp cấp Run và Symbol trên Mode BINGX_PORTFOLIO:
 ## H. Báo Cáo Thẩm Định Độc Lập verify_report.py (AC4) & Quét Mã (AC5)
 
 1. **Thẩm định Độc Lập Báo Cáo (`tools/verify_report.py`):**
-   - Đọc trực tiếp `report.md` và `trades.parquet` (cùng companion ledgers `signals.parquet`, `skipped_signals.parquet`, `rejected_signals.parquet`) không qua bộ nhớ trung gian.
-   - Kiểm tra độc lập **179 chỉ số** trong mỗi báo cáo:
-     - **Validation Gates Audit (FAIL-CLOSED)**: Bảng kiểm toán Gate A, B, C, D là bắt buộc, trạng thái phải là PASS. Thiếu Gate hoặc bảng kiểm toán -> lập tức FAIL.
+   - Đọc trực tiếp `report.md`, `trades.parquet`, `analysis.json` và companion ledgers (`signals.parquet`, `skipped_signals.parquet`, `rejected_signals.parquet`) không qua bộ nhớ trung gian.
+   - Kiểm tra độc lập **191 chỉ số** trong mỗi báo cáo:
+     - **Validation Gates Audit trong `report.md` (FAIL-CLOSED)**: Bảng kiểm toán Gate A, B, C, D là bắt buộc, trạng thái phải là PASS. Thiếu Gate hoặc bảng kiểm toán -> lập tức FAIL.
+     - **Khối Validation trong `analysis.json` (FAIL-CLOSED)**: Ở chế độ `REAL_DATA_PASS`, bắt buộc phải có khối `"validation"`. Thiếu khối validation -> lập tức FAIL (`MISSING_VALIDATION_BLOCK`).
+     - **Đối chiếu Gate A/B/C/D giữa `analysis.json`, `report.md` và Golden V3-08**: Toàn bộ Gate A, B, C, D trong `analysis.json` phải đạt PASS và khớp tuyệt đối với `report.md` và chứng cứ Golden.
+     - **Phân biệt Nguồn Gốc Validation**: Phân biệt tường minh giữa thông tin validation kế thừa từ Golden Baseline (`INHERITED_GOLDEN_BASELINE`, Git SHA: `b68933c131...`) và thông tin từ môi trường kiểm toán hoạt động độc lập (`RE_VERIFIED_INDEPENDENT`).
      - **Tính nhất quán dữ liệu thật**: Cấm tuyệt đối trạng thái `REAL_DATA_PASS` đi kèm `Real Market Data: False`.
-     - **Kiểm tra Ambiguity**: Số lượng TP/SL ambiguity và trailing ambiguity được tính độc lập trực tiếp từ các trường boolean `intrabar_ambiguous` và `intrabar_trailing_ambiguous` trong `trades.parquet` và đối chiếu với báo cáo.
+     - **Kiểm tra Ambiguity độc lập**: Số lượng TP/SL ambiguity và trailing ambiguity được tính độc lập trực tiếp từ các trường boolean `intrabar_ambiguous` và `intrabar_trailing_ambiguous` trong `trades.parquet` và đối chiếu với báo cáo.
      - **Companion Ledgers (Bắt buộc)**: Thiếu bất kỳ file nào trong số `signals.parquet`, `skipped_signals.parquet`, `rejected_signals.parquet` -> lập tức FAIL (`MISSING_COMPANION_LEDGER`).
      - **Đối chiếu 3 cấp độc lập**: Tự tính tổng net PnL run, tổng net PnL theo symbol, tổng net PnL theo combo trực tiếp trên `trades.parquet` với dung sai sai số $< 10^{-9}$.
      - **Toàn bộ 4 Profit Factors**: `Net Profit Factor (Trade)`, `Net Profit Factor (Leg)`, `Gross Profit Factor (Trade)`, `Gross Profit Factor (Leg)`.
      - **Độ chính xác tiền tệ và phần trăm**: `Gross PnL`, `Total Fees`, `Net PnL`, `ROI (%)` với dung sai số học nghiêm ngặt `tol = 0.009` (bác bỏ tuyệt đối sai lệch $0.04 USD).
      - **Bắt buộc có đầy đủ các bảng**: `## Validation Gates Audit`, `## 5. Performance by Symbol`, `## 6. Exit Reason Breakdown`, `## 7. Performance by Combo` (20 combos độc lập), `## 8. Reconciliation Audit`.
-   - **Kết quả:** Thoát mã 0 (SUCCESS) trên cả 3 chế độ chạy, xác minh 179/179 metrics mỗi mode.
+   - **Kết quả:** Thoát mã 0 (SUCCESS) trên cả 3 chế độ chạy, xác minh 191/191 metrics mỗi mode.
    - Logs nguyên văn:
      - [`evidence/v3-09/verify_report_ALL_SIGNALS.log`](file:///d:/AutoTrade/evidence/v3-09/verify_report_ALL_SIGNALS.log)
      - [`evidence/v3-09/verify_report_ONE_TRADE_PER_COMBO.log`](file:///d:/AutoTrade/evidence/v3-09/verify_report_ONE_TRADE_PER_COMBO.log)
@@ -221,16 +225,19 @@ Bảng tổng hợp cấp Run và Symbol trên Mode BINGX_PORTFOLIO:
 
 ### 1. Bộ Kiểm Thử Đầy Đủ
 ```
-======================= 192 passed in 135.91s (0:02:15) =======================
+======================= 195 passed in 160.08s (0:02:40) =======================
 ```
-- **Tổng số tests:** 192 (toàn bộ test suite autotrade_v3)
-- **Passed:** 192 (100%)
+- **Tổng số tests:** 195 (toàn bộ test suite autotrade_v3)
+- **Passed:** 195 (100%)
 - **Failed:** 0
 - **Skipped:** 0
-- Riêng bộ test V3-09 (`test_reporting_corrections_v309.py`): **28/28 tests PASSED**.
+- Riêng bộ test V3-09 (`test_reporting_corrections_v309.py`): **31/31 tests PASSED**.
 
 ### 2. Kiểm Thử Đột Biến Đối Kháng Toàn Diện (Adversarial Mutations)
 Bộ kiểm thử đột biến được bổ sung đầy đủ theo yêu cầu lệnh sửa đổi:
+- **Xóa khối validation khỏi `analysis.json`:** `test_adversarial_mutation_delete_validation_block_from_analysis_json` -> `verify_report` phát hiện thiếu và FAIL (`MISSING_VALIDATION_BLOCK`) (**PASSED**).
+- **Làm sai lệch Gate status trong `analysis.json`:** `test_adversarial_mutation_analysis_gate_status_mismatch` -> `verify_report` phát hiện và FAIL (`INVALID_ANALYSIS_GATE_STATUS`) (**PASSED**).
+- **Ghi đè giá trị 0 sai lệch vào `ambiguity_stats`:** `test_regression_ambiguity_stats_zero_overridden_by_ledger` -> `ResearchAnalyzer` không tin giá trị 0 sai và lấy dữ liệu gốc từ ledger (**PASSED**).
 - **Thay đổi Gross PF Trade:** `test_adversarial_mutation_gross_pf_trade` -> `verify_report` phát hiện sai lệch và FAIL (**PASSED**).
 - **Thay đổi Gross PF Leg:** `test_adversarial_mutation_gross_pf_leg` -> `verify_report` phát hiện sai lệch và FAIL (**PASSED**).
 - **Thay đổi ROI:** `test_adversarial_mutation_roi` -> `verify_report` phát hiện sai lệch và FAIL (**PASSED**).
@@ -260,58 +267,52 @@ Nhằm giải đáp thắc mắc về các commit SHA xuất hiện trong quá t
    - Tiếp tục amend lần cuối để đồng bộ `git_state.txt` tạo thành commit `b7372040`.
    - `b7372040` chính là HEAD SHA đầu tiên được push lên remote GitHub mở PR #100.
 3. Commit 5 (`ab65225c`): Thắt chặt verifier với dung sai số học nghiêm ngặt 0.009, bắt buộc có các bảng thống kê và bổ sung kiểm thử đột biến.
-4. Commit 6 (Hiện tại): Khắc phục toàn diện hồi quy dữ liệu kiểm toán, khôi phục Gate A/B/C/D, sửa dòng `Real Market Data`, đồng bộ bộ đếm TP/SL & Trailing Ambiguity từ ledger gốc `trades.parquet`, loại bỏ lỗi reset `discrepancies` tại dòng 298 của `verify_report.py`, và bổ sung 6 bài kiểm thử hồi quy & đối kháng mới (nâng tổng số bài kiểm thử V3-09 lên 28/28 và toàn repo lên 192/192).
+4. Commit 6 (`59f577da`): Khắc phục toàn diện hồi quy dữ liệu kiểm toán, khôi phục Gate A/B/C/D, sửa dòng `Real Market Data`, đồng bộ bộ đếm TP/SL & Trailing Ambiguity từ ledger gốc `trades.parquet`, loại bỏ lỗi reset `discrepancies` tại dòng 298 của `verify_report.py`, và bổ sung 6 bài kiểm thử hồi quy & đối kháng mới.
+5. Commit 7 (Hiện tại): Hoàn thiện cơ chế kiểm chứng `analysis.json` trong `verify_report.py` (bắt buộc khối validation, đối chiếu Gate A/B/C/D với Golden, phân biệt nguồn gốc validation), nâng cấp `ResearchAnalyzer` tính toán ambiguity trực tiếp từ ledger (không tin giá trị 0 sai lệch), và bổ sung thêm 3 bài kiểm thử đột biến & hồi quy mới (nâng tổng số bài test V3-09 lên 31/31 và toàn repo lên 195/195).
 
 > [!NOTE] Làm Rõ Về `git_state.txt`
 > File `evidence/v3-09/git_state.txt` là bản chụp (snapshot) trạng thái working tree trước commit nhằm mục đích ghi lại các file đang được thay đổi trước khi đóng gói. Trạng thái HEAD sạch cuối cùng (clean working tree) được chứng minh và xác nhận hoàn toàn độc lập thông qua kết quả thực thi của GitHub Actions CI trên remote GitHub và nhật ký `git status` sau khi commit.
 
 ---
 
-## K. Báo Cáo Khắc Phục Hồi Quy Kiểm Toán Báo Cáo (Review Claude)
+## K. Báo Cáo Hoàn Thiện Cơ Chế Kiểm Chứng analysis.json & Hardening Ambiguity
 
-### 1. Nguyên Nhân Gốc Rễ (Root Cause)
-1. **Mất trường `validation` và bảng Gate A/B/C/D:**
-   `ResearchAnalyzer.analyze_simulation()` chịu trách nhiệm phân tích hiệu năng sau mô phỏng, nhưng trước đó không tiếp nhận khối từ điển `validation` (thuộc khâu kiểm toán môi trường dữ liệu và chiến lược). Khi `analysis.json` được ghi đè bởi `analyze_simulation()`, thông tin `validation` bị khuyết. Hệ quả là khi `RunManager._render_markdown_report()` kết xuất Markdown, `val.get("is_real_data", False)` trả về `False` và khối `gates_dict` rỗng khiến bảng kiểm toán Gate A/B/C/D không được in ra.
-2. **Bộ đếm Ambiguity về 0:**
-   Khi tái dựng đối tượng `SimulationResult` từ file ledger trong quá trình tạo lại báo cáo, trường `ambiguity_stats` không được tự động tính toán từ các cột boolean có sẵn trong `trades.parquet` (`intrabar_ambiguous` và `intrabar_trailing_ambiguous`), dẫn đến số lượng trả về mặc định là 0.
-3. **`verify_report.py` không bắt được lỗi thiếu Gate:**
-   Tại dòng 298 của `verify_report.py` có một dòng lệnh khởi tạo lại danh sách `discrepancies: list[str] = []` ngay sau bước kiểm tra companion ledgers. Lệnh này đã vô tình xóa sạch mọi lỗi phát hiện được ở phần kiểm tra Section 0 (Validation Status và Gates Audit) trước khi tổng kết.
+### 1. Hoàn Thiện Cơ Chế Kiểm Chứng `analysis.json`
+- **Đối chiếu Gate A/B/C/D với báo cáo và bằng chứng Golden**: `verify_report.py` đọc trực tiếp `analysis.json`, kiểm tra tất cả 4 Gate (Gate A, B, C, D) có trạng thái `PASS`, đối chiếu khớp 100% với `report.md` và đối chiếu với Golden Baseline `runs/golden/v3-08/<mode>/analysis.json`.
+- **Fail-Closed khi thiếu khối validation**: Nếu chạy ở chế độ `REAL_DATA_PASS` mà `analysis.json` không có khối `validation` -> công cụ lập tức báo lỗi `MISSING_VALIDATION_BLOCK` và trả về mã thoát khác 0.
+- **Phân biệt Nguồn Gốc Validation**:
+  - `INHERITED_GOLDEN_BASELINE`: Dữ liệu kế thừa từ Golden V3-08 Baseline (Git SHA: `b68933c131...`).
+  - `RE_VERIFIED_INDEPENDENT`: Dữ liệu được thẩm định và tính toán lại độc lập trong phiên lab.
+- **Kiểm thử đột biến mới**:
+  - `test_adversarial_mutation_delete_validation_block_from_analysis_json`: Bắt buộc phát hiện `MISSING_VALIDATION_BLOCK`.
+  - `test_adversarial_mutation_analysis_gate_status_mismatch`: Bắt buộc phát hiện `INVALID_ANALYSIS_GATE_STATUS`.
 
-### 2. Các Biện Pháp Đã Triển Khai Khắc Phục Triệt Để
-1. **Nâng cấp `ResearchAnalyzer.analyze_simulation`:**
-   - Bổ sung tham số `validation: dict[str, Any] | None = None`. Nếu được cung cấp hoặc có sẵn trong `sim_result.summary_dict`, nó sẽ được đính kèm toàn vẹn vào `analysis["validation"]`.
-   - Tự động quét `trades` để tính toán chính xác `intrabar_tp_sl_ambiguous_count` và `intrabar_trailing_ambiguous_count` nếu `sim_result.ambiguity_stats` bị thiếu hoặc bằng 0.
-2. **Cơ chế Fail-Closed trong `verify_report.py`:**
-   - Xóa bỏ triệt để dòng khởi tạo lại `discrepancies` tại dòng 298.
-   - Bắt buộc kiểm tra 4 Gate A, B, C, D: Nếu thiếu bảng kiểm toán hoặc bất kỳ Gate nào không đạt PASS -> lập tức FAIL.
-   - Kiểm tra tính nhất quán: Nếu status là `REAL_DATA_PASS` nhưng `Real Market Data` ghi `False` -> lập tức FAIL.
-   - Kiểm tra Ambiguity độc lập: Đọc trực tiếp các cột boolean `intrabar_ambiguous` và `intrabar_trailing_ambiguous` từ `trades.parquet` để đối chiếu với các số liệu ghi trong Section 4 của `report.md`.
-   - Kiểm tra Companion Ledgers: Bắt buộc đủ `signals.parquet`, `skipped_signals.parquet`, `rejected_signals.parquet`.
-   - Đối chiếu 3 cấp độc lập: Tự tính toán trực tiếp từ `trades.parquet` để kiểm tra độ cân bằng (Run net PnL == Tổng Symbol net PnL == Tổng Combo net PnL) với sai số $< 10^{-9}$.
-3. **Bảng Đối Chiếu Trước và Sau Khắc Phục:**
+### 2. Sửa Cơ Chế Ambiguity trong `ResearchAnalyzer`
+- **Tính toán trực tiếp từ ledger**: Hàm `ResearchAnalyzer.analyze_simulation` quét trực tiếp các cờ boolean `intrabar_ambiguous` và `intrabar_trailing_ambiguous` trên từng phần tử giao dịch (hỗ trợ cả đối tượng `TradeRecord` và `dict`).
+- **Không tin giá trị 0 sai lệch**: Nếu tham số `ambiguity_stats` truyền vào giá trị 0 trong khi ledger cho thấy có các giao dịch bị ambiguity (3 TP/SL, 486/459 Trailing), giá trị 0 sai lệch sẽ bị loại bỏ và thay thế bằng kết quả tính toán thực tế từ ledger.
+- **Kiểm thử hồi quy mới**: `test_regression_ambiguity_stats_zero_overridden_by_ledger` kiểm chứng rằng khi cố tình truyền `{"intrabar_tp_sl_ambiguous_count": 0, "intrabar_trailing_ambiguous_count": 0}`, kết quả phân tích vẫn xuất đúng 3 và 486 từ ledger.
 
-| Mục kiểm toán / Chỉ số | Trạng thái tại HEAD ab65225c | Trạng thái tại HEAD V3-09 hiện tại | Kết luận |
+### 3. Bảng Tổng Hợp Kiểm Toán Sau Hoàn Thiện
+
+| Mục kiểm toán / Chỉ số | Trước Sửa Đổi | Sau Hoàn Thiện V3-09 | Đánh giá |
 |:---|:---:|:---:|:---:|
-| **Trường `validation` trong `analysis.json`** | Bị thiếu hoàn toàn | Đầy đủ (`status: REAL_DATA_PASS`, Gate A-D) | **RESTORED** |
-| **Bảng `Validation Gates Audit` (`report.md`)** | Biến mất (0 Gate) | Hiện diện đầy đủ 4 Gate A, B, C, D (PASS) | **RESTORED** |
-| **Dòng `Real Market Data`** | `False` (sai logic) | `True` (nhất quán tuyệt đối) | **RESTORED** |
-| **TP/SL Ambiguity Count** | 0 | 3 (tính trực tiếp từ `trades.parquet`) | **RESTORED** |
-| **Trailing Ambiguity Count** | 0 | 486 (Mode A), 459 (Mode B & C) | **RESTORED** |
-| **Bắt lỗi thiếu Gate (Fail-Closed)** | Bị xóa lỗi do bug dòng 298 | Bắt buộc Gate A-D, lập tức FAIL nếu thiếu | **FAIL-CLOSED** |
-| **Bắt mâu thuẫn Real Market Data** | Không có check | Lập tức FAIL nếu REAL_DATA_PASS + False | **FAIL-CLOSED** |
-| **Bắt sai lệch Ambiguity** | Không có check | Lập tức FAIL nếu khác counts từ parquet | **FAIL-CLOSED** |
-| **Bắt thiếu Companion Ledger** | Không có check | Lập tức FAIL nếu thiếu companion ledger | **FAIL-CLOSED** |
-| **Số lượng bài test V3-09** | 22 tests | 28 tests (+6 mutation & regression) | **EXPANDED** |
-| **Toàn bộ test suite autotrade_v3** | 186 passed | 192 passed (0 failed) | **ALL PASSED** |
+| **Kiểm tra `analysis.json` trong `verify_report.py`** | Bỏ qua, chỉ đọc `report.md` | Bắt buộc kiểm tra toàn diện cả `report.md` và `analysis.json` | **VERIFIED** |
+| **Thiếu khối `validation` ở REAL_DATA_PASS** | Không phát hiện | Lập tức FAIL (`MISSING_VALIDATION_BLOCK`) | **FAIL-CLOSED** |
+| **Đối chiếu Gate A/B/C/D với Golden** | Không có check | Đối chiếu 100% với Golden `analysis.json` | **VERIFIED** |
+| **Phân biệt Nguồn Gốc Validation** | Không phân biệt | Hiển thị rõ `INHERITED_GOLDEN_BASELINE` vs `RE_VERIFIED` | **VERIFIED** |
+| **Độ tin cậy giá trị 0 trong ambiguity_stats** | Tin tưởng giá trị 0 | Bác bỏ giá trị 0 nếu ledger có ambiguity | **HARDENED** |
+| **Số lượng chỉ số xác minh mỗi mode** | 179 metrics | 191 metrics (+12 chỉ số kiểm toán analysis) | **EXPANDED** |
+| **Số bài test V3-09** | 28 tests | 31 tests (+3 mutation & regression mới) | **EXPANDED** |
+| **Toàn bộ test suite autotrade_v3** | 192 passed | 195 passed (0 failed, 100% pass) | **ALL PASSED** |
 
 ---
 
 ## L. Đề Xuất Nghiệm Thu V3-09
 
-Toàn bộ các yêu cầu trong Lệnh Sửa Bổ Sung V3-09 và Yêu Cầu Khắc Phục Hồi Quy Báo Cáo đã được thực thi hoàn tất:
+Toàn bộ các yêu cầu trong Lệnh Hoàn Thiện Nghiệm Thu V3-09 đã được thực thi hoàn tất:
 - 10 Nguyên tắc bất biến (N1-N10) được tuân thủ nghiêm ngặt: không sửa `autotrade_v2`, không sửa 20FINAL, không sửa Golden Baseline, không can thiệp ledger giao dịch, 100% offline, không có số liệu hay trạng thái gõ cứng.
 - Cả 12 content hashes của 3 chế độ chạy đều trùng khớp tuyệt đối 100% với Golden Baseline V3-08.
-- Công cụ thẩm định độc lập `verify_report.py` hoạt động ở chế độ fail-closed khắt khe, xác minh 179/179 metrics mỗi mode và đã được chứng minh hiệu quả qua 11 bài kiểm thử đột biến đối kháng.
-- Toàn bộ 192 bài kiểm thử tự động, linter và compiler đều đạt PASS 100%.
+- Công cụ thẩm định độc lập `verify_report.py` hoạt động ở chế độ fail-closed khắt khe, xác minh 191/191 metrics mỗi mode và đã được chứng minh hiệu quả qua 13 bài kiểm thử đột biến đối kháng.
+- Toàn bộ 195 bài kiểm thử tự động, linter và compiler đều đạt PASS 100%.
 
 Kính chuyển Claude review độc lập và đề xuất Owner nghiệm thu, hợp nhất Pull Request #100 vào nhánh `main`.

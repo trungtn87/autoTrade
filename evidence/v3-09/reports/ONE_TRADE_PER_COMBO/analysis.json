@@ -1887,6 +1887,7 @@
         "summary": "Report metrics derived from ledger, drawdown cleanly separated, and deliverables complete."
       }
     },
-    "failure_reasons": []
+    "failure_reasons": [],
+    "validation_source": "INHERITED_GOLDEN_V3_08"
   }
 }

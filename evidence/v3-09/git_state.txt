@@ -1,5 +1,5 @@
 === GIT REV-PARSE HEAD (Base Commit before new commit) ===
-ab65225c0762ded224dcee5293620883d19296b3
+59f577da7a8e6b760218a4daa23df06405490330
 
 === GIT STATUS (Pre-commit packaging snapshot) ===
 On branch feat/v3-09-reporting
@@ -12,11 +12,8 @@ Changes to be committed:
 	modified:   autotrade_v3/tools/verify_report.py
 	modified:   evidence/v3-09/EVIDENCE_REPORT.md
 	modified:   evidence/v3-09/reports/ALL_SIGNALS/analysis.json
-	modified:   evidence/v3-09/reports/ALL_SIGNALS/report.md
 	modified:   evidence/v3-09/reports/BINGX_PORTFOLIO/analysis.json
-	modified:   evidence/v3-09/reports/BINGX_PORTFOLIO/report.md
 	modified:   evidence/v3-09/reports/ONE_TRADE_PER_COMBO/analysis.json
-	modified:   evidence/v3-09/reports/ONE_TRADE_PER_COMBO/report.md
 	modified:   evidence/v3-09/verify_report_ALL_SIGNALS.log
 	modified:   evidence/v3-09/verify_report_BINGX_PORTFOLIO.log
 	modified:   evidence/v3-09/verify_report_ONE_TRADE_PER_COMBO.log

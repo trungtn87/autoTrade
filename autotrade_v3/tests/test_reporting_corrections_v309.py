@@ -659,6 +659,56 @@ class TestReportingAndPFCorrections:
         out = res.stdout + res.stderr
         assert "MISSING_COMPANION_LEDGER" in out
 
+    def test_adversarial_mutation_delete_validation_block_from_analysis_json(self, tmp_path):
+        """Mutation test: Deleting 'validation' block from analysis.json must fail verify_report with MISSING_VALIDATION_BLOCK."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        an_p = mode_tmp / "analysis.json"
+        assert an_p.exists()
+        an_data = json.loads(an_p.read_text(encoding="utf-8"))
+        assert "validation" in an_data
+        del an_data["validation"]
+        an_p.write_text(json.dumps(an_data, indent=2), encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail when 'validation' block is deleted from analysis.json"
+        out = res.stdout + res.stderr
+        assert "MISSING_VALIDATION_BLOCK" in out
+
+    def test_adversarial_mutation_analysis_gate_status_mismatch(self, tmp_path):
+        """Mutation test: Tampering with a gate status in analysis.json must fail verify_report."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        an_p = mode_tmp / "analysis.json"
+        an_data = json.loads(an_p.read_text(encoding="utf-8"))
+        an_data["validation"]["gates"]["GATE_A_DATA"]["status"] = "FAIL"
+        an_p.write_text(json.dumps(an_data, indent=2), encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail when gate status in analysis.json is FAIL"
+        out = res.stdout + res.stderr
+        assert "INVALID_ANALYSIS_GATE_STATUS" in out
+
+    def test_regression_ambiguity_stats_zero_overridden_by_ledger(self, tmp_path):
+        """Regression test: Passing ambiguity_stats with erroneous 0 values must NOT be trusted; ledger counts override."""
+        golden_dir = REPO_ROOT / "runs" / "golden" / "v3-08" / "ALL_SIGNALS"
+        sim_res = _load_run_as_sim_result(golden_dir, "ALL_SIGNALS")
+        # Explicitly pass corrupted ambiguity_stats with 0 values
+        sim_res.ambiguity_stats = {
+            "intrabar_tp_sl_ambiguous_count": 0,
+            "intrabar_trailing_ambiguous_count": 0,
+        }
+
+        analysis = ResearchAnalyzer.analyze_simulation(sim_res)
+        amb = analysis["ambiguity"]
+        # Ledger has 3 TP/SL and 486 trailing; 0 must be overridden!
+        assert amb["intrabar_tp_sl_ambiguous_count"] == 3, f"Expected 3 from ledger, got {amb['intrabar_tp_sl_ambiguous_count']}"
+        assert amb["intrabar_trailing_ambiguous_count"] == 486, f"Expected 486 from ledger, got {amb['intrabar_trailing_ambiguous_count']}"
+
     def test_regression_validation_and_ambiguity_preservation(self, tmp_path):
         """Regression test: Re-analyzing golden runs preserves validation block, gates, and non-zero ambiguity."""
         for mode in ["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"]:
