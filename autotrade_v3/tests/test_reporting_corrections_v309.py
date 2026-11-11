@@ -506,7 +506,101 @@ class TestReportingAndPFCorrections:
         found = any(re.search(pat, text) for pat in banned_patterns)
         assert found is True, "Hardcode scanner must catch hardcoded 5984"
 
-        banned_patterns = [r"\b5984\b"]
-        text = fake_file.read_text(encoding="utf-8")
-        found = any(re.search(pat, text) for pat in banned_patterns)
-        assert found is True, "Hardcode scanner must catch hardcoded 5984"
+    def test_to_utc_ms_all_timestamp_types(self):
+        """P3-1 unit test: to_utc_ms with naive datetime, aware datetime, str, Timestamp, int."""
+        from datetime import datetime, timezone
+        from autotrade_v3.engine.candle_loader import to_utc_ms
+
+        expected_ms = 1704067200000  # 2024-01-01 00:00:00 UTC
+
+        # 1. Integer ms
+        assert to_utc_ms(expected_ms) == expected_ms
+
+        # 2. String
+        assert to_utc_ms("2024-01-01 00:00:00Z") == expected_ms
+        assert to_utc_ms("2024-01-01T00:00:00+00:00") == expected_ms
+
+        # 3. Naive datetime
+        dt_naive = datetime(2024, 1, 1, 0, 0, 0)
+        assert to_utc_ms(dt_naive) == expected_ms
+
+        # 4. Aware datetime
+        dt_aware = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        assert to_utc_ms(dt_aware) == expected_ms
+
+        # 5. Naive pandas Timestamp
+        ts_naive = pd.Timestamp("2024-01-01 00:00:00")
+        assert to_utc_ms(ts_naive) == expected_ms
+
+        # 6. Aware pandas Timestamp
+        ts_aware = pd.Timestamp("2024-01-01 00:00:00", tz="UTC")
+        assert to_utc_ms(ts_aware) == expected_ms
+
+    def test_simulate_trailing_leg_max_bars_held_zero(self):
+        """P3-2 unit test: _simulate_trailing_leg does not raise UnboundLocalError when max_bars_held=0."""
+        from autotrade_v3.engine.candle_loader import datetime_index_to_ms, generate_synthetic_m1
+        from autotrade_v3.engine.execution_simulator import (
+            ExecutionSimulator,
+            ExitPolicy,
+            RiskConfig,
+            Signal,
+        )
+
+        df_m1 = generate_synthetic_m1("BTC-USDT", start="2024-01-01", periods=100)
+        sim = ExecutionSimulator(risk_config=RiskConfig())
+
+        sig = Signal(
+            symbol="BTC-USDT",
+            combo_id=1,
+            combo_name="C1",
+            timeframe="15m",
+            side="BUY",
+            signal_close_ms=int(df_m1.index[0].timestamp() * 1000),
+            signal_close_dt=df_m1.index[0],
+            bar_position=0,
+            bar_open_ms=int(df_m1.index[0].timestamp() * 1000),
+            entry_price=float(df_m1.iloc[1]["open"]),
+            tp_pct=0.01,
+            sl_pct=0.01,
+            tp_price=float(df_m1.iloc[1]["open"]) * 1.01,
+            sl_price=float(df_m1.iloc[1]["open"]) * 0.99,
+            approved=True,
+            warmup_ready=True,
+            smc_dir=1,
+            ob_blocked=False,
+            provider="SYNTHETIC",
+            is_new6=False,
+            signal_id="SIG_TEST_0",
+        )
+
+        policy = ExitPolicy(
+            tp_pct=0.01,
+            sl_pct=0.01,
+            trailing_act_pct=0.005,
+            trailing_cb_pct=0.005,
+            max_bars_held=0,  # Forces immediate exit on entry bar
+        )
+
+        # Must execute cleanly without UnboundLocalError for trailing_ambiguous
+        trade = sim._simulate_trailing_leg(
+            trade_id="TR_TEST_0",
+            leg_id="TR_TEST_0_L2",
+            leg_type="TRAIL_HALF",
+            sig=sig,
+            entry_idx=1,
+            entry_price=float(df_m1.iloc[1]["open"]),
+            leg_notional=50.0,
+            is_buy=True,
+            sl_price=float(df_m1.iloc[1]["open"]) * 0.99,
+            opens=df_m1["open"].to_numpy(dtype=float),
+            highs=df_m1["high"].to_numpy(dtype=float),
+            lows=df_m1["low"].to_numpy(dtype=float),
+            closes=df_m1["close"].to_numpy(dtype=float),
+            n_bars=len(df_m1),
+            t_ms_array=datetime_index_to_ms(df_m1.index),
+            df_bars=df_m1,
+            policy=policy,
+        )
+
+        assert trade.exit_reason == "MAX_BARS_HELD"
+        assert trade.intrabar_trailing_ambiguous is False

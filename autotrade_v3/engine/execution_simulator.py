@@ -637,6 +637,7 @@ class ExecutionSimulator:
         exit_price = 0.0
         exit_reason = ""
         ambiguous = False
+        trailing_ambiguous = False
 
         for i in range(entry_idx, n_bars):
             # Check maximum holding period if configured in policy
