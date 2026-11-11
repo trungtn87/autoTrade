@@ -246,6 +246,22 @@ class ExperimentRunner:
             signals=eval_signals,
         )
 
+        # 7. Post-save 12 Independent Validation Gates audit on persisted artifacts
+        val_report = ValidationGates.audit_run(
+            strategy=strategy,
+            mode=sim_result.mode,
+            symbols=target_symbols,
+            start=start,
+            end=end,
+            sim_result=sim_result,
+            analysis=analysis,
+            signals=eval_signals,
+            smoke_test=smoke_test,
+            data_layer=self.data_layer,
+            artifacts_dir=run_dir,
+        )
+        manifest.validation_status = val_report.overall_status
+
         return ExperimentResult(
             run_id=run_id,
             run_dir=run_dir,
