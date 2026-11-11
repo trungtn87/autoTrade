@@ -1,21 +1,16 @@
 === GIT REV-PARSE HEAD (Base Commit before new commit) ===
-59f577da7a8e6b760218a4daa23df06405490330
+21a832d7891d59d00c58bebf0e8982741852c611
 
 === GIT STATUS (Pre-commit packaging snapshot) ===
 On branch feat/v3-09-reporting
 Your branch is up to date with 'origin/feat/v3-09-reporting'.
 
 Changes to be committed:
-  (use "git restore --staged <file>..." to unstage)
-	modified:   autotrade_v3/analysis/research_analyzer.py
+	modified:   autotrade_v3/reports/reporter.py
 	modified:   autotrade_v3/tests/test_reporting_corrections_v309.py
-	modified:   autotrade_v3/tools/verify_report.py
 	modified:   evidence/v3-09/EVIDENCE_REPORT.md
-	modified:   evidence/v3-09/reports/ALL_SIGNALS/analysis.json
-	modified:   evidence/v3-09/reports/BINGX_PORTFOLIO/analysis.json
-	modified:   evidence/v3-09/reports/ONE_TRADE_PER_COMBO/analysis.json
-	modified:   evidence/v3-09/verify_report_ALL_SIGNALS.log
-	modified:   evidence/v3-09/verify_report_BINGX_PORTFOLIO.log
-	modified:   evidence/v3-09/verify_report_ONE_TRADE_PER_COMBO.log
-
-
+	modified:   evidence/v3-09/hardcode_scan.log
+	modified:   scripts/reconcile_runs.py
+	new file:   autotrade_v3/legacy/__init__.py
+	new file:   autotrade_v3/legacy/reconcile_runs.py
+	new file:   autotrade_v3/tools/scan_hardcoded_metrics.py

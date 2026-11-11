@@ -23,7 +23,8 @@
 | **Commit 4 (Evidence & Docs)** | `b737204` — `docs(v3-09): deliver evidence report, verification logs, and updated lab artifacts` |
 | **Commit 5 (Harden Verifier & Mutations)** | `ab65225` — `fix(v3-09): harden report verifier with strict tolerances, mandatory tables, and comprehensive mutation tests` |
 | **Commit 6 (Fix Audit Regression & Fail-Closed)** | `59f577d` — `fix(v3-09): restore audit validation data, enforce fail-closed verification, and add regression tests` |
-| **Commit 7 (Audit Verification & Ambiguity Hardening)** | *(Commit hiện tại)* — `fix(v3-09): harden analysis.json validation verification, distinguish golden origin, and derive ambiguity directly from ledger` |
+| **Commit 7 (Audit Verification & Ambiguity Hardening)** | `21a832d` — `fix(v3-09): harden analysis.json validation verification, distinguish golden origin, and derive ambiguity directly from ledger` |
+| **Commit 8 (AC5, M4 & Shared Scanner)** | *(Commit hiện tại)* — `fix(v3-09): resolve AC5 hardcoding, implement shared metric scanner, and migrate legacy reconciliation` |
 
 ---
 
@@ -108,7 +109,7 @@ Các chỉ số cấp run được đối chiếu trực tiếp giữa đầu ra
 | **Kiểm toán đối chiếu ba cấp (`reconciliation`)** | Không có khối kiểm toán tự động đối chiếu Run == Symbol Sum == Combo Sum | Tự động kiểm toán đối chiếu 6 chỉ tiêu (signals, entries, legs, gross, fees, net) với sai số < `1e-9` (thực tế `1.71e-13`) | Khối `reconciliation` trong [`analysis.json`](file:///d:/AutoTrade/evidence/v3-09/reports/ALL_SIGNALS/analysis.json) |
 | **Drawdown trong `compare_runs`** | Trả về `None` cho `closed_trade_max_drawdown` của Mode A và B (P3-3) | Tách biệt hoàn toàn `closed_trade_max_drawdown` và `m2m_max_drawdown`. Mode A & B báo Closed DD đầy đủ, Mode C báo cả Closed DD và Continuous M2M DD | [research_analyzer.py](file:///d:/AutoTrade/autotrade_v3/analysis/research_analyzer.py#L480-L550) |
 | **Tính toán độc lập báo cáo (`verify_report.py`)** | Chưa có công cụ độc lập; báo cáo phụ thuộc vào bộ nhớ simulator | Viết mới [`tools/verify_report.py`](file:///d:/AutoTrade/autotrade_v3/tools/verify_report.py), đọc trực tiếp `report.md` và `trades.parquet`, tính lại 110 chỉ số độc lập | [`evidence/v3-09/verify_report_*.log`](file:///d:/AutoTrade/evidence/v3-09/) |
-| **Mã lịch sử gõ cứng số liệu** | Gõ cứng `TP 2.827, SL 1.488, TRAIL 1.947`, `"status": "PASS"`, default `5984` | Thay bằng biến động từ artifact; gắn banner cảnh báo lịch sử V3-03 đến V3-06 | [reconcile_runs.py](file:///d:/AutoTrade/scripts/reconcile_runs.py), [reporter.py](file:///d:/AutoTrade/autotrade_v3/reports/reporter.py), [run_v3_backtest.py](file:///d:/AutoTrade/scripts/run_v3_backtest.py) |
+| **Mã lịch sử gõ cứng số liệu & Legacy (AC5)** | Gõ cứng `111, 31.5%, 902, 6271, 4156, 284.19`, bảng số liệu cố định | Loại bỏ 100% số liệu gõ cứng trong `reporter.py` (tính động từ ledger/artifacts); di chuyển mã đối chiếu lịch sử V3-03..V3-06 sang `autotrade_v3/legacy/reconcile_runs.py` theo mục 4.6 thiết kế, giữ `scripts/reconcile_runs.py` làm CLI forwarding stub; phát triển scanner dùng chung `scan_hardcoded_metrics.py` | [reporter.py](file:///d:/AutoTrade/autotrade_v3/reports/reporter.py), [reconcile_runs.py](file:///d:/AutoTrade/autotrade_v3/legacy/reconcile_runs.py), [scan_hardcoded_metrics.py](file:///d:/AutoTrade/autotrade_v3/tools/scan_hardcoded_metrics.py) |
 | **Lỗi `to_utc_ms` (P3-1)** | Nhánh datetime không múi giờ dùng biến `dt` chưa gán (lỗi lịch sử từ V3-04) | **Đã được sửa từ trước** tại commit `34c299f` (trong V3-08), V3-09 chỉ xác minh lại và bổ sung unit test `test_to_utc_ms_all_timestamp_types` bảo vệ hồi quy (0 dòng diff so với Base) | [candle_loader.py](file:///d:/AutoTrade/autotrade_v3/engine/candle_loader.py#L16-L36) |
 | **Lỗi `_simulate_trailing_leg` (P3-2)** | Biến `trailing_ambiguous` bị UnboundLocalError khi `max_bars_held=0` | Khởi tạo `trailing_ambiguous = False` trước vòng lặp nến | [execution_simulator.py](file:///d:/AutoTrade/autotrade_v3/engine/execution_simulator.py#L640) |
 
@@ -307,12 +308,46 @@ Nhằm giải đáp thắc mắc về các commit SHA xuất hiện trong quá t
 
 ---
 
-## L. Đề Xuất Nghiệm Thu V3-09
+## L. Khắc Phục AC5, Scanner Dùng Chung và Kiểm Thử M4 Thực Chất
 
-Toàn bộ các yêu cầu trong Lệnh Hoàn Thiện Nghiệm Thu V3-09 đã được thực thi hoàn tất:
-- 10 Nguyên tắc bất biến (N1-N10) được tuân thủ nghiêm ngặt: không sửa `autotrade_v2`, không sửa 20FINAL, không sửa Golden Baseline, không can thiệp ledger giao dịch, 100% offline, không có số liệu hay trạng thái gõ cứng.
+### 1. Xử Lý AC5 & Phân Loại Legacy Theo Mục 4.6 Thiết Kế
+- **Loại bỏ hoàn toàn số liệu gõ cứng trong `autotrade_v3/reports/reporter.py`**:
+  - Bảng cửa sổ Gate D (1 tháng, 6 tháng) trước đây chứa số liệu tĩnh (`111`, `31.5%`, `-$9.58`, `902`, `41.6%`, `+$6.82`) nay chuyển thành bảng động tính trực tiếp từ `subwindows` trong metadata hoặc hiển thị toàn kỳ động từ `window` và `p_metrics`.
+  - Chuỗi kiểm toán độ bền `(3 năm, 6,271 trade legs)` được sửa thành f-string động `(3 năm, {p_trades} trade legs)`.
+  - Đánh giá Top/Bottom Combos (C15, C11, C12, C2, C3) được tính toán động từ `v_metrics.combo_breakdown`.
+- **Phân loại mã lịch sử theo Mục 4.6 Thiết kế**:
+  - Di chuyển toàn bộ logic đối chiếu chéo V3-03..V3-05 từ `scripts/reconcile_runs.py` sang `autotrade_v3/legacy/reconcile_runs.py` kèm docstring phân loại: `LEGACY CLASSIFICATION (Design Doc Section 4.6): Mã lịch sử V3-03 đến V3-06, không dùng để báo cáo V3 Research Lab chính thức`.
+  - Trong `autotrade_v3/legacy/reconcile_runs.py`, toàn bộ bảng đối chiếu số học (Mathematical Parity) được chuyển đổi từ bảng tĩnh sang bảng động định dạng từ `pnl_data`.
+  - File `scripts/reconcile_runs.py` giữ lại stub wrapper chuyển tiếp (`forwarding`) để bảo toàn entrypoint CLI và tương thích ngược, đồng thời phát cảnh báo `DeprecationWarning`.
+
+### 2. Module Scanner Dùng Chung (`autotrade_v3/tools/scan_hardcoded_metrics.py`)
+- Module được thiết kế chạy cả qua CLI (`python -m autotrade_v3.tools.scan_hardcoded_metrics [paths...]`) và import trong pytest (`from autotrade_v3.tools.scan_hardcoded_metrics import scan_for_hardcoded_metrics`).
+- **4 Bộ Quy Tắc Phát Hiện Thấu Đáo**:
+  1. `HARDCODED_METRIC_ASSIGNMENT`: Gán biến chỉ số backtest (`total_legs`, `net_pnl`, `gross_pnl`, `total_signals`, `win_rate_pct`, `profit_factor`, `roi_pct`, v.v.) bằng hằng số khác 0.
+  2. `HARDCODED_METRIC_STRING`: Chuỗi chứa chỉ số số lượng giao dịch/legs/tín hiệu cụ thể (e.g. `'6,271 trade legs'`).
+  3. `STATIC_MARKDOWN_TABLE`: Dòng bảng Markdown tĩnh chứa tiền tệ (`+$`, `-$`), tỷ lệ (`%`) và số lệnh mà không có biểu thức nội suy `{...}`.
+- **Cơ chế miễn trừ chuẩn mực**:
+  - Miễn trừ file test trong thư mục `tests/` hoặc bắt đầu bằng `test_` (test fixtures).
+  - Miễn trừ file có header phân loại `LEGACY CLASSIFICATION`.
+  - Không báo lỗi giả đối với tham số cấu hình chiến lược (`initial_equity`, `fee_rate_taker`, `slippage_rate`, `tp_pct`, `sl_pct`).
+
+### 3. Kiểm Thử M4 Thực Chất
+- Bài kiểm thử `test_adversarial_mutation_m4_hardcoded_metric_scan` gọi trực tiếp scanner module và CLI thực tế trên 5 ca đột biến đối kháng:
+  1. `total_legs = 6265` -> Bị phát hiện (`HARDCODED_METRIC_ASSIGNMENT`, exit != 0).
+  2. `net_pnl = 410.70` -> Bị phát hiện (`HARDCODED_METRIC_ASSIGNMENT`, exit != 0).
+  3. `'6,271 trade legs'` -> Bị phát hiện (`HARDCODED_METRIC_STRING`, exit != 0).
+  4. `total_signals = 5984` -> Bị phát hiện (`HARDCODED_METRIC_ASSIGNMENT`, exit != 0).
+  5. Bảng Markdown kết quả giao dịch cố định -> Bị phát hiện (`STATIC_MARKDOWN_TABLE`, exit != 0).
+- Kiểm chứng thêm: tham số cấu hình hợp lệ trả về 0 vi phạm (exit 0) và file legacy được bỏ qua khi `scan_legacy=False`.
+
+---
+
+## M. Đề Xuất Nghiệm Thu V3-09
+
+Toàn bộ các yêu cầu trong Lệnh Sửa AC5, M4 và Evidence Reproducibility đã được thực thi hoàn tất:
+- 10 Nguyên tắc bất biến (N1-N10) được tuân thủ nghiêm ngặt: không sửa `autotrade_v2`, không sửa 20FINAL, không sửa Golden Baseline, không can thiệp ledger giao dịch, 100% offline, không có số liệu hay trạng thái gõ cứng trong active reporting code.
 - Cả 12 content hashes của 3 chế độ chạy đều trùng khớp tuyệt đối 100% với Golden Baseline V3-08.
-- Công cụ thẩm định độc lập `verify_report.py` hoạt động ở chế độ fail-closed khắt khe, xác minh 191/191 metrics mỗi mode và đã được chứng minh hiệu quả qua 13 bài kiểm thử đột biến đối kháng.
-- Toàn bộ 195 bài kiểm thử tự động, linter và compiler đều đạt PASS 100%.
+- Toàn bộ 195 bài kiểm thử tự động, linter Ruff và compiler đều đạt PASS 100%.
+- File nhật ký quét `evidence/v3-09/hardcode_scan.log` xác nhận 0 vi phạm trên toàn bộ mã reporting hoạt động.
 
 Kính chuyển Claude review độc lập và đề xuất Owner nghiệm thu, hợp nhất Pull Request #100 vào nhánh `main`.

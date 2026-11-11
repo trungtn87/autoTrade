@@ -1,18 +1,5 @@
-============================= test session starts =============================
-platform win32 -- Python 3.12.8, pytest-9.2.0, pluggy-1.7.0 -- D:\AutoTrade\.venv\Scripts\python.exe
-cachedir: .pytest_cache
-rootdir: D:\AutoTrade
-configfile: pyproject.toml
-collecting ... collected 16 items / 15 deselected / 1 selected
-
-autotrade_v3/tests/test_reporting_corrections_v309.py::TestReportingAndPFCorrections::test_no_hardcoded_metrics_in_reporting_code PASSED [100%]
-
-====================== 1 passed, 15 deselected in 1.27s =======================
-=== DETAILED HARDCODED METRICS AND STATUS SCAN ===
-CLEAN: run_manager.py (0 hardcoded constants)
-CLEAN: reporter.py (0 hardcoded constants)
-CLEAN: reconcile_runs.py (0 hardcoded constants)
-CLEAN: run_v3_backtest.py (0 hardcoded constants)
-
-Total violations found: 0
-SCAN RESULT: PASS (All reporting code is 100% free of hardcoded metrics and PASS literals)
+=== AutoTrade V3 Hardcoded Metric Scanner ===
+Scanned paths: ['autotrade_v3\\lab\\run_manager.py', 'autotrade_v3\\reports\\reporter.py', 'scripts\\run_v3_backtest.py', 'scripts\\reconcile_runs.py', 'autotrade_v3\\analysis\\research_analyzer.py']
+Total violations found: 0
+
+[SCAN CLEAN] No hardcoded backtest metrics found in active reporting paths.

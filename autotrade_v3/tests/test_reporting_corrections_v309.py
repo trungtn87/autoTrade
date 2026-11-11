@@ -384,34 +384,11 @@ class TestReportingAndPFCorrections:
         assert row_c["m2m_max_drawdown_dollars"] == 22.0
 
     def test_no_hardcoded_metrics_in_reporting_code(self):
-        """AC5: Ensure no hardcoded metric values (5984, 2827, 1488, 1947, 343.52) or 'status': 'PASS' in reporting scripts."""
-        target_files = [
-            REPO_ROOT / "autotrade_v3" / "lab" / "run_manager.py",
-            REPO_ROOT / "autotrade_v3" / "reports" / "reporter.py",
-            REPO_ROOT / "scripts" / "reconcile_runs.py",
-            REPO_ROOT / "scripts" / "run_v3_backtest.py",
-        ]
-        banned_patterns = [
-            r"\b5984\b",
-            r"\b2827\b",
-            r"\b1488\b",
-            r"\b1947\b",
-            r"\b343\.52\b",
-            r"\"status\"\s*:\s*\"PASS\"",
-            r"\'status\'\s*:\s*\'PASS\'",
-        ]
-        violations = []
-        for file_path in target_files:
-            if not file_path.exists():
-                continue
-            text = file_path.read_text(encoding="utf-8")
-            for pat in banned_patterns:
-                for match in re.finditer(pat, text):
-                    line_no = text[: match.start()].count("\n") + 1
-                    line = text.splitlines()[line_no - 1].strip()
-                    violations.append(f"{file_path.name}:{line_no} matches '{pat}': {line}")
+        """AC5: Ensure no hardcoded metric values or static tables exist in active reporting scripts."""
+        from autotrade_v3.tools.scan_hardcoded_metrics import scan_for_hardcoded_metrics
 
-        assert not violations, "Found hardcoded metrics / status in reporting code:\n" + "\n".join(violations)
+        violations = scan_for_hardcoded_metrics()
+        assert not violations, "Found hardcoded metrics in active reporting code:\n" + "\n".join(str(v) for v in violations)
 
     def test_verify_report_on_golden_reports(self, tmp_path):
         """AC4 & Integration: verify_report passes on all 3 golden runs with newly rendered report.md."""
@@ -801,14 +778,97 @@ class TestReportingAndPFCorrections:
         assert rec["reconciliation_pass"] is False
 
     def test_adversarial_mutation_m4_hardcoded_metric_scan(self, tmp_path):
-        """Adversarial M4: Inserting a hardcoded metric constant into a file copy makes the scan fail."""
-        fake_file = tmp_path / "fake_reporter.py"
-        fake_file.write_text("def report():\n    total_signals = 5984\n", encoding="utf-8")
+        """Adversarial M4: Shared scanner module must detect hardcoded financial results and exit non-zero."""
+        from autotrade_v3.tools.scan_hardcoded_metrics import scan_for_hardcoded_metrics
 
-        banned_patterns = [r"\b5984\b"]
-        text = fake_file.read_text(encoding="utf-8")
-        found = any(re.search(pat, text) for pat in banned_patterns)
-        assert found is True, "Hardcode scanner must catch hardcoded 5984"
+        scanner_tool = REPO_ROOT / "autotrade_v3" / "tools" / "scan_hardcoded_metrics.py"
+
+        # Case 1: total_legs = 6265
+        c1 = tmp_path / "mutant_legs.py"
+        c1.write_text("def render():\n    total_legs = 6265\n    return total_legs\n", encoding="utf-8")
+        v1 = scan_for_hardcoded_metrics([c1])
+        assert len(v1) >= 1
+        assert any(v.rule_name == "HARDCODED_METRIC_ASSIGNMENT" and "total_legs" in v.description for v in v1)
+        r1 = subprocess.run([sys.executable, str(scanner_tool), str(c1)], capture_output=True, text=True)
+        assert r1.returncode != 0
+        assert "HARDCODED_METRIC_ASSIGNMENT" in r1.stdout
+
+        # Case 2: net_pnl = 410.70
+        c2 = tmp_path / "mutant_pnl.py"
+        c2.write_text("def export():\n    net_pnl = 410.70\n    return net_pnl\n", encoding="utf-8")
+        v2 = scan_for_hardcoded_metrics([c2])
+        assert len(v2) >= 1
+        assert any(v.rule_name == "HARDCODED_METRIC_ASSIGNMENT" and "net_pnl" in v.description for v in v2)
+        r2 = subprocess.run([sys.executable, str(scanner_tool), str(c2)], capture_output=True, text=True)
+        assert r2.returncode != 0
+        assert "net_pnl" in r2.stdout
+
+        # Case 3: '6,271 trade legs'
+        c3 = tmp_path / "mutant_str.py"
+        c3.write_text('desc = "Sensitivity check with 6,271 trade legs across 3 years"\n', encoding="utf-8")
+        v3 = scan_for_hardcoded_metrics([c3])
+        assert len(v3) >= 1
+        assert any(v.rule_name == "HARDCODED_METRIC_STRING" for v in v3)
+        r3 = subprocess.run([sys.executable, str(scanner_tool), str(c3)], capture_output=True, text=True)
+        assert r3.returncode != 0
+        assert "HARDCODED_METRIC_STRING" in r3.stdout
+
+        # Case 4: total_signals = 5984
+        c4 = tmp_path / "mutant_signals.py"
+        c4.write_text("def build_summary():\n    total_signals = 5984\n    return total_signals\n", encoding="utf-8")
+        v4 = scan_for_hardcoded_metrics([c4])
+        assert len(v4) >= 1
+        assert any(v.rule_name == "HARDCODED_METRIC_ASSIGNMENT" and "total_signals" in v.description for v in v4)
+        r4 = subprocess.run([sys.executable, str(scanner_tool), str(c4)], capture_output=True, text=True)
+        assert r4.returncode != 0
+        assert "total_signals" in r4.stdout
+
+        # Case 5: Static Markdown table with literal trading metrics
+        c5 = tmp_path / "mutant_table.py"
+        table_code = (
+            'md = """\n'
+            '| Cửa sổ | Thời gian | Nến | Legs | Win Rate | Net PnL | ROI |\n'
+            '| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n'
+            '| **1 Tháng** | 2026-10-01 đến 2026-11-01 | 89,280 | 111 | 31.5% | -$9.58 | -0.96% |\n'
+            '"""\n'
+        )
+        c5.write_text(table_code, encoding="utf-8")
+        v5 = scan_for_hardcoded_metrics([c5])
+        assert len(v5) >= 1
+        assert any(v.rule_name == "STATIC_MARKDOWN_TABLE" for v in v5)
+        r5 = subprocess.run([sys.executable, str(scanner_tool), str(c5)], capture_output=True, text=True)
+        assert r5.returncode != 0
+        assert "STATIC_MARKDOWN_TABLE" in r5.stdout
+
+        # Clean case: Strategy configuration parameters must NOT be flagged (no false positives)
+        clean_cfg = tmp_path / "valid_config.py"
+        clean_cfg.write_text(
+            '"""Strategy configuration parameters."""\n'
+            'initial_equity = 1000.0\n'
+            'notional_per_trade = 100.0\n'
+            'fee_rate_taker = 0.0005\n'
+            'slippage_rate = 0.0002\n'
+            'tp_pct = 0.01\n'
+            'sl_pct = 0.01\n'
+            'warmup_candles = 3400\n',
+            encoding="utf-8",
+        )
+        v_clean = scan_for_hardcoded_metrics([clean_cfg])
+        assert len(v_clean) == 0, f"Valid strategy parameters must not be flagged: {v_clean}"
+        r_clean = subprocess.run([sys.executable, str(scanner_tool), str(clean_cfg)], capture_output=True, text=True)
+        assert r_clean.returncode == 0
+
+        # Legacy case: File with legacy classification header is exempted from default scan
+        legacy_file = tmp_path / "legacy_module.py"
+        legacy_file.write_text(
+            '"""LEGACY CLASSIFICATION (Design Doc Section 4.6):\n'
+            'Mã lịch sử V3-03 đến V3-06, không dùng để báo cáo V3 Research Lab chính thức.\n'
+            '"""\n'
+            'total_legs = 6265\n',
+            encoding="utf-8",
+        )
+        v_legacy = scan_for_hardcoded_metrics([legacy_file], scan_legacy=False)
+        assert len(v_legacy) == 0, "Legacy classified file must be skipped when scan_legacy=False"
 
     def test_to_utc_ms_all_timestamp_types(self):
         """P3-1 unit test: to_utc_ms with naive datetime, aware datetime, str, Timestamp, int."""

@@ -393,6 +393,45 @@ def generate_validation_report_md(
             )
     sym_table_md = "\n".join(sym_lines)
 
+    # Subwindows breakdown (Gate D)
+    subwindow_rows = []
+    if "subwindows" in meta and isinstance(meta["subwindows"], list):
+        for sw in meta["subwindows"]:
+            subwindow_rows.append(
+                f"| **{sw.get('label', '-')}** | {sw.get('window', '-')} | **{sw.get('m1_candles', '-')}** | "
+                f"{sw.get('trades', '-')} | {sw.get('win_rate', '-')} | {sw.get('net_pnl', '-')} | "
+                f"{sw.get('roi', '-')} | {sw.get('max_dd', '-')} |"
+            )
+    else:
+        w_start = window.get("start", "2023-11-01")
+        w_end = window.get("end", "2026-11-01")
+        subwindow_rows.append(
+            f"| **Toàn kỳ** | **{w_start} đến {w_end}** | **-** | **{p_trades}** | **{p_wr}** | **{p_net}** | **{p_roi}** | **{p_closed_mdd}** |"
+        )
+    subwindow_table_md = "\n".join(subwindow_rows)
+
+    # Dynamic top & bottom combos
+    top_combos_md = []
+    bottom_combos_md = []
+    if v_metrics and v_metrics.combo_breakdown:
+        sorted_combos = sorted(
+            v_metrics.combo_breakdown.items(),
+            key=lambda x: x[1].get("net_pnl", 0.0),
+            reverse=True,
+        )
+        for cname, c in sorted_combos[:3]:
+            top_combos_md.append(
+                f"  - `{cname}` ({c.get('symbol', '')} {c.get('timeframe', '')}): Net PnL ${c.get('net_pnl', 0.0):+,.2f}, "
+                f"Win Rate {c.get('win_rate_pct', 0.0):.1f}%, Profit Factor {c.get('profit_factor', 0.0):.2f}."
+            )
+        for cname, c in sorted_combos[-2:]:
+            bottom_combos_md.append(
+                f"  - `{cname}` ({c.get('symbol', '')} {c.get('timeframe', '')}): Net PnL ${c.get('net_pnl', 0.0):+,.2f}, "
+                f"Profit Factor {c.get('profit_factor', 0.0):.2f}."
+            )
+    top_combos_str = "\n".join(top_combos_md) if top_combos_md else "  - Chưa có dữ liệu phân bổ combo."
+    bottom_combos_str = "\n".join(bottom_combos_md) if bottom_combos_md else "  - Chưa có dữ liệu phân bổ combo."
+
     content = f"""# AutoTrade V3-05 Independent Backtest Audit & Verification Report
 
 - **Generated At**: {meta.get('generated_at', 'N/A')}
@@ -465,11 +504,9 @@ Số lượng nến M1 được xác minh tự động bằng truy vấn DuckDB:
 
 | Cửa sổ | Thời gian UTC (Exclusive End) | Số nến M1 kiểm chứng | Số lệnh (Legs) | Win Rate (Port) | Net PnL | ROI (%) | Max DD (M2M) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1 Tháng** | 2026-10-01 đến 2026-11-01 | **89,280** (44,640 x 2) | 111 | 31.5% | -$9.58 | -0.96% | $21.94 (2.2%) |
-| **6 Tháng** | 2026-05-01 đến 2026-11-01 | **529,920** (264,960 x 2) | 902 | 41.6% | +$6.82 | +0.68% | $43.47 (4.2%) |
-| **3 Năm** | **{window.get('start', '2023-11-01')} đến {window.get('end', '2026-11-01')}** | **-** | **{p_trades}** | **{p_wr}** | **{p_net}** | **{p_roi}** | **{p_closed_mdd}** |
+{subwindow_table_md}
 
-*Ghi chú*: Đối với cửa sổ 1 tháng và 6 tháng, dữ liệu warm-up lịch sử (>3400 nến M15) được nạp trước thời điểm bắt đầu để các chỉ báo EMA, ATR, SMC đạt trạng thái ổn định 100%. Các lệnh chưa đóng ở cuối chu kỳ được force-close tại giá đóng nến M1 cuối cùng.
+*Ghi chú*: Dữ liệu warm-up lịch sử (>3400 nến M15) được nạp trước thời điểm bắt đầu để các chỉ báo EMA, ATR, SMC đạt trạng thái ổn định 100%. Các lệnh chưa đóng ở cuối chu kỳ được force-close tại giá đóng nến M1 cuối cùng.
 
 ---
 
@@ -492,17 +529,15 @@ Số lượng nến M1 được xác minh tự động bằng truy vấn DuckDB:
 {combo_table_md}
 
 - **Combo hiệu quả nhất**:
-  - `C15` (ETH-USDT 1h): Net PnL +$48.11, Win Rate 34.9% nhưng Risk/Reward vượt trội.
-  - `C11` (BTC-USDT 1h): Net PnL +$40.51, Win Rate 43.2%, Profit Factor 1.29.
-  - `C12` (ETH-USDT 1h): Net PnL +$39.39, Profit Factor 1.15.
+{top_combos_str}
 - **Combo kéo giảm hiệu suất**:
-  - `C2` (BTC-USDT 1h) và `C3` (ETH-USDT 1h) có lãi ròng thấp (dưới $7), biên độ lợi nhuận mỏng.
+{bottom_combos_str}
 
 ---
 
 ## 7. Kiểm Toán Độ Bền: Sensitivity Analysis Với Chi Phí & Slippage
 
-Kiểm tra độ bền của chiến lược 20FINAL khi chi phí giao dịch và độ trượt giá tăng (3 năm, 6,271 trade legs):
+Kiểm tra độ bền của chiến lược 20FINAL khi chi phí giao dịch và độ trượt giá tăng (3 năm, {p_trades} trade legs):
 
 | Kịch bản | Phí Taker | Slippage | Trades | Win Rate | Net PnL | ROI (%) | Profit Factor | Max DD (M2M) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
