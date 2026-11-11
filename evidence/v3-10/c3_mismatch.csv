@@ -1,0 +1,1 @@
+run_id,leg_id,signal_id,symbol,combo_id,leg_type,problems,ledger_exit_time_ms,replay_exit_time_ms,ledger_exit_reason,replay_exit_reason,ledger_exit_price,replay_exit_price
