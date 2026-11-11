@@ -232,7 +232,9 @@ Tập tin lưu trữ chính thức: `runs/golden/v3-08/dataset_manifest.json`
      - **Test bị skip:** `autotrade_v3/tests/test_research_lab_12checks.py::TestResearchLab12Checks::test_01_data_integrity`
      - **Lý do skip:** Runner GitHub Actions không có file binary `catalog/research.duckdb` (> 1 GB), do đó điều kiện setup `if not self.catalog_exists: self.skipTest("DuckDB catalog not present")` được kích hoạt hợp lệ.
      - **Phạm vi chưa xác minh trên CI:** Toàn vẹn của file binary DuckDB catalog nội bộ trên môi trường runner đám mây.
-   - **JUnit XML:** `evidence/v3-08/junit/ci_synthetic.xml`
+   - **GitHub Actions Run Link & Log:**
+     - Workflow Run: [Run 42944651895](https://github.com/trungtn87/autoTrade/actions/runs/42944651895) (Job: `lab-quality-and-tests`, ID: `130274413369`)
+     - Log công khai: Có thể truy cập trực tiếp qua lệnh CLI `gh run view 42944651895 --log` hoặc giao diện GitHub Actions web.
 4. **Kết Quả Pytest Trên Môi Trường Kiểm Toán Đầy Đủ (Local Host với DuckDB Catalog):**
    ```
    ============================ 164 passed in 47.62s =============================
@@ -241,7 +243,7 @@ Tập tin lưu trữ chính thức: `runs/golden/v3-08/dataset_manifest.json`
    - **Passed:** 164 (100%)
    - **Failed:** 0
    - **Skipped:** 0
-   - **JUnit XML:** `evidence/v3-08/junit/all.xml`
+   - **JUnit XML Đầy Đủ (Đã lưu trên Git):** [`evidence/v3-08/junit/all.xml`](file:///d:/AutoTrade/evidence/v3-08/junit/all.xml) (164 tests passed, 0 skipped, 0 failed).
 5. **Linter & Compiler:**
    - `ruff check autotrade_v3`: PASS (Exit code 0, 0 errors).
    - `python -m compileall autotrade_v3`: PASS (Exit code 0, 0 syntax/compilation errors).
@@ -252,9 +254,21 @@ Tập tin lưu trữ chính thức: `runs/golden/v3-08/dataset_manifest.json`
 
 Quá trình chạy lại độc lập được thực thi trên commit HEAD `f1f7f5ba951eef4c44d64fdaae874b5b6f9b9e51` sử dụng 100% dữ liệu M1 thật, xuất ra thư mục độc lập `verify_head_f1f7f5b` (không ghi đè `runs/golden/v3-08/`).
 
-Chi tiết xem tại: [`evidence/v3-08/HEAD_VERIFICATION_REPORT.md`](file:///d:/AutoTrade/evidence/v3-08/HEAD_VERIFICATION_REPORT.md) và [`evidence/v3-08/HEAD_VERIFICATION_REPORT.json`](file:///d:/AutoTrade/evidence/v3-08/HEAD_VERIFICATION_REPORT.json).
+### 1. Thông Số Kiểm Toán Hệ Thống Của Lượt Chạy:
+- **`code_sha`**: `f1f7f5ba951eef4c44d64fdaae874b5b6f9b9e51`
+- **`code_dirty`**: `false` (Working tree hoàn toàn sạch)
+- **`diff_sha256`**: `""` (Không có bất kỳ thay đổi nào chưa commit)
+- **`dataset_hash`**: `ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628`
+- **Nguồn dữ liệu M1**: `catalog/research.duckdb` (bảng `v3_m1`), `data/m1_raw` (74 partitions vật lý: 72 Binance + 2 BingX)
+- **Đường dẫn đầu ra và Run Manifest của từng mode**:
+  - **Mode ALL_SIGNALS**: `verify_head_f1f7f5b/ALL_SIGNALS/` -> Manifest: [`evidence/v3-08/verification_manifests/ALL_SIGNALS_run_manifest.json`](file:///d:/AutoTrade/evidence/v3-08/verification_manifests/ALL_SIGNALS_run_manifest.json)
+  - **Mode ONE_TRADE_PER_COMBO**: `verify_head_f1f7f5b/ONE_TRADE_PER_COMBO/` -> Manifest: [`evidence/v3-08/verification_manifests/ONE_TRADE_PER_COMBO_run_manifest.json`](file:///d:/AutoTrade/evidence/v3-08/verification_manifests/ONE_TRADE_PER_COMBO_run_manifest.json)
+  - **Mode BINGX_PORTFOLIO**: `verify_head_f1f7f5b/BINGX_PORTFOLIO/` -> Manifest: [`evidence/v3-08/verification_manifests/BINGX_PORTFOLIO_run_manifest.json`](file:///d:/AutoTrade/evidence/v3-08/verification_manifests/BINGX_PORTFOLIO_run_manifest.json)
+- **Console Log Gốc Lượt Chạy**: [`evidence/v3-08/verify_head_f1f7f5b_console.log`](file:///d:/AutoTrade/evidence/v3-08/verify_head_f1f7f5b_console.log)
+- **Bảng Đối Chiếu Checksum Từng Artifact**: [`evidence/v3-08/ARTIFACT_CHECKSUM_RECONCILIATION.md`](file:///d:/AutoTrade/evidence/v3-08/ARTIFACT_CHECKSUM_RECONCILIATION.md)
+- **Script Thực Thi**: [`autotrade_v3/tools/run_head_verification.py`](file:///d:/AutoTrade/autotrade_v3/tools/run_head_verification.py)
 
-### Tóm tắt đối chiếu:
+### 2. Tóm Tắt Đối Chiếu:
 - **ALL_SIGNALS**: 5.984 tín hiệu, 8.258 legs, Net PnL +$410,7007. Content Hash trùng khớp 100% (**VERIFIED**).
 - **ONE_TRADE_PER_COMBO**: 4.156 entries, 6.273 legs, Net PnL +$284,1945, 1.828 skipped. Content Hash trùng khớp 100% (**VERIFIED**).
 - **BINGX_PORTFOLIO**: 4.149 entries, 6.265 legs, Net PnL +$282,1935, 1.835 skipped. Content Hash trùng khớp 100% (**VERIFIED**).
@@ -278,6 +292,7 @@ Chi tiết xem tại: [`evidence/v3-08/HEAD_VERIFICATION_REPORT.md`](file:///d:/
 | `autotrade_v3/tools/compare_ledgers.py` | ADDED | Công cụ kiểm toán đối chiếu hai ledger: phát hiện khóa trùng, phân biệt sai khác null vs số thực |
 | `autotrade_v3/tools/recompute_metrics.py` | ADDED | Công cụ độc lập tái tính toán số liệu PnL/WinRate trực tiếp từ ledger Parquet bằng pandas |
 | `autotrade_v3/tools/verify_snapshot.py` | ADDED | Công cụ độc lập xác minh tính toàn vẹn và khôi phục Mode C portfolio snapshots |
+| `autotrade_v3/tools/run_head_verification.py` | ADDED | Công cụ độc lập tự động chạy lại toàn bộ 3 mode và kiểm toán đối chiếu với Golden Baseline |
 | `autotrade_v3/tests/test_golden_baseline_v308.py`| ADDED | Bộ unit và integration test cho Golden Baseline, Signal ID, Timestamp Robustness và Git Protection |
 | `autotrade_v3/tests/test_mutation_v308.py` | ADDED | Bộ kiểm thử đột biến đối nghịch M1-M4 |
 | `pyproject.toml` | ADDED | Cấu hình cho `ruff` và `pytest` |
@@ -285,6 +300,9 @@ Chi tiết xem tại: [`evidence/v3-08/HEAD_VERIFICATION_REPORT.md`](file:///d:/
 | `.gitignore` | MODIFIED | Track `runs/golden/**` nhưng loại trừ `snapshots.parquet` > 20 MB |
 | `.github/workflows/v3-lab-tests.yml` | ADDED | CI workflow chạy ruff, compileall và pytest trên runner |
 | `runs/golden/v3-08/**` | ADDED | Trọn bộ Golden Baseline 3 năm M1 của cả 3 modes |
+| `evidence/v3-08/verification_manifests/**` | ADDED | Ba run manifests độc lập sinh ra từ lượt chạy xác minh commit HEAD `f1f7f5b` |
+| `evidence/v3-08/verify_head_f1f7f5b_console.log` | ADDED | Nhật ký console log gốc từ quá trình chạy xác minh trên dữ liệu M1 thật |
+| `evidence/v3-08/ARTIFACT_CHECKSUM_RECONCILIATION.*` | ADDED | Bảng đối chiếu File SHA256 và Content Hash từng artifact (100% MATCH) |
 | `evidence/v3-08/**` | ADDED | Trọn bộ chứng cứ kiểm toán, console log, so sánh ledger, HEAD verification và JUnit XML |
 
 ---

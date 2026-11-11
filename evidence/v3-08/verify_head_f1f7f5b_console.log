@@ -1,0 +1,52 @@
+================================================================================
+AUTOTRADE V3-08: GOLDEN VERIFICATION RUN ON COMMIT HEAD f1f7f5b
+================================================================================
+Git HEAD SHA: f1f7f5ba951eef4c44d64fdaae874b5b6f9b9e51
+Git Dirty:    False
+Diff Hash:    ''
+
+Verifying live dataset integrity...
+Dataset Valid: True
+Dataset Hash:  ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628
+
+Target Verification Output: C:\Users\TCGamingCB\.gemini\antigravity\brain\98abc54d-25e1-465c-9eb1-d9644051ed5b\scratch\verify_head_f1f7f5b
+
+>>> Running Mode ALL_SIGNALS on REAL M1 DATA (2023-11-01 to 2026-11-01)...
+Finished ALL_SIGNALS in 96.3s. Saved to: C:\Users\TCGamingCB\.gemini\antigravity\brain\98abc54d-25e1-465c-9eb1-d9644051ed5b\scratch\verify_head_f1f7f5b\ALL_SIGNALS
+
+>>> Running Mode ONE_TRADE_PER_COMBO on REAL M1 DATA (2023-11-01 to 2026-11-01)...
+Finished ONE_TRADE_PER_COMBO in 93.2s. Saved to: C:\Users\TCGamingCB\.gemini\antigravity\brain\98abc54d-25e1-465c-9eb1-d9644051ed5b\scratch\verify_head_f1f7f5b\ONE_TRADE_PER_COMBO
+
+>>> Running Mode BINGX_PORTFOLIO on REAL M1 DATA (2023-11-01 to 2026-11-01)...
+Finished BINGX_PORTFOLIO in 142.6s. Saved to: C:\Users\TCGamingCB\.gemini\antigravity\brain\98abc54d-25e1-465c-9eb1-d9644051ed5b\scratch\verify_head_f1f7f5b\BINGX_PORTFOLIO
+
+================================================================================
+RECONCILIATION: NEW HEAD RUN (verify_head_f1f7f5b) vs LOCKED GOLDEN (runs/golden/v3-08)
+================================================================================
+
+--- Comparing Mode: ALL_SIGNALS ---
+  signals.parquet:       Rows=5984 (gold=5984), Dups=0, Hash Match=True
+  trades.parquet:        Rows=8258 (gold=8258), Dups=0, Hash Match=True, Ledger Diffs=0
+  skipped_signals:       Rows=0 (gold=0), Hash Match=True
+  rejected_signals:      Rows=0 (gold=0), Hash Match=True
+  Net PnL:               $410.7007 (gold=$410.7007, diff=0.0)
+  ROI:                   +41.07% (gold=+41.07%)
+
+--- Comparing Mode: ONE_TRADE_PER_COMBO ---
+  signals.parquet:       Rows=5984 (gold=5984), Dups=0, Hash Match=True
+  trades.parquet:        Rows=6273 (gold=6273), Dups=0, Hash Match=True, Ledger Diffs=0
+  skipped_signals:       Rows=1828 (gold=1828), Hash Match=True
+  rejected_signals:      Rows=0 (gold=0), Hash Match=True
+  Net PnL:               $284.1945 (gold=$284.1945, diff=0.0)
+  ROI:                   +28.42% (gold=+28.42%)
+
+--- Comparing Mode: BINGX_PORTFOLIO ---
+  signals.parquet:       Rows=5984 (gold=5984), Dups=0, Hash Match=True
+  trades.parquet:        Rows=6265 (gold=6265), Dups=0, Hash Match=True, Ledger Diffs=0
+  skipped_signals:       Rows=1835 (gold=1835), Hash Match=True
+  rejected_signals:      Rows=0 (gold=0), Hash Match=True
+  Net PnL:               $282.1935 (gold=$282.1935, diff=0.0)
+  ROI:                   +28.22% (gold=+28.22%)
+  snapshots.parquet:     Verified=True, SHA Match=True, Rows=781611
+
+Saved verification summary to d:\AutoTrade\evidence\v3-08\HEAD_VERIFICATION_REPORT.json
