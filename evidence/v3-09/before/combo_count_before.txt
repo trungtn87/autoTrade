@@ -1,0 +1,14 @@
+Mode: ALL_SIGNALS
+  Combos count: 15 (Expected from config: 20)
+  Combo IDs present: [1, 2, 3, 4, 6, 7, 9, 10, 11, 101, 102, 103, 104, 105, 106]
+  Keys present in old analyzer: ['ETH-USDT/C1', 'BTC-USDT/C2', 'ETH-USDT/C3', 'BTC-USDT/C4', 'BTC-USDT/C6', 'ETH-USDT/C7', 'BTC-USDT/C9', 'ETH-USDT/C10', 'BTC-USDT/TIER', 'BTC-USDT/C11', 'ETH-USDT/C12', 'ETH-USDT/C13', 'BTC-USDT/C14', 'ETH-USDT/C15', 'BTC-USDT/C16']
+
+Mode: ONE_TRADE_PER_COMBO
+  Combos count: 15 (Expected from config: 20)
+  Combo IDs present: [1, 2, 3, 4, 6, 7, 9, 10, 11, 101, 102, 103, 104, 105, 106]
+  Keys present in old analyzer: ['ETH-USDT/C1', 'BTC-USDT/C2', 'ETH-USDT/C3', 'BTC-USDT/C4', 'BTC-USDT/C6', 'ETH-USDT/C7', 'BTC-USDT/C9', 'ETH-USDT/C10', 'BTC-USDT/TIER', 'BTC-USDT/C11', 'ETH-USDT/C12', 'ETH-USDT/C13', 'BTC-USDT/C14', 'ETH-USDT/C15', 'BTC-USDT/C16']
+
+Mode: BINGX_PORTFOLIO
+  Combos count: 15 (Expected from config: 20)
+  Combo IDs present: [1, 2, 3, 4, 6, 7, 9, 10, 11, 101, 102, 103, 104, 105, 106]
+  Keys present in old analyzer: ['ETH-USDT/C1', 'BTC-USDT/C2', 'ETH-USDT/C3', 'BTC-USDT/C4', 'BTC-USDT/C6', 'ETH-USDT/C7', 'BTC-USDT/C9', 'ETH-USDT/C10', 'BTC-USDT/TIER', 'BTC-USDT/C11', 'ETH-USDT/C12', 'ETH-USDT/C13', 'BTC-USDT/C14', 'ETH-USDT/C15', 'BTC-USDT/C16']

@@ -1,0 +1,28 @@
+=== VERIFY REPORT EXECUTION SUMMARY ===
+Report: evidence\v3-09\reports\BINGX_PORTFOLIO\report.md
+Ledger: evidence\v3-09\reports\BINGX_PORTFOLIO\trades.parquet
+Total metrics verified: 191
+  [OK] VERIFIED Validation Status: REAL_DATA_PASS (Real Market Data: True)
+  [OK] VERIFIED Git SHA in header: b68933c131725f680eafc72640153b61af85741d
+  [OK] VERIFIED Gate A — DATA: PASS
+  [OK] VERIFIED Gate B — STRATEGY: PASS
+  [OK] VERIFIED Gate C — EXECUTION: PASS
+  [OK] VERIFIED Gate D — RESULT: PASS
+  [OK] VERIFIED analysis.json Validation Status: REAL_DATA_PASS
+  [OK] VERIFIED analysis.json Real Market Data: True
+  [OK] VERIFIED analysis.json Gate A: PASS
+  [OK] VERIFIED analysis.json Gate B: PASS
+  [OK] VERIFIED analysis.json Gate C: PASS
+  [OK] VERIFIED analysis.json Gate D: PASS
+  [OK] VERIFIED Validation Origin: INHERITED_GOLDEN_BASELINE (Source Git SHA: b68933c131...)
+  [OK] VERIFIED Golden Status Reconciliation: REAL_DATA_PASS matches Golden V3-08 (BINGX_PORTFOLIO)
+  [OK] VERIFIED Golden Gate Reconciliation: GATE_A_DATA matches Golden (PASS)
+  [OK] VERIFIED Golden Gate Reconciliation: GATE_B_STRATEGY matches Golden (PASS)
+  [OK] VERIFIED Golden Gate Reconciliation: GATE_C_EXECUTION matches Golden (PASS)
+  [OK] VERIFIED Golden Gate Reconciliation: GATE_D_RESULT matches Golden (PASS)
+  [OK] VERIFIED Total Signals Generated: 5,984
+  [OK] VERIFIED Accepted Entries: 4,149
+  ... and 171 additional verified metrics.
+
+SUCCESS: All reported figures faithfully verified against ledger.
+

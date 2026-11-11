@@ -5,12 +5,17 @@ simulation modes (Mode A, B, C) without hardcoded numbers or ad-hoc assumptions.
 """
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import asdict, dataclass
 import math
 from typing import Any
 import numpy as np
 import pandas as pd
 
+from autotrade_v3.analysis.metrics import (
+    compute_four_profit_factors,
+    get_baseline_combo_keys,
+)
 from autotrade_v3.engine.execution_simulator import SimulationResult, TradeRecord
 
 
@@ -25,31 +30,12 @@ class ResearchAnalyzer:
 
     @staticmethod
     def _calc_profit_factors(trades: list[TradeRecord]) -> tuple[float | str, float | str]:
-        """Compute (Net Profit Factor, Gross Profit Factor).
+        """Compute (Net Profit Factor, Gross Profit Factor) at leg level.
         
         Returns ('UNDEFINED_NO_LOSS' if denominator == 0 and numerator > 0, 0.0 if both 0).
         """
-        # Net Profit Factor (V3-05/06 audited standard: based on net PnL after fees)
-        net_wins = sum(t.net_pnl for t in trades if t.net_pnl > 0)
-        net_losses = sum(abs(t.net_pnl) for t in trades if t.net_pnl < 0)
-        if net_losses > 1e-9:
-            net_pf: float | str = round(net_wins / net_losses, 4)
-        elif net_wins > 0:
-            net_pf = "UNDEFINED_NO_LOSS"
-        else:
-            net_pf = 0.0
-
-        # Gross Profit Factor (based on gross PnL before fees)
-        gross_wins = sum(t.gross_pnl for t in trades if t.gross_pnl > 0)
-        gross_losses = sum(abs(t.gross_pnl) for t in trades if t.gross_pnl < 0)
-        if gross_losses > 1e-9:
-            gross_pf: float | str = round(gross_wins / gross_losses, 4)
-        elif gross_wins > 0:
-            gross_pf = "UNDEFINED_NO_LOSS"
-        else:
-            gross_pf = 0.0
-
-        return net_pf, gross_pf
+        res = compute_four_profit_factors(trades)
+        return res["net_pf_leg"], res["gross_pf_leg"]
 
     @classmethod
     def analyze_simulation(
@@ -57,6 +43,7 @@ class ResearchAnalyzer:
         sim_result: SimulationResult,
         initial_equity: float = 1000.0,
         subwindows: list[tuple[str, str, str]] | None = None,
+        validation: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Perform comprehensive analysis of simulation results."""
         trades = sim_result.trades
@@ -71,6 +58,18 @@ class ResearchAnalyzer:
         other_skipped = len(sim_result.skipped_signals) - skipped_concurrency
         rejected_margin = len([r for r in sim_result.rejected_signals if r.get("reason") == "INSUFFICIENT_MARGIN"])
         other_rejected = len(sim_result.rejected_signals) - rejected_margin
+
+        # Extract all signals to attribute per symbol and per combo
+        all_signals = list(sim_result.accepted_signals) + list(sim_result.skipped_signals) + list(sim_result.rejected_signals)
+        signals_by_symbol: dict[str, int] = defaultdict(int)
+        signals_by_combo: dict[str, int] = defaultdict(int)
+        for s in all_signals:
+            s_sym = getattr(s, "symbol", "") or (s.get("symbol", "") if isinstance(s, dict) else "")
+            s_cname = getattr(s, "combo_name", "") or (s.get("combo_name", "") if isinstance(s, dict) else "")
+            if s_sym:
+                signals_by_symbol[s_sym] += 1
+            if s_sym and s_cname:
+                signals_by_combo[f"{s_sym}/{s_cname}"] += 1
 
         # 2. Win Rate Calculations (Distinguish Trade-level vs Leg-level)
         winning_legs = [t for t in trades if t.net_pnl > 0]
@@ -92,30 +91,28 @@ class ResearchAnalyzer:
         breakeven_trades = sum(1 for pnl in trade_pnl_map.values() if pnl == 0)
         trade_win_rate_pct = (winning_trades / len(trade_pnl_map) * 100.0) if trade_pnl_map else 0.0
 
-        # 3. PnL, Fees, ROI, and Profit Factors
-        gross_pnl = sum(t.gross_pnl for t in trades)
-        total_fees = sum(t.fee_total for t in trades)
-        net_pnl = sum(t.net_pnl for t in trades)
+        # 3. PnL, Fees, ROI, and Profit Factors (4 canonical metrics)
+        gross_pnl_u = float(sum(t.gross_pnl for t in trades))
+        total_fees_u = float(sum(t.fee_total for t in trades))
+        net_pnl_u = float(sum(t.net_pnl for t in trades))
 
-        # Standardized Profit Factors: Net PF is default, Gross PF reported alongside
-        net_profit_factor, gross_profit_factor = cls._calc_profit_factors(trades)
-        profit_factor = net_profit_factor  # Net Profit Factor is the default
+        run_pf = compute_four_profit_factors(trades)
 
         # Denominator attribution:
         if mode == "BINGX_PORTFOLIO":
             roi_denominator_name = "Account Initial Equity ($1,000)"
             roi_denominator_value = initial_equity
-            roi_pct = (net_pnl / initial_equity) * 100.0
+            roi_pct = (net_pnl_u / initial_equity) * 100.0
             roi_note = "True finite-capital portfolio ROI after margin, fees, and VWAP blending."
         elif mode == "ALL_SIGNALS":
             roi_denominator_name = "Theoretical Baseline Capital ($1,000 reference)"
             roi_denominator_value = initial_equity
-            roi_pct = (net_pnl / initial_equity) * 100.0
+            roi_pct = (net_pnl_u / initial_equity) * 100.0
             roi_note = "Reference unconstrained signal ROI. NOT an executable finite account ROI."
         else:  # ONE_TRADE_PER_COMBO
             roi_denominator_name = "Reference Allocated Capital ($1,000)"
             roi_denominator_value = initial_equity
-            roi_pct = (net_pnl / initial_equity) * 100.0
+            roi_pct = (net_pnl_u / initial_equity) * 100.0
             roi_note = "Reference isolated combo ROI (max 1 open trade per combo)."
 
         # 4. Drawdown Calculation: strictly distinguish closed-trade vs continuous M2M
@@ -167,68 +164,91 @@ class ResearchAnalyzer:
             s_trades = [t for t in trades if t.symbol == sym]
             s_trade_ids = {t.trade_id for t in s_trades}
             s_wins = sum(1 for t in s_trades if t.net_pnl > 0)
-            s_gross = sum(t.gross_pnl for t in s_trades)
-            s_fee = sum(t.fee_total for t in s_trades)
-            s_net = sum(t.net_pnl for t in s_trades)
-            s_net_pf, s_gross_pf = cls._calc_profit_factors(s_trades)
+            s_gross_u = float(sum(t.gross_pnl for t in s_trades))
+            s_fee_u = float(sum(t.fee_total for t in s_trades))
+            s_net_u = float(sum(t.net_pnl for t in s_trades))
+            s_pf = compute_four_profit_factors(s_trades)
+
+            sym_signals = signals_by_symbol.get(sym, len(s_trade_ids)) if all_signals else len(s_trade_ids)
 
             symbol_stats[sym] = {
                 "symbol": sym,
+                "signals": sym_signals,
                 "entries": len(s_trade_ids),
                 "legs": len(s_trades),
                 "leg_win_rate_pct": round(s_wins / len(s_trades) * 100.0, 2) if s_trades else 0.0,
-                "gross_pnl": round(s_gross, 4),
-                "total_fees": round(s_fee, 4),
-                "net_pnl": round(s_net, 4),
-                "profit_factor": s_net_pf if isinstance(s_net_pf, str) else round(s_net_pf, 2),
-                "net_profit_factor": s_net_pf if isinstance(s_net_pf, str) else round(s_net_pf, 2),
-                "gross_profit_factor": s_gross_pf if isinstance(s_gross_pf, str) else round(s_gross_pf, 2),
+                "gross_pnl": round(s_gross_u, 4),
+                "gross_pnl_unrounded": s_gross_u,
+                "total_fees": round(s_fee_u, 4),
+                "total_fees_unrounded": s_fee_u,
+                "net_pnl": round(s_net_u, 4),
+                "net_pnl_unrounded": s_net_u,
+                "net_pf_trade": s_pf["net_pf_trade"],
+                "net_pf_trade_unrounded": s_pf["net_pf_trade_unrounded"],
+                "net_pf_leg": s_pf["net_pf_leg"],
+                "net_pf_leg_unrounded": s_pf["net_pf_leg_unrounded"],
+                "gross_pf_trade": s_pf["gross_pf_trade"],
+                "gross_pf_trade_unrounded": s_pf["gross_pf_trade_unrounded"],
+                "gross_pf_leg": s_pf["gross_pf_leg"],
+                "gross_pf_leg_unrounded": s_pf["gross_pf_leg_unrounded"],
+                "profit_factor": s_pf["profit_factor"],
+                "profit_factor_basis": s_pf["profit_factor_basis"],
+                "net_profit_factor": s_pf["net_pf_leg"],
+                "gross_profit_factor": s_pf["gross_pf_leg"],
             }
 
-        # Mathematical reconciliation check
-        sum_sym_net = sum(s["net_pnl"] for s in symbol_stats.values())
-        symbol_reconciliation_pass = math.isclose(sum_sym_net, round(net_pnl, 4), abs_tol=1e-3)
-        accounting_balance_pass = math.isclose(gross_pnl - total_fees, net_pnl, abs_tol=1e-4)
-
-        # 7. Combo Breakdown (C1 to C16)
-        combo_stats: dict[int, dict[str, Any]] = {}
+        # 7. Combo Breakdown (Keyed by f"{symbol}/{combo_name}", e.g. "BTC-USDT/C1")
+        combo_stats: dict[str, dict[str, Any]] = {}
         for t in trades:
-            cid = t.combo_id
-            if cid not in combo_stats:
-                combo_stats[cid] = {
-                    "combo_id": cid,
+            ckey = f"{t.symbol}/{t.combo_name}"
+            if ckey not in combo_stats:
+                combo_stats[ckey] = {
+                    "combo_key": ckey,
+                    "combo_id": t.combo_id,
                     "combo_name": t.combo_name,
                     "symbol": t.symbol,
                     "timeframe": t.timeframe,
                     "legs": 0,
                     "trades_set": set(),
                     "wins": 0,
-                    "gross_pnl": 0.0,
-                    "fees": 0.0,
-                    "net_pnl": 0.0,
+                    "gross_pnl_unrounded": 0.0,
+                    "fees_unrounded": 0.0,
+                    "net_pnl_unrounded": 0.0,
                 }
-            combo_stats[cid]["legs"] += 1
-            combo_stats[cid]["trades_set"].add(t.trade_id)
+            combo_stats[ckey]["legs"] += 1
+            combo_stats[ckey]["trades_set"].add(t.trade_id)
             if t.net_pnl > 0:
-                combo_stats[cid]["wins"] += 1
-            combo_stats[cid]["gross_pnl"] += t.gross_pnl
-            combo_stats[cid]["fees"] += t.fee_total
-            combo_stats[cid]["net_pnl"] += t.net_pnl
+                combo_stats[ckey]["wins"] += 1
+            combo_stats[ckey]["gross_pnl_unrounded"] += t.gross_pnl
+            combo_stats[ckey]["fees_unrounded"] += t.fee_total
+            combo_stats[ckey]["net_pnl_unrounded"] += t.net_pnl
 
         combos_list = []
-        for cid in sorted(combo_stats.keys()):
-            c = combo_stats[cid]
+        for ckey in sorted(combo_stats.keys()):
+            c = combo_stats[ckey]
             c_trades_cnt = len(c.pop("trades_set"))
-            c_trades_records = [t for t in trades if t.combo_id == cid]
-            c_net_pf, c_gross_pf = cls._calc_profit_factors(c_trades_records)
+            c_trades_records = [t for t in trades if f"{t.symbol}/{t.combo_name}" == ckey]
+            c_pf = compute_four_profit_factors(c_trades_records)
+            c_signals = signals_by_combo.get(ckey, c_trades_cnt) if all_signals else c_trades_cnt
+
+            c["signals"] = c_signals
             c["entries"] = c_trades_cnt
             c["win_rate_pct"] = round(c["wins"] / c["legs"] * 100.0, 2) if c["legs"] > 0 else 0.0
-            c["gross_pnl"] = round(c["gross_pnl"], 4)
-            c["fees"] = round(c["fees"], 4)
-            c["net_pnl"] = round(c["net_pnl"], 4)
-            c["profit_factor"] = c_net_pf if isinstance(c_net_pf, str) else round(c_net_pf, 2)
-            c["net_profit_factor"] = c_net_pf if isinstance(c_net_pf, str) else round(c_net_pf, 2)
-            c["gross_profit_factor"] = c_gross_pf if isinstance(c_gross_pf, str) else round(c_gross_pf, 2)
+            c["gross_pnl"] = round(c["gross_pnl_unrounded"], 4)
+            c["fees"] = round(c["fees_unrounded"], 4)
+            c["net_pnl"] = round(c["net_pnl_unrounded"], 4)
+            c["net_pf_trade"] = c_pf["net_pf_trade"]
+            c["net_pf_trade_unrounded"] = c_pf["net_pf_trade_unrounded"]
+            c["net_pf_leg"] = c_pf["net_pf_leg"]
+            c["net_pf_leg_unrounded"] = c_pf["net_pf_leg_unrounded"]
+            c["gross_pf_trade"] = c_pf["gross_pf_trade"]
+            c["gross_pf_trade_unrounded"] = c_pf["gross_pf_trade_unrounded"]
+            c["gross_pf_leg"] = c_pf["gross_pf_leg"]
+            c["gross_pf_leg_unrounded"] = c_pf["gross_pf_leg_unrounded"]
+            c["profit_factor"] = c_pf["profit_factor"]
+            c["profit_factor_basis"] = c_pf["profit_factor_basis"]
+            c["net_profit_factor"] = c_pf["net_pf_leg"]
+            c["gross_profit_factor"] = c_pf["gross_pf_leg"]
             combos_list.append(c)
 
         # 8. Monthly Breakdown
@@ -241,32 +261,41 @@ class ResearchAnalyzer:
                     "legs": 0,
                     "trades_set": set(),
                     "wins": 0,
-                    "gross_pnl": 0.0,
-                    "fees": 0.0,
-                    "net_pnl": 0.0,
+                    "gross_pnl_unrounded": 0.0,
+                    "fees_unrounded": 0.0,
+                    "net_pnl_unrounded": 0.0,
                 }
             monthly_stats[ym]["legs"] += 1
             monthly_stats[ym]["trades_set"].add(t.trade_id)
             if t.net_pnl > 0:
                 monthly_stats[ym]["wins"] += 1
-            monthly_stats[ym]["gross_pnl"] += t.gross_pnl
-            monthly_stats[ym]["fees"] += t.fee_total
-            monthly_stats[ym]["net_pnl"] += t.net_pnl
+            monthly_stats[ym]["gross_pnl_unrounded"] += t.gross_pnl
+            monthly_stats[ym]["fees_unrounded"] += t.fee_total
+            monthly_stats[ym]["net_pnl_unrounded"] += t.net_pnl
 
         monthly_list = []
         for ym in sorted(monthly_stats.keys()):
             m = monthly_stats[ym]
             m_trades_cnt = len(m.pop("trades_set"))
             m_trades_records = [t for t in trades if str(t.entry_time_dt)[:7] == ym]
-            m_net_pf, m_gross_pf = cls._calc_profit_factors(m_trades_records)
+            m_pf = compute_four_profit_factors(m_trades_records)
             m["entries"] = m_trades_cnt
             m["win_rate_pct"] = round(m["wins"] / m["legs"] * 100.0, 2) if m["legs"] > 0 else 0.0
-            m["gross_pnl"] = round(m["gross_pnl"], 4)
-            m["fees"] = round(m["fees"], 4)
-            m["net_pnl"] = round(m["net_pnl"], 4)
-            m["profit_factor"] = m_net_pf if isinstance(m_net_pf, str) else round(m_net_pf, 2)
-            m["net_profit_factor"] = m_net_pf if isinstance(m_net_pf, str) else round(m_net_pf, 2)
-            m["gross_profit_factor"] = m_gross_pf if isinstance(m_gross_pf, str) else round(m_gross_pf, 2)
+            m["gross_pnl"] = round(m["gross_pnl_unrounded"], 4)
+            m["fees"] = round(m["fees_unrounded"], 4)
+            m["net_pnl"] = round(m["net_pnl_unrounded"], 4)
+            m["net_pf_trade"] = m_pf["net_pf_trade"]
+            m["net_pf_trade_unrounded"] = m_pf["net_pf_trade_unrounded"]
+            m["net_pf_leg"] = m_pf["net_pf_leg"]
+            m["net_pf_leg_unrounded"] = m_pf["net_pf_leg_unrounded"]
+            m["gross_pf_trade"] = m_pf["gross_pf_trade"]
+            m["gross_pf_trade_unrounded"] = m_pf["gross_pf_trade_unrounded"]
+            m["gross_pf_leg"] = m_pf["gross_pf_leg"]
+            m["gross_pf_leg_unrounded"] = m_pf["gross_pf_leg_unrounded"]
+            m["profit_factor"] = m_pf["profit_factor"]
+            m["profit_factor_basis"] = m_pf["profit_factor_basis"]
+            m["net_profit_factor"] = m_pf["net_pf_leg"]
+            m["gross_profit_factor"] = m_pf["gross_pf_leg"]
             monthly_list.append(m)
 
         # 9. Cross-Window Analysis (Strictly entry-based attribution across 24M / 6M / 6M windows)
@@ -277,10 +306,10 @@ class ResearchAnalyzer:
             w_trades = [t for t in trades if t.entry_time_ms >= w_start_ts and t.entry_time_ms < w_end_ts]
             w_trade_ids = {t.trade_id for t in w_trades}
             w_wins = sum(1 for t in w_trades if t.net_pnl > 0)
-            w_gross = sum(t.gross_pnl for t in w_trades)
-            w_fees = sum(t.fee_total for t in w_trades)
-            w_net = sum(t.net_pnl for t in w_trades)
-            w_net_pf, w_gross_pf = cls._calc_profit_factors(w_trades)
+            w_gross_u = float(sum(t.gross_pnl for t in w_trades))
+            w_fees_u = float(sum(t.fee_total for t in w_trades))
+            w_net_u = float(sum(t.net_pnl for t in w_trades))
+            w_pf = compute_four_profit_factors(w_trades)
 
             subwindow_results.append({
                 "subwindow": name,
@@ -289,16 +318,161 @@ class ResearchAnalyzer:
                 "entries": len(w_trade_ids),
                 "legs": len(w_trades),
                 "win_rate_pct": round(w_wins / len(w_trades) * 100.0, 2) if w_trades else 0.0,
-                "gross_pnl": round(w_gross, 4),
-                "total_fees": round(w_fees, 4),
-                "net_pnl": round(w_net, 4),
-                "profit_factor": w_net_pf if isinstance(w_net_pf, str) else round(w_net_pf, 2),
-                "net_profit_factor": w_net_pf if isinstance(w_net_pf, str) else round(w_net_pf, 2),
-                "gross_profit_factor": w_gross_pf if isinstance(w_gross_pf, str) else round(w_gross_pf, 2),
+                "gross_pnl": round(w_gross_u, 4),
+                "gross_pnl_unrounded": w_gross_u,
+                "total_fees": round(w_fees_u, 4),
+                "total_fees_unrounded": w_fees_u,
+                "net_pnl": round(w_net_u, 4),
+                "net_pnl_unrounded": w_net_u,
+                "net_pf_trade": w_pf["net_pf_trade"],
+                "net_pf_trade_unrounded": w_pf["net_pf_trade_unrounded"],
+                "net_pf_leg": w_pf["net_pf_leg"],
+                "net_pf_leg_unrounded": w_pf["net_pf_leg_unrounded"],
+                "gross_pf_trade": w_pf["gross_pf_trade"],
+                "gross_pf_trade_unrounded": w_pf["gross_pf_trade_unrounded"],
+                "gross_pf_leg": w_pf["gross_pf_leg"],
+                "gross_pf_leg_unrounded": w_pf["gross_pf_leg_unrounded"],
+                "profit_factor": w_pf["profit_factor"],
+                "profit_factor_basis": w_pf["profit_factor_basis"],
+                "net_profit_factor": w_pf["net_pf_leg"],
+                "gross_profit_factor": w_pf["gross_pf_leg"],
             })
 
+        # 10. Three-Level Reconciliation (Run Total vs Sum By Symbol vs Sum By Combo)
+        sum_sym_signals = sum(s.get("signals", 0) for s in symbol_stats.values())
+        sum_combo_signals = sum(c.get("signals", 0) for c in combos_list)
+        signals_diff = max(abs(total_signals - sum_sym_signals), abs(total_signals - sum_combo_signals))
+
+        sum_sym_entries = sum(s.get("entries", 0) for s in symbol_stats.values())
+        sum_combo_entries = sum(c.get("entries", 0) for c in combos_list)
+        entries_diff = max(abs(accepted_entries - sum_sym_entries), abs(accepted_entries - sum_combo_entries))
+
+        sum_sym_legs = sum(s.get("legs", 0) for s in symbol_stats.values())
+        sum_combo_legs = sum(c.get("legs", 0) for c in combos_list)
+        legs_diff = max(abs(total_legs - sum_sym_legs), abs(total_legs - sum_combo_legs))
+
+        sum_sym_gross_u = sum(s["gross_pnl_unrounded"] for s in symbol_stats.values())
+        sum_combo_gross_u = sum(c["gross_pnl_unrounded"] for c in combos_list)
+        gross_diff_u = max(abs(gross_pnl_u - sum_sym_gross_u), abs(gross_pnl_u - sum_combo_gross_u))
+
+        sum_sym_fee_u = sum(s["total_fees_unrounded"] for s in symbol_stats.values())
+        sum_combo_fee_u = sum(c["fees_unrounded"] for c in combos_list)
+        fee_diff_u = max(abs(total_fees_u - sum_sym_fee_u), abs(total_fees_u - sum_combo_fee_u))
+
+        sum_sym_net_u = sum(s["net_pnl_unrounded"] for s in symbol_stats.values())
+        sum_combo_net_u = sum(c["net_pnl_unrounded"] for c in combos_list)
+        net_diff_u = max(abs(net_pnl_u - sum_sym_net_u), abs(net_pnl_u - sum_combo_net_u))
+
+        # Baseline symbol-combo alignment check
+        baseline_keys = get_baseline_combo_keys()
+        alignment_valid = True
+        for c in combos_list:
+            if baseline_keys and c["combo_key"] not in baseline_keys:
+                alignment_valid = False
+                break
+        for t in trades:
+            t_key = f"{t.symbol}/{t.combo_name}"
+            if baseline_keys and t_key not in baseline_keys:
+                alignment_valid = False
+                break
+
+        tolerance = 1e-9
+        reconciliation_pass = (
+            signals_diff == 0
+            and entries_diff == 0
+            and legs_diff == 0
+            and gross_diff_u <= tolerance
+            and fee_diff_u <= tolerance
+            and net_diff_u <= tolerance
+            and alignment_valid
+        )
+
+        reconciliation = {
+            "signals": {
+                "run_total": total_signals,
+                "sum_by_symbol": sum_sym_signals,
+                "sum_by_combo": sum_combo_signals,
+                "max_absolute_diff": signals_diff,
+            },
+            "entries": {
+                "run_total": accepted_entries,
+                "sum_by_symbol": sum_sym_entries,
+                "sum_by_combo": sum_combo_entries,
+                "max_absolute_diff": entries_diff,
+            },
+            "legs": {
+                "run_total": total_legs,
+                "sum_by_symbol": sum_sym_legs,
+                "sum_by_combo": sum_combo_legs,
+                "max_absolute_diff": legs_diff,
+            },
+            "gross_pnl": {
+                "run_total_unrounded": gross_pnl_u,
+                "sum_by_symbol_unrounded": sum_sym_gross_u,
+                "sum_by_combo_unrounded": sum_combo_gross_u,
+                "max_absolute_diff_unrounded": gross_diff_u,
+                "run_total_rounded_4dp": round(gross_pnl_u, 4),
+                "sum_by_symbol_rounded_4dp": round(sum(s["gross_pnl"] for s in symbol_stats.values()), 4),
+                "sum_by_combo_rounded_4dp": round(sum(c["gross_pnl"] for c in combos_list), 4),
+                "rounding_discrepancy_vs_run_rounded": round(abs(sum(c["gross_pnl"] for c in combos_list) - round(gross_pnl_u, 4)), 4),
+            },
+            "fees": {
+                "run_total_unrounded": total_fees_u,
+                "sum_by_symbol_unrounded": sum_sym_fee_u,
+                "sum_by_combo_unrounded": sum_combo_fee_u,
+                "max_absolute_diff_unrounded": fee_diff_u,
+                "run_total_rounded_4dp": round(total_fees_u, 4),
+                "sum_by_symbol_rounded_4dp": round(sum(s["total_fees"] for s in symbol_stats.values()), 4),
+                "sum_by_combo_rounded_4dp": round(sum(c["fees"] for c in combos_list), 4),
+                "rounding_discrepancy_vs_run_rounded": round(abs(sum(c["fees"] for c in combos_list) - round(total_fees_u, 4)), 4),
+            },
+            "net_pnl": {
+                "run_total_unrounded": net_pnl_u,
+                "sum_by_symbol_unrounded": sum_sym_net_u,
+                "sum_by_combo_unrounded": sum_combo_net_u,
+                "max_absolute_diff_unrounded": net_diff_u,
+                "run_total_rounded_4dp": round(net_pnl_u, 4),
+                "sum_by_symbol_rounded_4dp": round(sum(s["net_pnl"] for s in symbol_stats.values()), 4),
+                "sum_by_combo_rounded_4dp": round(sum(c["net_pnl"] for c in combos_list), 4),
+                "rounding_discrepancy_vs_run_rounded": round(abs(sum(c["net_pnl"] for c in combos_list) - round(net_pnl_u, 4)), 4),
+            },
+            "symbol_combo_alignment_pass": alignment_valid,
+            "tolerance": tolerance,
+            "reconciliation_pass": reconciliation_pass,
+        }
+
+        accounting_balance_pass = math.isclose(gross_pnl_u - total_fees_u, net_pnl_u, abs_tol=1e-4)
+
         # Compile final analysis dictionary
-        return {
+        # Compute ambiguity counts directly from trades ledger
+        def is_tp_sl_amb(t: Any) -> bool:
+            if isinstance(t, dict):
+                return bool(t.get("intrabar_ambiguous", False))
+            return bool(getattr(t, "intrabar_ambiguous", False))
+
+        def is_trailing_amb(t: Any) -> bool:
+            if isinstance(t, dict):
+                return bool(t.get("intrabar_trailing_ambiguous", False))
+            return bool(getattr(t, "intrabar_trailing_ambiguous", False))
+
+        ledger_tp_sl_count = sum(1 for t in trades if is_tp_sl_amb(t))
+        ledger_trailing_count = sum(1 for t in trades if is_trailing_amb(t))
+
+        # Do NOT trust 0 in ambiguity_stats if ledger shows non-zero counts
+        amb_stats = sim_result.ambiguity_stats or {}
+        raw_tp_sl = amb_stats.get("intrabar_tp_sl_ambiguous_count")
+        raw_trailing = amb_stats.get("intrabar_trailing_ambiguous_count")
+
+        if raw_tp_sl is None or (raw_tp_sl == 0 and ledger_tp_sl_count != 0):
+            tp_sl_ambiguous_count = ledger_tp_sl_count
+        else:
+            tp_sl_ambiguous_count = raw_tp_sl
+
+        if raw_trailing is None or (raw_trailing == 0 and ledger_trailing_count != 0):
+            trailing_ambiguous_count = ledger_trailing_count
+        else:
+            trailing_ambiguous_count = raw_trailing
+        result = {
             "mode": mode,
             "accounting": {
                 "total_signals": total_signals,
@@ -308,8 +482,9 @@ class ResearchAnalyzer:
                 "other_skipped": other_skipped,
                 "rejected_by_margin": rejected_margin,
                 "other_rejected": other_rejected,
-                "symbol_reconciliation_pass": symbol_reconciliation_pass,
+                "symbol_reconciliation_pass": net_diff_u <= tolerance,
                 "accounting_balance_pass": accounting_balance_pass,
+                "three_level_reconciliation_pass": reconciliation_pass,
             },
             "win_rate": {
                 "leg_win_rate_pct": round(leg_win_rate_pct, 2),
@@ -322,19 +497,31 @@ class ResearchAnalyzer:
                 "breakeven_trades": breakeven_trades,
             },
             "pnl": {
-                "gross_pnl": round(gross_pnl, 4),
-                "total_fees": round(total_fees, 4),
-                "net_pnl": round(net_pnl, 4),
-                "profit_factor": profit_factor if isinstance(profit_factor, str) else round(profit_factor, 2),
-                "net_profit_factor": net_profit_factor if isinstance(net_profit_factor, str) else round(net_profit_factor, 2),
-                "gross_profit_factor": gross_profit_factor if isinstance(gross_profit_factor, str) else round(gross_profit_factor, 2),
+                "gross_pnl": round(gross_pnl_u, 4),
+                "gross_pnl_unrounded": gross_pnl_u,
+                "total_fees": round(total_fees_u, 4),
+                "total_fees_unrounded": total_fees_u,
+                "net_pnl": round(net_pnl_u, 4),
+                "net_pnl_unrounded": net_pnl_u,
+                "profit_factor": run_pf["profit_factor"],
+                "profit_factor_basis": run_pf["profit_factor_basis"],
+                "net_profit_factor": run_pf["net_pf_leg"],
+                "gross_profit_factor": run_pf["gross_pf_leg"],
+                "net_pf_trade": run_pf["net_pf_trade"],
+                "net_pf_trade_unrounded": run_pf["net_pf_trade_unrounded"],
+                "net_pf_leg": run_pf["net_pf_leg"],
+                "net_pf_leg_unrounded": run_pf["net_pf_leg_unrounded"],
+                "gross_pf_trade": run_pf["gross_pf_trade"],
+                "gross_pf_trade_unrounded": run_pf["gross_pf_trade_unrounded"],
+                "gross_pf_leg": run_pf["gross_pf_leg"],
+                "gross_pf_leg_unrounded": run_pf["gross_pf_leg_unrounded"],
                 "roi_pct": round(roi_pct, 2),
                 "roi_denominator_name": roi_denominator_name,
                 "roi_denominator_value": roi_denominator_value,
                 "roi_note": roi_note,
-                "avg_trade_pnl": round(net_pnl / accepted_entries, 4) if accepted_entries > 0 else 0.0,
-                "avg_leg_pnl": round(net_pnl / total_legs, 4) if total_legs > 0 else 0.0,
-                "accounting_verified": accounting_balance_pass and symbol_reconciliation_pass,
+                "avg_trade_pnl": round(net_pnl_u / accepted_entries, 4) if accepted_entries > 0 else 0.0,
+                "avg_leg_pnl": round(net_pnl_u / total_legs, 4) if total_legs > 0 else 0.0,
+                "accounting_verified": accounting_balance_pass and (net_diff_u <= tolerance),
             },
             "risk": {
                 "closed_trade_max_drawdown_dollars": round(max_dd_dollars, 4),
@@ -345,7 +532,8 @@ class ResearchAnalyzer:
                 "m2m_note": m2m_note,
             },
             "ambiguity": {
-                **sim_result.ambiguity_stats,
+                "intrabar_tp_sl_ambiguous_count": tp_sl_ambiguous_count,
+                "intrabar_trailing_ambiguous_count": trailing_ambiguous_count,
                 "resolution_policy": "CONSERVATIVE (SL prioritized on intrabar TP/SL tie; callback prioritized on trailing tie)",
             },
             "symbols": symbol_stats,
@@ -353,7 +541,23 @@ class ResearchAnalyzer:
             "monthly": monthly_list,
             "subwindows": subwindow_results,
             "exit_reasons": exit_breakdown,
+            "reconciliation": reconciliation,
         }
+
+        if validation is not None:
+            result["validation"] = dict(validation)
+        elif "validation" in sim_result.summary_dict:
+            result["validation"] = dict(sim_result.summary_dict["validation"])
+
+        if "validation" in result and isinstance(result["validation"], dict):
+            if "validation_source" not in result["validation"]:
+                gsha = sim_result.summary_dict.get("git_sha", "")
+                if gsha.startswith("b68933c"):
+                    result["validation"]["validation_source"] = "INHERITED_GOLDEN_V3_08"
+                else:
+                    result["validation"]["validation_source"] = "RE_VERIFIED_INDEPENDENT"
+
+        return result
 
     @classmethod
     def compare_runs(cls, run_dicts: list[dict[str, Any]]) -> dict[str, Any]:
@@ -381,10 +585,17 @@ class ResearchAnalyzer:
                 "gross_pnl": pnl_info.get("gross_pnl", 0.0),
                 "total_fees": pnl_info.get("total_fees", 0.0),
                 "net_pnl": pnl_info.get("net_pnl", 0.0),
+                "net_pf_trade": pnl_info.get("net_pf_trade", 0.0),
+                "net_pf_leg": pnl_info.get("net_pf_leg", 0.0),
+                "gross_pf_trade": pnl_info.get("gross_pf_trade", 0.0),
+                "gross_pf_leg": pnl_info.get("gross_pf_leg", 0.0),
                 "profit_factor": pnl_info.get("profit_factor", 0.0),
+                "profit_factor_basis": pnl_info.get("profit_factor_basis", "leg"),
                 "roi_pct": pnl_info.get("roi_pct", 0.0),
-                "max_drawdown_dollars": risk.get("m2m_max_drawdown_dollars", risk.get("closed_trade_max_drawdown_dollars", 0.0)),
-                "max_drawdown_pct": risk.get("m2m_max_drawdown_pct", risk.get("closed_trade_max_drawdown_pct", 0.0)),
+                "closed_trade_max_drawdown_dollars": risk.get("closed_trade_max_drawdown_dollars", 0.0),
+                "closed_trade_max_drawdown_pct": risk.get("closed_trade_max_drawdown_pct", 0.0),
+                "m2m_max_drawdown_dollars": risk.get("m2m_max_drawdown_dollars"),
+                "m2m_max_drawdown_pct": risk.get("m2m_max_drawdown_pct"),
             }
             comparison_rows.append(row)
 

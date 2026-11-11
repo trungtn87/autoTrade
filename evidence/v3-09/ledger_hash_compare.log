@@ -1,0 +1,99 @@
+================================================================================
+AUTOTRADE V3-08: GOLDEN VERIFICATION RUN ON COMMIT HEAD ba404fc
+================================================================================
+Git HEAD SHA: ba404fc86b265768de315a08ef161ce37711c2c0
+Git Dirty:    False
+Diff Hash:    ''
+
+Verifying live dataset integrity against physical partitions...
+Dataset Valid: True
+Dataset Hash:  ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628
+
+Target Verification Output: runs\verify_v309
+
+>>> Running Mode ALL_SIGNALS on REAL M1 DATA (2023-11-01 to 2026-11-01)...
+Finished ALL_SIGNALS in 89.5s. Saved to: runs\verify_v309\ALL_SIGNALS
+
+>>> Running Mode ONE_TRADE_PER_COMBO on REAL M1 DATA (2023-11-01 to 2026-11-01)...
+Finished ONE_TRADE_PER_COMBO in 89.3s. Saved to: runs\verify_v309\ONE_TRADE_PER_COMBO
+
+>>> Running Mode BINGX_PORTFOLIO on REAL M1 DATA (2023-11-01 to 2026-11-01)...
+Finished BINGX_PORTFOLIO in 136.5s. Saved to: runs\verify_v309\BINGX_PORTFOLIO
+
+================================================================================
+RECONCILIATION: NEW HEAD RUN vs LOCKED GOLDEN BASELINE
+================================================================================
+
+--- Comparing Mode: ALL_SIGNALS ---
+  signals.parquet:       Rows=5984 (gold=5984), Dups=0, Hash Match=True
+  trades.parquet:        Rows=8258 (gold=8258), Dups=0, Hash Match=True, Ledger Diffs=0
+  skipped_signals:       Rows=0 (gold=0), Hash Match=True
+  rejected_signals:      Rows=0 (gold=0), Hash Match=True
+  Net PnL:               $410.7007 (gold=$410.7007, diff=0.0)
+  ROI:                   +41.07% (gold=+41.07%)
+
+--- Comparing Mode: ONE_TRADE_PER_COMBO ---
+  signals.parquet:       Rows=5984 (gold=5984), Dups=0, Hash Match=True
+  trades.parquet:        Rows=6273 (gold=6273), Dups=0, Hash Match=True, Ledger Diffs=0
+  skipped_signals:       Rows=1828 (gold=1828), Hash Match=True
+  rejected_signals:      Rows=0 (gold=0), Hash Match=True
+  Net PnL:               $284.1945 (gold=$284.1945, diff=0.0)
+  ROI:                   +28.42% (gold=+28.42%)
+
+--- Comparing Mode: BINGX_PORTFOLIO ---
+  signals.parquet:       Rows=5984 (gold=5984), Dups=0, Hash Match=True
+  trades.parquet:        Rows=6265 (gold=6265), Dups=0, Hash Match=True, Ledger Diffs=0
+  skipped_signals:       Rows=1835 (gold=1835), Hash Match=True
+  rejected_signals:      Rows=0 (gold=0), Hash Match=True
+  Net PnL:               $282.1935 (gold=$282.1935, diff=0.0)
+  ROI:                   +28.22% (gold=+28.22%)
+  snapshots.parquet:     Verified=True, SHA Match=True, Rows=781611
+
+Verification summary:
+[
+  {
+    "mode": "ALL_SIGNALS",
+    "signals": 5984,
+    "signals_hash_match": true,
+    "trades": 8258,
+    "trades_hash_match": true,
+    "net_pnl": 410.7007,
+    "net_pnl_gold": 410.7007,
+    "pnl_diff": 0.0,
+    "skipped": 0,
+    "skipped_hash_match": true,
+    "rejected": 0,
+    "rejected_hash_match": true,
+    "snapshot_status": "N/A"
+  },
+  {
+    "mode": "ONE_TRADE_PER_COMBO",
+    "signals": 5984,
+    "signals_hash_match": true,
+    "trades": 6273,
+    "trades_hash_match": true,
+    "net_pnl": 284.1945,
+    "net_pnl_gold": 284.1945,
+    "pnl_diff": 0.0,
+    "skipped": 1828,
+    "skipped_hash_match": true,
+    "rejected": 0,
+    "rejected_hash_match": true,
+    "snapshot_status": "N/A"
+  },
+  {
+    "mode": "BINGX_PORTFOLIO",
+    "signals": 5984,
+    "signals_hash_match": true,
+    "trades": 6265,
+    "trades_hash_match": true,
+    "net_pnl": 282.1935,
+    "net_pnl_gold": 282.1935,
+    "pnl_diff": 0.0,
+    "skipped": 1835,
+    "skipped_hash_match": true,
+    "rejected": 0,
+    "rejected_hash_match": true,
+    "snapshot_status": "PASS"
+  }
+]

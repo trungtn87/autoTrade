@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 import math
+from typing import Any
 import numpy as np
 import pandas as pd
 
@@ -252,3 +253,124 @@ def calculate_metrics(
         rejected_signals_margin=rejected_signals_count,
         m2m_equity_curve=m2m_eq_curve,
     )
+
+
+def compute_four_profit_factors(trades: list[TradeRecord] | pd.DataFrame) -> dict[str, Any]:
+    """Compute the 4 canonical Profit Factors at trade-level and leg-level.
+    
+    1. net_pf_trade: Trade-level Net Profit Factor (sum net per trade_id before win/loss classification)
+    2. net_pf_leg: Leg-level Net Profit Factor (each leg classified independently)
+    3. gross_pf_trade: Trade-level Gross Profit Factor (sum gross per trade_id before win/loss classification)
+    4. gross_pf_leg: Leg-level Gross Profit Factor (each leg classified independently)
+    """
+    if isinstance(trades, pd.DataFrame):
+        if trades.empty:
+            return {
+                "net_pf_trade": 0.0,
+                "net_pf_trade_unrounded": 0.0,
+                "net_pf_leg": 0.0,
+                "net_pf_leg_unrounded": 0.0,
+                "gross_pf_trade": 0.0,
+                "gross_pf_trade_unrounded": 0.0,
+                "gross_pf_leg": 0.0,
+                "gross_pf_leg_unrounded": 0.0,
+                "profit_factor": 0.0,
+                "profit_factor_basis": "leg",
+            }
+        l_net = trades["net_pnl"]
+        l_gross = trades["gross_pnl"]
+        l_net_wins = float(l_net[l_net > 0].sum())
+        l_net_losses = float(abs(l_net[l_net < 0].sum()))
+        l_gross_wins = float(l_gross[l_gross > 0].sum())
+        l_gross_losses = float(abs(l_gross[l_gross < 0].sum()))
+
+        t_net = trades.groupby("trade_id")["net_pnl"].sum()
+        t_gross = trades.groupby("trade_id")["gross_pnl"].sum()
+        t_net_wins = float(t_net[t_net > 0].sum())
+        t_net_losses = float(abs(t_net[t_net < 0].sum()))
+        t_gross_wins = float(t_gross[t_gross > 0].sum())
+        t_gross_losses = float(abs(t_gross[t_gross < 0].sum()))
+    else:
+        if not trades:
+            return {
+                "net_pf_trade": 0.0,
+                "net_pf_trade_unrounded": 0.0,
+                "net_pf_leg": 0.0,
+                "net_pf_leg_unrounded": 0.0,
+                "gross_pf_trade": 0.0,
+                "gross_pf_trade_unrounded": 0.0,
+                "gross_pf_leg": 0.0,
+                "gross_pf_leg_unrounded": 0.0,
+                "profit_factor": 0.0,
+                "profit_factor_basis": "leg",
+            }
+        l_net_wins = sum(t.net_pnl for t in trades if t.net_pnl > 0)
+        l_net_losses = sum(abs(t.net_pnl) for t in trades if t.net_pnl < 0)
+        l_gross_wins = sum(t.gross_pnl for t in trades if t.gross_pnl > 0)
+        l_gross_losses = sum(abs(t.gross_pnl) for t in trades if t.gross_pnl < 0)
+
+        t_net_map = defaultdict(float)
+        t_gross_map = defaultdict(float)
+        for t in trades:
+            t_net_map[t.trade_id] += t.net_pnl
+            t_gross_map[t.trade_id] += t.gross_pnl
+        t_net_wins = sum(v for v in t_net_map.values() if v > 0)
+        t_net_losses = sum(abs(v) for v in t_net_map.values() if v < 0)
+        t_gross_wins = sum(v for v in t_gross_map.values() if v > 0)
+        t_gross_losses = sum(abs(v) for v in t_gross_map.values() if v < 0)
+
+    def _calc_pf(wins: float, losses: float) -> tuple[float | str, float | str]:
+        if losses > 1e-9:
+            ratio = wins / losses
+            return round(ratio, 2), ratio
+        elif wins > 1e-9:
+            return "UNDEFINED_NO_LOSS", "UNDEFINED_NO_LOSS"
+        else:
+            return 0.0, 0.0
+
+    net_pf_trade_r, net_pf_trade_u = _calc_pf(t_net_wins, t_net_losses)
+    net_pf_leg_r, net_pf_leg_u = _calc_pf(l_net_wins, l_net_losses)
+    gross_pf_trade_r, gross_pf_trade_u = _calc_pf(t_gross_wins, t_gross_losses)
+    gross_pf_leg_r, gross_pf_leg_u = _calc_pf(l_gross_wins, l_gross_losses)
+
+    return {
+        "net_pf_trade": net_pf_trade_r,
+        "net_pf_trade_unrounded": net_pf_trade_u,
+        "net_pf_leg": net_pf_leg_r,
+        "net_pf_leg_unrounded": net_pf_leg_u,
+        "gross_pf_trade": gross_pf_trade_r,
+        "gross_pf_trade_unrounded": gross_pf_trade_u,
+        "gross_pf_leg": gross_pf_leg_r,
+        "gross_pf_leg_unrounded": gross_pf_leg_u,
+        "profit_factor": net_pf_leg_r,
+        "profit_factor_basis": "leg",
+    }
+
+
+def get_baseline_combo_keys() -> set[str]:
+    """Return the canonical set of 20 {symbol}/{combo_name} combo keys from baseline config."""
+    try:
+        from autotrade_v3.data_backtest.replay_20final import modules
+        m = modules()
+        f14 = m.get("FINAL14_CASES", {})
+        n6 = m.get("NEW6_CASES", {})
+        case_name_fn = m.get("case_name", lambda c: f"C{c}")
+        keys = set()
+        for sym, c_dict in f14.items():
+            for cid in c_dict.keys():
+                keys.add(f"{sym}/{case_name_fn(cid)}")
+        for sym, c_dict in n6.items():
+            for cid in c_dict.keys():
+                keys.add(f"{sym}/{case_name_fn(cid)}")
+        if keys:
+            return keys
+    except Exception:
+        pass
+    # Fallback to standard 20 baseline combos
+    return {
+        "BTC-USDT/C1", "BTC-USDT/C2", "BTC-USDT/C4", "BTC-USDT/C6", "BTC-USDT/C7",
+        "BTC-USDT/C9", "BTC-USDT/C10", "BTC-USDT/TIER", "BTC-USDT/C11", "BTC-USDT/C14", "BTC-USDT/C16",
+        "ETH-USDT/C1", "ETH-USDT/C3", "ETH-USDT/C4", "ETH-USDT/C6", "ETH-USDT/C7",
+        "ETH-USDT/C10", "ETH-USDT/C12", "ETH-USDT/C13", "ETH-USDT/C15",
+    }
+

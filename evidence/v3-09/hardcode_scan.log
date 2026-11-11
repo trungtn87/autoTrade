@@ -1,0 +1,5 @@
+=== AutoTrade V3 Hardcoded Metric Scanner ===
+Scanned paths: ['autotrade_v3\\lab\\run_manager.py', 'autotrade_v3\\reports\\reporter.py', 'scripts\\run_v3_backtest.py', 'scripts\\reconcile_runs.py', 'autotrade_v3\\analysis\\research_analyzer.py']
+Total violations found: 0
+
+[SCAN CLEAN] No hardcoded backtest metrics found in active reporting paths.
