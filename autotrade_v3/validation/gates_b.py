@@ -57,6 +57,23 @@ def gate_b1(ctx: VerifyContext) -> GateResult:
             total=total,
         )
 
+    if ctx.is_synthetic:
+        return inconclusive(
+            "B1",
+            name,
+            "Synthetic dataset run; frozen reference parity applies only to real baseline.",
+            total=total,
+        )
+
+    syms = set(manifest.get("symbols", []))
+    if syms and syms != {"BTC-USDT", "ETH-USDT"}:
+        return inconclusive(
+            "B1",
+            name,
+            f"Subset of symbols ({sorted(syms)}); frozen reference parity requires full symbol universe.",
+            total=total,
+        )
+
     if ref_path is None or not ref_path.exists():
         return inconclusive(
             "B1",
@@ -202,27 +219,33 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
 
     tw = manifest.get("time_window", {})
     start_date = tw.get("start", "2023-11-01")
+    end_date = tw.get("end", "2026-11-01")
+
+    # Optimization: Query full M15 series once per symbol with warmup, then slice per cutoff
+    full_data: dict[str, pd.DataFrame] = {}
+    for sym in symbols:
+        try:
+            full_data[sym] = dl.query_timeframe(
+                symbol=sym,
+                timeframe="15m",
+                start=start_date,
+                end=end_date,
+                include_warmup=True,
+            )
+        except Exception as e:
+            return inconclusive("B2", name, f"Failed to load M15 data for {sym}: {e}")
 
     for cutoff_t in cutoffs:
         checked_points += 1
-        cutoff_dt_str = pd.Timestamp(cutoff_t, unit="ms", tz="UTC").strftime("%Y-%m-%d %H:%M:%S")
+        cutoff_dt = pd.Timestamp(cutoff_t, unit="ms", tz="UTC")
+        cutoff_dt_str = cutoff_dt.strftime("%Y-%m-%d %H:%M:%S")
 
         # Full run signals up to cutoff_t
         expected_subset = run_sigs[run_sigs["signal_close_ms"] <= cutoff_t]
         expected_ids = set(expected_subset["signal_id"])
 
-        # Re-generate input data strictly up to cutoff_dt_str
-        sub_data: dict[str, pd.DataFrame] = {}
-        for sym in symbols:
-            # query timeframe with warmup
-            df_tf = dl.query_timeframe(
-                symbol=sym,
-                timeframe="15m",
-                start=start_date,
-                end=cutoff_dt_str,
-                include_warmup=True,
-            )
-            sub_data[sym] = df_tf
+        # Slice data strictly up to cutoff_dt (candles that closed at or before cutoff_t)
+        sub_data = {sym: full_data[sym][full_data[sym].index < cutoff_dt] for sym in symbols}
 
         # Re-run strategy
         try:

@@ -210,13 +210,17 @@ def cmd_verify(args: argparse.Namespace) -> None:
         print(f"Error: Run directory does not exist: {run_dir}", file=sys.stderr)
         sys.exit(1)
 
+    no_write = getattr(args, "no_write", False)
+    output_dir = getattr(args, "output_dir", None)
+
     print(f"Starting Independent Validation Gates verification on: {run_dir}")
     report = run_validation(
         run_dir=run_dir,
         dataset_root=args.dataset_root,
         n_cutoffs=args.cutoffs,
         seed=args.seed,
-        write_result=True,
+        write_result=not no_write,
+        output_dir=output_dir,
     )
 
     print(f"\n=======================================================")
@@ -249,7 +253,16 @@ def cmd_verify(args: argparse.Namespace) -> None:
         for fr in report.failure_reasons:
             print(f"  - {fr}")
 
-    print(f"\nValidation artifact written to: {run_dir / 'validation.json'}")
+    if not no_write:
+        if output_dir:
+            out_target = Path(output_dir) / "validation.json"
+        elif "runs/golden/v3-08" in str(run_dir).replace("\\", "/"):
+            out_target = Path("evidence/v3-10/golden_validation") / run_dir.name / "validation.json"
+        else:
+            out_target = run_dir / "validation.json"
+        print(f"\nValidation artifact written to: {out_target}")
+    else:
+        print("\nRead-only mode (--no-write): validation artifact not written.")
 
 
 def cmd_report(args: argparse.Namespace) -> None:
@@ -327,6 +340,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_vf.add_argument("--dataset-root", default=".", help="Root directory containing dataset partition files")
     p_vf.add_argument("--cutoffs", type=int, default=20, help="Number of cutoff points for B2 no-lookahead check")
     p_vf.add_argument("--seed", type=int, default=20261110, help="Seed for cutoff sampling")
+    p_vf.add_argument("--output-dir", default=None, help="Directory to write validation.json (avoids writing into run_dir)")
+    p_vf.add_argument("--no-write", action="store_true", help="Read-only mode: do not write validation.json anywhere")
     p_vf.set_defaults(func=cmd_verify)
 
     return parser

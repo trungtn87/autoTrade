@@ -259,6 +259,7 @@ class ExperimentRunner:
             smoke_test=smoke_test,
             data_layer=self.data_layer,
             artifacts_dir=run_dir,
+            write_result=(not is_golden),
         )
         manifest.validation_status = val_report.overall_status
 

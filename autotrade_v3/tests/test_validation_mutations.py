@@ -9,6 +9,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 import shutil
 import tempfile
 import unittest
@@ -257,6 +258,157 @@ class TestValidationGatesMutations(unittest.TestCase):
             self.assertEqual(res.status, "FAIL")
             self.assertTrue(any(v.get("kind") == "REPORT_NUMBER_MISMATCH" for v in res.violations))
 
+    def test_m_b2_lookahead_detection(self):
+        """M-B2: Tamper signals with future signal_close_ms -> B2 FAIL with LOOKAHEAD_DETECTED."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_run = Path(tmp)
+            shutil.copytree(self.golden_dir / "ALL_SIGNALS", tmp_run, dirs_exist_ok=True)
+            shutil.copy2(self.golden_dir / "dataset_manifest.json", tmp_run / "dataset_manifest.json")
+
+            sig_path = tmp_run / "signals.parquet"
+            df_sigs = pd.read_parquet(sig_path)
+            # Inject a future-lookahead signal by shifting a later signal into an early cutoff window
+            # or tampering an existing signal's close timestamp to an arbitrary earlier timestamp
+            tampered_row = df_sigs.iloc[-1].copy()
+            tampered_row["signal_id"] = "LOOKAHEAD_INJECTED_SIG_9999"
+            tampered_row["signal_close_ms"] = int(df_sigs.iloc[10]["signal_close_ms"])
+            df_mut = pd.concat([df_sigs, pd.DataFrame([tampered_row])], ignore_index=True)
+            df_mut.to_parquet(sig_path)
+
+            ctx = VerifyContext(tmp_run, dataset_root=self.repo_root, repo_root=self.repo_root, n_cutoffs=3)
+            res = gates_b.gate_b2(ctx)
+            self.assertEqual(res.status, "FAIL")
+            self.assertGreater(res.violation_count, 0)
+            self.assertTrue(any(v.get("kind") == "LOOKAHEAD_DETECTED" for v in res.violations))
+
+    def test_m_d2_1_mismatch_net_pf_trade(self):
+        """M-D2-1: Mismatch in net_pf_trade between report.md and recomputed trades -> D2 FAIL."""
+        from autotrade_v3.tests.test_reporting_corrections_v309 import _setup_pristine_run
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir, report_text = _setup_pristine_run(Path(tmp), "ALL_SIGNALS")
+            rep_path = run_dir / "report.md"
+            # Tamper Net Profit Factor (Trade) in report
+            tampered_text = re.sub(r"-\s*\*\*Net Profit Factor \(Trade\):\*\*\s*[\d\.]+", "- **Net Profit Factor (Trade):** 9.99", report_text)
+            self.assertNotEqual(report_text, tampered_text, "Failed to tamper Net Profit Factor (Trade)")
+            rep_path.write_text(tampered_text, encoding="utf-8")
+
+            ctx = VerifyContext(run_dir, dataset_root=self.repo_root, repo_root=self.repo_root)
+            res = gates_d.gate_d2(ctx)
+            self.assertEqual(res.status, "FAIL")
+            self.assertTrue(any("net_pf_trade" in str(v) or v.get("kind") == "REPORT_NUMBER_MISMATCH" for v in res.violations))
+
+    def test_m_d2_2_mismatch_gross_pf_leg(self):
+        """M-D2-2: Tampered gross_pf_leg in analysis.json -> D2 FAIL."""
+        from autotrade_v3.tests.test_reporting_corrections_v309 import _setup_pristine_run
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir, _ = _setup_pristine_run(Path(tmp), "ALL_SIGNALS")
+            an_path = run_dir / "analysis.json"
+            an_data = json.loads(an_path.read_text(encoding="utf-8"))
+            an_data["pnl"]["gross_pf_leg"] = 9.99
+            an_path.write_text(json.dumps(an_data), encoding="utf-8")
+
+            ctx = VerifyContext(run_dir, dataset_root=self.repo_root, repo_root=self.repo_root)
+            res = gates_d.gate_d2(ctx)
+            self.assertEqual(res.status, "FAIL")
+            self.assertTrue(any("gross_pf_leg" in str(v) for v in res.violations))
+
+    def test_m_d2_3_missing_or_wrong_combo(self):
+        """M-D2-3: Missing or renamed combo in analysis.json -> D2 FAIL."""
+        from autotrade_v3.tests.test_reporting_corrections_v309 import _setup_pristine_run
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir, _ = _setup_pristine_run(Path(tmp), "ALL_SIGNALS")
+            an_path = run_dir / "analysis.json"
+            an_data = json.loads(an_path.read_text(encoding="utf-8"))
+            # Rename a canonical combo
+            an_data["combos"][0]["combo_key"] = "BTC-USDT/C999_TAMPERED"
+            an_path.write_text(json.dumps(an_data), encoding="utf-8")
+
+            ctx = VerifyContext(run_dir, dataset_root=self.repo_root, repo_root=self.repo_root)
+            res = gates_d.gate_d2(ctx)
+            self.assertEqual(res.status, "FAIL")
+
+    def test_m_d2_4_combo_pnl_reconciliation_mismatch(self):
+        """M-D2-4: Discrepancy between combo PnL sum and run summary PnL -> D2 FAIL."""
+        from autotrade_v3.tests.test_reporting_corrections_v309 import _setup_pristine_run
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir, _ = _setup_pristine_run(Path(tmp), "ALL_SIGNALS")
+            an_path = run_dir / "analysis.json"
+            an_data = json.loads(an_path.read_text(encoding="utf-8"))
+            # Corrupt combo 0 net_pnl_unrounded by +50.0
+            an_data["combos"][0]["net_pnl_unrounded"] += 50.0
+            an_path.write_text(json.dumps(an_data), encoding="utf-8")
+
+            ctx = VerifyContext(run_dir, dataset_root=self.repo_root, repo_root=self.repo_root)
+            res = gates_d.gate_d2(ctx)
+            self.assertEqual(res.status, "FAIL")
+            self.assertTrue(any("combos[0].net_pnl_unrounded" in str(v) or "reconciliation" in str(v) for v in res.violations))
+
+    def test_m_d2_5_symbol_pnl_reconciliation_mismatch(self):
+        """M-D2-5: Discrepancy between symbol PnL sum and run summary PnL -> D2 FAIL."""
+        from autotrade_v3.tests.test_reporting_corrections_v309 import _setup_pristine_run
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir, _ = _setup_pristine_run(Path(tmp), "ALL_SIGNALS")
+            an_path = run_dir / "analysis.json"
+            an_data = json.loads(an_path.read_text(encoding="utf-8"))
+            an_data["symbols"]["BTC-USDT"]["net_pnl_unrounded"] += 50.0
+            an_path.write_text(json.dumps(an_data), encoding="utf-8")
+
+            ctx = VerifyContext(run_dir, dataset_root=self.repo_root, repo_root=self.repo_root)
+            res = gates_d.gate_d2(ctx)
+            self.assertEqual(res.status, "FAIL")
+            self.assertTrue(any("symbols.BTC-USDT" in str(v) for v in res.violations))
+
+    def test_m_d2_6_unrounded_mismatch(self):
+        """M-D2-6: Unrounded field mismatch against ledger recomputation -> D2 FAIL."""
+        from autotrade_v3.tests.test_reporting_corrections_v309 import _setup_pristine_run
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir, _ = _setup_pristine_run(Path(tmp), "ALL_SIGNALS")
+            an_path = run_dir / "analysis.json"
+            an_data = json.loads(an_path.read_text(encoding="utf-8"))
+            an_data["pnl"]["net_pnl_unrounded"] += 0.05
+            an_path.write_text(json.dumps(an_data), encoding="utf-8")
+
+            ctx = VerifyContext(run_dir, dataset_root=self.repo_root, repo_root=self.repo_root)
+            res = gates_d.gate_d2(ctx)
+            self.assertEqual(res.status, "FAIL")
+            self.assertTrue(any("net_pnl_unrounded" in str(v) for v in res.violations))
+
+    def test_m_d2_7_reconciliation_audit_section_mismatch(self):
+        """M-D2-7: Section 8 Reconciliation Audit mismatch in report.md -> D2 FAIL."""
+        from autotrade_v3.tests.test_reporting_corrections_v309 import _setup_pristine_run
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir, report_text = _setup_pristine_run(Path(tmp), "ALL_SIGNALS")
+            rep_path = run_dir / "report.md"
+            tampered_text = report_text.replace(
+                "- **Three-Level Parity Pass (Run == Symbol Sum == Combo Sum):** `True`",
+                "- **Three-Level Parity Pass (Run == Symbol Sum == Combo Sum):** `False`"
+            )
+            self.assertNotEqual(report_text, tampered_text, "Failed to tamper Three-Level Parity Pass")
+            rep_path.write_text(tampered_text, encoding="utf-8")
+
+            ctx = VerifyContext(run_dir, dataset_root=self.repo_root, repo_root=self.repo_root)
+            res = gates_d.gate_d2(ctx)
+            self.assertEqual(res.status, "FAIL")
+            self.assertTrue(any("reconciliation_parity" in str(v) or "RECONCILIATION_MISMATCH" in str(v) for v in res.violations))
+
+    def test_m_d2_8_markdown_table_header_mismatch(self):
+        """M-D2-8: Markdown table header corrupt or missing column -> D2 FAIL."""
+        from autotrade_v3.tests.test_reporting_corrections_v309 import _setup_pristine_run
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir, report_text = _setup_pristine_run(Path(tmp), "ALL_SIGNALS")
+            rep_path = run_dir / "report.md"
+            # Delete one column from Combo table header
+            tampered_text = report_text.replace(
+                "| Combo Key | Symbol | ID | Name | Timeframe | Entries | Legs | Net PnL | Win Rate | Net PF (Leg) | Net PF (Trade) |",
+                "| Combo Key | Symbol | ID | Name | Timeframe | Entries | Legs | Net PnL | Win Rate | Net PF (Leg) |"
+            )
+            rep_path.write_text(tampered_text, encoding="utf-8")
+
+            ctx = VerifyContext(run_dir, dataset_root=self.repo_root, repo_root=self.repo_root)
+            res = gates_d.gate_d2(ctx)
+            self.assertEqual(res.status, "FAIL")
+            self.assertTrue(any("TABLE_HEADER_MISMATCH" in str(v) for v in res.violations))
+
     def test_m_dirty_tree(self):
         """M-DIRTY: Run created on dirty tree must have UNVERIFIED_DIRTY overall status."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -280,7 +432,7 @@ class TestValidationGatesMutations(unittest.TestCase):
             report = run_validation(
                 run_dir=tmp_run,
                 dataset_root=self.repo_root,
-                skip_gates=["B2"],
+                n_cutoffs=1,
                 write_result=False,
             )
             self.assertEqual(report.overall_status, "UNVERIFIED_DIRTY")

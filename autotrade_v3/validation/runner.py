@@ -24,7 +24,7 @@ from autotrade_v3.validation.gates_a import gate_a1, gate_a2
 from autotrade_v3.validation.gates_b import gate_b1, gate_b2, gate_b3
 from autotrade_v3.validation.gates_c import gate_c1, gate_c2, gate_c3, gate_c4, gate_c5
 from autotrade_v3.validation.gates_d import gate_d1, gate_d2
-from autotrade_v3.validation.types import FAIL, INCONCLUSIVE, PASS, GateResult
+from autotrade_v3.validation.types import FAIL, GATE_IDS, INCONCLUSIVE, PASS, GateResult
 
 ALL_GATE_ORDER = [
     ("A1", gate_a1),
@@ -64,29 +64,43 @@ def evaluate_overall_status(
     is_synthetic: bool,
     code_dirty: bool,
 ) -> tuple[str, list[str]]:
-    """Determine overall status per Section 4.4."""
+    """Determine overall status per Section 4.4 and check completeness of all mandatory gates."""
     failures = []
     has_inconclusive = False
+    inconclusive_reasons = []
 
-    for gid, res in gate_results.items():
+    # 1. Check presence and validity of all 12 mandatory gates
+    for gid in GATE_IDS:
+        if gid not in gate_results:
+            failures.append(f"Missing mandatory gate: {gid}")
+            continue
+        res = gate_results[gid]
         if res.status == FAIL:
             failures.append(f"{gid} ({res.name}): {res.reason or f'{res.violation_count} violations'}")
         elif res.status == INCONCLUSIVE:
             has_inconclusive = True
+            inconclusive_reasons.append(f"{gid} ({res.name}): {res.reason or 'inconclusive'}")
+        elif res.status == PASS:
+            if res.rows_checked != res.rows_total or res.violation_count > 0:
+                failures.append(
+                    f"{gid} ({res.name}): invalid PASS (checked={res.rows_checked}/{res.rows_total}, viol={res.violation_count})"
+                )
+        else:
+            failures.append(f"{gid} ({res.name}): invalid status '{res.status}'")
 
     if failures:
         return "FAILED", failures
 
-    if code_dirty:
-        return "UNVERIFIED_DIRTY", ["Working tree dirty at run execution time"]
-
     if is_synthetic:
         return "SYNTHETIC", []
+
+    if code_dirty:
+        return "UNVERIFIED_DIRTY", ["Working tree dirty at run execution time"]
 
     if has_inconclusive:
         return "PARTIALLY_VERIFIED", []
 
-    # All 12 PASS, clean, real data
+    # All 12 mandatory gates PASS, clean tree, real market data
     return "VERIFIED", []
 
 
@@ -99,6 +113,7 @@ def run_validation(
     seed: int = 20261110,
     skip_gates: list[str] | None = None,
     write_result: bool = True,
+    output_dir: str | Path | None = None,
 ) -> ValidationReport:
     """Run all 12 validation gates on a run directory."""
     r_dir = Path(run_dir).resolve()
@@ -127,6 +142,16 @@ def run_validation(
     t_start = time.perf_counter()
     for gid, gate_fn in ALL_GATE_ORDER:
         if gid in skip:
+            gate_results[gid] = GateResult(
+                gate_id=gid,
+                name=f"Gate {gid}",
+                status=FAIL,
+                rows_checked=0,
+                rows_total=0,
+                violation_count=1,
+                violations=[{"kind": "SKIPPED", "gate": gid}],
+                reason=f"Gate {gid} was skipped by caller option",
+            )
             continue
         g_t0 = time.perf_counter()
         try:
@@ -167,7 +192,18 @@ def run_validation(
     )
 
     if write_result:
-        val_path = r_dir / "validation.json"
+        is_golden_run = "runs/golden/v3-08" in str(r_dir).replace("\\", "/")
+        if output_dir is not None:
+            out_p = Path(output_dir)
+            out_p.mkdir(parents=True, exist_ok=True)
+            val_path = out_p / "validation.json"
+        elif is_golden_run:
+            ev_dir = ctx.repo_root / "evidence" / "v3-10" / "golden_validation" / r_dir.name
+            ev_dir.mkdir(parents=True, exist_ok=True)
+            val_path = ev_dir / "validation.json"
+        else:
+            val_path = r_dir / "validation.json"
+
         with open(val_path, "w", encoding="utf-8") as f:
             json.dump(report.to_dict(), f, indent=2)
 

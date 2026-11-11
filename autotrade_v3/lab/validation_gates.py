@@ -77,13 +77,16 @@ class ValidationGates:
         smoke_test: bool = False,
         data_layer: DataLayer | None = None,
         artifacts_dir: Path | None = None,
+        write_result: bool = True,
+        output_dir: Path | None = None,
     ) -> ValidationReport:
         """Run validation gates. If artifacts_dir is provided, runs the full 12 independent gates."""
         if artifacts_dir and Path(artifacts_dir).exists():
             mod_rep = run_validation(
                 run_dir=artifacts_dir,
                 dataset_root=data_layer.data_dir.parent.parent if data_layer else None,
-                write_result=True,
+                write_result=write_result,
+                output_dir=output_dir,
             )
             # Map into legacy Gate A, B, C, D representation for report formatting
             gates: dict[str, GateResult] = {}

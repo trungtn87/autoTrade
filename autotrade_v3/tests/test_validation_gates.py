@@ -62,3 +62,39 @@ class TestValidationGatesV310(unittest.TestCase):
         res = gates_d.gate_d1(ctx)
         self.assertEqual(res.status, "PASS")
         self.assertEqual(res.violation_count, 0)
+
+    def test_golden_run_immutability_under_validation(self):
+        """Proof that running validation on golden runs does NOT mutate runs/golden/v3-08/."""
+        import hashlib
+        from autotrade_v3.validation.runner import run_validation
+
+        golden_dir = Path("runs/golden/v3-08")
+        before_hashes: dict[str, str] = {}
+        for p in golden_dir.rglob("*"):
+            if p.is_file():
+                h = hashlib.sha256(p.read_bytes()).hexdigest()
+                before_hashes[str(p.relative_to(golden_dir))] = h
+
+        # Run validation on golden run
+        rep = run_validation(
+            run_dir=golden_dir / "ALL_SIGNALS",
+            dataset_root=Path("."),
+            skip_gates=["B2"],
+            write_result=True,
+        )
+
+        after_hashes: dict[str, str] = {}
+        for p in golden_dir.rglob("*"):
+            if p.is_file():
+                h = hashlib.sha256(p.read_bytes()).hexdigest()
+                after_hashes[str(p.relative_to(golden_dir))] = h
+
+        # Check no file added or removed
+        self.assertEqual(set(before_hashes.keys()), set(after_hashes.keys()))
+        # Check all file contents unchanged
+        for f, h_before in before_hashes.items():
+            self.assertEqual(h_before, after_hashes[f], f"File {f} was modified during validation!")
+
+        # Check evidence was written to evidence directory instead
+        ev_file = Path("evidence/v3-10/golden_validation/ALL_SIGNALS/validation.json")
+        self.assertTrue(ev_file.exists(), "validation.json was not written to evidence directory")
