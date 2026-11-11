@@ -13,7 +13,7 @@
       "rows_total": 74,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.826,
+      "duration_s": 0.894,
       "reason": "",
       "details": {
         "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
@@ -29,7 +29,7 @@
       "rows_total": 3156480,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 4.32,
+      "duration_s": 4.62,
       "reason": "",
       "details": {
         "per_symbol": {
@@ -58,7 +58,7 @@
             "negative_volume": 0
           }
         },
-        "scan_seconds": 4.317
+        "scan_seconds": 4.618
       }
     },
     "B1": {
@@ -69,7 +69,7 @@
       "rows_total": 5984,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.845,
+      "duration_s": 0.89,
       "reason": "",
       "details": {
         "reference_file": "D:\\AutoTrade\\runs\\golden\\v3-08\\ALL_SIGNALS\\signals.parquet",
@@ -258,7 +258,7 @@
       "rows_total": 8258,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.154,
+      "duration_s": 0.139,
       "reason": "",
       "details": {
         "mode": "ALL_SIGNALS",
@@ -273,7 +273,7 @@
       "rows_total": 8258,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 3.042,
+      "duration_s": 3.119,
       "reason": "",
       "details": {
         "policies_checked": 20
@@ -287,7 +287,7 @@
       "rows_total": 8258,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.379,
+      "duration_s": 0.404,
       "reason": "",
       "details": {
         "mode": "ALL_SIGNALS",
@@ -303,7 +303,7 @@
       "rows_total": 8258,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.098,
+      "duration_s": 0.097,
       "reason": "",
       "details": {
         "notes": [],
@@ -318,7 +318,7 @@
       "rows_total": 5984,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.043,
+      "duration_s": 0.025,
       "reason": "",
       "details": {
         "statuses": {
@@ -336,7 +336,7 @@
       "rows_total": 7,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 1.149,
+      "duration_s": 1.15,
       "reason": "",
       "details": {
         "undelivered_large_artifacts": []
@@ -350,7 +350,7 @@
       "rows_total": 650,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.332,
+      "duration_s": 0.348,
       "reason": "",
       "details": {
         "analysis_leaves_total": 610,
@@ -364,7 +364,7 @@
   "failure_reasons": [
     "B2 (Gate B2): Gate B2 was skipped by caller option"
   ],
-  "total_duration_s": 11.19,
+  "total_duration_s": 11.69,
   "seed": 20261110,
   "n_cutoffs": 20
 }

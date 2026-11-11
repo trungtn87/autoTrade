@@ -210,6 +210,11 @@ class TestGateB2Properties(unittest.TestCase):
 
     def test_b2_closed_bar_boundary_enforcement(self):
         """B2 slices strictly past closed bars: candle with open_time >= cutoff_dt must be excluded."""
+        catalog_path = self.repo_root / "catalog" / "research.duckdb"
+        data_dir = self.repo_root / "data" / "m1_raw"
+        if not catalog_path.exists() or not data_dir.exists():
+            self.skipTest("BLOCKED: Missing real M1 data per Invariant N8")
+
         ctx = VerifyContext(
             run_dir=self.golden_run_dir,
             dataset_root=self.repo_root,
