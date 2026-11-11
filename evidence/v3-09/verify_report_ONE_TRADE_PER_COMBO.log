@@ -1,7 +1,13 @@
 === VERIFY REPORT EXECUTION SUMMARY ===
 Report: evidence\v3-09\reports\ONE_TRADE_PER_COMBO\report.md
 Ledger: evidence\v3-09\reports\ONE_TRADE_PER_COMBO\trades.parquet
-Total metrics verified: 170
+Total metrics verified: 179
+  [OK] VERIFIED Validation Status: REAL_DATA_PASS (Real Market Data: True)
+  [OK] VERIFIED Git SHA in header: b68933c131725f680eafc72640153b61af85741d
+  [OK] VERIFIED Gate A — DATA: PASS
+  [OK] VERIFIED Gate B — STRATEGY: PASS
+  [OK] VERIFIED Gate C — EXECUTION: PASS
+  [OK] VERIFIED Gate D — RESULT: PASS
   [OK] VERIFIED Total Signals Generated: 5,984
   [OK] VERIFIED Accepted Entries: 4,156
   [OK] VERIFIED Total Legs: 6,273
@@ -16,13 +22,7 @@ Total metrics verified: 170
   [OK] VERIFIED Net Profit Factor (Trade): 1.14 (ledger 1.14)
   [OK] VERIFIED Net Profit Factor (Leg): 1.14 (ledger 1.14)
   [OK] VERIFIED Gross Profit Factor (Trade): 1.41 (ledger 1.41)
-  [OK] VERIFIED Gross Profit Factor (Leg): 1.39 (ledger 1.39)
-  [OK] VERIFIED Closed-Trade Max DD ($): 44.89 (ledger 44.89)
-  [OK] VERIFIED Symbol BTC-USDT Entries: 1,861
-  [OK] VERIFIED Symbol BTC-USDT Legs: 3,021
-  [OK] VERIFIED Symbol BTC-USDT Net PnL: 138.53 (ledger 138.53)
-  [OK] VERIFIED Symbol BTC-USDT Win Rate: 47.30 (ledger 47.27)
-  ... and 150 additional verified metrics.
+  ... and 159 additional verified metrics.
 
 SUCCESS: All reported figures faithfully verified against ledger.
 

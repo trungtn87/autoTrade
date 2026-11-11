@@ -1,49 +1,24 @@
 === GIT REV-PARSE HEAD (Base Commit before new commit) ===
-b7372040d333f0d5ad93f4b0b387ee5df06bd32f
+ab65225c0762ded224dcee5293620883d19296b3
 
-=== GIT STATUS ===
+=== GIT STATUS (Pre-commit packaging snapshot) ===
 On branch feat/v3-09-reporting
 Your branch is up to date with 'origin/feat/v3-09-reporting'.
 
 Changes to be committed:
   (use "git restore --staged <file>..." to unstage)
-	modified:   autotrade_v3/lab/run_manager.py
+	modified:   autotrade_v3/analysis/research_analyzer.py
 	modified:   autotrade_v3/tests/test_reporting_corrections_v309.py
 	modified:   autotrade_v3/tools/verify_report.py
 	modified:   evidence/v3-09/EVIDENCE_REPORT.md
-	modified:   evidence/v3-09/hardcode_scan.log
-	modified:   evidence/v3-09/ledger_hash_compare.log
 	modified:   evidence/v3-09/reports/ALL_SIGNALS/analysis.json
-	new file:   evidence/v3-09/reports/ALL_SIGNALS/rejected_signals.parquet
 	modified:   evidence/v3-09/reports/ALL_SIGNALS/report.md
-	new file:   evidence/v3-09/reports/ALL_SIGNALS/signals.parquet
-	new file:   evidence/v3-09/reports/ALL_SIGNALS/skipped_signals.parquet
 	modified:   evidence/v3-09/reports/BINGX_PORTFOLIO/analysis.json
-	new file:   evidence/v3-09/reports/BINGX_PORTFOLIO/rejected_signals.parquet
 	modified:   evidence/v3-09/reports/BINGX_PORTFOLIO/report.md
-	new file:   evidence/v3-09/reports/BINGX_PORTFOLIO/signals.parquet
-	new file:   evidence/v3-09/reports/BINGX_PORTFOLIO/skipped_signals.parquet
 	modified:   evidence/v3-09/reports/ONE_TRADE_PER_COMBO/analysis.json
-	new file:   evidence/v3-09/reports/ONE_TRADE_PER_COMBO/rejected_signals.parquet
 	modified:   evidence/v3-09/reports/ONE_TRADE_PER_COMBO/report.md
-	new file:   evidence/v3-09/reports/ONE_TRADE_PER_COMBO/signals.parquet
-	new file:   evidence/v3-09/reports/ONE_TRADE_PER_COMBO/skipped_signals.parquet
 	modified:   evidence/v3-09/verify_report_ALL_SIGNALS.log
 	modified:   evidence/v3-09/verify_report_BINGX_PORTFOLIO.log
 	modified:   evidence/v3-09/verify_report_ONE_TRADE_PER_COMBO.log
 
-Changes not staged for commit:
-  (use "git add/rm <file>..." to update what will be committed)
-  (use "git restore <file>..." to discard changes in working directory)
-	deleted:    runs/lab/RUN_20261110_082918_20FINAL_BASELINE_ALL_SIGNALS_20231101_20261101/analysis.json
-	deleted:    runs/lab/RUN_20261110_082918_20FINAL_BASELINE_ALL_SIGNALS_20231101_20261101/report.md
-	deleted:    runs/lab/RUN_20261110_082918_20FINAL_BASELINE_ALL_SIGNALS_20231101_20261101/run_manifest.json
-	deleted:    runs/lab/RUN_20261110_082918_20FINAL_BASELINE_ALL_SIGNALS_20231101_20261101/skipped_signals.json
-	deleted:    runs/lab/RUN_20261110_083042_20FINAL_BASELINE_ONE_TRADE_PER_COMBO_20231101_20261101/analysis.json
-	deleted:    runs/lab/RUN_20261110_083042_20FINAL_BASELINE_ONE_TRADE_PER_COMBO_20231101_20261101/report.md
-	deleted:    runs/lab/RUN_20261110_083042_20FINAL_BASELINE_ONE_TRADE_PER_COMBO_20231101_20261101/run_manifest.json
-	deleted:    runs/lab/RUN_20261110_083042_20FINAL_BASELINE_ONE_TRADE_PER_COMBO_20231101_20261101/skipped_signals.json
-	deleted:    runs/lab/RUN_20261110_083237_20FINAL_BASELINE_BINGX_PORTFOLIO_20231101_20261101/analysis.json
-	deleted:    runs/lab/RUN_20261110_083237_20FINAL_BASELINE_BINGX_PORTFOLIO_20231101_20261101/report.md
-	deleted:    runs/lab/RUN_20261110_083237_20FINAL_BASELINE_BINGX_PORTFOLIO_20231101_20261101/run_manifest.json
-	deleted:    runs/lab/RUN_20261110_083237_20FINAL_BASELINE_BINGX_PORTFOLIO_20231101_20261101/skipped_signals.json
+

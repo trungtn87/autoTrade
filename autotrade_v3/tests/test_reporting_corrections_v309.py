@@ -97,6 +97,15 @@ def _load_run_as_sim_result(run_dir: Path, mode: str) -> SimulationResult:
             an_data = json.load(af)
             summary["m2m_max_drawdown_dollars"] = an_data.get("risk", {}).get("m2m_max_drawdown_dollars")
             summary["m2m_max_drawdown_pct"] = an_data.get("risk", {}).get("m2m_max_drawdown_pct")
+            if "validation" in an_data:
+                summary["validation"] = an_data["validation"]
+
+    tp_sl_cnt = sum(1 for t in trades if getattr(t, "intrabar_ambiguous", False))
+    trail_cnt = sum(1 for t in trades if getattr(t, "intrabar_trailing_ambiguous", False))
+    amb_stats = {
+        "intrabar_tp_sl_ambiguous_count": tp_sl_cnt,
+        "intrabar_trailing_ambiguous_count": trail_cnt,
+    }
 
     return SimulationResult(
         mode=mode,
@@ -106,7 +115,7 @@ def _load_run_as_sim_result(run_dir: Path, mode: str) -> SimulationResult:
         skipped_signals=skipped,
         rejected_signals=rejected,
         snapshots=pd.DataFrame(),
-        ambiguity_stats={},
+        ambiguity_stats=amb_stats,
         summary_dict=summary,
     )
 
@@ -567,6 +576,121 @@ class TestReportingAndPFCorrections:
         out = res.stdout + res.stderr
         assert "Net PnL" in out
         assert "0.04" in out
+
+    def test_adversarial_mutation_delete_gates_table(self, tmp_path):
+        """Mutation test: deleting the Validation Gates Audit table from report.md must cause verify_report to fail."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        assert "## Validation Gates Audit" in report_md
+        sec_start = report_md.find("## Validation Gates Audit")
+        sec_end = report_md.find("## 1. Accounting & Signals")
+        assert sec_start != -1 and sec_end != -1
+        mutated_report = report_md[:sec_start] + report_md[sec_end:]
+        assert "## Validation Gates Audit" not in mutated_report
+        (mode_tmp / "report.md").write_text(mutated_report, encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail when Validation Gates Audit table is deleted"
+        out = res.stdout + res.stderr
+        assert "Validation Gates Audit" in out or "Gate" in out
+
+    def test_adversarial_mutation_real_data_false_with_real_pass(self, tmp_path):
+        """Mutation test: report claiming REAL_DATA_PASS but Real Market Data: False must fail fail-closed."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        assert "(Real Market Data: True)" in report_md
+        mutated_report = report_md.replace("(Real Market Data: True)", "(Real Market Data: False)")
+        assert mutated_report != report_md
+        (mode_tmp / "report.md").write_text(mutated_report, encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail when REAL_DATA_PASS has Real Market Data: False"
+        out = res.stdout + res.stderr
+        assert "Real Market Data is False" in out or "contradictory" in out
+
+    def test_adversarial_mutation_tp_sl_ambiguity_zero(self, tmp_path):
+        """Mutation test: changing TP/SL ambiguity from 3 to 0 must be caught against trades.parquet."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        assert "- **TP/SL Same-Candle Ambiguity:** 3 legs" in report_md
+        mutated_report = report_md.replace("- **TP/SL Same-Candle Ambiguity:** 3 legs", "- **TP/SL Same-Candle Ambiguity:** 0 legs")
+        assert mutated_report != report_md
+        (mode_tmp / "report.md").write_text(mutated_report, encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail when TP/SL ambiguity is mutated to 0"
+        out = res.stdout + res.stderr
+        assert "TP/SL Same-Candle Ambiguity" in out
+
+    def test_adversarial_mutation_trailing_ambiguity_zero(self, tmp_path):
+        """Mutation test: changing Trailing Stop Ambiguity from 486 to 0 must be caught against trades.parquet."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        assert "- **Trailing Stop Ambiguity:** 486 legs" in report_md
+        mutated_report = report_md.replace("- **Trailing Stop Ambiguity:** 486 legs", "- **Trailing Stop Ambiguity:** 0 legs")
+        assert mutated_report != report_md
+        (mode_tmp / "report.md").write_text(mutated_report, encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail when Trailing ambiguity is mutated to 0"
+        out = res.stdout + res.stderr
+        assert "Trailing Stop Ambiguity" in out
+
+    def test_adversarial_mutation_missing_companion_ledger(self, tmp_path):
+        """Mutation test: missing companion ledger (signals.parquet) must fail fail-closed."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        sig_p = mode_tmp / "signals.parquet"
+        assert sig_p.exists()
+        sig_p.unlink()
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail when signals.parquet is missing"
+        out = res.stdout + res.stderr
+        assert "MISSING_COMPANION_LEDGER" in out
+
+    def test_regression_validation_and_ambiguity_preservation(self, tmp_path):
+        """Regression test: Re-analyzing golden runs preserves validation block, gates, and non-zero ambiguity."""
+        for mode in ["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"]:
+            mode_tmp, report_md = _setup_pristine_run(tmp_path, mode)
+            an_data = json.loads((mode_tmp / "analysis.json").read_text(encoding="utf-8"))
+
+            # 1. Validation block must be present and real data pass
+            assert "validation" in an_data, f"Mode {mode} missing 'validation' in analysis.json"
+            val = an_data["validation"]
+            assert val.get("overall_status") == "REAL_DATA_PASS"
+            assert val.get("is_real_data") is True
+            assert "GATE_A_DATA" in val.get("gates", {})
+            assert "GATE_B_STRATEGY" in val.get("gates", {})
+            assert "GATE_C_EXECUTION" in val.get("gates", {})
+            assert "GATE_D_RESULT" in val.get("gates", {})
+
+            # 2. Report markdown must contain validation gates table
+            assert "## Validation Gates Audit" in report_md
+            assert "Gate A" in report_md
+            assert "Gate B" in report_md
+            assert "Gate C" in report_md
+            assert "Gate D" in report_md
+            assert "(Real Market Data: True)" in report_md
+
+            # 3. Ambiguity counts must match trades ledger
+            amb = an_data.get("ambiguity", {})
+            assert amb.get("intrabar_tp_sl_ambiguous_count") == 3
+            if mode == "ALL_SIGNALS":
+                assert amb.get("intrabar_trailing_ambiguous_count") == 486
+            else:
+                assert amb.get("intrabar_trailing_ambiguous_count") == 459
+
 
     def test_adversarial_mutation_m2_trade_net_pnl_changed(self, tmp_path):
         """Adversarial M2: Mutate net_pnl of one leg in trades.parquet -> verify_report on old report must fail."""

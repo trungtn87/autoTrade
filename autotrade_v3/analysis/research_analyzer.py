@@ -43,6 +43,7 @@ class ResearchAnalyzer:
         sim_result: SimulationResult,
         initial_equity: float = 1000.0,
         subwindows: list[tuple[str, str, str]] | None = None,
+        validation: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Perform comprehensive analysis of simulation results."""
         trades = sim_result.trades
@@ -443,7 +444,7 @@ class ResearchAnalyzer:
         accounting_balance_pass = math.isclose(gross_pnl_u - total_fees_u, net_pnl_u, abs_tol=1e-4)
 
         # Compile final analysis dictionary
-        return {
+        result = {
             "mode": mode,
             "accounting": {
                 "total_signals": total_signals,
@@ -503,7 +504,16 @@ class ResearchAnalyzer:
                 "m2m_note": m2m_note,
             },
             "ambiguity": {
-                **sim_result.ambiguity_stats,
+                "intrabar_tp_sl_ambiguous_count": (
+                    sim_result.ambiguity_stats.get("intrabar_tp_sl_ambiguous_count")
+                    if sim_result.ambiguity_stats and "intrabar_tp_sl_ambiguous_count" in sim_result.ambiguity_stats
+                    else sum(1 for t in trades if getattr(t, "intrabar_ambiguous", False))
+                ),
+                "intrabar_trailing_ambiguous_count": (
+                    sim_result.ambiguity_stats.get("intrabar_trailing_ambiguous_count")
+                    if sim_result.ambiguity_stats and "intrabar_trailing_ambiguous_count" in sim_result.ambiguity_stats
+                    else sum(1 for t in trades if getattr(t, "intrabar_trailing_ambiguous", False))
+                ),
                 "resolution_policy": "CONSERVATIVE (SL prioritized on intrabar TP/SL tie; callback prioritized on trailing tie)",
             },
             "symbols": symbol_stats,
@@ -513,6 +523,13 @@ class ResearchAnalyzer:
             "exit_reasons": exit_breakdown,
             "reconciliation": reconciliation,
         }
+
+        if validation is not None:
+            result["validation"] = validation
+        elif "validation" in sim_result.summary_dict:
+            result["validation"] = sim_result.summary_dict["validation"]
+
+        return result
 
     @classmethod
     def compare_runs(cls, run_dicts: list[dict[str, Any]]) -> dict[str, Any]:

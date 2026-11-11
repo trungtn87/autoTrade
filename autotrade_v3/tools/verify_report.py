@@ -197,15 +197,21 @@ def parse_number(s: str) -> float | None:
         return None
 
 
-def verify_report(report_md_path: str | Path, trades_parquet_path: str | Path) -> bool:
+def verify_report(report_md_path: str | Path, trades_parquet_path: str | Path, strict_companion: bool = True) -> bool:
     """Verify that report.md faithfully reflects numbers calculated directly from trades.parquet.
     
-    Strict numeric tolerances:
-    - PnL / Currency amounts: tol = 0.009 (strictly rejects 0.04 USD differences)
-    - Percentages (ROI, Win Rates): tol = 0.009
-    - Profit Factors: tol = 0.009
-    - Integer counts: exact match (diff = 0)
-    - Tables: Performance by Symbol, Exit Reason Breakdown, Performance by Combo are MANDATORY.
+    Strict fail-closed verification:
+    - Validation Gates: Gate A, B, C, D are MANDATORY with PASS status. Missing gates -> FAIL.
+    - Consistency: Status REAL_DATA_PASS with Real Market Data False -> FAIL.
+    - Ambiguity: TP/SL and Trailing ambiguities verified against trades.parquet booleans.
+    - Companion ledgers: signals, skipped_signals, rejected_signals are MANDATORY. Missing -> FAIL.
+    - PnL / Currency amounts: tol = 0.009 (strictly rejects 0.04 USD differences).
+    - Percentages (ROI, Win Rates): tol = 0.009 (Win Rate tol = 0.06 for 1-decimal display).
+    - Profit Factors: tol = 0.009 across all 4 metrics.
+    - Integer counts: exact match (diff = 0).
+    - Tables: Validation Gates, Performance by Symbol, Exit Reason Breakdown, Performance by Combo (20 combos),
+      Reconciliation Audit are MANDATORY.
+    - Reconciliation: Independently calculates 3-level parity on trades DataFrame.
     """
     rep_p = Path(report_md_path)
     trd_p = Path(trades_parquet_path)
@@ -221,18 +227,73 @@ def verify_report(report_md_path: str | Path, trades_parquet_path: str | Path) -
     df_trades = pd.read_parquet(trd_p)
     calc = compute_ledger_metrics(df_trades)
 
-    # Optional companion ledgers in the same run directory
     run_dir = trd_p.parent
     sig_p = run_dir / "signals.parquet"
     skip_p = run_dir / "skipped_signals.parquet"
     rej_p = run_dir / "rejected_signals.parquet"
 
+    discrepancies: list[str] = []
+    verifications: list[str] = []
+
+    # =========================================================================
+    # 0. Header & Validation Audit Integrity (FAIL-CLOSED)
+    # =========================================================================
+    m_val_status = re.search(r"\*\*Validation Status:\*\*\s*\*\*([A-Z_]+)\*\*\s*\(Real Market Data:\s*(True|False)\)", report_text)
+    if not m_val_status:
+        discrepancies.append("MISSING: Validation Status line not found in report header")
+    else:
+        v_status, is_real_data = m_val_status.group(1), m_val_status.group(2)
+        if v_status == "REAL_DATA_PASS" and is_real_data == "False":
+            discrepancies.append("MISMATCH: Status is REAL_DATA_PASS but Real Market Data is False (contradictory validation state)")
+        else:
+            verifications.append(f"VERIFIED Validation Status: {v_status} (Real Market Data: {is_real_data})")
+
+    m_git = re.search(r"\*\*Git SHA:\*\*\s*`?([a-f0-9]{7,40})`?", report_text)
+    if not m_git:
+        discrepancies.append("MISSING: Valid Git SHA not found in report header")
+    else:
+        rep_sha = m_git.group(1)
+        verifications.append(f"VERIFIED Git SHA in header: {rep_sha}")
+        manifest_p = run_dir / "run_manifest.json"
+        if manifest_p.exists():
+            import json
+            try:
+                with open(manifest_p, "r", encoding="utf-8") as mf:
+                    m_data = json.load(mf)
+                    man_sha = m_data.get("git_sha", "")
+                    if man_sha and not (rep_sha.startswith(man_sha) or man_sha.startswith(rep_sha)):
+                        discrepancies.append(f"MISMATCH Git SHA: report {rep_sha} != manifest {man_sha}")
+            except Exception:
+                pass
+
+    # Mandatory Section: Validation Gates Audit
+    if "## Validation Gates Audit" not in report_text:
+        discrepancies.append("MISSING: Mandatory Section '## Validation Gates Audit' not found in report.md")
+    else:
+        mandatory_gates = [
+            ("Gate A — DATA", r"\|\s*\*\*Gate A[^|]*\*\*\s*\|\s*`?(PASS|REAL_DATA_PASS|SYNTHETIC_PASS)`?\s*\|"),
+            ("Gate B — STRATEGY", r"\|\s*\*\*Gate B[^|]*\*\*\s*\|\s*`?(PASS)`?\s*\|"),
+            ("Gate C — EXECUTION", r"\|\s*\*\*Gate C[^|]*\*\*\s*\|\s*`?(PASS)`?\s*\|"),
+            ("Gate D — RESULT", r"\|\s*\*\*Gate D[^|]*\*\*\s*\|\s*`?(PASS)`?\s*\|"),
+        ]
+        for gate_name, gate_pat in mandatory_gates:
+            m_gate = re.search(gate_pat, report_text)
+            if not m_gate:
+                discrepancies.append(f"MISSING_GATE: Mandatory '{gate_name}' row with valid PASS status not found in Validation Gates table")
+            else:
+                verifications.append(f"VERIFIED {gate_name}: {m_gate.group(1)}")
+
+    # =========================================================================
+    # Companion Ledgers Integrity (FAIL-CLOSED)
+    # =========================================================================
+    for comp_file, comp_name in [(sig_p, "signals.parquet"), (skip_p, "skipped_signals.parquet"), (rej_p, "rejected_signals.parquet")]:
+        if not comp_file.exists():
+            if strict_companion:
+                discrepancies.append(f"MISSING_COMPANION_LEDGER: Required companion ledger '{comp_name}' not found in {run_dir}")
+
     expected_signals: int | None = len(pd.read_parquet(sig_p)) if sig_p.exists() else None
     expected_skipped: int | None = len(pd.read_parquet(skip_p)) if skip_p.exists() else None
     expected_rejected: int | None = len(pd.read_parquet(rej_p)) if rej_p.exists() else None
-
-    discrepancies: list[str] = []
-    verifications: list[str] = []
 
     def check_int(label: str, reported_val: int | None, expected_val: int) -> None:
         if reported_val is None:
@@ -377,6 +438,23 @@ def verify_report(report_md_path: str | Path, trades_parquet_path: str | Path) -
     check_float("Closed-Trade Max DD ($)", rep_dd_dol, calc["closed_trade_max_drawdown_dollars"], tol=0.009)
 
     # =========================================================================
+    # 3B. Intrabar Ambiguity (Verified against trades.parquet)
+    # =========================================================================
+    expected_tp_sl = int(df_trades["intrabar_ambiguous"].sum()) if "intrabar_ambiguous" in df_trades.columns else 0
+    expected_trailing = int(df_trades["intrabar_trailing_ambiguous"].sum()) if "intrabar_trailing_ambiguous" in df_trades.columns else 0
+
+    if "## 4. Intrabar Ambiguity" not in report_text:
+        discrepancies.append("MISSING: Mandatory Section '## 4. Intrabar Ambiguity' not found in report.md")
+    else:
+        m_tpsl = re.search(r"\*\*TP/SL Same-Candle Ambiguity:\*\*\s*([\d,]+)\s*legs?", report_text)
+        rep_tpsl = int(m_tpsl.group(1).replace(",", "")) if m_tpsl else None
+        check_int("TP/SL Same-Candle Ambiguity", rep_tpsl, expected_tp_sl)
+
+        m_trail = re.search(r"\*\*Trailing Stop Ambiguity:\*\*\s*([\d,]+)\s*legs?", report_text)
+        rep_trail = int(m_trail.group(1).replace(",", "")) if m_trail else None
+        check_int("Trailing Stop Ambiguity", rep_trail, expected_trailing)
+
+    # =========================================================================
     # 4. Mandatory Section: Performance by Symbol
     # =========================================================================
     if "## 5. Performance by Symbol" not in report_text:
@@ -470,6 +548,19 @@ def verify_report(report_md_path: str | Path, trades_parquet_path: str | Path) -
             discrepancies.append("MISMATCH: Three-Level Parity Pass is not True in report.md")
         else:
             verifications.append("VERIFIED Three-Level Parity Pass: True")
+
+        # Independent verification of 3-level parity directly from df_trades
+        run_net = float(df_trades["net_pnl"].sum())
+        sym_net_sum = float(df_trades.groupby("symbol")["net_pnl"].sum().sum())
+        combo_net_sum = float(df_trades.groupby(["symbol", "combo_name"])["net_pnl"].sum().sum())
+        diff_run_sym = abs(run_net - sym_net_sum)
+        diff_run_combo = abs(run_net - combo_net_sum)
+        if diff_run_sym > 1e-9 or diff_run_combo > 1e-9:
+            discrepancies.append(
+                f"RECONCILIATION_FAIL: Independent three-level parity failed on ledger (sym_diff={diff_run_sym:.2e}, combo_diff={diff_run_combo:.2e})"
+            )
+        else:
+            verifications.append(f"VERIFIED Independent Three-Level Parity on Ledger: run={run_net:.4f}, sym_sum={sym_net_sum:.4f}, combo_sum={combo_net_sum:.4f}")
 
         m_align_pass = re.search(r"\*\*Symbol-Combo Configuration Alignment:\*\*\s*`?(True|False)`?", report_text)
         if not m_align_pass or m_align_pass.group(1) != "True":

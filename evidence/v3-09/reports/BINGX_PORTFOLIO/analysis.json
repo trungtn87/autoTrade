@@ -58,6 +58,8 @@
     "m2m_note": "Continuous intra-trade M2M drawdown tracked across open merged positions."
   },
   "ambiguity": {
+    "intrabar_tp_sl_ambiguous_count": 3,
+    "intrabar_trailing_ambiguous_count": 459,
     "resolution_policy": "CONSERVATIVE (SL prioritized on intrabar TP/SL tie; callback prioritized on trailing tie)"
   },
   "symbols": {
@@ -1749,5 +1751,142 @@
     "symbol_combo_alignment_pass": true,
     "tolerance": 1e-09,
     "reconciliation_pass": true
+  },
+  "validation": {
+    "overall_status": "REAL_DATA_PASS",
+    "is_real_data": true,
+    "gates": {
+      "GATE_A_DATA": {
+        "gate": "Gate A \u2014 DATA",
+        "status": "PASS",
+        "checks": [
+          {
+            "name": "catalog_exists",
+            "passed": true,
+            "status": "PASS",
+            "details": "DuckDB catalog at catalog\\research.duckdb exists=True"
+          },
+          {
+            "name": "partition_count",
+            "passed": true,
+            "status": "PASS",
+            "details": "Parquet partitions count: 74 (expected 74)"
+          },
+          {
+            "name": "row_count_and_coverage",
+            "passed": true,
+            "status": "PASS",
+            "details": "Total M1 rows: 3,156,480 across ['BTC-USDT', 'ETH-USDT']"
+          },
+          {
+            "name": "manifest_hash_verified",
+            "passed": true,
+            "status": "PASS",
+            "details": "Data manifest SHA256: a18fc2e1bf598594..."
+          }
+        ],
+        "summary": "All raw data partitions, DuckDB catalog, and coverage verified."
+      },
+      "GATE_B_STRATEGY": {
+        "gate": "Gate B \u2014 STRATEGY",
+        "status": "PASS",
+        "checks": [
+          {
+            "name": "strategy_identity",
+            "passed": true,
+            "status": "PASS",
+            "details": "Strategy ID=20FINAL_BASELINE, Version=1.0.0"
+          },
+          {
+            "name": "no_lookahead_alignment",
+            "passed": true,
+            "status": "PASS",
+            "details": "Signals strictly timestamped at candle close; execution at or after next M1 open."
+          },
+          {
+            "name": "leg_split_design",
+            "passed": true,
+            "status": "PASS",
+            "details": "FINAL14 split_legs=True (2 legs), NEW6 split_legs=False (1 leg)."
+          },
+          {
+            "name": "signal_parity_frozen_reference",
+            "passed": true,
+            "status": "PASS",
+            "details": "Signal count: 5984 (expected frozen reference: 5,984 signals)"
+          }
+        ],
+        "summary": "Strategy configuration, no-lookahead timestamps, and signal parity verified."
+      },
+      "GATE_C_EXECUTION": {
+        "gate": "Gate C \u2014 EXECUTION",
+        "status": "PASS",
+        "checks": [
+          {
+            "name": "entry_timing_causality",
+            "passed": true,
+            "status": "PASS",
+            "details": "Entry timestamps verified strictly causal after signal generation."
+          },
+          {
+            "name": "exit_policy_frozen_at_entry",
+            "passed": true,
+            "status": "PASS",
+            "details": "All trades have frozen ExitPolicy hashes registered at entry."
+          },
+          {
+            "name": "accounting_balance_integrity",
+            "passed": true,
+            "status": "PASS",
+            "details": "Gross ($697.14) - Fees ($414.95) = $282.19 vs Net ($282.19), diff=0.000000"
+          },
+          {
+            "name": "symbol_reconciliation",
+            "passed": true,
+            "status": "PASS",
+            "details": "Sum of symbol Net PnL ($282.19) == Total Net PnL ($282.19), diff=0.000000"
+          },
+          {
+            "name": "ambiguity_ledger_tracking",
+            "passed": true,
+            "status": "PASS",
+            "details": "Intrabar ambiguity tracked: TP/SL=3, Trailing=459"
+          },
+          {
+            "name": "portfolio_margin_enforcement",
+            "passed": true,
+            "status": "PASS",
+            "details": "Margin gate actively monitored: 0 signals rejected by insufficient margin."
+          }
+        ],
+        "summary": "Causal entries, frozen ExitPolicy, and mathematical balance verified."
+      },
+      "GATE_D_RESULT": {
+        "gate": "Gate D \u2014 RESULT",
+        "status": "PASS",
+        "checks": [
+          {
+            "name": "metrics_ledger_derived",
+            "passed": true,
+            "status": "PASS",
+            "details": "Net Profit Factor=1.14, Gross Profit Factor=1.41"
+          },
+          {
+            "name": "m2m_drawdown_distinction",
+            "passed": true,
+            "status": "PASS",
+            "details": "Continuous M2M status: AVAILABLE (closed DD=$45.71)"
+          },
+          {
+            "name": "deliverables_persisted",
+            "passed": true,
+            "status": "PASS",
+            "details": "In-memory run evaluation; disk deliverables verified during save_run."
+          }
+        ],
+        "summary": "Report metrics derived from ledger, drawdown cleanly separated, and deliverables complete."
+      }
+    },
+    "failure_reasons": []
   }
 }
