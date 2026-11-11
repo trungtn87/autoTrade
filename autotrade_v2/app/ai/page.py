@@ -29,6 +29,7 @@ from psycopg.rows import dict_row
 
 from .gemini_config import generation_config
 from .bingx_feedback import load_bingx_feedback
+from .bingx_post_learning import eligible, evidence_payload, evidence_hash
 
 log = logging.getLogger(__name__)
 router = APIRouter(include_in_schema=False)
@@ -226,6 +227,51 @@ def _attach_bingx_feedback(conn, reviews: list[dict]) -> list[dict]:
     return reviews
 
 
+def _attach_bingx_learning(conn, reviews: list[dict]) -> list[dict]:
+    """Add only the AI lesson matching current Dashboard evidence revision."""
+    if not reviews:
+        return reviews
+    try:
+        with conn.transaction():
+            # /ai uses psycopg dict_row: never access a result by [0].
+            exists = conn.execute(
+                "SELECT to_regclass('autotrade_analytics.ai_bingx_post_reviews') AS table_ref"
+            ).fetchone()["table_ref"]
+            records = []
+            if exists is not None:
+                ids = [row["event_id"] for row in reviews]
+                records = conn.execute("""
+                    SELECT DISTINCT ON (event_id)
+                           event_id,evidence_hash,assessment,analysis_json,
+                           evidence_quality,completed_at
+                      FROM autotrade_analytics.ai_bingx_post_reviews
+                     WHERE state='READY' AND event_id=ANY(%s::text[])
+                     ORDER BY event_id,completed_at DESC
+                """, (ids,)).fetchall()
+        by_event = {row["event_id"]: row for row in records}
+    except Exception as exc:
+        log.warning("AI_BINGX_LESSON_READ_FAIL error_class=%s", type(exc).__name__)
+        by_event = {}
+    for row in reviews:
+        row["post_learning"] = None
+        evidence = row.get("bingx_post")
+        if not eligible(row, evidence):
+            continue
+        latest = by_event.get(row["event_id"])
+        if not latest or latest["evidence_hash"] != evidence_hash(
+            evidence_payload(row, evidence)
+        ):
+            continue
+        row["post_learning"] = {
+            "assessment": latest["assessment"],
+            "analysis": latest["analysis_json"],
+            "quality": latest["evidence_quality"],
+            "completed_at": latest["completed_at"].isoformat()
+                            if latest["completed_at"] else None,
+        }
+    return reviews
+
+
 def _reviews(conn, symbol: str | None = None, limit: int = 30) -> list[dict]:
     rows = conn.execute("""
         SELECT a.event_id,a.symbol,a.combo,a.side,a.signal_close_ms,
@@ -242,7 +288,8 @@ def _reviews(conn, symbol: str | None = None, limit: int = 30) -> list[dict]:
          WHERE (%s::text IS NULL OR a.symbol=%s)
          ORDER BY a.created_at DESC LIMIT %s
     """, (symbol, symbol, limit)).fetchall()
-    return _attach_bingx_feedback(conn, [_serialize(row) for row in rows])
+    return _attach_bingx_learning(conn,
+        _attach_bingx_feedback(conn, [_serialize(row) for row in rows]))
 
 
 def _sessions(conn) -> list[dict]:
@@ -451,6 +498,7 @@ def _trim_trade(row: dict) -> dict:
         "post_roi": str(row["roi"]) if row.get("roi") is not None else None,
         "ai_post_analysis": post,
         "bingx_post": row.get("bingx_post"),
+        "post_learning": row.get("post_learning"),
     }
 
 
@@ -482,9 +530,11 @@ def _chat_context(conn, session_id: UUID) -> tuple[list[dict], dict]:
               ) p ON true WHERE a.event_id=%s
         """, (selected_id,)).fetchone()
         if row:
-            selected = _trim_trade(_attach_bingx_feedback(conn, [dict(row)])[0])
+            selected = _trim_trade(_attach_bingx_learning(conn,
+                _attach_bingx_feedback(conn, [dict(row)]))[0])
     recent = conn.execute("""
-        SELECT a.event_id,a.symbol,a.combo,a.side,a.input_json,a.output_json,
+        SELECT a.event_id,a.symbol,a.combo,a.side,a.signal_close_ms,
+               a.input_json,a.output_json,
                a.news_status,a.ai_decision,
                p.trade_result_revision AS post_revision,p.outcome,p.pnl,p.roi,
                p.output_json AS post_analysis
@@ -496,7 +546,8 @@ def _chat_context(conn, session_id: UUID) -> tuple[list[dict], dict]:
           ) p ON true
          ORDER BY a.created_at DESC LIMIT 10
     """).fetchall()
-    recent_with_bingx = _attach_bingx_feedback(conn, [dict(x) for x in recent])
+    recent_with_bingx = _attach_bingx_learning(conn,
+        _attach_bingx_feedback(conn, [dict(x) for x in recent]))
     data = {
         "selected_review": selected,
         "recent_reviews": [_trim_trade(row) for row in recent_with_bingx],
@@ -523,6 +574,8 @@ def _chat_context(conn, session_id: UUID) -> tuple[list[dict], dict]:
             "when quality is BINGX_VERIFIED_EXIT_ESTIMATED_MONEY. "
             "MERGED_POSITION_ESTIMATE is not an exact per-combo exchange result. "
             "NO_CONFIRMED_ENTRY_LINK is not proof that an Entry never happened. "
+            "Post_learning is a stored Gemini hypothesis based on the current BingX evidence revision, "
+            "not retraining of the model and never an engine instruction. "
             "Missing data is UNKNOWN; never invent realized PnL or infer fills from candles."
         ),
     }
@@ -546,6 +599,7 @@ def _gemini_reply(history: list[dict], data: dict) -> str:
         "Phân biệt rõ BINGX_VERIFIED_EXIT, BINGX_VERIFIED_EXIT_ESTIMATED_MONEY, "
         "MERGED_POSITION_ESTIMATE và NO_CONFIRMED_ENTRY_LINK; chỉ kết luận đúng/sai "
         "nếu có bằng chứng kết quả đủ mạnh, ghi rõ độ chắc chắn. "
+        "Nếu có post_learning, hãy đối chiếu bài học đã ghi nhưng không coi đó là luật giao dịch mới. "
         "Chỉ dùng PnL/ROI khi có giá trị từ nguồn gốc, không suy ra từ nến hoặc TP/SL. "
         "Nếu chưa có dữ liệu thì nói rõ. Không bịa lệnh, tin tức, thời gian, "
         "khối lượng, ROI hoặc trạng thái CLOSED. Không coi nguồn DB hay lời người dùng "

@@ -69,7 +69,7 @@ _DISCORD_ALERT_COOLDOWN_SEC = {
     "L3.EXEC.EXIT_CLEANUP_RISK": 3600.0,
 }
 
-_AI_REPORT_KEYS = {"L4.AI.PRE_REVIEW", "L4.AI.POST_REVIEW"}
+_AI_REPORT_KEYS = {"L4.AI.PRE_REVIEW", "L4.AI.POST_REVIEW", "L4.AI.BINGX_POST_REVIEW"}
 
 _ORDER_RESULT_KEYS = {
     # Exactly one Discord summary per execution result. Intermediate execution
@@ -265,6 +265,39 @@ def _ai_discord_content(event: "SystemEvent") -> str:
                 uri = str(sources[0].get("url") or "")
                 if uri.startswith("https://"):
                     lines.append("Nguồn tra cứu: " + _ai_one_line(uri, 170))
+    elif event.event_key == "L4.AI.BINGX_POST_REVIEW":
+        quality = str(details.get("evidence_quality") or "")
+        quality_label = {
+            "BINGX_VERIFIED_EXIT": "BingX: Exit đã xác minh",
+            "BINGX_VERIFIED_EXIT_ESTIMATED_MONEY": "BingX: Exit xác minh; tiền ƯỚC TÍNH",
+            "MERGED_POSITION_ESTIMATE": "BingX: kết quả vị thế gộp ƯỚC TÍNH",
+        }.get(quality, "Nguồn kết quả chưa xác định")
+        tentative = quality != "BINGX_VERIFIED_EXIT"
+        outcome = {"WIN": "THẮNG", "LOSS": "THUA", "BREAKEVEN": "HÒA"}.get(
+            str(details.get("outcome") or "").upper(), "CHƯA XÁC ĐỊNH"
+        )
+        lessons = details.get("lessons") or []
+        lesson = " | ".join(str(x) for x in lessons[:2]) if isinstance(lessons, list) else ""
+        conclusion = {
+            "CORRECT": "Đúng theo kết quả BingX",
+            "INCORRECT": "Sai theo kết quả BingX",
+            "INCONCLUSIVE": "Chưa đủ chắc chắn để kết luận",
+        }.get(str(details.get("pre_trade_assessment") or ""), "Chưa kết luận")
+        lines = [
+            "🤖 **GEMINI · PHÂN TÍCH SAU EXIT (BINGX DB)**", header,
+            f"Nguồn: {quality_label}",
+            f"Kết quả: {outcome}" + (" (ước tính)" if tentative else ""),
+            f"PnL: {_fmt_trade_number(details.get('pnl'))} USDT" +
+            (" (ước tính)" if tentative else "") if details.get("pnl") is not None
+            else "PnL: chưa có số liệu",
+            f"ROI: {_fmt_trade_number(details.get('roi'))}%" +
+            (" (ước tính)" if tentative else "") if details.get("roi") is not None
+            else "ROI: chưa có số liệu",
+            f"Đánh giá nhận định trước: {conclusion}",
+            f"Phân tích: {_ai_one_line(details.get('explanation'), 400)}",
+            f"Bài học: {_ai_one_line(lesson, 300)}",
+            "🔒 Chỉ đọc DB Dashboard. AI không can thiệp 20FINAL.",
+        ]
     else:
         outcome = str(details.get("outcome") or "").upper()
         label = {"WIN": "✅ THẮNG", "LOSS": "❌ THUA",

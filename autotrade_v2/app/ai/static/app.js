@@ -99,7 +99,14 @@ function renderReviews() {
     b.append(create("span", "review-meta", (r.side === "BUY" ? "LONG" : "SHORT") + " · " + dateVN(r.signal_close_ms)));
     const reason = r.output_json && (r.output_json.reasoning_ai_opinion || r.output_json.reasoning_verified);
     b.append(create("span", "review-detail", reason ? String(reason).slice(0,115) : "Nhận định chưa có phân tích chi tiết"));
-    if (r.post_revision != null) {
+    if (r.post_learning && r.post_learning.analysis) {
+      const review = r.post_learning;
+      b.append(create("span", "review-meta", "✓ Gemini đã phân tích sau EXIT · " +
+        (review.assessment === "INCONCLUSIVE" ? "Chưa đủ bằng chứng" :
+         review.assessment === "CORRECT" ? "Đúng theo kết quả" : "Sai theo kết quả")));
+      b.append(create("span", "review-detail",
+        String(review.analysis.explanation || "").slice(0, 140)));
+    } else if (r.post_revision != null) {
       b.append(create("span", "review-meta", "✓ Có báo cáo hậu giao dịch"));
     } else {
       b.append(create("span", "review-meta", bingxEvidenceText(r.bingx_post)));
@@ -127,7 +134,9 @@ function renderSelection() {
   $("selected-title").textContent = r.symbol + " · " + r.combo + " · " +
     (r.side === "BUY" ? "LONG" : "SHORT") + " · " + verdictText(r.ai_decision);
   $("selected-subtitle").textContent = dateVN(r.signal_close_ms) +
-    (r.post_revision != null ? " · Có báo cáo sau Exit" : " · " + bingxEvidenceText(r.bingx_post));
+    (r.post_learning ? " · Gemini đã lưu phân tích sau EXIT" :
+     r.post_revision != null ? " · Có báo cáo sau Exit" :
+     " · " + bingxEvidenceText(r.bingx_post));
 }
 function welcome() {
   const parent = $("messages"); parent.replaceChildren();

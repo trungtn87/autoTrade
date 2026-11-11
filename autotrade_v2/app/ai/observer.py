@@ -21,6 +21,10 @@ import requests
 
 from .gemini_config import generation_config
 from .external_research import BinanceFuturesPublic
+from .bingx_feedback import load_bingx_feedback
+from .bingx_post_learning import (eligible, evidence_payload, evidence_hash,
+                                 prompt_for_review, parse_post_response,
+                                 MODEL_PROMPT_VERSION)
 from ..strategy.final14_config import get_case
 from ..strategy.final14_research.smc_ob import OBConfig, ob_context
 from ..strategy.final14_research.smc_structure import smc_direction
@@ -237,6 +241,8 @@ def _pre_prompt(ctx: dict) -> str:
         "BOS, CHoCH, FVG, liquidity not explicitly computed are interpretations, "
         "never verified features. Cite feature ids in risk_flags evidence_ids. "
         "Use independent Binance SMC (independent_smc) to compare against bot SMC. "
+        "Prior lessons, if supplied, were saved BEFORE the signal timestamp; "
+        "they are hypotheses for scrutiny, never training weights or proven edges. "
         "External SMC must be based on independently fetched closed Binance candles "
         "as of the actual signal close; describe BOS, CHoCH and FVG levels precisely "
         "and distinguish algorithmic heuristic findings from AI opinions. "
@@ -313,6 +319,9 @@ class GeminiObserver:
         self.max_calls_per_day = min(500, max(0, int(os.getenv("AI_DAILY_MAX_CALLS", "50"))))
         self.poll_seconds = poll_seconds
         self._last_post_check = 0.0
+        self.bingx_post_enabled = os.getenv("AI_BINGX_POST_ENABLED", "false").lower() in ("1", "true", "yes")
+        self._bingx_post_thread = None
+        self._bingx_scan_before = None
         self._no_result_table_logged = False
 
     def start(self):
@@ -325,11 +334,17 @@ class GeminiObserver:
         self._stop.clear()
         self._thread = Thread(target=self._run, name="v2-ai-observer", daemon=True)
         self._thread.start()
+        if self.bingx_post_enabled:
+            self._bingx_post_thread = Thread(target=self._bingx_post_loop,
+                                             name="v2-ai-bingx-post", daemon=True)
+            self._bingx_post_thread.start()
 
     def stop(self):
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=1)
+        if self._bingx_post_thread:
+            self._bingx_post_thread.join(timeout=1)
 
     def submit(self, intents, snapshot) -> bool:
         """Called before executor; a full queue never delays or rejects trading."""
@@ -513,6 +528,8 @@ class GeminiObserver:
             if self._try_budget():
                 started = monotonic()
                 try:
+                    if self.bingx_post_enabled:
+                        ctx["prior_lessons"] = self._prior_lessons(intent)
                     self._external_pre(intent, ctx)
                     response, usage, elapsed = self.client.ask(_pre_prompt(ctx))
                     output = _validated_output(_candidate_output(response), ctx)
@@ -663,6 +680,188 @@ class GeminiObserver:
             except Exception as exc:
                 LOG.warning("AI_POST_REVIEW_FAIL event_id=%s error_class=%s",
                             event_id,type(exc).__name__)
+
+
+    def _prior_lessons(self, intent):
+        """No look-ahead: a past lesson must already be written at signal time."""
+        label = ("TIER" if intent.combo == 11 else
+                 f"C{intent.combo-90 if intent.combo >= 101 else intent.combo}")
+        try:
+            with self._connection() as con:
+                exists = con.execute(
+                    "SELECT to_regclass('autotrade_analytics.ai_bingx_post_reviews')"
+                ).fetchone()[0]
+                if exists is None:
+                    return []
+                rows = con.execute("""
+                    SELECT assessment,lessons,evidence_quality FROM (
+                        SELECT DISTINCT ON (event_id) event_id,state,assessment,
+                               analysis_json->'lessons' AS lessons,evidence_quality,
+                               completed_at
+                          FROM autotrade_analytics.ai_bingx_post_reviews
+                         WHERE symbol=%s AND combo=%s AND closed_ms < %s
+                           AND started_at <= to_timestamp(%s / 1000.0)
+                         ORDER BY event_id,started_at DESC,evidence_hash DESC
+                    ) most_recent
+                     WHERE state='READY'
+                       AND completed_at <= to_timestamp(%s / 1000.0)
+                     ORDER BY completed_at DESC LIMIT 3
+                """, (intent.symbol, label, int(intent.close_time),
+                      int(intent.close_time), int(intent.close_time))).fetchall()
+            return [{"assessment": item[0], "lessons": item[1],
+                     "quality": item[2]} for item in rows]
+        except Exception as exc:
+            LOG.warning("AI_PRIOR_LESSONS_READ_FAIL error_class=%s", type(exc).__name__)
+            return []
+
+    def _bingx_candidates(self):
+        """Read Dashboard's materialized BingX data; no runtime exchange call."""
+        from psycopg.rows import dict_row
+        with self._connection() as con:
+            if con.execute(
+                "SELECT to_regclass('autotrade_analytics.ai_bingx_post_reviews')"
+            ).fetchone()[0] is None:
+                return []
+            with con.cursor(row_factory=dict_row) as cur:
+                # Keyset pagination: late-closing trades must not starve
+                # behind the newest 100 historical signal reviews.
+                before = self._bingx_scan_before
+                reviews = cur.execute("""
+                    SELECT event_id,symbol,combo,side,signal_close_ms,ai_decision,
+                           input_json,output_json
+                      FROM autotrade_analytics.ai_reviews
+                     WHERE ai_decision IN ('ALLOW','BLOCK')
+                       AND (%s::bigint IS NULL OR
+                           (signal_close_ms,event_id) < (%s::bigint,%s::varchar))
+                     ORDER BY signal_close_ms DESC,event_id DESC LIMIT 100
+                """, (
+                    before[0] if before else None,
+                    before[0] if before else None,
+                    before[1] if before else None,
+                )).fetchall()
+                if not reviews:
+                    self._bingx_scan_before = None  # restart oldest-to-newest cycle
+                    return []
+                with con.transaction():
+                    evidence = load_bingx_feedback(cur, reviews)
+        last = reviews[-1]
+        self._bingx_scan_before = (last["signal_close_ms"], last["event_id"])
+        return [(review, evidence[review["event_id"]])
+                for review in reviews
+                if eligible(review, evidence.get(review["event_id"]))]
+
+    def _claim_bingx(self, review, evidence, fingerprint):
+        from psycopg.types.json import Jsonb
+        with self._connection() as con:
+            row = con.execute("""
+                INSERT INTO autotrade_analytics.ai_bingx_post_reviews (
+                    event_id,evidence_hash,entry_order_id,symbol,combo,closed_ms,
+                    evidence_quality,outcome,pnl,roi,evidence_json,ai_decision,
+                    state,attempts,started_at
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'PENDING',1,now())
+                ON CONFLICT (event_id,evidence_hash) DO UPDATE
+                    SET state='PENDING',
+                        attempts=autotrade_analytics.ai_bingx_post_reviews.attempts + 1,
+                        started_at=now(),error_code=NULL
+                WHERE autotrade_analytics.ai_bingx_post_reviews.attempts < 3
+                  AND (
+                      (autotrade_analytics.ai_bingx_post_reviews.state='FAILED'
+                       AND started_at < now()-interval '30 minutes')
+                      OR
+                      (autotrade_analytics.ai_bingx_post_reviews.state='PENDING'
+                       AND started_at < now()-interval '10 minutes')
+                  )
+                RETURNING attempts
+            """, (
+                review["event_id"], fingerprint, evidence["entry_order_id"],
+                review["symbol"], review["combo"], evidence["closed_ms"],
+                evidence["quality"], evidence["outcome"], evidence.get("pnl"),
+                evidence.get("roi"), Jsonb(evidence), review["ai_decision"],
+            )).fetchone()
+            return int(row[0]) if row else None
+
+    def _finish_bingx(self, event_id, fingerprint, attempt, result, error):
+        from psycopg.types.json import Jsonb
+        with self._connection() as con:
+            row = con.execute("""
+                UPDATE autotrade_analytics.ai_bingx_post_reviews
+                   SET state=%s, completed_at=now(), assessment=%s,
+                       analysis_json=%s, model=%s,prompt_version=%s,error_code=%s
+                 WHERE event_id=%s AND evidence_hash=%s
+                   AND state='PENDING' AND attempts=%s
+                RETURNING event_id
+            """, (
+                "READY" if result else "FAILED",
+                result.get("pre_trade_assessment") if result else None,
+                Jsonb(result) if result else None, self.model,
+                MODEL_PROMPT_VERSION, error, event_id, fingerprint, attempt,
+            )).fetchone()
+            return row is not None
+
+    def _observe_bingx_closed(self):
+        try:
+            candidates = self._bingx_candidates()
+        except Exception as exc:
+            LOG.warning("AI_BINGX_POST_SCAN_FAIL error_class=%s", type(exc).__name__)
+            return
+        reviewed_this_cycle = 0
+        for review, evidence in candidates:
+            if self._stop.is_set() or reviewed_this_cycle >= 3:
+                break
+            payload = evidence_payload(review, evidence)
+            fingerprint = evidence_hash(payload)
+            # Check budget before claiming without consuming quota for
+            # evidence revisions that already have an immutable result.
+            day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            with self._daily_lock:
+                d, n = self._daily
+                if d == day and n >= self.max_calls_per_day:
+                    return
+            try:
+                attempt = self._claim_bingx(review, payload, fingerprint)
+            except Exception as exc:
+                LOG.warning("AI_BINGX_POST_CLAIM_FAIL error_class=%s", type(exc).__name__)
+                return
+            if attempt is None:
+                continue
+            reviewed_this_cycle += 1
+            if not self._try_budget():
+                self._finish_bingx(review["event_id"], fingerprint, attempt,
+                                   None, "daily_call_cap")
+                return
+            result, error = None, None
+            try:
+                response, _, _ = self.client.ask(prompt_for_review(review, payload))
+                result = parse_post_response(response, payload)
+            except Exception as exc:
+                error = type(exc).__name__[:80]
+            try:
+                inserted = self._finish_bingx(review["event_id"], fingerprint,
+                                              attempt, result, error)
+                # Backfill old lessons silently: never flood BTC/ETH Discord
+                # with historical reports when the feature is first enabled.
+                recent_exit = (0 <= int(time() * 1000) - int(payload["closed_ms"])
+                               <= 12 * 3600 * 1000)
+                if inserted and result and recent_exit:
+                    self._announce("L4.AI.BINGX_POST_REVIEW", review["event_id"],
+                                   review["symbol"], None, {
+                        "combo": review["combo"], "side": review["side"],
+                        "outcome": payload["outcome"], "pnl": payload["pnl"],
+                        "roi": payload["roi"], "evidence_quality": payload["quality"],
+                        "pre_decision": review["ai_decision"],
+                        "pre_trade_assessment": result["pre_trade_assessment"],
+                        "explanation": result["explanation"],
+                        "lessons": result["lessons"],
+                        "evidence_hash": fingerprint[:12],
+                    })
+            except Exception as exc:
+                LOG.warning("AI_BINGX_POST_WRITE_FAIL event_id=%s error_class=%s",
+                            review["event_id"], type(exc).__name__)
+
+    def _bingx_post_loop(self):
+        while not self._stop.is_set():
+            self._observe_bingx_closed()
+            self._stop.wait(max(180, self.poll_seconds))
 
     def _run(self):
         while not self._stop.is_set():
