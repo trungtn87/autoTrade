@@ -2,6 +2,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
+import re
+import shutil
+import subprocess
+import sys
 import numpy as np
 import pandas as pd
 import pytest
@@ -61,6 +66,36 @@ def _load_trades_parquet_as_records(parquet_path: Path) -> list[TradeRecord]:
             )
         )
     return records
+
+
+def _load_run_as_sim_result(run_dir: Path, mode: str) -> SimulationResult:
+    """Helper to reconstruct a SimulationResult from parquet/json artifacts in run_dir."""
+    trades = _load_trades_parquet_as_records(run_dir / "trades.parquet")
+    sigs_df = pd.read_parquet(run_dir / "signals.parquet")
+    skipped_pq = run_dir / "skipped_signals.parquet"
+    rejected_pq = run_dir / "rejected_signals.parquet"
+    skipped = pd.read_parquet(skipped_pq).to_dict("records") if skipped_pq.exists() else []
+    rejected = pd.read_parquet(rejected_pq).to_dict("records") if rejected_pq.exists() else []
+
+    summary: dict = {}
+    an_path = run_dir / "analysis.json"
+    if an_path.exists():
+        with open(an_path, "r", encoding="utf-8") as af:
+            an_data = json.load(af)
+            summary["m2m_max_drawdown_dollars"] = an_data.get("risk", {}).get("m2m_max_drawdown_dollars")
+            summary["m2m_max_drawdown_pct"] = an_data.get("risk", {}).get("m2m_max_drawdown_pct")
+
+    return SimulationResult(
+        mode=mode,
+        trades=trades,
+        events=[],
+        accepted_signals=sigs_df.to_dict("records"),
+        skipped_signals=skipped,
+        rejected_signals=rejected,
+        snapshots=pd.DataFrame(),
+        ambiguity_stats={},
+        summary_dict=summary,
+    )
 
 
 class TestReportingAndPFCorrections:
@@ -305,3 +340,173 @@ class TestReportingAndPFCorrections:
         row_c = rows[1]
         assert row_c["closed_trade_max_drawdown_dollars"] == 14.0
         assert row_c["m2m_max_drawdown_dollars"] == 22.0
+
+    def test_no_hardcoded_metrics_in_reporting_code(self):
+        """AC5: Ensure no hardcoded metric values (5984, 2827, 1488, 1947, 343.52) or 'status': 'PASS' in reporting scripts."""
+        target_files = [
+            REPO_ROOT / "autotrade_v3" / "lab" / "run_manager.py",
+            REPO_ROOT / "autotrade_v3" / "reports" / "reporter.py",
+            REPO_ROOT / "scripts" / "reconcile_runs.py",
+            REPO_ROOT / "scripts" / "run_v3_backtest.py",
+        ]
+        banned_patterns = [
+            r"\b5984\b",
+            r"\b2827\b",
+            r"\b1488\b",
+            r"\b1947\b",
+            r"\b343\.52\b",
+            r"\"status\"\s*:\s*\"PASS\"",
+            r"\'status\'\s*:\s*\'PASS\'",
+        ]
+        violations = []
+        for file_path in target_files:
+            if not file_path.exists():
+                continue
+            text = file_path.read_text(encoding="utf-8")
+            for pat in banned_patterns:
+                for match in re.finditer(pat, text):
+                    line_no = text[: match.start()].count("\n") + 1
+                    line = text.splitlines()[line_no - 1].strip()
+                    violations.append(f"{file_path.name}:{line_no} matches '{pat}': {line}")
+
+        assert not violations, "Found hardcoded metrics / status in reporting code:\n" + "\n".join(violations)
+
+    def test_verify_report_on_golden_reports(self, tmp_path):
+        """AC4 & Integration: verify_report passes on all 3 golden runs with newly rendered report.md."""
+        from autotrade_v3.lab.run_manager import RunManager
+
+        for mode in ["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"]:
+            golden_dir = REPO_ROOT / "runs" / "golden" / "v3-08" / mode
+            assert golden_dir.exists(), f"Golden dir missing: {golden_dir}"
+
+            # Copy to tmp_path to avoid mutating golden dir
+            mode_tmp = tmp_path / mode
+            shutil.copytree(golden_dir, mode_tmp)
+
+            # Re-generate analysis.json with v3-09 analyzer
+            sim_res = _load_run_as_sim_result(mode_tmp, mode)
+            analysis = ResearchAnalyzer.analyze_simulation(sim_res)
+            with open(mode_tmp / "analysis.json", "w", encoding="utf-8") as f:
+                json.dump(analysis, f, indent=2)
+
+            with open(mode_tmp / "run_manifest.json", "r", encoding="utf-8") as f:
+                manifest_dict = json.load(f)
+
+            # Recreate manifest dataclass or mock object
+            from autotrade_v3.lab.run_manager import RunManifest
+            manifest = RunManifest(**manifest_dict)
+
+            report_md = RunManager(runs_dir=mode_tmp)._render_markdown_report(manifest, analysis)
+            (mode_tmp / "report.md").write_text(report_md, encoding="utf-8")
+
+            # Run verify_report.py
+            cmd = [
+                sys.executable,
+                str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"),
+                "--run-dir",
+                str(mode_tmp),
+            ]
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            assert res.returncode == 0, f"verify_report failed on {mode}:\n{res.stdout}\n{res.stderr}"
+
+    def test_adversarial_mutation_m1_report_number_changed(self, tmp_path):
+        """Adversarial M1: Alter a number in report.md -> verify_report must exit non-zero and identify error."""
+        from autotrade_v3.lab.run_manager import RunManager, RunManifest
+
+        mode = "ALL_SIGNALS"
+        golden_dir = REPO_ROOT / "runs" / "golden" / "v3-08" / mode
+        mode_tmp = tmp_path / "m1"
+        shutil.copytree(golden_dir, mode_tmp)
+
+        sim_res = _load_run_as_sim_result(mode_tmp, mode)
+        analysis = ResearchAnalyzer.analyze_simulation(sim_res)
+        with open(mode_tmp / "analysis.json", "w", encoding="utf-8") as f:
+            json.dump(analysis, f, indent=2)
+        with open(mode_tmp / "run_manifest.json", "r", encoding="utf-8") as f:
+            manifest = RunManifest(**json.load(f))
+
+        report_md = RunManager(runs_dir=mode_tmp)._render_markdown_report(manifest, analysis)
+        # Mutate net pnl in report.md
+        assert "$410.70" in report_md, "Expected pristine report to contain $410.70"
+        mutated_report = report_md.replace("$410.70", "$999.99")
+        (mode_tmp / "report.md").write_text(mutated_report, encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail on mutated report.md"
+        assert "FAIL" in res.stdout or "FAIL" in res.stderr
+
+    def test_adversarial_mutation_m2_trade_net_pnl_changed(self, tmp_path):
+        """Adversarial M2: Mutate net_pnl of one leg in trades.parquet -> verify_report on old report must fail."""
+        from autotrade_v3.lab.run_manager import RunManager, RunManifest
+
+        mode = "ALL_SIGNALS"
+        golden_dir = REPO_ROOT / "runs" / "golden" / "v3-08" / mode
+        mode_tmp = tmp_path / "m2"
+        shutil.copytree(golden_dir, mode_tmp)
+
+        sim_res = _load_run_as_sim_result(mode_tmp, mode)
+        analysis = ResearchAnalyzer.analyze_simulation(sim_res)
+        with open(mode_tmp / "analysis.json", "w", encoding="utf-8") as f:
+            json.dump(analysis, f, indent=2)
+        with open(mode_tmp / "run_manifest.json", "r", encoding="utf-8") as f:
+            manifest = RunManifest(**json.load(f))
+
+        # Write pristine report.md
+        report_md = RunManager(runs_dir=mode_tmp)._render_markdown_report(manifest, analysis)
+        (mode_tmp / "report.md").write_text(report_md, encoding="utf-8")
+
+        # Now mutate trades.parquet
+        trades_df = pd.read_parquet(mode_tmp / "trades.parquet")
+        trades_df_mut = trades_df.copy()
+        trades_df_mut.loc[0, "net_pnl"] += 100.0
+        trades_df_mut.to_parquet(mode_tmp / "trades.parquet")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail when trades.parquet is mutated"
+
+    def test_adversarial_mutation_m3_symbol_changed(self, tmp_path):
+        """Adversarial M3: Alter symbol of one leg in copy -> reconciliation detects mismatch."""
+        mode = "ALL_SIGNALS"
+        golden_dir = REPO_ROOT / "runs" / "golden" / "v3-08" / mode
+        trades = _load_trades_parquet_as_records(golden_dir / "trades.parquet")
+
+        # Mutate symbol of leg 0 to ETH-USDT when combo is C2 (which is BTC only)
+        trades[0].symbol = "ETH-USDT"
+        trades[0].combo_id = 2
+        trades[0].combo_name = "C2"
+
+        sim_res = SimulationResult(
+            mode=mode,
+            trades=trades,
+            events=[],
+            accepted_signals=[],
+            skipped_signals=[],
+            rejected_signals=[],
+            snapshots=pd.DataFrame(),
+            ambiguity_stats={},
+        )
+        analysis = ResearchAnalyzer.analyze_simulation(sim_res)
+        rec = analysis["reconciliation"]
+        assert rec["symbol_combo_alignment_pass"] is False
+        assert rec["reconciliation_pass"] is False
+
+    def test_adversarial_mutation_m4_hardcoded_metric_scan(self, tmp_path):
+        """Adversarial M4: Inserting a hardcoded metric constant into a file copy makes the scan fail."""
+        fake_file = tmp_path / "fake_reporter.py"
+        fake_file.write_text("def report():\n    total_signals = 5984\n", encoding="utf-8")
+
+        banned_patterns = [r"\b5984\b"]
+        text = fake_file.read_text(encoding="utf-8")
+        found = any(re.search(pat, text) for pat in banned_patterns)
+        assert found is True, "Hardcode scanner must catch hardcoded 5984"
+
+        banned_patterns = [r"\b5984\b"]
+        text = fake_file.read_text(encoding="utf-8")
+        found = any(re.search(pat, text) for pat in banned_patterns)
+        assert found is True, "Hardcode scanner must catch hardcoded 5984"

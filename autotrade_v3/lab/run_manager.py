@@ -322,6 +322,9 @@ class RunManager:
         risk = analysis.get("risk", {})
         amb = analysis.get("ambiguity", {})
         sym_stats = analysis.get("symbols", {})
+        combos_list = analysis.get("combos", [])
+        exit_breakdown = analysis.get("exit_reasons", {})
+        recon = analysis.get("reconciliation", {})
 
         val = analysis.get("validation", {})
         gates_dict = val.get("gates", {})
@@ -365,6 +368,10 @@ class RunManager:
             f"- **Note on ROI:** {pnl.get('roi_note', '')}",
             f"- **Net Profit Factor (Default):** {pnl.get('net_profit_factor', pnl.get('profit_factor', 'N/A'))}",
             f"- **Gross Profit Factor:** {pnl.get('gross_profit_factor', 'N/A')}",
+            f"- **Net Profit Factor (Trade):** {pnl.get('net_pf_trade', 'N/A')}",
+            f"- **Net Profit Factor (Leg):** {pnl.get('net_pf_leg', 'N/A')}",
+            f"- **Gross Profit Factor (Trade):** {pnl.get('gross_pf_trade', 'N/A')}",
+            f"- **Gross Profit Factor (Leg):** {pnl.get('gross_pf_leg', 'N/A')}",
             f"- **Trade-level Win Rate:** {wr.get('trade_win_rate_pct', 0.0):.2f}% ({wr.get('winning_trades', 0)}/{acct.get('accepted_entries', 0)})",
             f"- **Leg-level Win Rate:** {wr.get('leg_win_rate_pct', 0.0):.2f}% ({wr.get('winning_legs', 0)}/{acct.get('total_legs', 0)})",
             "",
@@ -385,14 +392,50 @@ class RunManager:
             "",
             "## 5. Performance by Symbol",
             "",
-            "| Symbol | Entries | Legs | Net PnL | Win Rate (Leg) | Net PF | Gross PF |",
-            "|:---|---:|---:|---:|---:|---:|---:|",
+            "| Symbol | Entries | Legs | Net PnL | Win Rate (Leg) | Net PF | Gross PF | Net PF (Trade) | Gross PF (Trade) |",
+            "|:---|---:|---:|---:|---:|---:|---:|---:|---:|",
         ])
 
         for sym, s_data in sym_stats.items():
             lines.append(
-                f"| **{sym}** | {s_data.get('entries', 0):,} | {s_data.get('legs', 0):,} | ${s_data.get('net_pnl', 0.0):,.2f} | {s_data.get('leg_win_rate_pct', 0.0):.1f}% | {s_data.get('net_profit_factor', s_data.get('profit_factor', 'N/A'))} | {s_data.get('gross_profit_factor', 'N/A')} |"
+                f"| **{sym}** | {s_data.get('entries', 0):,} | {s_data.get('legs', 0):,} | ${s_data.get('net_pnl', 0.0):,.2f} | {s_data.get('leg_win_rate_pct', 0.0):.1f}% | {s_data.get('net_profit_factor', s_data.get('profit_factor', 'N/A'))} | {s_data.get('gross_profit_factor', 'N/A')} | {s_data.get('net_pf_trade', 'N/A')} | {s_data.get('gross_pf_trade', 'N/A')} |"
             )
+
+        if exit_breakdown:
+            lines.extend([
+                "",
+                "## 6. Exit Reason Breakdown",
+                "",
+                "| Exit Reason | Count | Pct of Legs | Gross PnL | Net PnL |",
+                "|:---|---:|---:|---:|---:|",
+            ])
+            for r_name, r_data in sorted(exit_breakdown.items()):
+                lines.append(
+                    f"| **{r_name}** | {r_data.get('count', 0):,} | {r_data.get('pct_of_legs', 0.0):.2f}% | ${r_data.get('gross_pnl', 0.0):,.2f} | ${r_data.get('net_pnl', 0.0):,.2f} |"
+                )
+
+        if combos_list:
+            lines.extend([
+                "",
+                "## 7. Performance by Combo",
+                "",
+                "| Combo Key | Symbol | ID | Name | Timeframe | Entries | Legs | Net PnL | Win Rate | Net PF (Leg) | Net PF (Trade) |",
+                "|:---|:---|---:|:---|:---|---:|---:|---:|---:|---:|---:|",
+            ])
+            for c in combos_list:
+                lines.append(
+                    f"| **{c.get('combo_key', '')}** | {c.get('symbol', '')} | {c.get('combo_id', 0)} | {c.get('combo_name', '')} | {c.get('timeframe', '')} | {c.get('entries', 0):,} | {c.get('legs', 0):,} | ${c.get('net_pnl', 0.0):,.2f} | {c.get('win_rate_pct', 0.0):.1f}% | {c.get('net_pf_leg', 'N/A')} | {c.get('net_pf_trade', 'N/A')} |"
+                )
+
+        if recon:
+            lines.extend([
+                "",
+                "## 8. Reconciliation Audit",
+                "",
+                f"- **Three-Level Parity Pass (Run == Symbol Sum == Combo Sum):** `{recon.get('reconciliation_pass', False)}`",
+                f"- **Symbol-Combo Configuration Alignment:** `{recon.get('symbol_combo_alignment_pass', False)}`",
+                f"- **Unrounded Tolerance:** `{recon.get('tolerance', 1e-9)}`",
+            ])
 
         return "\n".join(lines) + "\n"
 

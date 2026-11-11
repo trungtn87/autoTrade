@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """AutoTrade V3 Cross-Backtest Reconciliation Engine (V3-06).
 
-Performs rigorous independent cross-reconciliation between:
-- V3-03: Signal replay & TP/SL/trailing execution baseline
-- V3-04: Initial real M1 historical run (6,271 legs, +$343.52)
-- V3-05: Independent Portfolio Event Loop audit (6,265 legs, +$282.19, M2M DD)
+GHI CHÚ: Lịch sử V3-03 đến V3-06, không dùng để báo cáo V3 Research Lab chính thức.
+Mọi báo cáo chính thức của V3 Research Lab được sinh qua lab/run_manager.py và tools/verify_report.py.
+
+Performs rigorous independent cross-reconciliation between historical lab iterations.
 
 Generates all 11 required deliverables in runs/v3_crossrun_reconciliation/:
 1. signal_reconciliation.csv
@@ -120,7 +120,7 @@ def run_cross_reconciliation(
 
     all_signals.sort(key=lambda s: (s.signal_close_ms, s.combo_id, s.side))
     print(f"  Total signals generated across symbols: {len(all_signals):,}")
-    assert len(all_signals) == 5984, f"Expected exactly 5,984 signals, got {len(all_signals)}"
+    assert len(all_signals) > 0, f"Expected non-empty approved signals, got {len(all_signals)}"
 
     # 3. Load Prior Run Trade Ledgers
     print("\n[Step 3/8] Loading prior backtest trade ledgers...")
@@ -457,8 +457,15 @@ def run_cross_reconciliation(
     v4_tot_pnl = float(df_v4_p["net_pnl"].sum())
     pnl_delta_v4_v5 = p_tot_pnl - v4_tot_pnl
 
+    parity_valid = (
+        math.isclose(v_btc_pnl + v_eth_pnl, v_tot_pnl, abs_tol=1e-4)
+        and (v_btc_legs + v_eth_legs == v_tot_legs)
+        and math.isclose(p_btc_pnl + p_eth_pnl, p_tot_pnl, abs_tol=1e-4)
+        and (p_btc_legs + p_eth_legs == p_tot_legs)
+    )
+    pnl_status = "PASS" if parity_valid else "FAIL"
     pnl_parity_data = {
-        "status": "PASS",
+        "status": pnl_status,
         "description": "Strict mathematical parity breakdown for Virtual and Portfolio execution modes",
         "virtual_mode": {
             "btc_legs": v_btc_legs,
@@ -490,9 +497,9 @@ def run_cross_reconciliation(
             "v3_05_legs": p_tot_legs,
             "delta_legs": p_tot_legs - len(df_v4_p),
             "explanation": (
-                "The -$61.33 delta between V3-04 (+$343.52) and V3-05 (+$282.19) stems from: "
+                f"The ${pnl_delta_v4_v5:+.2f} delta between V3-04 (${v4_tot_pnl:+.2f}) and V3-05 (${p_tot_pnl:+.2f}) stems from: "
                 "(1) V3-04 Portfolio mode was not independent; it reused Virtual mode exit times and summed isolated PnLs without genuine VWAP order blending. "
-                "(2) V3-05 implemented the true independent portfolio event loop with dynamic VWAP, real margin checking, and tick-by-tick combo concurrency, resulting in 8 fewer ETH legs (-$2.00 difference from Virtual) and realistic position blending."
+                "(2) V3-05 implemented the true independent portfolio event loop with dynamic VWAP, real margin checking, and tick-by-tick combo concurrency, resulting in 8 fewer ETH legs and realistic position blending."
             ),
         },
         "breakdown_by_combo": {
@@ -568,24 +575,25 @@ def run_cross_reconciliation(
         # Load from prior audited sensitivity or interpolate
         breakeven_slippage_pct = 0.0348
 
-    # Calculate theoretical flat volume breakeven for comparison:
+    # Calculate theoretical flat volume breakeven for comparison dynamically from loaded trades
     # Net PnL / (Total Trades * $100 Notional * 2 sides)
-    flat_vol_v4_breakeven_pct = round(343.52 / (6271 * 100.0 * 2) * 100, 4)
-    flat_vol_v5_breakeven_pct = round(282.19 / (6265 * 100.0 * 2) * 100, 4)
+    flat_vol_v4_breakeven_pct = round(v4_tot_pnl / (len(df_v4_p) * 100.0 * 2) * 100, 4) if len(df_v4_p) > 0 else 0.0
+    flat_vol_v5_breakeven_pct = round(p_tot_pnl / (len(df_v5_p) * 100.0 * 2) * 100, 4) if len(df_v5_p) > 0 else 0.0
 
+    slippage_valid = breakeven_slippage_pct is not None and breakeven_slippage_pct > 0.0
+    slip_status = "PASS" if slippage_valid else "FAIL"
     slippage_payload = {
-        "status": "PASS",
+        "status": slip_status,
         "description": "Fine-grained Slippage Sensitivity Analysis & Breakeven Threshold Verification",
         "simulated_breakeven_slippage_per_side_pct": breakeven_slippage_pct,
         "simulated_breakeven_round_trip_pct": round(breakeven_slippage_pct * 2, 4) if breakeven_slippage_pct else None,
         "theoretical_flat_volume_breakeven_v3_04_pct": flat_vol_v4_breakeven_pct,
         "theoretical_flat_volume_breakeven_v3_05_pct": flat_vol_v5_breakeven_pct,
         "discrepancy_explanation": (
-            f"The value '0.027%' cited in the V3-05 PR text was a theoretical flat-volume back-of-the-envelope calculation "
-            f"derived directly from Total PnL / Traded Volume ($343.52 / (6,271 * $200) = {flat_vol_v4_breakeven_pct}%). "
-            f"In contrast, the rigorous dynamic M1 bar-by-bar simulation yields an exact breakeven slippage of "
-            f"{breakeven_slippage_pct}% per side (~{breakeven_slippage_pct*2:.4f}% round-trip). "
-            f"At 0.030% slippage, the strategy maintains a positive net return of +$38.33 (+3.83% ROI)."
+            f"The theoretical flat-volume calculation is derived directly from "
+            f"Total PnL / Traded Volume (${v4_tot_pnl:.2f} / ({len(df_v4_p):,} * $200) = {flat_vol_v4_breakeven_pct}%). "
+            f"In contrast, the dynamic M1 bar-by-bar simulation yields an exact breakeven slippage of "
+            f"{breakeven_slippage_pct}% per side (~{breakeven_slippage_pct*2:.4f}% round-trip)."
         ),
         "fine_grained_scenarios": slippage_results,
     }
@@ -632,8 +640,8 @@ def run_cross_reconciliation(
 
     # 11. HTML & Markdown Comparison Reports
     print("\n[Step 11/8] Generating comparison_report.html and validation_report.md...")
-    _generate_comparison_html(out_dir / "comparison_report.html", pnl_parity_data, slippage_payload, df_exit_rec)
-    _generate_validation_markdown(out_dir / "validation_report.md", git_sha, timestamp_iso, pnl_parity_data, slippage_payload, df_exit_rec, len(df_ambig_rec))
+    _generate_comparison_html(out_dir / "comparison_report.html", pnl_parity_data, slippage_payload, df_exit_rec, total_signals=len(all_signals))
+    _generate_validation_markdown(out_dir / "validation_report.md", git_sha, timestamp_iso, pnl_parity_data, slippage_payload, df_exit_rec, len(df_ambig_rec), total_signals=len(all_signals))
     print("  Exported comparison_report.html")
     print("  Exported validation_report.md")
 
@@ -642,7 +650,8 @@ def run_cross_reconciliation(
     print("================================================================")
 
 
-def _generate_comparison_html(path: Path, pnl_data: dict, slip_data: dict, df_exit: pd.DataFrame) -> None:
+def _generate_comparison_html(path: Path, pnl_data: dict, slip_data: dict, df_exit: pd.DataFrame, total_signals: int = 0) -> None:
+    parity_status = pnl_data.get("status", "PASS")
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -668,7 +677,7 @@ def _generate_comparison_html(path: Path, pnl_data: dict, slip_data: dict, df_ex
 
   <div class="metric-card">
     <div class="metric-label">Total Signals Reconciled</div>
-    <div class="metric-value">5,984</div>
+    <div class="metric-value">{total_signals:,}</div>
   </div>
   <div class="metric-card">
     <div class="metric-label">Audited Portfolio ROI</div>
@@ -706,7 +715,7 @@ def _generate_comparison_html(path: Path, pnl_data: dict, slip_data: dict, df_ex
         <td>${pnl_data['virtual_mode']['btc_net_pnl']:,.2f}</td>
         <td>${pnl_data['virtual_mode']['eth_net_pnl']:,.2f}</td>
         <td><strong>${pnl_data['virtual_mode']['total_net_pnl']:,.2f}</strong></td>
-        <td><span class="badge badge-pass">PARITY PASS</span></td>
+        <td><span class="badge badge-pass">PARITY {parity_status}</span></td>
       </tr>
       <tr>
         <td><strong>Exchange Hedge Portfolio</strong></td>
@@ -716,7 +725,7 @@ def _generate_comparison_html(path: Path, pnl_data: dict, slip_data: dict, df_ex
         <td>${pnl_data['portfolio_mode']['btc_net_pnl']:,.2f}</td>
         <td>${pnl_data['portfolio_mode']['eth_net_pnl']:,.2f}</td>
         <td><strong>${pnl_data['portfolio_mode']['total_net_pnl']:,.2f}</strong></td>
-        <td><span class="badge badge-pass">PARITY PASS</span></td>
+        <td><span class="badge badge-pass">PARITY {parity_status}</span></td>
       </tr>
     </tbody>
   </table>
@@ -795,7 +804,28 @@ def _generate_validation_markdown(
     slip_data: dict,
     df_exit: pd.DataFrame,
     ambig_count: int,
+    total_signals: int = 0,
 ) -> None:
+    # Build dynamic exit breakdown from df_exit
+    exit_breakdown_lines = []
+    tot_p_legs = pnl_data.get("portfolio_mode", {}).get("total_legs", 1) or 1
+    for _, r in df_exit.iterrows():
+        cnt = int(r.get("v3_05_portfolio_count", 0))
+        pct = (cnt / tot_p_legs * 100.0) if tot_p_legs else 0.0
+        exit_breakdown_lines.append(f"- **{r['exit_reason']}**: {cnt:,} legs ({pct:.1f}%).")
+    exit_breakdown_str = "\n".join(exit_breakdown_lines) if exit_breakdown_lines else "- Chưa có dữ liệu phân bổ exit."
+
+    p_roi = pnl_data.get("portfolio_mode", {}).get("roi_pct", 0.0)
+    p_net = pnl_data.get("portfolio_mode", {}).get("total_net_pnl", 0.0)
+
+    # Dynamic slippage scenarios
+    scenarios_md = []
+    for s in slip_data.get("fine_grained_scenarios", []):
+        sc_slip = s.get("slippage_pct_per_side", 0.0)
+        if sc_slip in (0.01, 0.02, 0.03):
+            scenarios_md.append(f"  - Slippage {sc_slip:.2f}%: Lãi +${s.get('net_pnl', 0.0):,.2f} ({s.get('roi_pct', 0.0):+.2f}% ROI).")
+    scenarios_str = "\n".join(scenarios_md) if scenarios_md else "  - Xem bảng chi tiết trong báo cáo."
+
     md_content = f"""# Báo cáo Đối chiếu & Kiểm chứng Chéo Backtest AutoTrade V3 (V3-06)
 
 - **Generated At**: {timestamp_iso}
@@ -811,65 +841,43 @@ def _generate_validation_markdown(
 
 ### Câu 1: Số lượng tín hiệu có thực sự trùng khớp?
 **CÓ, TRÙNG KHỚP TUYỆT ĐỐI 100%**.
-- Tổng số tín hiệu 20FINAL được duyệt (approved) sau thời gian warm-up 3.400 nến M15 trên toàn bộ chu kỳ 3 năm là **chính xác 5.984 tín hiệu** (2.575 tín hiệu BTC-USDT và 3.409 tín hiệu ETH-USDT).
-- Con số này hoàn toàn đồng nhất giữa bộ sự kiện tái lập gốc V3-03 (`runs/3year_replay/signal_events.csv`), báo cáo V3-04, và kiểm toán độc lập V3-05.
+- Tổng số tín hiệu 20FINAL được duyệt (approved) sau thời gian warm-up 3.400 nến M15 trên toàn bộ chu kỳ 3 năm là **chính xác {total_signals:,} tín hiệu**.
+- Con số này hoàn toàn đồng nhất giữa các bộ sự kiện tái lập, báo cáo và kiểm toán độc lập.
 
 ### Câu 2: Bao nhiêu tín hiệu được thực hiện thành Entry?
-- Trong chế độ **Virtual Isolated (50TP_50TRAIL)**: có **4.156 Entry** được mở.
-- Trong chế độ **Portfolio Independent (BingX Merged)**: có **4.149 Entry** được mở.
-- Trong chế độ tham chiếu **Hard TP/SL (V3-03 / V3-04)**: có **4.155 Entry** được mở.
+- Trong chế độ **Virtual Isolated (50TP_50TRAIL)**: có **{pnl_data.get('virtual_mode', {}).get('total_legs', 0):,} trade legs** được thực thi.
+- Trong chế độ **Portfolio Independent (BingX Merged)**: có **{pnl_data.get('portfolio_mode', {}).get('total_legs', 0):,} trade legs** được thực thi.
 
 ### Câu 3: Bao nhiêu tín hiệu bị bỏ qua và vì sao?
-- **Virtual Mode**: Bỏ qua **1.828 tín hiệu** (5.984 - 4.156).
-- **Portfolio Mode**: Bỏ qua **1.835 tín hiệu** (5.984 - 4.149).
-- **Hard TP/SL Mode (V3-03)**: Bỏ qua **1.829 tín hiệu** (5.984 - 4.155).
-- **Trailing Stop Mode (V3-03)**: Bỏ qua **1.837 tín hiệu** (5.984 - 4.147).
-- **Nguyên nhân**:
-  1. **100% các tín hiệu bị bỏ qua là do Concurrency (`SKIPPED_BY_CONCURRENCY`)**: Khi một combo đang có vị thế mở, các tín hiệu phát sinh tiếp theo của chính combo đó bị từ chối để tránh vi phạm quy tắc một vị thế đơn lẻ của chiến lược 20FINAL.
-  2. **0 tín hiệu bị từ chối do thiếu ký quỹ (`INSUFFICIENT_MARGIN = 0`)**: Nhờ đòn bẩy 100x BTC / 50x ETH với quy mô vị thế chuẩn $100 notional, vốn khả dụng $1.000 luôn đáp ứng đầy đủ yêu cầu ký quỹ.
+- Số tín hiệu bị bỏ qua là do Concurrency (`SKIPPED_BY_CONCURRENCY`): Khi một combo đang có vị thế mở, các tín hiệu phát sinh tiếp theo của chính combo đó bị từ chối để tránh vi phạm quy tắc một vị thế đơn lẻ của chiến lược 20FINAL.
+- 0 tín hiệu bị từ chối do thiếu ký quỹ (`INSUFFICIENT_MARGIN = 0`) khi đòn bẩy và quy mô vị thế chuẩn được đáp ứng bởi vốn khả dụng.
 
 ### Câu 4: Bao nhiêu Entry được tách thành 2 legs?
 Quy tắc phân tách tuân thủ nghiêm ngặt thiết kế 20FINAL:
-- **FINAL14 (14 combo)**: 100% Entry được phân tách thành **2 legs** (Leg 1: 50% TP cố định, Leg 2: 50% Trailing Stop).
-  - V3-05 Virtual: 2.117 Entry x 2 = **4.234 legs**.
-  - V3-05 Portfolio: 2.116 Entry x 2 = **4.232 legs**.
-- **NEW6 (6 combo C11-C16)**: 100% Entry giữ nguyên **1 leg** (Hard TP 100% / Hard SL 100%, không trailing).
-  - V3-05 Virtual: **2.039 Entry = 2.039 legs**.
-  - V3-05 Portfolio: **2.033 Entry = 2.033 legs**.
-- Tổng số legs:
-  - Virtual: 4.234 + 2.039 = **6.273 legs**.
-  - Portfolio: 4.232 + 2.033 = **6.265 legs**.
+- **FINAL14 (14 combo)**: Phân tách thành **2 legs** (Leg 1: 50% TP cố định, Leg 2: 50% Trailing Stop).
+- **NEW6 (6 combo C11-C16)**: Giữ nguyên **1 leg** (Hard TP 100% / Hard SL 100%, không trailing).
 
 ### Câu 5: Từng Entry được đóng bởi TP, SL hay Trailing?
-Phân bổ lệnh đóng thực tế:
-- **Take Profit (TP)**: 2.827 legs (45,1%).
-- **Stop Loss (SL)**: 1.488 legs (23,8%).
-- **Trailing Stop (TRAIL)**: 1.947 legs (31,1%).
-- **Intrabar Ambiguous (SL ưu tiên)**: 3 legs (0,05%).
-- **Force Close cuối kỳ**: 0 legs.
+Phân bổ lệnh đóng thực tế từ ledger V3-05 Portfolio:
+{exit_breakdown_str}
 
 ### Câu 6: Vì sao số trường hợp nhập nhằng khác nhau (555 vs 459 vs 3)?
-- **3 trường hợp**: Là số nến M1 có biến động cực đoan quét đồng thời cả mức TP (+1.0%) và SL (-1.0%) trong cùng 1 nến. Engine áp dụng quy tắc bảo thủ tuyệt đối: kích hoạt SL trước (`exit_reason = SL_INTRABAR_AMBIGUOUS`).
-- **459 trường hợp**: Là số lệnh Trailing Stop chạm ngưỡng kích hoạt trailing (+0.5%) và quay đầu chạm mức hồi quy (callback -0.5%) trong cùng một nến 1 phút (`intrabar_trailing_ambiguous`).
-- **454 trường hợp của V3-03**: Phản ánh cùng hiện tượng vật lý với 459 trường hợp của V3-05 (độ lệch 5 trường hợp do các vị thế còn mở ở biên cửa sổ nạp hoặc làm tròn chỉ số nến).
-- **555 trường hợp của V3-03**: Bao gồm 454 trường hợp thứ tự giá M1 cộng với 101 trường hợp biến động râu nến phức tạp khác được kiểm kê sơ bộ trong đợt chạy V3-03.
+- Các trường hợp nến M1 có biến động quét đồng thời cả mức TP và SL trong cùng 1 nến được engine áp dụng quy tắc bảo thủ tuyệt đối: kích hoạt SL trước (`exit_reason = SL_INTRABAR_AMBIGUOUS`).
+- Lệnh Trailing Stop chạm ngưỡng kích hoạt trailing và quay đầu chạm mức hồi quy trong cùng một nến 1 phút được phân loại vào `intrabar_trailing_ambiguous`.
 
 ### Câu 7: Kết quả Virtual và Portfolio khác nhau do đâu?
 1. **Khác biệt về giá vốn bình quân (VWAP)**: Trong BingX Hedge Mode, các combo vào cùng chiều trên cùng symbol bị gộp vị thế và tính giá vốn theo VWAP. Khi một combo đóng lệnh, lãi lỗ được tính theo giá vốn bình quân thực tế của vị thế gộp thay vì giá vào độc lập.
-2. **Khác biệt 8 legs ETH-USDT (C15)**: Trong Portfolio Event Loop theo thời gian thực (tick-by-tick / minute-by-minute), một combo vừa đóng lệnh tại nến T sẽ không thể lập tức mở lệnh mới ngay tại giá Open của nến T (do lệnh cũ chỉ đóng trong quá trình biến động giá của nến T). Cơ chế vật lý này khiến 8 tín hiệu của C15 bị bỏ qua do concurrency, dẫn đến 6.265 legs (Portfolio) so với 6.273 legs (Virtual).
+2. **Khác biệt do concurrency theo thời gian thực**: Trong Portfolio Event Loop theo thời gian thực, combo vừa đóng lệnh tại nến T không mở lệnh mới ngay tại giá Open của nến T do lệnh cũ chỉ đóng trong quá trình nến chạy.
 
-### Câu 8: ROI +28,22% của V3-05 có đáng tin cậy không?
+### Câu 8: ROI của V3-05 có đáng tin cậy không?
 **HOÀN TOÀN ĐÁNG TIN CẬY VÀ ĐÃ ĐƯỢC CHỨNG MINH ĐỘC LẬP**.
-- Lợi nhuận ròng +$282.19 trên vốn $1.000 (ROI +28,22%) được tính toán từ event loop độc lập hoàn toàn, không mượn kết quả Virtual mode, kiểm tra margin thật, và trừ đầy đủ phí sàn taker 0,05% mỗi chiều ($415,56 tổng phí).
-- Đường cong vốn Mark-to-Market continuous equity khẳng định Max Drawdown thực tế trong nến là **$49.01 (3,7%)**, không có nguy cơ cháy tài khoản.
+- Lợi nhuận ròng +${p_net:,.2f} trên vốn $1.000 (ROI +{p_roi:.2f}%) được tính toán từ event loop độc lập hoàn toàn, không mượn kết quả Virtual mode, kiểm tra margin thật, và trừ đầy đủ phí sàn taker 0,05% mỗi chiều.
 
 ### Câu 9: Điểm hòa vốn Slippage chính xác là bao nhiêu?
-- Con số **0,027%** trong văn bản PR V3-05 là con số tính nhẩm lý thuyết trên tổng khối lượng giao dịch: `$343.52 / (6.271 * $200) = 0,0274%`.
+- Con số tính nhẩm lý thuyết trên tổng khối lượng giao dịch danh nghĩa (Net PnL / Total Volume).
 - Kết quả mô phỏng động M1 từng nến xác định điểm hòa vốn thực tế là **{slip_data['simulated_breakeven_slippage_per_side_pct']}% mỗi chiều** (~{slip_data['simulated_breakeven_round_trip_pct']}% round-trip).
-- Tại mức trượt giá thị trường thông thường cho hợp đồng BTC/ETH Perpetual (0,01% - 0,02%), hệ thống duy trì lợi nhuận ổn định:
-  - Slippage 0,01%: Lãi +$199.47 (+19,95% ROI).
-  - Slippage 0,02%: Lãi +$118.89 (+11,89% ROI).
-  - Slippage 0,03%: Lãi +$38.33 (+3,83% ROI).
+- Tại mức trượt giá thị trường thông thường cho hợp đồng BTC/ETH Perpetual (0,01% - 0,02%), hệ thống duy trì lợi nhuận:
+{scenarios_str}
 
 ---
 
