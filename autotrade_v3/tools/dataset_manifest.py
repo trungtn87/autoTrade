@@ -126,6 +126,7 @@ def verify_dataset_integrity(
     manifest_path: str | Path = REPO_ROOT / "runs" / "golden" / "v3-08" / "dataset_manifest.json",
     catalog_path: str | Path = DEFAULT_CATALOG_PATH,
     data_dir: str | Path = DEFAULT_DATA_DIR,
+    base_dir: str | Path | None = None,
 ) -> tuple[bool, str, str]:
     """Verify live dataset hash against saved manifest.
 
@@ -142,8 +143,13 @@ def verify_dataset_integrity(
     except Exception as e:
         return False, "", f"Failed to read saved dataset manifest: {e}"
 
+    effective_base = Path(base_dir) if base_dir is not None else REPO_ROOT
     try:
-        live_manifest = generate_dataset_manifest(catalog_path=catalog_path, data_dir=data_dir)
+        live_manifest = generate_dataset_manifest(
+            catalog_path=catalog_path,
+            data_dir=data_dir,
+            base_dir=effective_base,
+        )
         live_hash = live_manifest.get("dataset_hash", "")
     except Exception as e:
         return False, "", f"Failed to compute live dataset hash from actual files: {e}"

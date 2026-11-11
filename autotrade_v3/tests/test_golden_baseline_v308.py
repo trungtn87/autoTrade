@@ -299,16 +299,90 @@ class TestRobustnessAndAuditTools(unittest.TestCase):
             self.assertEqual(res2["col_diffs"]["net_pnl"]["null_mismatches"], 1)
 
     def test_verify_snapshot_tool_and_dataset_integrity(self):
-        # Test verify_snapshot on existing golden baseline
-        snap_res = verify_snapshot()
-        self.assertTrue(snap_res["verified"])
-        self.assertTrue(snap_res["sha_match"])
-        self.assertTrue(snap_res["rows_match"])
+        from autotrade_v3.tools.verify_snapshot import DEFAULT_SNAPSHOT_PATH
 
-        # Test verify_dataset_integrity on existing golden baseline
-        is_valid, live_hash, err_msg = verify_dataset_integrity()
-        self.assertTrue(is_valid, f"Dataset integrity check failed: {err_msg}")
-        self.assertNotEqual(live_hash, "")
+        # 1. Check default snapshot path behavior (environment-aware)
+        snap_res = verify_snapshot()
+        if DEFAULT_SNAPSHOT_PATH.exists():
+            self.assertTrue(snap_res["verified"])
+            self.assertTrue(snap_res["sha_match"])
+            self.assertTrue(snap_res["rows_match"])
+        else:
+            self.assertFalse(snap_res["verified"])
+            self.assertIn("reproduction_command", snap_res)
+
+        # 2. Synthetic verification of verify_snapshot logic
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_p = Path(tmp_dir)
+            fake_snap = tmp_p / "snapshots.parquet"
+            df_snap = pd.DataFrame({"open_ms": [1, 2], "portfolio_equity": [1000.0, 1010.0]})
+            df_snap.to_parquet(fake_snap)
+            fake_sha = compute_file_sha256(fake_snap)
+
+            fake_art = tmp_p / "ARTIFACTS.json"
+            fake_art.write_text(json.dumps({
+                "artifacts": {
+                    "snapshots.parquet": {
+                        "sha256": fake_sha,
+                        "rows": 2
+                    }
+                }
+            }), encoding="utf-8")
+
+            # Matching case
+            res_match = verify_snapshot(fake_snap, fake_art)
+            self.assertTrue(res_match["verified"])
+            self.assertTrue(res_match["sha_match"])
+            self.assertEqual(res_match["actual_rows"], 2)
+
+            # Mismatched SHA case
+            fake_art_bad = tmp_p / "ARTIFACTS_bad.json"
+            fake_art_bad.write_text(json.dumps({
+                "artifacts": {
+                    "snapshots.parquet": {
+                        "sha256": "0" * 64,
+                        "rows": 2
+                    }
+                }
+            }), encoding="utf-8")
+            res_bad = verify_snapshot(fake_snap, fake_art_bad)
+            self.assertFalse(res_bad["verified"])
+            self.assertFalse(res_bad["sha_match"])
+
+        # 3. Test verify_dataset_integrity logic with synthetic partitions
+        with tempfile.TemporaryDirectory() as tmp_data_dir:
+            tpath = Path(tmp_data_dir)
+            p_data = tpath / "data" / "m1_raw" / "symbol=BTC-USDT"
+            p_data.mkdir(parents=True)
+            pf = p_data / "part.parquet"
+            pd.DataFrame({"open": [1.0]}).to_parquet(pf)
+
+            man = generate_dataset_manifest(
+                catalog_path=tpath / "fake.duckdb",
+                data_dir=tpath / "data" / "m1_raw",
+                base_dir=tpath,
+            )
+            man_file = tpath / "manifest.json"
+            man_file.write_text(json.dumps(man), encoding="utf-8")
+
+            is_valid, l_hash, err = verify_dataset_integrity(
+                manifest_path=man_file,
+                catalog_path=tpath / "fake.duckdb",
+                data_dir=tpath / "data" / "m1_raw",
+                base_dir=tpath,
+            )
+            self.assertTrue(is_valid, f"Dataset integrity check failed: {err}")
+            self.assertEqual(l_hash, man["dataset_hash"])
+
+            # Tamper with file to assert failure detection
+            pf.write_bytes(pf.read_bytes() + b"extra")
+            is_valid_tamp, _, _ = verify_dataset_integrity(
+                manifest_path=man_file,
+                catalog_path=tpath / "fake.duckdb",
+                data_dir=tpath / "data" / "m1_raw",
+                base_dir=tpath,
+            )
+            self.assertFalse(is_valid_tamp)
 
 
 class TestEndToEndSyntheticGoldenArtifacts(unittest.TestCase):

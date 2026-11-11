@@ -50,12 +50,14 @@ def verify_snapshot(
 
     # Check against ARTIFACTS.json
     recorded_sha = EXPECTED_SHA256
+    expected_rows = EXPECTED_ROWS
     art_p = Path(artifacts_path)
     if art_p.exists():
         try:
             with open(art_p, "r", encoding="utf-8") as f:
                 art_data = json.load(f)
             recorded_sha = art_data.get("artifacts", {}).get("snapshots.parquet", {}).get("sha256", EXPECTED_SHA256)
+            expected_rows = art_data.get("artifacts", {}).get("snapshots.parquet", {}).get("rows", EXPECTED_ROWS)
         except Exception:
             pass
 
@@ -64,7 +66,7 @@ def verify_snapshot(
     # Read lightweight metadata
     df = pd.read_parquet(snap_p)
     actual_rows = len(df)
-    rows_match = (actual_rows == EXPECTED_ROWS)
+    rows_match = (actual_rows == expected_rows)
 
     initial_equity = float(df["equity"].iloc[0]) if "equity" in df else 0.0
     final_equity = float(df["equity"].iloc[-1]) if "equity" in df else 0.0
@@ -81,7 +83,7 @@ def verify_snapshot(
         "expected_sha256": recorded_sha,
         "sha_match": sha_match,
         "actual_rows": actual_rows,
-        "expected_rows": EXPECTED_ROWS,
+        "expected_rows": expected_rows,
         "rows_match": rows_match,
         "initial_equity": initial_equity,
         "final_equity": final_equity,
