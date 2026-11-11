@@ -1,0 +1,26 @@
+=== AutoTrade V3 Independent Metrics Recomputation ===
+Source Ledger: runs\golden\v3-08\ONE_TRADE_PER_COMBO\trades.parquet
+Total Unique Signals: 4,156
+Total Accepted Trades (Entries): 4,156
+Total Executed Legs:            6,273
+
+--- Breakdown By Symbol ---
+Symbol       Signals    Entries    Legs       Gross PnL ($)   Fees ($)        Net PnL ($)    
+------------------------------------------------------------------------------------------
+BTC-USDT     1861       1,861      3,021      324.6725        186.1417        138.5309       
+ETH-USDT     2295       2,295      3,252      375.1663        229.5026        145.6637       
+------------------------------------------------------------------------------------------
+TOTAL        4,156      4,156      6,273      699.8388        415.6443        284.1945       
+
+--- Win Rate Statistics ---
+Trade-level Win Rate: 39.61% (1646/4156)
+Leg-level Win Rate:   44.30% (2779/6273)
+
+--- Exit Reason Distribution ---
+Exit Reason          Count        Percentage
+---------------------------------------------
+SL                   3,260        51.97%    
+TP                   1,629        25.97%    
+TRAIL                1,381        22.01%    
+SL_INTRABAR_AMBIGUOUS 3            0.05%     
+---------------------------------------------

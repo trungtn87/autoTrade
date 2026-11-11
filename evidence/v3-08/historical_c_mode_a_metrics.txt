@@ -1,0 +1,48 @@
+=== V3-08 Historical Reconciliation: Mode A Metrics ===
+Baseline: runs/lab/RUN_20261110_082918_20FINAL_BASELINE_ALL_SIGNALS_20231101_20261101/analysis.json
+Golden:   runs/golden/v3-08/ALL_SIGNALS/analysis.json
+
+[PNL]
+  accounting_verified                : True                      (MATCH)
+  avg_leg_pnl                        : 0.0497                    (MATCH)
+  avg_trade_pnl                      : 0.0686                    (MATCH)
+  gross_pnl                          : 1009.0873                 (MATCH)
+  gross_profit_factor                : 1.37                      (MATCH)
+  net_pnl                            : 410.7007                  (MATCH)
+  net_profit_factor                  : 1.13                      (MATCH)
+  profit_factor                      : 1.13                      (MATCH)
+  roi_denominator_name               : Theoretical Baseline Capital ($1,000 reference) (MATCH)
+  roi_denominator_value              : 1000.0                    (MATCH)
+  roi_note                           : Reference unconstrained signal ROI. NOT an executable finite account ROI. (MATCH)
+  roi_pct                            : 41.07                     (MATCH)
+  total_fees                         : 598.3866                  (MATCH)
+
+[ACCOUNTING]
+  accepted_entries                   : 5984                      (MATCH)
+  accounting_balance_pass            : True                      (MATCH)
+  other_rejected                     : 0                         (MATCH)
+  other_skipped                      : 0                         (MATCH)
+  rejected_by_margin                 : 0                         (MATCH)
+  skipped_by_concurrency             : 0                         (MATCH)
+  symbol_reconciliation_pass         : True                      (MATCH)
+  total_legs                         : 8258                      (MATCH)
+  total_signals                      : 5984                      (MATCH)
+
+[WIN_RATE]
+  breakeven_legs                     : 0                         (MATCH)
+  breakeven_trades                   : 0                         (MATCH)
+  leg_win_rate_pct                   : 42.75                     (MATCH)
+  losing_legs                        : 4728                      (MATCH)
+  losing_trades                      : 3667                      (MATCH)
+  trade_win_rate_pct                 : 38.72                     (MATCH)
+  winning_legs                       : 3530                      (MATCH)
+  winning_trades                     : 2317                      (MATCH)
+
+[RISK]
+  closed_trade_max_drawdown_dollars  : 74.3941                   (MATCH)
+  closed_trade_max_drawdown_pct      : 5.65                      (MATCH)
+  m2m_max_drawdown_dollars           : None                      (MATCH)
+  m2m_max_drawdown_pct               : None                      (MATCH)
+  m2m_note                           : Continuous intra-trade M2M drawdown is NOT_APPLICABLE in isolated/unconstrained trade modes. (MATCH)
+  m2m_status                         : NOT_APPLICABLE            (MATCH)
+

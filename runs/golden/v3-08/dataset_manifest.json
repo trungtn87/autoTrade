@@ -1,0 +1,470 @@
+{
+  "generated_at_utc": "2026-11-10T14:52:28.956869+00:00",
+  "catalog_path": "catalog/research.duckdb",
+  "data_dir": "data/m1_raw",
+  "total_partitions": 74,
+  "total_candles": 3156480,
+  "symbol_stats": {
+    "BTCUSDT": {
+      "total_candles": 1578240,
+      "min_open_ms": 1698796800000,
+      "max_open_ms": 1793491140000,
+      "min_open_utc": "2023-11-01T00:00:00+00:00",
+      "max_open_utc": "2026-10-31T23:59:00+00:00"
+    },
+    "ETHUSDT": {
+      "total_candles": 1578240,
+      "min_open_ms": 1698796800000,
+      "max_open_ms": 1793491140000,
+      "min_open_utc": "2023-11-01T00:00:00+00:00",
+      "max_open_utc": "2026-10-31T23:59:00+00:00"
+    }
+  },
+  "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+  "partitions": [
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2023-11/BTCUSDT-2023-11.parquet",
+      "size_bytes": 2998817,
+      "num_rows": 43200,
+      "sha256": "fb888c864074a4c7247192794ec2dc42977185c2c957adcfb861b32fa94efe6f"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2023-12/BTCUSDT-2023-12.parquet",
+      "size_bytes": 3067656,
+      "num_rows": 44640,
+      "sha256": "1d048e6a54d8e3807576266624b34ed78eb18e0a95f80788ea93e0b7c2866a0a"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2024-01/BTCUSDT-2024-01.parquet",
+      "size_bytes": 3177255,
+      "num_rows": 44640,
+      "sha256": "483d3c07873d570ba256fbdfa0dc392422ce67b0483d66ecb8741c3ffb7b153f"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2024-02/BTCUSDT-2024-02.parquet",
+      "size_bytes": 2933730,
+      "num_rows": 41760,
+      "sha256": "2c2467dcb82816f737fd5511bee2e5fc1be64eb89bee2bb55e6af265cf47cfcc"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2024-03/BTCUSDT-2024-03.parquet",
+      "size_bytes": 3282508,
+      "num_rows": 44640,
+      "sha256": "f73b20a1af8fb717e9cf02787271106977d261ec6c3e8d2e2718abf6d599a506"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2024-04/BTCUSDT-2024-04.parquet",
+      "size_bytes": 3143345,
+      "num_rows": 43200,
+      "sha256": "04bfb195af2d3ab3b49b592df5bd932cc5a5c09ae891d2d13fd208c915e3fe80"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2024-05/BTCUSDT-2024-05.parquet",
+      "size_bytes": 3145657,
+      "num_rows": 44640,
+      "sha256": "2488ad6857e70e413a8d5fc5a511ef2bf61f28685048640684113001f1836680"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2024-06/BTCUSDT-2024-06.parquet",
+      "size_bytes": 3042441,
+      "num_rows": 43200,
+      "sha256": "ebf47779da9c835c61c2b6e7cdc7391483ea91db1f531f2888fddee0b54d9a18"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2024-07/BTCUSDT-2024-07.parquet",
+      "size_bytes": 3188077,
+      "num_rows": 44640,
+      "sha256": "7086f9cb9a5bd790bc02df20d0cbd90ff58ef5c64b1ca6f71b996eb2f5f85e56"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2024-08/BTCUSDT-2024-08.parquet",
+      "size_bytes": 3177068,
+      "num_rows": 44640,
+      "sha256": "cc5efccfc263335bcff463566e1f3e3b75296c94acdd38c55dfd4fbc900d8e70"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2024-09/BTCUSDT-2024-09.parquet",
+      "size_bytes": 3105801,
+      "num_rows": 43200,
+      "sha256": "2da61b56b86705ab5d1b8356ae05a2f49fb8850060aa4e9e5fee814c5eedb5dc"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2024-10/BTCUSDT-2024-10.parquet",
+      "size_bytes": 3107601,
+      "num_rows": 44640,
+      "sha256": "b805aef53f1934001af65dec7dc2a95cfda1163407ab273c1e47d2719edd8043"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2024-11/BTCUSDT-2024-11.parquet",
+      "size_bytes": 3194128,
+      "num_rows": 43200,
+      "sha256": "d8c5f468af6ec3e594ff4de5d75a4161230cf5b0e5c646e34f63a7c2f930af02"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2024-12/BTCUSDT-2024-12.parquet",
+      "size_bytes": 3235295,
+      "num_rows": 44640,
+      "sha256": "a498c68c653f3b9fbbd4ab4a24ec60341350ef1ff9f9f47e3bbab65dd9417300"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2025-01/BTCUSDT-2025-01.parquet",
+      "size_bytes": 3150619,
+      "num_rows": 44640,
+      "sha256": "92aa51de58d5f3c4c0f010dcc0d12593152277fe48d9db0c2f7d60a9591f0fb3"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2025-02/BTCUSDT-2025-02.parquet",
+      "size_bytes": 2871248,
+      "num_rows": 40320,
+      "sha256": "5934f41c9c47a5ab2e067db4f143150574eecabe20e8b8f1dbc596f6ce3c0188"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2025-03/BTCUSDT-2025-03.parquet",
+      "size_bytes": 3156581,
+      "num_rows": 44640,
+      "sha256": "35b02b553eda05fbb8a8f622546b77c2b3b9dbd86806470d8b8716c7d38a148c"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2025-04/BTCUSDT-2025-04.parquet",
+      "size_bytes": 3107575,
+      "num_rows": 43200,
+      "sha256": "6928e082a3c982cee9c5e9040bfeaf43c0a2debb1e613c450b069f106d6cd1fb"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2025-05/BTCUSDT-2025-05.parquet",
+      "size_bytes": 3166788,
+      "num_rows": 44640,
+      "sha256": "b8a9d42c3ca7ce24585305a6266fc4de74afae394f5e852767986e091c70f05e"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2025-06/BTCUSDT-2025-06.parquet",
+      "size_bytes": 2984476,
+      "num_rows": 43200,
+      "sha256": "f7cda0b47e48f36589973f23dc9440576c0c765379ce084a5e74588752e4963b"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2025-07/BTCUSDT-2025-07.parquet",
+      "size_bytes": 3091461,
+      "num_rows": 44640,
+      "sha256": "8203860638c0ed46ac70e25b0db070b02e6da09cc53cd186ee8009f50c017797"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2025-08/BTCUSDT-2025-08.parquet",
+      "size_bytes": 3117746,
+      "num_rows": 44640,
+      "sha256": "2a78092b69281f54f6fa466cc65f9a1919f365b865419ae856f3e8ba8d9589b4"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2025-09/BTCUSDT-2025-09.parquet",
+      "size_bytes": 2898984,
+      "num_rows": 43200,
+      "sha256": "e31f5bafb424f253ee6eb3683bfb5bd849cd9e49b57e76211ebcf3008f1ac118"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2025-10/BTCUSDT-2025-10.parquet",
+      "size_bytes": 3226561,
+      "num_rows": 44640,
+      "sha256": "4277f236ff4af48cc14d42bee90cbcee9349084aef5836a7995b20009896a662"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2025-11/BTCUSDT-2025-11.parquet",
+      "size_bytes": 3083168,
+      "num_rows": 43200,
+      "sha256": "613e650f067e7383fd5a06575a0c3459ece537fe07bf8f2ef452bd0904b3471e"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2025-12/BTCUSDT-2025-12.parquet",
+      "size_bytes": 3113208,
+      "num_rows": 44640,
+      "sha256": "31aa74cc08c65c6580566250579912e0aad2dfad6bcb2fd8f427cc445c0c19ff"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2026-01/BTCUSDT-2026-01.parquet",
+      "size_bytes": 3075306,
+      "num_rows": 44640,
+      "sha256": "32f6b0a26f97e6c99b028e309ce608c2c0a14255b7b98faa63c3fede21cf97b2"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2026-02/BTCUSDT-2026-02.parquet",
+      "size_bytes": 2899312,
+      "num_rows": 40320,
+      "sha256": "7b63325a678764407a07d6a3f7ff1f5d6e5dcdff9ee349f19c53124efdf026b6"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2026-03/BTCUSDT-2026-03.parquet",
+      "size_bytes": 3190630,
+      "num_rows": 44640,
+      "sha256": "01528d650397bf59e9a90d4b8503ed19aa78dda20e56697df9c8709b9ac55d89"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2026-04/BTCUSDT-2026-04.parquet",
+      "size_bytes": 3016595,
+      "num_rows": 43200,
+      "sha256": "0e4c3bf6e81937e16a7b73e2f2cb65bc1ee8854fffc4593a4e37b5e96c0c4b78"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2026-05/BTCUSDT-2026-05.parquet",
+      "size_bytes": 3046420,
+      "num_rows": 44640,
+      "sha256": "853ca85cdac3ae19f4714d06e4756f58e08218decbe7aab85eef16256ebe5658"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2026-06/BTCUSDT-2026-06.parquet",
+      "size_bytes": 3066056,
+      "num_rows": 43200,
+      "sha256": "aced21e52befae2da73b6a082de29f98167fa6eb1fd1d110228713e204c220a7"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2026-07/BTCUSDT-2026-07.parquet",
+      "size_bytes": 3035290,
+      "num_rows": 44640,
+      "sha256": "3151ea227a166f26186ad44f0990ed26fe815902d16b54bec8bc946176466bd9"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2026-08/BTCUSDT-2026-08.parquet",
+      "size_bytes": 3035928,
+      "num_rows": 44640,
+      "sha256": "567b6b4556017ba86b0ed6b101d881a5e18616e502f5e5a27a77ab4b8b534e3b"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2026-09/BTCUSDT-2026-09.parquet",
+      "size_bytes": 2960372,
+      "num_rows": 43200,
+      "sha256": "164359f56dc9648a937b0c50b9cadfa1aa68175f923a09fb7e607e61aaa496c1"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=BTCUSDT/month=2026-10/BTCUSDT-2026-10.parquet",
+      "size_bytes": 2960862,
+      "num_rows": 43200,
+      "sha256": "5c9a65bc840f061550967bd3d861f455cca382e6ae6623ed256e1c37af506254"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2023-11/ETHUSDT-2023-11.parquet",
+      "size_bytes": 3126268,
+      "num_rows": 43200,
+      "sha256": "79d4591a83a89e07834a684f121cf48e778b3cb382a49e76824d8cc4f66df89a"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2023-12/ETHUSDT-2023-12.parquet",
+      "size_bytes": 3189246,
+      "num_rows": 44640,
+      "sha256": "67e7bce01a3a61af31c1483b926e11507e8857ba483ad25e729aecf7fa7a01fb"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2024-01/ETHUSDT-2024-01.parquet",
+      "size_bytes": 3285447,
+      "num_rows": 44640,
+      "sha256": "ad7141fbf2a9944ab2975654892942f87c94d8c4e5770b461a341b5e6430937c"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2024-02/ETHUSDT-2024-02.parquet",
+      "size_bytes": 3101507,
+      "num_rows": 41760,
+      "sha256": "8dcc918b79c5ffc503be0c5635872992489a39c77a79f3956c62a566d4f59a31"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2024-03/ETHUSDT-2024-03.parquet",
+      "size_bytes": 3384828,
+      "num_rows": 44640,
+      "sha256": "5532d44195f5ed3480e031bd72ada06f416771ad9b97e11904671167c1b5c58b"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2024-04/ETHUSDT-2024-04.parquet",
+      "size_bytes": 3253999,
+      "num_rows": 43200,
+      "sha256": "c8c9cab9cda0a943b8eaa671d62d27500fc8adc48828ea71e4261cd3264a46d3"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2024-05/ETHUSDT-2024-05.parquet",
+      "size_bytes": 3273227,
+      "num_rows": 44640,
+      "sha256": "37e6198a3e0e426dcddcc90b441f5cfb36d841c97c2d2d4d8a18e6092052e1fa"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2024-06/ETHUSDT-2024-06.parquet",
+      "size_bytes": 3178154,
+      "num_rows": 43200,
+      "sha256": "ddf0cc8c72f411e799aebbea9c10cd6ed032d7366f0a3d32fc534b57ff45a371"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2024-07/ETHUSDT-2024-07.parquet",
+      "size_bytes": 3295192,
+      "num_rows": 44640,
+      "sha256": "dff4cc3afd47d5a96ee21a7af756c381c1a5ca10e856f0058ece8437d005c46d"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2024-08/ETHUSDT-2024-08.parquet",
+      "size_bytes": 3299523,
+      "num_rows": 44640,
+      "sha256": "1d7d0fd99d4554625b6a1217772de0741a910f770aa88ad5dd70ad382b7d33f2"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2024-09/ETHUSDT-2024-09.parquet",
+      "size_bytes": 3220553,
+      "num_rows": 43200,
+      "sha256": "d3f28813a813f96a46004399df298a9ba18b33784b459b2922b6adab1d9f2caa"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2024-10/ETHUSDT-2024-10.parquet",
+      "size_bytes": 3205469,
+      "num_rows": 44640,
+      "sha256": "29b444075432c493f672870c073edb6556c519f5d7d026b96905afb9b703a605"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2024-11/ETHUSDT-2024-11.parquet",
+      "size_bytes": 3314847,
+      "num_rows": 43200,
+      "sha256": "d6273e2557a60585b7e2c907179295ac327df6c6e092e1c3dddd5a4f9ed59388"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2024-12/ETHUSDT-2024-12.parquet",
+      "size_bytes": 3387299,
+      "num_rows": 44640,
+      "sha256": "77e11bebad26f6bd82e2153375a4733d4f7f6a07d0dc7ff8d06428e7e83dbfbc"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2025-01/ETHUSDT-2025-01.parquet",
+      "size_bytes": 3274102,
+      "num_rows": 44640,
+      "sha256": "8763c09a9de5b7a8fb2caaf663067dbd80576c1bf7ccc0b997ace92d59858eb0"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2025-02/ETHUSDT-2025-02.parquet",
+      "size_bytes": 3043250,
+      "num_rows": 40320,
+      "sha256": "49868f084fb4efe4d583ce1e7200d828a10f36f812dc794e57494c77f6095d1f"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2025-03/ETHUSDT-2025-03.parquet",
+      "size_bytes": 3261129,
+      "num_rows": 44640,
+      "sha256": "e2976f37403c1d6ef72dd957cb53c4d70e749663b171ba90e1d5db2f339a88d4"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2025-04/ETHUSDT-2025-04.parquet",
+      "size_bytes": 3150101,
+      "num_rows": 43200,
+      "sha256": "dd369ee77497ac3d74d8741851e6c44bad08d61c6d5a6f17a1568bdcaaac3363"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2025-05/ETHUSDT-2025-05.parquet",
+      "size_bytes": 3328499,
+      "num_rows": 44640,
+      "sha256": "6db705d9081017f596eed8ab69b2aae5ba644c8662c36dd4f4ad1a219de6f8a1"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2025-06/ETHUSDT-2025-06.parquet",
+      "size_bytes": 3190224,
+      "num_rows": 43200,
+      "sha256": "fcbe7524b4ecc53020b82c5ad03566bfb2d6eec14dad1155d2571bf497adcdd5"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2025-07/ETHUSDT-2025-07.parquet",
+      "size_bytes": 3407278,
+      "num_rows": 44640,
+      "sha256": "15b01cec05943016eff4fcbc9c55ca8a0060325e80003eb25365df00f256a073"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2025-08/ETHUSDT-2025-08.parquet",
+      "size_bytes": 3429118,
+      "num_rows": 44640,
+      "sha256": "9c1cb0bba32ea4b6e672ac37198605632eedb405d79e5f362785de75dfd1e281"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2025-09/ETHUSDT-2025-09.parquet",
+      "size_bytes": 3218783,
+      "num_rows": 43200,
+      "sha256": "dd2fe1a9bff18c26c72d70bf46458572dd3af285da2c6a4d3256c88f67f15282"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2025-10/ETHUSDT-2025-10.parquet",
+      "size_bytes": 3430069,
+      "num_rows": 44640,
+      "sha256": "444f8da113c1e7622ea147b1b5890ff21a183b6f8b1c9bf92473553a83e9584c"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2025-11/ETHUSDT-2025-11.parquet",
+      "size_bytes": 3263619,
+      "num_rows": 43200,
+      "sha256": "964c7e3097674369f2be133b0d2455bde32241fa4955f25e4a4a958b95faf813"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2025-12/ETHUSDT-2025-12.parquet",
+      "size_bytes": 3315822,
+      "num_rows": 44640,
+      "sha256": "69e636af944bc7d8790bdf39155355a02b1472bae567eff1e85e2b1cc8f06c16"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2026-01/ETHUSDT-2026-01.parquet",
+      "size_bytes": 3337235,
+      "num_rows": 44640,
+      "sha256": "96dec9f4078897d1eb576b952a72454055a8b5525f18be81fac5b621933f4b5b"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2026-02/ETHUSDT-2026-02.parquet",
+      "size_bytes": 2977753,
+      "num_rows": 40320,
+      "sha256": "5a5aa6005e837115bf7183b27a5ba569e495710312c44b96d1a28d0326da9855"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2026-03/ETHUSDT-2026-03.parquet",
+      "size_bytes": 3302229,
+      "num_rows": 44640,
+      "sha256": "d6d5dbc8693d4f8ff4006a54eca132ed1a1a1918b9ada67b289c7d7bb0928311"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2026-04/ETHUSDT-2026-04.parquet",
+      "size_bytes": 3168243,
+      "num_rows": 43200,
+      "sha256": "0b7fb7e9357ff4e004b404ca9d8afebae454012330e177f57e29bbab0c746861"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2026-05/ETHUSDT-2026-05.parquet",
+      "size_bytes": 3263925,
+      "num_rows": 44640,
+      "sha256": "e56040d2fa4133c75c5ce7233dde73b6be9d96291b96c00d3a9f63763d6bb2cf"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2026-06/ETHUSDT-2026-06.parquet",
+      "size_bytes": 3132141,
+      "num_rows": 43200,
+      "sha256": "4a79f90d0400d6ec979792b439475f5f74da27a828f950dcf07a83dd54e2c6fa"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2026-07/ETHUSDT-2026-07.parquet",
+      "size_bytes": 3183695,
+      "num_rows": 44640,
+      "sha256": "2621f8e104e2380b81378589fe071db8389a8904e548a636e3ab10dd7d586362"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2026-08/ETHUSDT-2026-08.parquet",
+      "size_bytes": 3210878,
+      "num_rows": 44640,
+      "sha256": "5cc8b37fccd5b05f0de7c30f7b159678f6bed0f2576d73e5c03fca1fffa8b524"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2026-09/ETHUSDT-2026-09.parquet",
+      "size_bytes": 3151298,
+      "num_rows": 43200,
+      "sha256": "4c837cb3cd6e39c00b92ef2f23f2a0ae346568ae420f12a2005cad5666a3ed79"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=binance/symbol=ETHUSDT/month=2026-10/ETHUSDT-2026-10.parquet",
+      "size_bytes": 3194848,
+      "num_rows": 43200,
+      "sha256": "f2a273b3f071f3b1058e38672c49775ad8a72d63514b63e1d79266dc1467751a"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=bingx/symbol=BTCUSDT/month=2026-10/BTCUSDT-2026-10-28-BINGX.parquet",
+      "size_bytes": 78526,
+      "num_rows": 1440,
+      "sha256": "bb3c028d9dd74e260eaf9af94656e8658e836dc826f9bb234641706e61582c88"
+    },
+    {
+      "relative_path": "data/m1_raw/provider=bingx/symbol=ETHUSDT/month=2026-10/ETHUSDT-2026-10-28-BINGX.parquet",
+      "size_bytes": 74577,
+      "num_rows": 1440,
+      "sha256": "417c68baed5657b536434808520c468ab1b39a8f691937c78492304e6e7d3d9b"
+    }
+  ]
+}

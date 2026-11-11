@@ -1,0 +1,55 @@
+{
+  "mode": "ONE_TRADE_PER_COMBO",
+  "generated_at_utc": "2026-11-10T14:56:33.769137+00:00",
+  "artifacts": {
+    "run_manifest.json": {
+      "file_name": "run_manifest.json",
+      "size_bytes": 1366,
+      "sha256": "e3ef4218ac0cee9ea29c9f9a05d106be35f6660e3667a54559a6715cca82d255",
+      "content_hash": "e3ef4218ac0cee9ea29c9f9a05d106be35f6660e3667a54559a6715cca82d255",
+      "row_count": null
+    },
+    "analysis.json": {
+      "file_name": "analysis.json",
+      "size_bytes": 25849,
+      "sha256": "c6d1f338113844a06a8d88db3d1d06799e0262783ccecc23859c1a98f42ca364",
+      "content_hash": "c6d1f338113844a06a8d88db3d1d06799e0262783ccecc23859c1a98f42ca364",
+      "row_count": null
+    },
+    "signals.parquet": {
+      "file_name": "signals.parquet",
+      "size_bytes": 364669,
+      "sha256": "c71366290a201a7086bf22158c81fa44efbb8f5aa9f0ca0c7513076b0f65ee21",
+      "content_hash": "52ed9b559dfba7521fe7bbe0801c485ae8ac7c4e692eb7517643ac9594999e8b",
+      "row_count": 5984
+    },
+    "trades.parquet": {
+      "file_name": "trades.parquet",
+      "size_bytes": 525751,
+      "sha256": "bbb6010fabab03f3fd09e31e4f15e094bc56b831ee80f36c46a83a4eb8d7cdfe",
+      "content_hash": "6fb3c2f2491a9e579dc19270347dd5b5a8ceefaed95b0ab7ed600b60589744ed",
+      "row_count": 6273
+    },
+    "execution_events.parquet": {
+      "file_name": "execution_events.parquet",
+      "size_bytes": 601208,
+      "sha256": "69cd40c1b669c5e6a170f110a1d847d1deac331a5e961835238a7f515486899a",
+      "content_hash": "a35c089c00bbe00a7cbaa6f3b8e31cc0541c819ce73e22eeb4a8ac0183d99ece",
+      "row_count": 12546
+    },
+    "skipped_signals.parquet": {
+      "file_name": "skipped_signals.parquet",
+      "size_bytes": 46730,
+      "sha256": "90be7b5fcf5a0fe2c03735d2ca06c12ed7703bf7282f8bdb07b9a88627c386a8",
+      "content_hash": "6f49c7d657cfa13786960a888b91adc60bafe5393ed97d27246f59f2b78a574d",
+      "row_count": 1828
+    },
+    "rejected_signals.parquet": {
+      "file_name": "rejected_signals.parquet",
+      "size_bytes": 5692,
+      "sha256": "d60841a007a44b9eefd467085d4f659b934e7dab2f3350a91695dab6c6c4a989",
+      "content_hash": "245de4d472e8c3ee29935fc7a6ba1a5ab8a6da6c50c9ad485ed70237f50a2aa7",
+      "row_count": 0
+    }
+  }
+}

@@ -1,0 +1,30 @@
+[tool.pytest.ini_options]
+testpaths = ["autotrade_v3/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = [
+    "E501",  # line too long
+    "E701",  # multiple statements on one line (colon)
+    "E702",  # multiple statements on one line (semicolon)
+    "E401",  # multiple imports on one line
+    "E402",  # module level import not at top of file
+    "E741",  # ambiguous variable name
+    "W291",  # trailing whitespace
+    "W292",  # no newline at end of file
+    "W293",  # blank line contains whitespace
+    "F401",  # imported but unused
+    "F541",  # f-string without placeholders
+    "F841",  # local variable assigned but never used
+]
+
+[tool.ruff.lint.per-file-ignores]
+"autotrade_v3/tests/*" = ["F821"]

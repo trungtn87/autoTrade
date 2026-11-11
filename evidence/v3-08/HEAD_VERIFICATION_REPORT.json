@@ -1,0 +1,47 @@
+[
+  {
+    "mode": "ALL_SIGNALS",
+    "signals": 5984,
+    "signals_hash_match": true,
+    "trades": 8258,
+    "trades_hash_match": true,
+    "net_pnl": 410.7007,
+    "net_pnl_gold": 410.7007,
+    "pnl_diff": 0.0,
+    "skipped": 0,
+    "skipped_hash_match": true,
+    "rejected": 0,
+    "rejected_hash_match": true,
+    "snapshot_status": "N/A"
+  },
+  {
+    "mode": "ONE_TRADE_PER_COMBO",
+    "signals": 5984,
+    "signals_hash_match": true,
+    "trades": 6273,
+    "trades_hash_match": true,
+    "net_pnl": 284.1945,
+    "net_pnl_gold": 284.1945,
+    "pnl_diff": 0.0,
+    "skipped": 1828,
+    "skipped_hash_match": true,
+    "rejected": 0,
+    "rejected_hash_match": true,
+    "snapshot_status": "N/A"
+  },
+  {
+    "mode": "BINGX_PORTFOLIO",
+    "signals": 5984,
+    "signals_hash_match": true,
+    "trades": 6265,
+    "trades_hash_match": true,
+    "net_pnl": 282.1935,
+    "net_pnl_gold": 282.1935,
+    "pnl_diff": 0.0,
+    "skipped": 1835,
+    "skipped_hash_match": true,
+    "rejected": 0,
+    "rejected_hash_match": true,
+    "snapshot_status": "PASS"
+  }
+]

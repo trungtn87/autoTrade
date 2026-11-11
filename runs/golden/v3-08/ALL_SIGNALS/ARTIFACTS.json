@@ -1,0 +1,55 @@
+{
+  "mode": "ALL_SIGNALS",
+  "generated_at_utc": "2026-11-10T14:55:08.076803+00:00",
+  "artifacts": {
+    "run_manifest.json": {
+      "file_name": "run_manifest.json",
+      "size_bytes": 1347,
+      "sha256": "337f04aa80cad23b2b3a6c02c222922a59fef5d0edd15eefd03fb4db39ba9a97",
+      "content_hash": "337f04aa80cad23b2b3a6c02c222922a59fef5d0edd15eefd03fb4db39ba9a97",
+      "row_count": null
+    },
+    "analysis.json": {
+      "file_name": "analysis.json",
+      "size_bytes": 25914,
+      "sha256": "7248c9246dddb1f7ea2b2062a998e6def4e3722c4c8ef34afbe166f950dacf5a",
+      "content_hash": "7248c9246dddb1f7ea2b2062a998e6def4e3722c4c8ef34afbe166f950dacf5a",
+      "row_count": null
+    },
+    "signals.parquet": {
+      "file_name": "signals.parquet",
+      "size_bytes": 364669,
+      "sha256": "c71366290a201a7086bf22158c81fa44efbb8f5aa9f0ca0c7513076b0f65ee21",
+      "content_hash": "52ed9b559dfba7521fe7bbe0801c485ae8ac7c4e692eb7517643ac9594999e8b",
+      "row_count": 5984
+    },
+    "trades.parquet": {
+      "file_name": "trades.parquet",
+      "size_bytes": 683969,
+      "sha256": "c913756bef50d0db708b5eaef9350d3b4e1a30867dd3163ebeeb0c9dd2d6b2d5",
+      "content_hash": "9ca9215cd1c9f32ed4445e3c652708293acb0fe3f0511692820135fbfc8ab5de",
+      "row_count": 8258
+    },
+    "execution_events.parquet": {
+      "file_name": "execution_events.parquet",
+      "size_bytes": 798510,
+      "sha256": "acf8c49ad17c766ef0d65506e1e67f0a2a786c2a1a7f3a3e9fef3c985b25e5da",
+      "content_hash": "37de658764b41a303341fdaa90a038bb370786752b3855f40071e07a5bbf8b9f",
+      "row_count": 16516
+    },
+    "skipped_signals.parquet": {
+      "file_name": "skipped_signals.parquet",
+      "size_bytes": 4411,
+      "sha256": "efdbf7739ceeb278c256c64119a1b0e132e6e72380c94f049860a529a71edb8b",
+      "content_hash": "206e84787e2cc2d0550e43c2f61690999abb7f7164e582c9b91162d3a4667823",
+      "row_count": 0
+    },
+    "rejected_signals.parquet": {
+      "file_name": "rejected_signals.parquet",
+      "size_bytes": 5692,
+      "sha256": "d60841a007a44b9eefd467085d4f659b934e7dab2f3350a91695dab6c6c4a989",
+      "content_hash": "245de4d472e8c3ee29935fc7a6ba1a5ab8a6da6c50c9ad485ed70237f50a2aa7",
+      "row_count": 0
+    }
+  }
+}

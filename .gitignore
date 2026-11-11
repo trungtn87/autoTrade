@@ -10,3 +10,21 @@ __pycache__/
 browser-evidence/
 
 /supabase/.temp/
+catalog/
+data/
+*.duckdb
+*.zip
+*portfolio_snapshots.csv
+runs/v3_audited_1m/
+runs/v3_audited_6m/
+runs/lab/**/*.parquet
+runs/lab/**/*.csv
+runs/lab/**/snapshots.parquet
+
+# V3-08 Golden Baseline
+!runs/golden/**
+runs/golden/**/snapshots.parquet
+runs/golden/**/snapshots.csv
+
+
+

@@ -1,0 +1,39 @@
+name: AutoTrade V3 Research Lab CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lab-quality-and-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r autotrade_v3/requirements-replay.txt pyarrow pytest ruff
+
+      - name: Ruff Lint Check
+        run: |
+          ruff check autotrade_v3
+
+      - name: Python Compileall Check
+        run: |
+          python -m compileall autotrade_v3
+
+      - name: Run Synthetic Test Suite (pytest)
+        run: |
+          pytest autotrade_v3/tests --junitxml=evidence/v3-08/junit/ci_synthetic.xml

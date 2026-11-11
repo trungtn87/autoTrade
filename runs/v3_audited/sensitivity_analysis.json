@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Baseline",
+    "fee_pct": 0.0005,
+    "slippage_pct": 0.0,
+    "total_trades": 6265,
+    "win_rate_pct": 45.06,
+    "net_pnl": 282.1935,
+    "roi_pct": 28.22,
+    "profit_factor": 1.14,
+    "m2m_max_drawdown_dollars": 49.0136,
+    "m2m_max_drawdown_pct": 3.7
+  },
+  {
+    "name": "Scenario S1",
+    "fee_pct": 0.0005,
+    "slippage_pct": 0.0001,
+    "total_trades": 6270,
+    "win_rate_pct": 44.13,
+    "net_pnl": 199.4714,
+    "roi_pct": 19.95,
+    "profit_factor": 1.1,
+    "m2m_max_drawdown_dollars": 55.444,
+    "m2m_max_drawdown_pct": 4.42
+  },
+  {
+    "name": "Scenario S2",
+    "fee_pct": 0.0005,
+    "slippage_pct": 0.0003,
+    "total_trades": 6273,
+    "win_rate_pct": 42.37,
+    "net_pnl": 38.3273,
+    "roi_pct": 3.83,
+    "profit_factor": 1.02,
+    "m2m_max_drawdown_dollars": 76.5823,
+    "m2m_max_drawdown_pct": 7.2
+  },
+  {
+    "name": "Scenario S3",
+    "fee_pct": 0.0005,
+    "slippage_pct": 0.0005,
+    "total_trades": 6289,
+    "win_rate_pct": 40.96,
+    "net_pnl": -156.5989,
+    "roi_pct": -15.66,
+    "profit_factor": 0.93,
+    "m2m_max_drawdown_dollars": 157.8361,
+    "m2m_max_drawdown_pct": 15.77
+  }
+]

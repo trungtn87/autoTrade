@@ -1,0 +1,13 @@
+=== V3-08 Post-1 vs Post-2 Idempotency Comparison: Mode ONE_TRADE_PER_COMBO ===
+
+Post-1 Directory: runs\golden\v3-08\ONE_TRADE_PER_COMBO
+Post-2 Directory: C:\Users\TCGamingCB\AppData\Local\Temp\autotrade_post2_v308\ONE_TRADE_PER_COMBO
+
+Artifact                     Post-1 Content Hash                                                Post-2 Content Hash                                                Match?
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+signals.parquet              52ed9b559dfba7521fe7bbe0801c485ae8ac7c4e692eb7517643ac9594999e8b   52ed9b559dfba7521fe7bbe0801c485ae8ac7c4e692eb7517643ac9594999e8b   MATCH (100% IDENTICAL)
+trades.parquet               6fb3c2f2491a9e579dc19270347dd5b5a8ceefaed95b0ab7ed600b60589744ed   6fb3c2f2491a9e579dc19270347dd5b5a8ceefaed95b0ab7ed600b60589744ed   MATCH (100% IDENTICAL)
+skipped_signals.parquet      6f49c7d657cfa13786960a888b91adc60bafe5393ed97d27246f59f2b78a574d   6f49c7d657cfa13786960a888b91adc60bafe5393ed97d27246f59f2b78a574d   MATCH (100% IDENTICAL)
+rejected_signals.parquet     245de4d472e8c3ee29935fc7a6ba1a5ab8a6da6c50c9ad485ed70237f50a2aa7   245de4d472e8c3ee29935fc7a6ba1a5ab8a6da6c50c9ad485ed70237f50a2aa7   MATCH (100% IDENTICAL)
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Mode ONE_TRADE_PER_COMBO Idempotency Verification: PASS
