@@ -23,7 +23,9 @@
 | **Commit 3 (Golden Artifacts)** | `b57cb9ff3308d9f4266eec7e04de9cff84497ebd` — Bộ Golden Baseline 3 năm M1 (`runs/golden/v3-08/`) và minh chứng (`evidence/v3-08/`) |
 | **Commit 4 (CI Workflow)** | `1af0148ed11e43afbdb1e6638db8eca1c581b26a` — `.github/workflows/v3-lab-tests.yml` tự động chạy ruff, compileall và pytest |
 | **Commit 5 (CI Pinning Fix)** | `ff47435f294ee5c9b60da54d048995a56d944ae6` — Ghim phiên bản dependencies via `requirements-replay.txt` |
-| **Commit 6 (Audit & Robustness Fixes)** | *(Commit hiện tại)* — Khắc phục độ phân giải thời gian đa nền tảng, kiểm toán live dataset, fail-closed git check, đối chiếu ledger nâng cao và verify snapshot tool |
+| **Commit 6 (Audit & Robustness Fixes)** | `34c299f0d8afe22fe4b2dedd8605a88ffe88bb42` — Khắc phục độ phân giải thời gian đa nền tảng, kiểm toán live dataset, fail-closed git check, đối chiếu ledger nâng cao và verify snapshot tool |
+| **Commit 7 (CI Robustness on Lean Envs)** | `f1f7f5ba951eef4c44d64fdaae874b5b6f9b9e51` — Tách bạch môi trường kiểm thử CI (không có snapshot binary >20MB và catalog raw) và kiểm thử đầy đủ |
+| **Commit 8 (Final Audit Evidence & Reconciliation)** | *(Commit hiện tại)* — Bổ sung báo cáo xác minh độc lập trên HEAD `f1f7f5b`, làm rõ phân định Parquet vs DuckDB và chi tiết test skip trên CI |
 
 ---
 
@@ -179,17 +181,30 @@ Ví dụ:
 
 ## F. Dataset Manifest & Data Integrity
 
-Tập tin lưu trữ: `runs/golden/v3-08/dataset_manifest.json`
+Tập tin lưu trữ chính thức: `runs/golden/v3-08/dataset_manifest.json`
 
-| Chỉ số Dataset | Giá trị kiểm toán |
-|:---|:---|
-| **Dataset Hash** | `ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628` |
-| **Catalog DuckDB** | `catalog/research.duckdb` (bảng `v3_m1`) |
-| **Tổng số Parquet Partitions** | 74 partitions M1 raw |
-| **Tổng số Nến M1** | 3.156.480 nến |
-| **BTC-USDT** | 1.578.240 nến (2023-11-01T00:00:00Z -> 2026-10-31T23:59:00Z) |
-| **ETH-USDT** | 1.578.240 nến (2023-11-01T00:00:00Z -> 2026-10-31T23:59:00Z) |
-| **Open MS Range** | `1698796800000` đến `1793491140000` |
+| Chỉ số Dataset | Giá trị kiểm toán | Trạng thái xác minh | Ghi chú kỹ thuật |
+|:---|:---|:---:|:---|
+| **Dataset Hash** | `ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628` | **VERIFIED** | SHA256 danh sách 74 partition đã sắp xếp |
+| **Cơ cấu Partitions** | 74 partitions M1 raw | **VERIFIED** | **72 partitions Binance** (36 tháng x 2 symbol) + **2 partitions BingX** bổ sung (10/2026) |
+| **Tổng số Nến M1** | 3.156.480 nến | **VERIFIED** | 100% không ngắt quãng |
+| - BTC-USDT | 1.578.240 nến | **VERIFIED** | 2023-11-01T00:00:00Z -> 2026-10-31T23:59:00Z |
+| - ETH-USDT | 1.578.240 nến | **VERIFIED** | 2023-11-01T00:00:00Z -> 2026-10-31T23:59:00Z |
+| **Open MS Range** | `1698796800000` đến `1793491140000` | **VERIFIED** | Khớp tuyệt đối biên độ 3 năm M1 |
+
+### Phân Định Rõ Ràng: Xác Minh Parquet vs DuckDB Catalog
+1. **Phần Dữ Liệu Parquet (`data/m1_raw/`):**
+   - Bao gồm 74 files Parquet vật lý (72 file từ Binance, 2 file từ BingX bổ sung).
+   - Từng file được lưu trữ với kích thước, số dòng và SHA256 riêng biệt.
+   - Hàm `verify_dataset_integrity()` tính toán trực tiếp SHA256 từ các file Parquet này trên đĩa và so khớp với `dataset_manifest.json`.
+   - **Trạng thái:** **VERIFIED** (Đạt tuyệt đối trên mọi môi trường có bản sao dữ liệu raw).
+2. **Phần DuckDB Catalog (`catalog/research.duckdb`):**
+   - DuckDB catalog lưu trữ bảng `v3_m1` gom toàn bộ 3.156.480 nến để phục vụ truy vấn có chỉ mục.
+   - Kích thước binary của DuckDB catalog (> 1 GB) không được đẩy lên Git repo.
+   - Kiểm tra `DataLayer.verify_integrity()` kiểm toán tính liên tục (0 gaps, 0 duplicates, 0 OHLC violations).
+   - **Trạng thái:**
+     - Trên máy trạm kiểm toán local: **VERIFIED** (`verify_integrity()['passed'] == True`).
+     - Trên GitHub Actions CI Runner: **UNVERIFIED (CI Limitation)** do runner không clone file nhị phân DuckDB > 1 GB.
 
 ---
 
@@ -206,22 +221,49 @@ Tập tin lưu trữ: `runs/golden/v3-08/dataset_manifest.json`
    - **M2**: Đột biến `symbol` của 1 tín hiệu trong `signals.parquet` -> Kiểm tra reconcile phát hiện leg mang `signal_id` không có trong tín hiệu.
    - **M3**: Thêm 1 dòng trùng lặp vào `trades.parquet` -> Phát hiện vi phạm tính duy nhất của khóa `(signal_id, leg_type)`.
    - **M4**: Đột biến 1 byte trong partition Parquet -> `dataset_hash` đổi, phát hiện ngay lập tức.
-3. **Tổng hợp Kết quả Pytest Toàn Bộ Lab:**
+3. **Kết Quả Pytest Trên Môi Trường CI GitHub Actions:**
    ```
-   ============================ 164 passed in 54.29s =============================
+   ======================= 163 passed, 1 skipped in 24.25s ========================
+   ```
+   - **Tổng số tests:** 164
+   - **Passed:** 163 (99,39%)
+   - **Failed:** 0
+   - **Skipped:** 1
+     - **Test bị skip:** `autotrade_v3/tests/test_research_lab_12checks.py::TestResearchLab12Checks::test_01_data_integrity`
+     - **Lý do skip:** Runner GitHub Actions không có file binary `catalog/research.duckdb` (> 1 GB), do đó điều kiện setup `if not self.catalog_exists: self.skipTest("DuckDB catalog not present")` được kích hoạt hợp lệ.
+     - **Phạm vi chưa xác minh trên CI:** Toàn vẹn của file binary DuckDB catalog nội bộ trên môi trường runner đám mây.
+   - **JUnit XML:** `evidence/v3-08/junit/ci_synthetic.xml`
+4. **Kết Quả Pytest Trên Môi Trường Kiểm Toán Đầy Đủ (Local Host với DuckDB Catalog):**
+   ```
+   ============================ 164 passed in 47.62s =============================
    ```
    - **Total Tests:** 164
    - **Passed:** 164 (100%)
    - **Failed:** 0
    - **Skipped:** 0
    - **JUnit XML:** `evidence/v3-08/junit/all.xml`
-4. **Linter & Compiler:**
+5. **Linter & Compiler:**
    - `ruff check autotrade_v3`: PASS (Exit code 0, 0 errors).
    - `python -m compileall autotrade_v3`: PASS (Exit code 0, 0 syntax/compilation errors).
 
 ---
 
-## H. Danh Mục Tập Tin Đã Thêm / Sửa
+## H. Chạy Lại Xác Minh Độc Lập Trên HEAD Commit `f1f7f5b`
+
+Quá trình chạy lại độc lập được thực thi trên commit HEAD `f1f7f5ba951eef4c44d64fdaae874b5b6f9b9e51` sử dụng 100% dữ liệu M1 thật, xuất ra thư mục độc lập `verify_head_f1f7f5b` (không ghi đè `runs/golden/v3-08/`).
+
+Chi tiết xem tại: [`evidence/v3-08/HEAD_VERIFICATION_REPORT.md`](file:///d:/AutoTrade/evidence/v3-08/HEAD_VERIFICATION_REPORT.md) và [`evidence/v3-08/HEAD_VERIFICATION_REPORT.json`](file:///d:/AutoTrade/evidence/v3-08/HEAD_VERIFICATION_REPORT.json).
+
+### Tóm tắt đối chiếu:
+- **ALL_SIGNALS**: 5.984 tín hiệu, 8.258 legs, Net PnL +$410,7007. Content Hash trùng khớp 100% (**VERIFIED**).
+- **ONE_TRADE_PER_COMBO**: 4.156 entries, 6.273 legs, Net PnL +$284,1945, 1.828 skipped. Content Hash trùng khớp 100% (**VERIFIED**).
+- **BINGX_PORTFOLIO**: 4.149 entries, 6.265 legs, Net PnL +$282,1935, 1.835 skipped. Content Hash trùng khớp 100% (**VERIFIED**).
+- **Mode C Snapshots**: 781.611 dòng, SHA256 `a02644b48fe0cec76bd00a58afb8acb3e40c18b81832c66197dc34ea8c7dca6a` trùng khớp 100% (**VERIFIED**).
+- **Ledger Differences**: 0 sai lệch giữa bản chạy mới và Golden Baseline.
+
+---
+
+## I. Danh Mục Tập Tin Đã Thêm / Sửa
 
 | Tập tin | Hành động | Mô tả chi tiết |
 |:---|:---:|:---|
@@ -243,11 +285,11 @@ Tập tin lưu trữ: `runs/golden/v3-08/dataset_manifest.json`
 | `.gitignore` | MODIFIED | Track `runs/golden/**` nhưng loại trừ `snapshots.parquet` > 20 MB |
 | `.github/workflows/v3-lab-tests.yml` | ADDED | CI workflow chạy ruff, compileall và pytest trên runner |
 | `runs/golden/v3-08/**` | ADDED | Trọn bộ Golden Baseline 3 năm M1 của cả 3 modes |
-| `evidence/v3-08/**` | ADDED | Trọn bộ chứng cứ kiểm toán, console log, so sánh ledger và JUnit XML |
+| `evidence/v3-08/**` | ADDED | Trọn bộ chứng cứ kiểm toán, console log, so sánh ledger, HEAD verification và JUnit XML |
 
 ---
 
-## I. Tuyên Bố Tuân Thủ 10 Nguyên Tắc Bất Biến (N1-N10)
+## J. Tuyên Bố Tuân Thủ 10 Nguyên Tắc Bất Biến (N1-N10)
 
 - [x] **N1. Không sửa bất kỳ file nào trong autotrade_v2/**: TUÂN THỦ TUYỆT ĐỐI (`git diff origin/main..HEAD -- autotrade_v2` rỗng).
 - [x] **N2. Không gọi BingX, Supabase, Gemini hay dịch vụ mạng nào. Không đặt lệnh**: TUÂN THỦ TUYỆT ĐỐI (Toàn bộ thực thi chạy hoàn toàn offline trên duckdb nội bộ).
