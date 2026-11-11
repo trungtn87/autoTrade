@@ -20,8 +20,10 @@
 | **Trạng thái PR #97** | Đang MỞ (OPEN), không đóng, không merge tự động; PR V3-08 kế thừa trực tiếp từ PR #97 |
 | **Commit 1 (Merge Main)** | `b7ffa5e6d09a8293b30492d4355f0e14bd8d018d` — Merge `origin/main` (`940782a`), xử lý xung đột add/add theo bản của main |
 | **Commit 2 (Tools & Signal ID)** | `b68933c131725f680eafc72640153b61af85741d` — Bổ sung `signal_id`, dataset manifest, content hash, audit tools, pyproject.toml |
-| **Commit 3 (Golden Artifacts)** | *(Đang đóng gói)* — Bộ Golden Baseline 3 năm M1 (`runs/golden/v3-08/`) và minh chứng (`evidence/v3-08/`) |
-| **Commit 4 (CI Workflow)** | *(Đang đóng gói)* — `.github/workflows/v3-lab-tests.yml` tự động chạy ruff, compileall và pytest |
+| **Commit 3 (Golden Artifacts)** | `b57cb9ff3308d9f4266eec7e04de9cff84497ebd` — Bộ Golden Baseline 3 năm M1 (`runs/golden/v3-08/`) và minh chứng (`evidence/v3-08/`) |
+| **Commit 4 (CI Workflow)** | `1af0148ed11e43afbdb1e6638db8eca1c581b26a` — `.github/workflows/v3-lab-tests.yml` tự động chạy ruff, compileall và pytest |
+| **Commit 5 (CI Pinning Fix)** | `ff47435f294ee5c9b60da54d048995a56d944ae6` — Ghim phiên bản dependencies via `requirements-replay.txt` |
+| **Commit 6 (Audit & Robustness Fixes)** | *(Commit hiện tại)* — Khắc phục độ phân giải thời gian đa nền tảng, kiểm toán live dataset, fail-closed git check, đối chiếu ledger nâng cao và verify snapshot tool |
 
 ---
 
@@ -206,10 +208,10 @@ Tập tin lưu trữ: `runs/golden/v3-08/dataset_manifest.json`
    - **M4**: Đột biến 1 byte trong partition Parquet -> `dataset_hash` đổi, phát hiện ngay lập tức.
 3. **Tổng hợp Kết quả Pytest Toàn Bộ Lab:**
    ```
-   ============================ 160 passed in 50.10s =============================
+   ============================ 164 passed in 54.29s =============================
    ```
-   - **Total Tests:** 160
-   - **Passed:** 160 (100%)
+   - **Total Tests:** 164
+   - **Passed:** 164 (100%)
    - **Failed:** 0
    - **Skipped:** 0
    - **JUnit XML:** `evidence/v3-08/junit/all.xml`
@@ -223,16 +225,18 @@ Tập tin lưu trữ: `runs/golden/v3-08/dataset_manifest.json`
 
 | Tập tin | Hành động | Mô tả chi tiết |
 |:---|:---:|:---|
+| `autotrade_v3/engine/candle_loader.py` | MODIFIED | Bổ sung hàm `datetime_index_to_ms` chuẩn hóa đa độ phân giải (s, ms, us, ns) và sửa `to_utc_ms` xử lý timezone/units chuẩn xác |
 | `autotrade_v3/engine/signal_engine.py` | MODIFIED | Thêm trường `signal_id: str` vào dataclass `Signal` với hàm tạo tự động chuẩn hóa |
-| `autotrade_v3/engine/execution_simulator.py` | MODIFIED | Lan truyền `signal_id` vào `TradeRecord`, `ExecutionEvent`, `_PortfolioActiveLeg`, skipped & rejected records |
-| `autotrade_v3/lab/run_manager.py` | MODIFIED | Bổ sung `get_git_state`, ghi nhận môi trường/dataset_hash, xuất `signals.parquet`, skipped, rejected và `ARTIFACTS.json` |
-| `autotrade_v3/lab/experiment.py` | MODIFIED | Hỗ trợ cờ `--golden`, từ chối chạy khi cây mã bẩn, chuyển giao `signals` sang `save_run` |
-| `autotrade_v3/cli.py` | MODIFIED | Sửa lỗi format string `%` trong help, bổ sung cờ `--golden` |
-| `autotrade_v3/tools/dataset_manifest.py` | ADDED | Công cụ tạo manifest dataset 74 partitions và tính SHA256 tổng thể |
+| `autotrade_v3/engine/execution_simulator.py` | MODIFIED | Lan truyền `signal_id` và áp dụng `datetime_index_to_ms` để đảm bảo tương thích mọi độ phân giải thời gian |
+| `autotrade_v3/lab/run_manager.py` | MODIFIED | Bổ sung `get_git_state` fail-closed (chặn golden khi git lỗi hoặc commit không xác định), ghi nhận môi trường/dataset_hash |
+| `autotrade_v3/lab/experiment.py` | MODIFIED | Xác minh trực tiếp dataset hash từ file vật lý trước khi chạy Golden, chặn golden khi cây mã bẩn/không rõ commit |
+| `autotrade_v3/cli.py` | MODIFIED | Sửa lỗi format string `%` trong help, bổ sung cờ `--golden` có kiểm tra git state |
+| `autotrade_v3/tools/dataset_manifest.py` | ADDED | Công cụ tạo manifest dataset 74 partitions và hàm `verify_dataset_integrity` xác minh live |
 | `autotrade_v3/tools/artifact_hash.py` | ADDED | Thư viện tính content hash tất định bất biến trước CRLF và engine parquet |
-| `autotrade_v3/tools/compare_ledgers.py` | ADDED | Công cụ kiểm toán đối chiếu hai ledger theo khóa chính và từng cột dữ liệu |
+| `autotrade_v3/tools/compare_ledgers.py` | ADDED | Công cụ kiểm toán đối chiếu hai ledger: phát hiện khóa trùng, phân biệt sai khác null vs số thực |
 | `autotrade_v3/tools/recompute_metrics.py` | ADDED | Công cụ độc lập tái tính toán số liệu PnL/WinRate trực tiếp từ ledger Parquet bằng pandas |
-| `autotrade_v3/tests/test_golden_baseline_v308.py`| ADDED | Bộ unit và integration test cho Golden Baseline, Signal ID và Dirty Git Protection |
+| `autotrade_v3/tools/verify_snapshot.py` | ADDED | Công cụ độc lập xác minh tính toàn vẹn và khôi phục Mode C portfolio snapshots |
+| `autotrade_v3/tests/test_golden_baseline_v308.py`| ADDED | Bộ unit và integration test cho Golden Baseline, Signal ID, Timestamp Robustness và Git Protection |
 | `autotrade_v3/tests/test_mutation_v308.py` | ADDED | Bộ kiểm thử đột biến đối nghịch M1-M4 |
 | `pyproject.toml` | ADDED | Cấu hình cho `ruff` và `pytest` |
 | `.gitattributes` | ADDED | Thiết lập cấm chuyển đổi dòng (`-text`) cho `runs/golden/**` và `evidence/**` |

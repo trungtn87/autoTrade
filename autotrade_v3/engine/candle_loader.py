@@ -14,27 +14,34 @@ H1_MS = 3_600_000
 
 
 def to_utc_ms(ts: str | datetime | pd.Timestamp | int) -> int:
-    """Normalize timestamps to UTC integer milliseconds."""
+    """Normalize timestamps to UTC integer milliseconds invariant to tz/units."""
     if isinstance(ts, int):
         return ts
     if isinstance(ts, str):
-        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return int(dt.timestamp() * 1000)
+        ts_pd = pd.to_datetime(ts, utc=True)
+        return int(ts_pd.timestamp() * 1000)
     if isinstance(ts, pd.Timestamp):
         if ts.tzinfo is None:
             ts = ts.tz_localize("UTC")
         else:
             ts = ts.tz_convert("UTC")
-        return int(ts.value // 1_000_000)
+        return int(ts.timestamp() * 1000)
     if isinstance(ts, datetime):
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
         else:
-            dt = ts.astimezone(timezone.utc)
-        return int(dt.timestamp() * 1000)
+            ts = ts.astimezone(timezone.utc)
+        return int(ts.timestamp() * 1000)
     raise TypeError(f"Unsupported timestamp type: {type(ts)}")
+
+
+def datetime_index_to_ms(idx: pd.DatetimeIndex) -> np.ndarray:
+    """Convert any DatetimeIndex to int64 UTC milliseconds, invariant to unit (s/ms/us/ns) and timezone."""
+    if idx.tz is None:
+        idx_utc = idx.tz_localize("UTC")
+    else:
+        idx_utc = idx.tz_convert("UTC")
+    return np.asarray(idx_utc.astype("datetime64[ms, UTC]").view("int64"))
 
 
 def validate_m1(df: pd.DataFrame) -> None:
@@ -48,7 +55,7 @@ def validate_m1(df: pd.DataFrame) -> None:
     if df.index.has_duplicates:
         raise ValueError("M1 candles contain duplicate timestamps")
 
-    t_ms = df.index.asi8 // 1_000_000
+    t_ms = datetime_index_to_ms(df.index)
     if (t_ms % M1_MS != 0).any():
         raise ValueError("M1 candles are not aligned to exact 1-minute boundaries (00 seconds)")
     diffs = t_ms[1:] - t_ms[:-1]
@@ -85,7 +92,7 @@ def resample_m1_to_timeframe(
         raise ValueError(f"Supported resampling intervals are 15 or 60 minutes, got {timeframe_min}")
 
     tf_ms = timeframe_min * M1_MS
-    t_ms = df.index.asi8 // 1_000_000
+    t_ms = datetime_index_to_ms(df.index)
     bucket_ms = (t_ms // tf_ms) * tf_ms
 
     temp = df.copy()

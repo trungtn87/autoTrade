@@ -86,8 +86,8 @@ def cmd_backtest(args: argparse.Namespace) -> None:
     if is_golden:
         from autotrade_v3.lab.run_manager import get_git_state
         code_sha, code_dirty, diff_sha256 = get_git_state()
-        if code_dirty:
-            print("ERROR: --golden run rejected: git working tree is dirty (code_dirty=True).", file=sys.stderr)
+        if code_dirty or code_sha == "UNKNOWN_COMMIT" or not code_sha:
+            print("ERROR: --golden run rejected: git working tree is dirty or git state cannot be determined.", file=sys.stderr)
             sys.exit(1)
 
     dl = DataLayer(catalog_path=args.catalog)

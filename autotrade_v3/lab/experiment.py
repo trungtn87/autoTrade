@@ -11,6 +11,7 @@ import pandas as pd
 from autotrade_v3.analysis.research_analyzer import ResearchAnalyzer
 from autotrade_v3.data_layer import DataLayer
 from autotrade_v3.engine.candle_loader import (
+    datetime_index_to_ms,
     generate_synthetic_m1,
     resample_m1_to_timeframe,
     to_utc_ms,
@@ -26,7 +27,7 @@ from autotrade_v3.lab.run_manager import (
 )
 from autotrade_v3.lab.validation_gates import ValidationGates, ValidationReport
 from autotrade_v3.strategy.registry import StrategyRegistry
-from autotrade_v3.tools.dataset_manifest import generate_dataset_manifest
+from autotrade_v3.tools.dataset_manifest import generate_dataset_manifest, verify_dataset_integrity
 
 
 @dataclass
@@ -80,8 +81,12 @@ class ExperimentRunner:
         end_ms = to_utc_ms(end)
 
         code_sha, code_dirty, diff_sha256 = get_git_state()
-        if is_golden and code_dirty:
-            raise RuntimeError("Golden run rejected: working tree is dirty (code_dirty=True)")
+        if is_golden:
+            if code_dirty or code_sha == "UNKNOWN_COMMIT" or not code_sha:
+                raise RuntimeError(
+                    f"Golden run rejected: git working tree is dirty or git commit cannot be determined "
+                    f"(code_sha={code_sha}, code_dirty={code_dirty})"
+                )
 
         env_versions = get_env_versions()
         data_manifest = self.data_layer.get_manifest()
@@ -89,22 +94,32 @@ class ExperimentRunner:
 
         dataset_hash = "SYNTHETIC_SMOKE_HASH"
         if not smoke_test:
-            gm_path = Path("runs/golden/v3-08/dataset_manifest.json")
-            if gm_path.exists():
-                try:
-                    with open(gm_path, "r", encoding="utf-8") as f:
-                        dataset_hash = json.load(f).get("dataset_hash", "")
-                except Exception:
-                    dataset_hash = ""
-            if not dataset_hash:
-                try:
-                    dm = generate_dataset_manifest(
-                        catalog_path=self.data_layer.catalog_path,
-                        data_dir=self.data_layer.data_dir,
-                    )
-                    dataset_hash = dm.get("dataset_hash", "")
-                except Exception:
-                    dataset_hash = data_hash
+            if is_golden:
+                # Live verification against physical partitions
+                is_valid, live_hash, err_msg = verify_dataset_integrity(
+                    catalog_path=self.data_layer.catalog_path,
+                    data_dir=self.data_layer.data_dir,
+                )
+                if not is_valid:
+                    raise RuntimeError(f"Golden run rejected: dataset integrity verification failed: {err_msg}")
+                dataset_hash = live_hash
+            else:
+                gm_path = Path("runs/golden/v3-08/dataset_manifest.json")
+                if gm_path.exists():
+                    try:
+                        with open(gm_path, "r", encoding="utf-8") as f:
+                            dataset_hash = json.load(f).get("dataset_hash", "")
+                    except Exception:
+                        dataset_hash = ""
+                if not dataset_hash:
+                    try:
+                        dm = generate_dataset_manifest(
+                            catalog_path=self.data_layer.catalog_path,
+                            data_dir=self.data_layer.data_dir,
+                        )
+                        dataset_hash = dm.get("dataset_hash", "")
+                    except Exception:
+                        dataset_hash = data_hash
 
         # 1. Load Data
         candles_m1_eval: dict[str, pd.DataFrame] = {}
@@ -114,14 +129,16 @@ class ExperimentRunner:
             if smoke_test:
                 base_px = 65000.0 if "BTC" in sym else 3500.0
                 df_m1_full = generate_synthetic_m1(sym, start=start, periods=75000, base_price=base_px, seed=42)
-                df_m1_eval = df_m1_full.loc[(df_m1_full.index.asi8 // 1_000_000 >= start_ms) & (df_m1_full.index.asi8 // 1_000_000 < end_ms)]
+                t_m1_full = datetime_index_to_ms(df_m1_full.index)
+                df_m1_eval = df_m1_full.loc[(t_m1_full >= start_ms) & (t_m1_full < end_ms)]
                 candles_m1_eval[sym] = df_m1_eval
                 strategy_input_data[sym] = resample_m1_to_timeframe(df_m1_full, timeframe_min=15)
             else:
                 # Load M1 with warmup buffer for signal priming
                 df_m1_full = self.data_layer.query_m1(sym, start, end, include_warmup=True)
                 # Slice evaluation window for simulator
-                df_m1_eval = df_m1_full.loc[(df_m1_full.index.asi8 // 1_000_000 >= start_ms) & (df_m1_full.index.asi8 // 1_000_000 < end_ms)]
+                t_m1_full = datetime_index_to_ms(df_m1_full.index)
+                df_m1_eval = df_m1_full.loc[(t_m1_full >= start_ms) & (t_m1_full < end_ms)]
                 candles_m1_eval[sym] = df_m1_eval
                 # Resample full M1 to M15 (strictly no-lookahead) for strategy input
                 strategy_input_data[sym] = self.data_layer.query_timeframe(sym, "15m", start, end, include_warmup=True)

@@ -122,6 +122,38 @@ def generate_dataset_manifest(
     return manifest
 
 
+def verify_dataset_integrity(
+    manifest_path: str | Path = REPO_ROOT / "runs" / "golden" / "v3-08" / "dataset_manifest.json",
+    catalog_path: str | Path = DEFAULT_CATALOG_PATH,
+    data_dir: str | Path = DEFAULT_DATA_DIR,
+) -> tuple[bool, str, str]:
+    """Verify live dataset hash against saved manifest.
+
+    Returns (is_valid, live_dataset_hash, error_message).
+    """
+    manifest_path = Path(manifest_path)
+    if not manifest_path.exists():
+        return False, "", f"Saved dataset manifest not found: {manifest_path}"
+
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            saved_data = json.load(f)
+        saved_hash = saved_data.get("dataset_hash", "")
+    except Exception as e:
+        return False, "", f"Failed to read saved dataset manifest: {e}"
+
+    try:
+        live_manifest = generate_dataset_manifest(catalog_path=catalog_path, data_dir=data_dir)
+        live_hash = live_manifest.get("dataset_hash", "")
+    except Exception as e:
+        return False, "", f"Failed to compute live dataset hash from actual files: {e}"
+
+    if not saved_hash or not live_hash or saved_hash != live_hash:
+        return False, live_hash, f"Dataset hash mismatch: saved={saved_hash} vs live={live_hash}"
+
+    return True, live_hash, ""
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate dataset manifest for AutoTrade V3")
     parser.add_argument("--catalog", default=str(DEFAULT_CATALOG_PATH), help="DuckDB catalog path")

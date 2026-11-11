@@ -15,7 +15,12 @@ import numpy as np
 import pandas as pd
 
 from autotrade_v3.data_layer import DataLayer
-from autotrade_v3.engine.candle_loader import generate_synthetic_m1, resample_m1_to_timeframe
+from autotrade_v3.engine.candle_loader import (
+    datetime_index_to_ms,
+    generate_synthetic_m1,
+    resample_m1_to_timeframe,
+    to_utc_ms,
+)
 from autotrade_v3.engine.execution_simulator import (
     ExecutionEvent,
     ExecutionSimulator,
@@ -28,8 +33,13 @@ from autotrade_v3.lab.run_manager import RunManager, get_git_state
 from autotrade_v3.strategy.registry import StrategyRegistry
 from autotrade_v3.tools.artifact_hash import compute_artifact_hashes, compute_content_hash
 from autotrade_v3.tools.compare_ledgers import compare_ledgers
-from autotrade_v3.tools.dataset_manifest import compute_file_sha256, generate_dataset_manifest
+from autotrade_v3.tools.dataset_manifest import (
+    compute_file_sha256,
+    generate_dataset_manifest,
+    verify_dataset_integrity,
+)
 from autotrade_v3.tools.recompute_metrics import recompute_metrics
+from autotrade_v3.tools.verify_snapshot import verify_snapshot
 
 
 class TestSignalIdAndProvenance(unittest.TestCase):
@@ -199,6 +209,106 @@ class TestGitStateAndGoldenProtection(unittest.TestCase):
             sha_m, dirty_m, diff_hash_m = get_git_state(tpath)
             self.assertTrue(dirty_m)
             self.assertNotEqual(diff_hash_m, "")
+
+    def test_git_error_or_unknown_commit_blocks_golden(self):
+        with tempfile.TemporaryDirectory() as tmp_out:
+            rm = RunManager(runs_dir=tmp_out)
+            runner = ExperimentRunner(run_manager=rm)
+            with unittest.mock.patch("autotrade_v3.lab.experiment.get_git_state", return_value=("UNKNOWN_COMMIT", True, "")):
+                with self.assertRaises(RuntimeError) as ctx:
+                    runner.run_experiment(smoke_test=True, is_golden=True)
+                self.assertIn("Golden run rejected", str(ctx.exception))
+
+            with unittest.mock.patch("autotrade_v3.lab.experiment.get_git_state", return_value=("", True, "")):
+                with self.assertRaises(RuntimeError) as ctx:
+                    runner.run_experiment(smoke_test=True, is_golden=True)
+                self.assertIn("Golden run rejected", str(ctx.exception))
+
+
+class TestRobustnessAndAuditTools(unittest.TestCase):
+    def test_to_utc_ms_and_datetime_index_robustness(self):
+        from datetime import datetime, timezone, timedelta
+        # Test timezone-naive datetime
+        dt_naive = datetime(2024, 1, 1, 0, 0, 0)
+        self.assertEqual(to_utc_ms(dt_naive), 1704067200000)
+
+        # Test timezone-aware UTC datetime
+        dt_utc = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        self.assertEqual(to_utc_ms(dt_utc), 1704067200000)
+
+        # Test timezone-aware with offset (+07:00 at 07:00 == 00:00 UTC)
+        dt_bkk = datetime(2024, 1, 1, 7, 0, 0, tzinfo=timezone(timedelta(hours=7)))
+        self.assertEqual(to_utc_ms(dt_bkk), 1704067200000)
+
+        # Test pd.Timestamp across all resolutions (s, ms, us, ns)
+        for unit in ["s", "ms", "us", "ns"]:
+            ts_naive = pd.Timestamp("2024-01-01 00:00:00", unit=unit)
+            self.assertEqual(to_utc_ms(ts_naive), 1704067200000, f"Failed for naive unit {unit}")
+            ts_aware = pd.Timestamp("2024-01-01 00:00:00+00:00", unit=unit)
+            self.assertEqual(to_utc_ms(ts_aware), 1704067200000, f"Failed for aware unit {unit}")
+
+        # Test datetime_index_to_ms across all resolutions
+        for unit in ["s", "ms", "us", "ns"]:
+            dr = pd.date_range("2024-01-01", periods=3, freq="1min", tz="UTC").astype(f"datetime64[{unit}, UTC]")
+            res = datetime_index_to_ms(dr)
+            expected = np.array([1704067200000, 1704067260000, 1704067320000], dtype=np.int64)
+            np.testing.assert_array_equal(res, expected)
+
+    def test_compare_ledgers_duplicate_keys_and_null_divergence(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            p = Path(tmp_dir)
+            fa = p / "table_a.parquet"
+            fb = p / "table_b.parquet"
+
+            # Case 1: Duplicate keys
+            df_a = pd.DataFrame({
+                "signal_id": ["S1", "S1"],  # Duplicate S1!
+                "leg_type": ["ENTRY", "ENTRY"],
+                "net_pnl": [10.0, 10.0],
+            })
+            df_b = pd.DataFrame({
+                "signal_id": ["S1"],
+                "leg_type": ["ENTRY"],
+                "net_pnl": [10.0],
+            })
+            df_a.to_parquet(fa)
+            df_b.to_parquet(fb)
+
+            res = compare_ledgers(fa, fb, key_cols=["signal_id", "leg_type"])
+            self.assertFalse(res["key_uniqueness_pass"])
+            self.assertEqual(res["duplicates_in_a"], 1)
+
+            # Case 2: Null vs numeric mismatch
+            df_a2 = pd.DataFrame({
+                "signal_id": ["S1", "S2"],
+                "leg_type": ["ENTRY", "ENTRY"],
+                "net_pnl": [10.0, None],  # S2 is null in A
+            })
+            df_b2 = pd.DataFrame({
+                "signal_id": ["S1", "S2"],
+                "leg_type": ["ENTRY", "ENTRY"],
+                "net_pnl": [10.0, 15.0],  # S2 is non-null in B
+            })
+            df_a2.to_parquet(fa)
+            df_b2.to_parquet(fb)
+
+            res2 = compare_ledgers(fa, fb, key_cols=["signal_id", "leg_type"])
+            self.assertTrue(res2["key_uniqueness_pass"])
+            self.assertFalse(res2["col_diffs"]["net_pnl"]["identical"])
+            self.assertEqual(res2["col_diffs"]["net_pnl"]["diff_count"], 1)
+            self.assertEqual(res2["col_diffs"]["net_pnl"]["null_mismatches"], 1)
+
+    def test_verify_snapshot_tool_and_dataset_integrity(self):
+        # Test verify_snapshot on existing golden baseline
+        snap_res = verify_snapshot()
+        self.assertTrue(snap_res["verified"])
+        self.assertTrue(snap_res["sha_match"])
+        self.assertTrue(snap_res["rows_match"])
+
+        # Test verify_dataset_integrity on existing golden baseline
+        is_valid, live_hash, err_msg = verify_dataset_integrity()
+        self.assertTrue(is_valid, f"Dataset integrity check failed: {err_msg}")
+        self.assertNotEqual(live_hash, "")
 
 
 class TestEndToEndSyntheticGoldenArtifacts(unittest.TestCase):

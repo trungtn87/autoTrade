@@ -42,13 +42,18 @@ def get_git_commit(repo_dir: Path = REPO_ROOT) -> str:
 
 
 def get_git_state(repo_dir: Path = REPO_ROOT) -> tuple[str, bool, str]:
-    """Inspect git state, returning (code_sha, code_dirty, diff_sha256)."""
+    """Inspect git state, returning (code_sha, code_dirty, diff_sha256).
+    
+    Fail-closed: If git fails or state cannot be verified, code_dirty is set to True.
+    """
+    git_error = False
     try:
         code_sha = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=repo_dir, text=True, stderr=subprocess.DEVNULL
         ).strip()
     except Exception:
         code_sha = "UNKNOWN_COMMIT"
+        git_error = True
 
     try:
         status_out = subprocess.check_output(
@@ -61,7 +66,11 @@ def get_git_state(repo_dir: Path = REPO_ROOT) -> tuple[str, bool, str]:
         ]
         code_dirty = len(filtered) > 0
     except Exception:
-        code_dirty = False
+        code_dirty = True
+        git_error = True
+
+    if git_error:
+        code_dirty = True
 
     diff_sha256 = ""
     if code_dirty:

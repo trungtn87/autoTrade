@@ -7,6 +7,7 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 
+from autotrade_v3.engine.candle_loader import datetime_index_to_ms
 from autotrade_v3.engine.risk_manager import RiskConfig
 from autotrade_v3.engine.signal_engine import Signal
 from autotrade_v3.strategy.base import ExitPolicy
@@ -198,7 +199,7 @@ class ExecutionSimulator:
             return []
 
         # Map timestamps to index positions in df_bars
-        t_ms_array = df_bars.index.asi8 // 1_000_000
+        t_ms_array = datetime_index_to_ms(df_bars.index)
         pos_map = {int(ts): i for i, ts in enumerate(t_ms_array)}
         opens = df_bars["open"].to_numpy(dtype=float) if "open" in df_bars else None
         highs = df_bars["high"].to_numpy(dtype=float)
@@ -1007,7 +1008,7 @@ class ExecutionSimulator:
             return [], pd.DataFrame(), [], {}
 
         first_sym = next(iter(candle_dict.keys()))
-        t_ms_array = candle_dict[first_sym].index.asi8 // 1_000_000
+        t_ms_array = datetime_index_to_ms(candle_dict[first_sym].index)
         n_bars = len(t_ms_array)
 
         # Pre-extract numpy arrays for fast lookups

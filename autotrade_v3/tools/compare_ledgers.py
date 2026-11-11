@@ -54,6 +54,9 @@ def compare_ledgers(
 
     key_list = list(key_cols)
 
+    dup_a = int(df_a.duplicated(subset=key_list).sum())
+    dup_b = int(df_b.duplicated(subset=key_list).sum())
+
     cols_a = set(df_a.columns)
     cols_b = set(df_b.columns)
     common_cols = [c for c in df_a.columns if c in cols_b and c not in key_list]
@@ -82,6 +85,10 @@ def compare_ledgers(
         s_a = matched[col_a]
         s_b = matched[col_b]
 
+        null_mismatch = (s_a.isna() ^ s_b.isna()).to_numpy()
+        both_valid = (~s_a.isna() & ~s_b.isna()).to_numpy()
+        diff_mask = null_mismatch.copy()
+
         # Check numeric difference (excluding booleans)
         if (
             pd.api.types.is_numeric_dtype(s_a)
@@ -89,23 +96,27 @@ def compare_ledgers(
             and not pd.api.types.is_bool_dtype(s_a)
             and not pd.api.types.is_bool_dtype(s_b)
         ):
-            abs_diff = (s_a - s_b).abs()
-            diff_mask = abs_diff > tolerance
+            if both_valid.any():
+                diff_mask[both_valid] = ((s_a.iloc[both_valid] - s_b.iloc[both_valid]).abs() > tolerance).to_numpy()
             diff_count = int(diff_mask.sum())
-            max_diff = float(abs_diff.max()) if len(abs_diff) > 0 and not abs_diff.isna().all() else 0.0
+            valid_diffs = (s_a.iloc[both_valid] - s_b.iloc[both_valid]).abs() if both_valid.any() else pd.Series(dtype=float)
+            max_diff = float(valid_diffs.max()) if len(valid_diffs) > 0 and not valid_diffs.isna().all() else 0.0
             col_diffs[col] = {
                 "type": "numeric",
                 "diff_count": diff_count,
+                "null_mismatches": int(null_mismatch.sum()),
                 "max_abs_diff": max_diff,
                 "identical": diff_count == 0,
             }
         else:
             # String / categorical comparison
-            diff_mask = (s_a.astype(str) != s_b.astype(str)) & ~(s_a.isna() & s_b.isna())
+            if both_valid.any():
+                diff_mask[both_valid] = (s_a.iloc[both_valid].astype(str) != s_b.iloc[both_valid].astype(str)).to_numpy()
             diff_count = int(diff_mask.sum())
             col_diffs[col] = {
                 "type": "categorical",
                 "diff_count": diff_count,
+                "null_mismatches": int(null_mismatch.sum()),
                 "max_abs_diff": None,
                 "identical": diff_count == 0,
             }
@@ -116,6 +127,9 @@ def compare_ledgers(
         "rows_a": len(df_a),
         "rows_b": len(df_b),
         "key_cols": key_list,
+        "duplicates_in_a": dup_a,
+        "duplicates_in_b": dup_b,
+        "key_uniqueness_pass": dup_a == 0 and dup_b == 0,
         "rows_only_in_a": len(only_in_a),
         "rows_only_in_b": len(only_in_b),
         "rows_matched": len(matched),
@@ -130,6 +144,8 @@ def print_comparison_report(result: dict) -> None:
     print(f"Table A: {result['path_a']} ({result['rows_a']:,} rows)")
     print(f"Table B: {result['path_b']} ({result['rows_b']:,} rows)")
     print(f"Join Keys: {', '.join(result['key_cols'])}")
+    if not result["key_uniqueness_pass"]:
+        print(f"WARNING: KEY UNIQUENESS VIOLATION! Duplicates in A: {result['duplicates_in_a']}, Duplicates in B: {result['duplicates_in_b']}")
     print(f"Matched Rows: {result['rows_matched']:,}")
     print(f"Rows only in A: {result['rows_only_in_a']:,}")
     print(f"Rows only in B: {result['rows_only_in_b']:,}")
@@ -153,7 +169,12 @@ def print_comparison_report(result: dict) -> None:
         print(fmt.format(col, status, f"{d['diff_count']:,}", max_d_str))
 
     print("-" * 80)
-    if not any_diff and result["rows_only_in_a"] == 0 and result["rows_only_in_b"] == 0:
+    if (
+        not any_diff
+        and result["rows_only_in_a"] == 0
+        and result["rows_only_in_b"] == 0
+        and result["key_uniqueness_pass"]
+    ):
         print("RESULT: ALL MATCHED ROWS AND COMMON COLUMNS ARE 100% IDENTICAL.")
     else:
         print("RESULT: DIVERGENCE DETECTED.")
