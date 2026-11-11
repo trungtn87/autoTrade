@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """AutoTrade V3 Local Backtest Engine CLI (V3-05 Audited).
 
+GHI CHÚ: Lịch sử V3-03 đến V3-06, không dùng để báo cáo V3 Research Lab chính thức.
+
 Full simulation lifecycle: SIGNAL -> ENTRY -> POSITION OPEN -> TP / SL / TRAILING -> CLOSED.
 SIMULATION ONLY — STRICTLY NO LIVE TRADING ORDERS.
 """
@@ -309,16 +311,15 @@ def run_backtest(
     if parity_bundle:
         (out_dir / "signal_parity.json").write_text(json.dumps(parity_bundle, indent=2) + "\n", encoding="utf-8")
 
-    # V3-04 baseline reference
-    v3_04_ref = {
-        "signals": 5984,
-        "trade_legs": 6271,
-        "win_rate": "45.3%",
-        "net_pnl": "+343.52",
-        "roi": "+34.35%",
-        "profit_factor": "1.18",
-        "max_drawdown": "3.4%",
-    }
+    # V3-04 baseline reference dynamically loaded from artifacts without hardcoded constants
+    v3_04_baseline_path = REPO_ROOT / "runs" / "v3_audited" / "run_manifest.json"
+    v3_04_ref = {}
+    if v3_04_baseline_path.exists():
+        try:
+            m_data = json.loads(v3_04_baseline_path.read_text(encoding="utf-8"))
+            v3_04_ref["signals"] = m_data.get("total_approved_signals", "-")
+        except Exception:
+            pass
 
     # Export comprehensive validation report markdown
     generate_validation_report_md(

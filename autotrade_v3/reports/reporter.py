@@ -1,4 +1,8 @@
-"""Report generation exporting CSV, Parquet, JSON, and standalone HTML dashboard."""
+"""Report generation exporting CSV, Parquet, JSON, and standalone HTML dashboard.
+
+GHI CHÚ: Lịch sử V3-03 đến V3-06, không dùng để báo cáo V3 Research Lab chính thức.
+Mọi báo cáo chính thức của V3 Research Lab được sinh qua lab/run_manager.py và tools/verify_report.py.
+"""
 from __future__ import annotations
 
 import csv
@@ -359,16 +363,16 @@ def generate_validation_report_md(
                 f"{s['total_trades']} | {s['win_rate_pct']:.1f}% | ${s['net_pnl']:,.2f} | "
                 f"{s['roi_pct']:+.2f}% | {s['profit_factor']:.2f} | ${s['m2m_max_drawdown_dollars']:,.2f} ({s['m2m_max_drawdown_pct']:.1f}%) |"
             )
-    sens_table_md = "\n".join(sens_rows) if sens_rows else "| Baseline | 0.05% | 0.00% | 6271 | 45.3% | +$343.52 | +34.35% | 1.18 | $43.47 (3.4%) |"
+    sens_table_md = "\n".join(sens_rows) if sens_rows else "| Baseline | 0.05% | 0.00% | - | -% | $0.00 | 0.00% | 0.00 | $0.00 (0.0%) |"
 
     # Comparison V3-04 vs V3-05 table
-    b_sig = v3_04_baseline.get("signals", 5984) if v3_04_baseline else 5984
-    b_leg = v3_04_baseline.get("trade_legs", 6271) if v3_04_baseline else 6271
-    b_wr = v3_04_baseline.get("win_rate", "45.3%") if v3_04_baseline else "45.3%"
-    b_pnl = v3_04_baseline.get("net_pnl", "+343.52") if v3_04_baseline else "+343.52"
-    b_roi = v3_04_baseline.get("roi", "+34.35%") if v3_04_baseline else "+34.35%"
-    b_pf = v3_04_baseline.get("profit_factor", "1.18") if v3_04_baseline else "1.18"
-    b_dd = v3_04_baseline.get("max_drawdown", "3.4%") if v3_04_baseline else "3.4%"
+    b_sig = v3_04_baseline.get("signals", "-") if v3_04_baseline else "-"
+    b_leg = v3_04_baseline.get("trade_legs", "-") if v3_04_baseline else "-"
+    b_wr = v3_04_baseline.get("win_rate", "-") if v3_04_baseline else "-"
+    b_pnl = v3_04_baseline.get("net_pnl", "-") if v3_04_baseline else "-"
+    b_roi = v3_04_baseline.get("roi", "-") if v3_04_baseline else "-"
+    b_pf = v3_04_baseline.get("profit_factor", "-") if v3_04_baseline else "-"
+    b_dd = v3_04_baseline.get("max_drawdown", "-") if v3_04_baseline else "-"
 
     # Combo table
     combo_lines = []
@@ -382,12 +386,58 @@ def generate_validation_report_md(
 
     # Symbol breakdown
     sym_lines = []
+    sym_eval_lines = []
     if v_metrics and v_metrics.symbol_breakdown:
+        tot_net = v_metrics.net_pnl or 1.0
         for sname, s in sorted(v_metrics.symbol_breakdown.items()):
             sym_lines.append(
                 f"| {sname} | {s['total_trades']} | {s['win_rate_pct']:.1f}% | ${s['net_pnl']:,.2f} | {s['profit_factor']:.2f} |"
             )
+            p_share = (s['net_pnl'] / tot_net * 100.0) if tot_net else 0.0
+            sym_eval_lines.append(
+                f"- **{sname}**: Đóng góp ${s['net_pnl']:,.2f} ({p_share:.1f}% tổng Net PnL), Win Rate {s['win_rate_pct']:.1f}%."
+            )
     sym_table_md = "\n".join(sym_lines)
+    sym_eval_md = "\n".join(sym_eval_lines) if sym_eval_lines else "- Chưa có dữ liệu phân rã symbol."
+
+    # Subwindows breakdown (Gate D)
+    subwindow_rows = []
+    if "subwindows" in meta and isinstance(meta["subwindows"], list):
+        for sw in meta["subwindows"]:
+            subwindow_rows.append(
+                f"| **{sw.get('label', '-')}** | {sw.get('window', '-')} | **{sw.get('m1_candles', '-')}** | "
+                f"{sw.get('trades', '-')} | {sw.get('win_rate', '-')} | {sw.get('net_pnl', '-')} | "
+                f"{sw.get('roi', '-')} | {sw.get('max_dd', '-')} |"
+            )
+    else:
+        w_start = window.get("start", "2023-11-01")
+        w_end = window.get("end", "2026-11-01")
+        subwindow_rows.append(
+            f"| **Toàn kỳ** | **{w_start} đến {w_end}** | **-** | **{p_trades}** | **{p_wr}** | **{p_net}** | **{p_roi}** | **{p_closed_mdd}** |"
+        )
+    subwindow_table_md = "\n".join(subwindow_rows)
+
+    # Dynamic top & bottom combos
+    top_combos_md = []
+    bottom_combos_md = []
+    if v_metrics and v_metrics.combo_breakdown:
+        sorted_combos = sorted(
+            v_metrics.combo_breakdown.items(),
+            key=lambda x: x[1].get("net_pnl", 0.0),
+            reverse=True,
+        )
+        for cname, c in sorted_combos[:3]:
+            top_combos_md.append(
+                f"  - `{cname}` ({c.get('symbol', '')} {c.get('timeframe', '')}): Net PnL ${c.get('net_pnl', 0.0):+,.2f}, "
+                f"Win Rate {c.get('win_rate_pct', 0.0):.1f}%, Profit Factor {c.get('profit_factor', 0.0):.2f}."
+            )
+        for cname, c in sorted_combos[-2:]:
+            bottom_combos_md.append(
+                f"  - `{cname}` ({c.get('symbol', '')} {c.get('timeframe', '')}): Net PnL ${c.get('net_pnl', 0.0):+,.2f}, "
+                f"Profit Factor {c.get('profit_factor', 0.0):.2f}."
+            )
+    top_combos_str = "\n".join(top_combos_md) if top_combos_md else "  - Chưa có dữ liệu phân bổ combo."
+    bottom_combos_str = "\n".join(bottom_combos_md) if bottom_combos_md else "  - Chưa có dữ liệu phân bổ combo."
 
     content = f"""# AutoTrade V3-05 Independent Backtest Audit & Verification Report
 
@@ -406,7 +456,7 @@ def generate_validation_report_md(
 
 | Chỉ số | V3-04 Báo cáo | V3-05 Kiểm toán | Nguyên nhân & Phân tích độc lập |
 | :--- | :--- | :--- | :--- |
-| **Total Signals** | **{b_sig}** | **{meta.get('total_approved_signals', 5984)}** | Xác nhận chính xác tín hiệu 20FINAL từ nến M15 đã đóng. |
+| **Total Signals** | **{b_sig}** | **{meta.get('total_approved_signals', '-')}** | Xác nhận chính xác tín hiệu 20FINAL từ nến M15 đã đóng. |
 | **Trade Legs** | **{b_leg}** | **{p_trades}** | Xác nhận đúng phân tách Leg 1 (50% TP) và Leg 2 (50% Trailing) cho FINAL14. |
 | **Win Rate** | **{b_wr}** | **{p_wr}** | Thuật toán khớp lệnh độc lập xác nhận Win Rate thực tế ổn định quanh 45%. |
 | **Net Realized PnL** | **${b_pnl}** | **{p_net}** | Tổng PnL thực nhận khớp sau khi toàn bộ chu kỳ vị thế đóng. |
@@ -461,11 +511,9 @@ Số lượng nến M1 được xác minh tự động bằng truy vấn DuckDB:
 
 | Cửa sổ | Thời gian UTC (Exclusive End) | Số nến M1 kiểm chứng | Số lệnh (Legs) | Win Rate (Port) | Net PnL | ROI (%) | Max DD (M2M) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1 Tháng** | 2026-10-01 đến 2026-11-01 | **89,280** (44,640 x 2) | 111 | 31.5% | -$9.58 | -0.96% | $21.94 (2.2%) |
-| **6 Tháng** | 2026-05-01 đến 2026-11-01 | **529,920** (264,960 x 2) | 902 | 41.6% | +$6.82 | +0.68% | $43.47 (4.2%) |
-| **3 Năm** | **2023-11-01 đến 2026-11-01** | **3,156,480** (1,578,240 x 2) | **6,271** | **45.3%** | **+$343.52** | **+34.35%** | **$43.47 (3.4%)** |
+{subwindow_table_md}
 
-*Ghi chú*: Đối với cửa sổ 1 tháng và 6 tháng, dữ liệu warm-up lịch sử (>3400 nến M15) được nạp trước thời điểm bắt đầu để các chỉ báo EMA, ATR, SMC đạt trạng thái ổn định 100%. Các lệnh chưa đóng ở cuối chu kỳ được force-close tại giá đóng nến M1 cuối cùng.
+*Ghi chú*: Dữ liệu warm-up lịch sử (>3400 nến M15) được nạp trước thời điểm bắt đầu để các chỉ báo EMA, ATR, SMC đạt trạng thái ổn định 100%. Các lệnh chưa đóng ở cuối chu kỳ được force-close tại giá đóng nến M1 cuối cùng.
 
 ---
 
@@ -478,8 +526,7 @@ Số lượng nến M1 được xác minh tự động bằng truy vấn DuckDB:
 {sym_table_md}
 
 **Đánh giá**:
-- **ETH-USDT** đóng góp phần lớn lợi nhuận (chiếm hơn 55% Net PnL) nhờ các sóng biến động biên độ lớn trên khung 1h.
-- **BTC-USDT** có tính ổn định cao hơn, ít bị sụt giảm drawdown sâu.
+{sym_eval_md}
 
 ### Phân rã 20FINAL Combos (Top & Bottom)
 
@@ -488,17 +535,15 @@ Số lượng nến M1 được xác minh tự động bằng truy vấn DuckDB:
 {combo_table_md}
 
 - **Combo hiệu quả nhất**:
-  - `C15` (ETH-USDT 1h): Net PnL +$48.11, Win Rate 34.9% nhưng Risk/Reward vượt trội.
-  - `C11` (BTC-USDT 1h): Net PnL +$40.51, Win Rate 43.2%, Profit Factor 1.29.
-  - `C12` (ETH-USDT 1h): Net PnL +$39.39, Profit Factor 1.15.
+{top_combos_str}
 - **Combo kéo giảm hiệu suất**:
-  - `C2` (BTC-USDT 1h) và `C3` (ETH-USDT 1h) có lãi ròng thấp (dưới $7), biên độ lợi nhuận mỏng.
+{bottom_combos_str}
 
 ---
 
 ## 7. Kiểm Toán Độ Bền: Sensitivity Analysis Với Chi Phí & Slippage
 
-Kiểm tra độ bền của chiến lược 20FINAL khi chi phí giao dịch và độ trượt giá tăng (3 năm, 6,271 trade legs):
+Kiểm tra độ bền của chiến lược 20FINAL khi chi phí giao dịch và độ trượt giá tăng (3 năm, {p_trades} trade legs):
 
 | Kịch bản | Phí Taker | Slippage | Trades | Win Rate | Net PnL | ROI (%) | Profit Factor | Max DD (M2M) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -506,24 +551,27 @@ Kiểm tra độ bền của chiến lược 20FINAL khi chi phí giao dịch v�
 
 > [!WARNING]
 > **Điểm hòa vốn Slippage (Breakeven Slippage Threshold)**:
-> Khi slippage vượt ngưỡng **0.027% mỗi chiều** (~0.054% round-trip), toàn bộ lợi nhuận $343.52 sẽ bị triệt tiêu hoàn toàn bởi trượt giá do số lượng giao dịch lớn (6,271 legs). Ở mức slippage 0.03%, chiến lược bắt đầu lỗ nhẹ (-$32.74).
+> Ngưỡng hòa vốn trượt giá được xác định theo mô phỏng sensitivity thực tế từ ledger.
 
 ---
 
-## 8. Giới Hạn Mô Phỏng & Kết Luận Kiểm Toán
+## 8. Bối Cảnh Lịch Sử & Kết Luận Kiểm Toán
 
-1. **V3-04 có lỗi tính toán hay không?**
-   - V3-04 **không có lỗi gian lận hay làm giả số liệu**. Lợi nhuận Net PnL +$343.52 và Win Rate 45.3% là có thật dựa trên giá M1.
-   - Tuy nhiên, V3-04 có **3 hạn chế phương pháp luận lớn**:
-     1. Gọi tên cửa sổ sai (gọi 2 tháng thành 1 tháng, 7 tháng thành 6 tháng).
-     2. Dùng closed-trade drawdown thay vì mark-to-market continuous drawdown, dẫn đến bỏ sót sụt giảm intra-trade.
-     3. Động cơ portfolio V3-04 còn phụ thuộc vào thời điểm Exit của Virtual Mode thay vì chạy event loop độc lập.
-2. **V3-05 đã giải quyết triệt để**:
-   - Đã tái lập bằng chứng bằng độc lập portfolio event loop.
-   - Đã chuẩn hóa số nến cho từng cửa sổ (89,280 / 529,920 / 3,156,480).
-   - Đã xuất đường cong Mark-to-Market continuous equity.
-   - Đã bổ sung 4 bài test hồi quy mới nâng tổng số test lên 43 bài (tất cả đều PASS).
-3. **Đủ điều kiện làm baseline nghiên cứu**:
-   - AutoTrade V3 hoàn toàn đủ độ tin cậy để làm baseline vững chắc cho các nghiên cứu tiếp theo về SMC và AI Reinforcement Learning.
+> [!NOTE]
+> **Hồ sơ Lịch sử (Historical Provenance V3-04 -> V3-05)**:
+> Nội dung so sánh dưới đây ghi lại bối cảnh thẩm định lịch sử từ đợt kiểm toán V3-04 sang V3-05.
+> Báo cáo hiện hành của V3 Research Lab được thẩm định và xác thực độc lập từ artifact ledger thực tế.
+
+1. **Hạn chế phương pháp luận của V3-04 (Lưu trữ lịch sử)**:
+   - Tên gọi cửa sổ trong tài liệu cũ chưa chuẩn hóa.
+   - Bỏ sót continuous mark-to-market drawdown khi lệnh đang mở.
+   - Động cơ portfolio cũ còn phụ thuộc vào thời điểm exit của Virtual Mode.
+2. **Cải tiến phương pháp luận trong V3-05 & V3 Lab**:
+   - Tái lập bằng chứng độc lập qua portfolio event loop độc lập.
+   - Chuẩn hóa xác minh nến M1 cho từng khung thời gian thực thi.
+   - Xuất đường cong Mark-to-Market continuous equity trực tiếp từ tick M1.
+   - Tự động hóa kiểm thử hồi quy và kiểm toán đối kháng bảo vệ tính toàn vẹn số học.
+3. **Kết luận kiểm toán**:
+   - Dữ liệu và chỉ số được tính toán trực tiếp từ ledger thực thi, bảo đảm tính tái lập độc lập.
 """
     out_path.write_text(content.strip() + "\n", encoding="utf-8")
