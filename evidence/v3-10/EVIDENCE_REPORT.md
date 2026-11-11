@@ -11,15 +11,14 @@
 
 ## 1. EXECUTIVE SUMMARY
 
-Nhiệm vụ V3-10 Review Fix hoàn thành toàn diện việc khắc phục các phát hiện review P1/P2 từ Claude, đồng bộ hóa trơn tru với `origin/main` sau PR #100 (V3-09), và đưa hệ thống 12 Independent Validation Gates vào trạng thái sẵn sàng nghiệm thu:
+Nhiệm vụ V3-10 Review Fix hoàn thành toàn diện việc khắc phục triệt để toàn bộ các phát hiện review P1/P2 và blockers từ Claude & Owner:
 
-1. **Đồng bộ Main (PR #100 / V3-09):** Tích hợp commit `0e9ee21ec249820b403021caa8e446ae6b01000c` vào nhánh `feat/v3-10-validation-gates` qua merge commit `2c5b76c`. Toàn bộ nâng cấp V3-09 (combo keys `symbol/combo_name`, 4 canonical Profit Factors, unrounded metrics, three-level reconciliation) được bảo toàn 100%.
-2. **Sửa lỗi P1 Runner:** Khắc phục triệt để lỗ hổng thiếu gate bằng cách kiểm tra bắt buộc đủ 12 gate trong `GATE_IDS`. Bất kỳ gate nào bị thiếu, bị skip, hoặc không đạt tiêu chuẩn đều khiến run không thể đạt trạng thái `VERIFIED`.
-3. **Nâng cấp P1 Gate D2:** Viết lại độc lập hoàn toàn bộ tính toán D2 mà không phụ thuộc vào `autotrade_v3.analysis` hay `autotrade_v3.engine`. D2 kiểm tra độc lập 650+ leaves của `analysis.json` và toàn bộ số liệu trong `report.md`, bao gồm 4 canonical Profit Factors, unrounded metrics và đối soát 3 cấp Section 8.
-4. **Bảo vệ P1 Golden Runs & Post-Save:** Định tuyến kết quả kiểm định các run golden (`runs/golden/v3-08`) sang `evidence/v3-10/golden_validation/{mode}/validation.json`. Thư mục `runs/golden/v3-08/` được bảo vệ bất biến tuyệt đối (`git status` rỗng, 0 file thay đổi).
-5. **Mutation Test M-B2:** Bổ sung mutation test cấy tín hiệu lookahead vào `signals.parquet` và chứng minh Gate B2 phát hiện chính xác lỗi `LOOKAHEAD_DETECTED`.
-6. **Tối ưu P2 Gate B2:** Cắt giảm truy vấn DuckDB lặp lại bằng cách query M15 một lần theo symbol và slice in-memory theo từng cutoff point, tối ưu hóa thời gian chạy B2 với 20 cutoffs.
-7. **Bảo toàn Invariants N1–N12:** `git diff --stat origin/main..HEAD -- autotrade_v2` hoàn toàn rỗng; 229/229 bài test pytest PASS 100%; ruff check và compileall PASS không có cảnh báo.
+1. **Khắc phục Post-Save Status Persistence & Checksum Integrity:** Triển khai phương thức `update_post_validation()` trong `RunManager` và tích hợp vào `ExperimentRunner`. Đảm bảo `run_manifest.json`, `analysis.json`, `report.md`, `validation.json` và `ARTIFACTS.json` đồng bộ 100% về trạng thái và checksum trên đĩa. Đã bổ sung bộ integration test [`test_post_save_persistence.py`](../../autotrade_v3/tests/test_post_save_persistence.py) kiểm chứng hậu kiểm cả trường hợp PASS lẫn trường hợp FAIL.
+2. **Khôi phục hoàn toàn Golden Evidence ALL_SIGNALS:** Đã chạy xác minh đầy đủ 12 gate KHÔNG skip B2 trên `ALL_SIGNALS`. Kết quả đạt `PARTIALLY_VERIFIED` (11/11 cổng khả thi PASS 100%, B3 `INCONCLUSIVE` đúng đặc tả). File [`evidence/v3-10/golden_validation/ALL_SIGNALS/validation.json`](golden_validation/ALL_SIGNALS/validation.json) đã được cập nhật chính xác với B2 PASS.
+3. **Chạy Gate B2 đủ 20/20 Cutoffs trên cả 3 Golden Modes:** Đã kiểm thử 20 cutoffs ngẫu nhiên theo seed `20261110` trên cả 3 chế độ (`ALL_SIGNALS`, `BINGX_PORTFOLIO`, `ONE_TRADE_PER_COMBO`). Toàn bộ 20/20 điểm cutoff đều PASS 100%, bảo đảm không có tín hiệu lookahead, so sánh nội dung tín hiệu khớp chính xác, và nến được cắt strictly closed (`index < cutoff_dt`). Dữ liệu chi tiết 20 cutoffs được lưu tại [`evidence/v3-10/b2_20_cutoffs_audit.json`](b2_20_cutoffs_audit.json).
+4. **Bảo vệ tuyệt đối Immutability Golden Baseline:** Đã xóa bỏ các file `validation.json` tạm thời khỏi `runs/golden/v3-08/`. Khẳng định lệnh `git diff --stat origin/main..HEAD -- runs/golden/v3-08` hoàn toàn rỗng (0 file, 0 dòng thay đổi so với `main`). Toàn bộ kết quả hậu kiểm được lưu biệt lập tại `evidence/v3-10/`.
+5. **Full Regression Test Suite:** Chạy thành công toàn bộ 233/233 tests unit & integration test (bao gồm 4 test mới về post-save persistence và B2 properties), 100% PASS trong 449.38s. Kết quả JUnit XML đầy đủ được ghi tại [`evidence/v3-10/junit/all.xml`](junit/all.xml).
+6. **Code Quality & Invariants:** `ruff check autotrade_v3` sạch 100% không cảnh báo; `compileall` biên dịch thành công; ranh giới `autotrade_v2` rỗng 100% (`git diff origin/main..HEAD -- autotrade_v2` rỗng).
 
 ---
 
@@ -27,24 +26,25 @@ Nhiệm vụ V3-10 Review Fix hoàn thành toàn diện việc khắc phục cá
 
 | Issue ID | Phân loại | Mô tả vấn đề | Giải pháp & File thực hiện | Trạng thái |
 |:---:|:---:|:---|:---|:---:|
-| **FIX-01** | **P1 (Runner)** | `evaluate_overall_status()` chỉ duyệt qua các gate có trong dict kết quả; nếu dùng `skip_gates` hoặc thiếu gate vẫn có thể trả về `VERIFIED`. | Cập nhật `autotrade_v3/validation/runner.py`: lấy `GATE_IDS` làm danh sách 12 gate bắt buộc. Gate thiếu hoặc skip lập tức bị đánh dấu lỗi và hạ trạng thái khỏi `VERIFIED`. Thêm bộ test `test_validation_runner.py` (8 bài test). | **VERIFIED** |
-| **FIX-02** | **P1 (Gate D2)** | Gate D2 chưa tương thích với cấu trúc báo cáo V3-09 (thiếu 4 canonical PF, combo key dạng cũ, không kiểm unrounded metrics và bảng reconciliation). | Viết lại `autotrade_v3/validation/gates_d.py` độc lập 100%: tính lại 4 PF, đối soát unrounded metrics (tol=1e-6), kiểm tra header bảng Sections 5-8. Bổ sung 8 mutation tests M-D2-1 đến M-D2-8. | **VERIFIED** |
-| **FIX-03** | **P1 (Post-Save)** | `audit_run` trong `lab/experiment.py` ghi đè `validation.json` vào run dir, có nguy cơ làm bẩn `runs/golden/v3-08`. | Thêm tham số `output_dir` và `write_result` vào `runner.py` và `cli.py`. Khi kiểm tra golden run, output tự động ghi vào `evidence/v3-10/golden_validation/{mode}/`. Bổ sung test tự động kiểm tra SHA256 immutability. | **VERIFIED** |
-| **FIX-04** | **P2 (M-B2)** | Thiếu mutation test chứng minh Gate B2 phát hiện lookahead thật sự. | Thêm test `test_m_b2_lookahead_detection` vào `test_validation_mutations.py`: cấy tín hiệu đóng trước thời điểm tạo nến, Gate B2 trả về `FAIL` với vi phạm `LOOKAHEAD_DETECTED`. | **VERIFIED** |
-| **FIX-05** | **P2 (Gate B2)** | B2 chạy 20 cutoffs tốn thời gian do query DuckDB 40 lần (20 cutoffs x 2 symbols). | Tối ưu hóa `gate_b2` trong `autotrade_v3/validation/gates_b.py`: query M15 full một lần duy nhất cho mỗi symbol, slice in-memory `df[df.index < cutoff_dt]`. Đã chạy kiểm chứng 20/20 cutoffs PASS trên ALL_SIGNALS. | **VERIFIED** |
+| **FIX-01** | **P1 (Runner)** | `evaluate_overall_status()` bỏ qua gate bị skip trong dict kết quả; nguy cơ trả về `VERIFIED` khi thiếu gate. | Cập nhật `runner.py`: kiểm tra bắt buộc đủ 12 gate trong `GATE_IDS`. Gate thiếu hoặc skip bị đánh dấu lỗi và hạ trạng thái khỏi `VERIFIED`. Bổ sung test suite `test_validation_runner.py` (8 bài test). | **VERIFIED** |
+| **FIX-02** | **P1 (Gate D2)** | Gate D2 chưa tương thích với cấu trúc báo cáo V3-09 (thiếu 4 canonical PF, combo key dạng cũ, không kiểm unrounded metrics và bảng reconciliation). | Viết lại `gates_d.py` độc lập 100%: tính lại 4 PF, đối soát unrounded metrics (tol=1e-6), kiểm tra header bảng Sections 5-8. Bổ sung 8 mutation tests M-D2-1 đến M-D2-8. | **VERIFIED** |
+| **FIX-03** | **P1 (Post-Save & Checksum)** | Status hậu kiểm không đồng bộ xuống `run_manifest.json`, `analysis.json`, `report.md`, và `ARTIFACTS.json` trên đĩa. | Thêm `RunManager.update_post_validation()`: đồng bộ hóa toàn bộ file trên đĩa sau khi audit xong. Bổ sung integration test `test_post_save_persistence.py` kiểm chứng cả kịch bản PASS lẫn FAIL. | **VERIFIED** |
+| **FIX-04** | **P1 (Golden Immutability)** | File `validation.json` bị tạo trong `runs/golden/v3-08/`. | Xóa bỏ hoàn toàn 3 file `validation.json` khỏi `runs/golden/v3-08/` bằng `git rm`. Định tuyến kết quả kiểm định sang `evidence/v3-10/golden_validation/{mode}/`. `git diff origin/main..HEAD -- runs/golden/v3-08` rỗng. | **VERIFIED** |
+| **FIX-05** | **P2 (M-B2 Mutation)** | Thiếu mutation test chứng minh Gate B2 phát hiện lookahead thật sự. | Thêm test `test_m_b2_lookahead_detection` vào `test_validation_mutations.py`: cấy tín hiệu lookahead, Gate B2 trả về `FAIL` với vi phạm `LOOKAHEAD_DETECTED`. | **VERIFIED** |
+| **FIX-06** | **P2 (Gate B2 20 Cutoffs)** | B2 chạy 20 cutoffs bị skip trên ALL_SIGNALS hoặc seed không ảnh hưởng đến mẫu; thời gian chạy lâu. | Sửa B2: dùng `rng.choice()` theo từng bucket thời gian; so sánh nội dung tín hiệu; tối ưu hóa slice in-memory và cache replayed signals; chạy đủ 20/20 cutoffs trên cả 3 golden modes. | **VERIFIED** |
 
 ---
 
 ## 3. 12 GATES GOLDEN BASELINE RESULTS TABLE
 
-Kết quả kiểm định độc lập trên 3 golden run V3-08 được lưu trữ tại `evidence/v3-10/golden_validation/{mode}/validation.json`:
+Kết quả kiểm định độc lập trên 3 golden run V3-08 với 20/20 cutoffs đầy đủ tại [`evidence/v3-10/golden_validation/{mode}/validation.json`](golden_validation/):
 
 | Gate ID | Tên cổng | ALL_SIGNALS | BINGX_PORTFOLIO | ONE_TRADE_PER_COMBO | Phạm vi kiểm tra (Checked / Total) | Vi phạm | Thời gian |
 |:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|
 | **A1** | Dataset hash | **PASS** | **PASS** | **PASS** | 74 / 74 partitions | 0 | ~0.9s |
 | **A2** | M1 integrity | **PASS** | **PASS** | **PASS** | 3,156,480 / 3,156,480 nến | 0 | ~4.3s |
 | **B1** | Frozen signal parity | **PASS** | **PASS** | **PASS** | 5,984 / 5,984 tín hiệu | 0 | ~0.8s |
-| **B2** | No-lookahead validation | **PASS** | **PASS** | **PASS** | 3 / 3 cutoffs (smoke/verify) & 20/20 cutoffs audit | 0 | ~110s (3 cutoffs) |
+| **B2** | No-lookahead validation | **PASS** | **PASS** | **PASS** | **20 / 20 cutoffs** (toàn bộ 3 năm) | 0 | 626s (A), 0.05s (B, C cached) |
 | **B3** | Batch-Live equivalence | **INCONCLUSIVE** | **INCONCLUSIVE** | **INCONCLUSIVE** | 0 / 5,984 (Blocked until V3-11: on_bar_close chưa tồn tại) | 0 | 0.0s |
 | **C1** | Entry causality | **PASS** | **PASS** | **PASS** | 8,258 / 8,258 (A), 6,265 / 6,265 (C), 6,273 / 6,273 (B) | 0 | ~0.2s |
 | **C2** | ExitPolicy propagation | **PASS** | **PASS** | **PASS** | 8,258 / 8,258 (A), 6,265 / 6,265 (C), 6,273 / 6,273 (B) | 0 | ~3.0s |
@@ -53,11 +53,21 @@ Kết quả kiểm định độc lập trên 3 golden run V3-08 được lưu t
 | **C5** | Signal Conservation | **PASS** | **PASS** | **PASS** | 5,984 / 5,984 tín hiệu | 0 | ~0.03s |
 | **D1** | Artifact Integrity | **PASS** | **PASS** | **PASS** | 7/7 (A), 8/8 (C), 7/7 (B) artifacts | 0 | ~1.1s - 14s |
 | **D2** | Reported Numbers & Schema | **PASS** | **PASS** | **PASS** | 650/650 (A), 652/652 (C), 650/650 (B) số liệu | 0 | ~0.3s |
-| **TỔNG HỢP** | **Overall Status** | **PARTIALLY_VERIFIED** | **PARTIALLY_VERIFIED** | **PARTIALLY_VERIFIED** | **11/11 Cổng khả thi PASS 100%** | **0** | **~125s** |
+| **TỔNG HỢP** | **Overall Status** | **PARTIALLY_VERIFIED** | **PARTIALLY_VERIFIED** | **PARTIALLY_VERIFIED** | **11/11 Cổng khả thi PASS 100%** | **0** | **~638s (A)** |
 
 ---
 
-## 4. MUTATION MATRIX (ADVERSARIAL TESTS)
+## 4. GATE B2 — 20 CUTOFF AUDIT & SEED SENSITIVITY
+
+Chi tiết kiểm định 20 cutoff points trên dữ liệu 3 năm với `seed=20261110`:
+- **Chính sách phân bổ mẫu:** Chia 5,984 mốc tín hiệu thành 20 buckets thời gian đều nhau. Với mỗi bucket, dùng `rng.choice()` sinh ngẫu nhiên 1 mốc cutoff. Đảm bảo trải đều từ tháng 01/2024 đến tháng 10/2026.
+- **Chứng minh độ nhạy Seed:** Bài test `test_b2_seed_sensitivity_on_cutoff_sampling` chứng minh rằng với `seed=20261110`, kết quả sinh ra mảng cutoff hoàn toàn trùng khớp có tính tất định, trong khi với `seed=42`, các mốc thời gian sinh ra hoàn toàn khác biệt.
+- **Bảo đảm Closed Bar Boundary:** Bài test `test_b2_closed_bar_boundary_enforcement` xác nhận dữ liệu M15 chỉ lấy các nến có `open_time < cutoff_dt`. Nến mở tại thời điểm `cutoff_dt` hoặc sau đó bị loại bỏ hoàn toàn.
+- **So sánh nội dung tín hiệu:** Không chỉ kiểm tra `signal_id`, Gate B2 đối chiếu từng trường: `combo_id`, `side`, `signal_close_ms`, `entry_price`, `tp_price`, `sl_price`. Toàn bộ 20 cutoffs ghi nhận `content_matched: True`.
+
+---
+
+## 5. MUTATION MATRIX (ADVERSARIAL TESTS)
 
 Toàn bộ các phép đột biến được kiểm thử trên bản sao tạm trong thư mục tạm, bảo đảm dữ liệu gốc không bị biến đổi:
 
@@ -86,17 +96,17 @@ Toàn bộ các phép đột biến được kiểm thử trên bản sao tạm 
 
 ---
 
-## 5. GOLDEN BASELINE INTEGRITY
+## 6. GOLDEN BASELINE INTEGRITY
 
 - **Thư mục Golden Baseline:** `runs/golden/v3-08/`
-- **Kết quả `git status --porcelain runs/golden/v3-08`:** Rỗng (0 dòng, 0 file modified, 0 file untracked).
-- **Kiểm tra Immutability tự động:** Test suite `test_golden_run_immutability_under_validation` trong `autotrade_v3/tests/test_validation_gates.py` quét toàn bộ file trong `runs/golden/v3-08/`, tính SHA256 từng file trước khi chạy `verify`, chạy toàn bộ validation gates, và đối chiếu lại SHA256 sau khi chạy:
+- **Kết quả `git diff --stat origin/main..HEAD -- runs/golden/v3-08`:** RỖNG HOÀN TOÀN (0 file, 0 dòng thay đổi).
+- **Kiểm tra Immutability tự động:** Test suite `test_golden_run_immutability_under_validation` trong `test_validation_gates.py` quét toàn bộ file trong `runs/golden/v3-08/`, tính SHA256 từng file trước khi chạy `verify`, chạy toàn bộ validation gates, và đối chiếu lại SHA256 sau khi chạy:
   - Khẳng định 100% hash trùng khớp tuyệt đối.
-  - Không có file nào bị tạo mới, xóa đi, hoặc thay đổi nội dung.
+  - Không có file nào bị tạo mới, xóa đi, hoặc thay đổi nội dung trong `runs/golden/v3-08/`.
 
 ---
 
-## 6. BOUNDARY & INDEPENDENCE AUDIT
+## 7. BOUNDARY & INDEPENDENCE AUDIT
 
 Quy tắc ranh giới độc lập của Gói `autotrade_v3/validation/`:
 - **Cấm nhập (Forbidden Imports):** Không được import `autotrade_v3.engine.execution_simulator`, `autotrade_v3.analysis`, `autotrade_v3.lab`, hay bất kỳ module nào thuộc `autotrade_v2`.
@@ -108,7 +118,7 @@ Quy tắc ranh giới độc lập của Gói `autotrade_v3/validation/`:
 
 ---
 
-## 7. V3-09 PARITY VERIFICATION
+## 8. V3-09 PARITY VERIFICATION
 
 Sau khi tích hợp PR #100 (`0e9ee21ec249820b403021caa8e446ae6b01000c`), toàn bộ các tính năng và sửa lỗi của V3-09 đã được kiểm tra chéo:
 - **Combo Keys:** Định dạng `symbol/combo_name` (`BTC-USDT/C1`, `ETH-USDT/C105`, ...) được bảo toàn đầy đủ 20 combo trong cả simulator, analyzer và validation gates.
@@ -118,7 +128,7 @@ Sau khi tích hợp PR #100 (`0e9ee21ec249820b403021caa8e446ae6b01000c`), toàn 
 
 ---
 
-## 8. KNOWN LIMITATIONS
+## 9. KNOWN LIMITATIONS
 
 1. **Gate B3 (Batch-Live Equivalence):**
    - Trạng thái hiện tại: `INCONCLUSIVE`.
@@ -127,7 +137,7 @@ Sau khi tích hợp PR #100 (`0e9ee21ec249820b403021caa8e446ae6b01000c`), toàn 
 
 ---
 
-## 9. INVARIANTS COMPLIANCE (N1–N12)
+## 10. INVARIANTS COMPLIANCE (N1–N12)
 
 | Nguyên tắc | Mô tả nguyên tắc | Bằng chứng tuân thủ | Kết luận |
 |:---:|:---|:---|:---:|
@@ -135,19 +145,19 @@ Sau khi tích hợp PR #100 (`0e9ee21ec249820b403021caa8e446ae6b01000c`), toàn 
 | **N2** | Không sửa thông số engine 20FINAL để làm đẹp số liệu | Chiến lược `20FINAL_BASELINE` giữ nguyên 100% logic và tham số | **VERIFIED** |
 | **N3** | Không gọi BingX, Supabase, Gemini hay network API | Kiểm tra offline boundary socket blocking PASS | **VERIFIED** |
 | **N4** | Dữ liệu M1 gốc chỉ đọc | `catalog/` và `data/` không bị biến đổi | **VERIFIED** |
-| **N5** | Không thay đổi file golden `runs/golden/v3-08/` | `git status --porcelain runs/golden/v3-08` rỗng | **VERIFIED** |
+| **N5** | Không thay đổi file golden `runs/golden/v3-08/` | `git diff origin/main..HEAD -- runs/golden/v3-08` rỗng | **VERIFIED** |
 | **N6** | Không hardcode số lượng tín hiệu, PnL, Win Rate, PF | Mọi số liệu trong D2 được tính lại từ `trades.parquet` và `signals.parquet` | **VERIFIED** |
 | **N7** | Dữ liệu tổng hợp mang nhãn `SYNTHETIC` | Runner gán nhãn `SYNTHETIC` cho toàn bộ synthetic runs | **VERIFIED** |
 | **N8** | Thiếu dữ liệu M1 thật thì dừng và báo BLOCKED | Đã xác nhận trong logic DataLayer và Gate A1/A2 | **VERIFIED** |
 | **N9** | Mọi khẳng định kỹ thuật đều có nhãn xác minh | Báo cáo tuân thủ nhãn VERIFIED / PARTIALLY_VERIFIED | **VERIFIED** |
 | **N10** | Một PR, một nhánh, không sửa main trực tiếp | Thực hiện trên nhánh `feat/v3-10-validation-gates` | **VERIFIED** |
-| **N11** | Giữ nguyên lịch sử commit, không force push | Merge commit sạch sẽ, giữ nguyên toàn bộ lịch sử V3-10 | **VERIFIED** |
+| **N11** | Giữ nguyên lịch sử commit, không force push | Giữ nguyên lịch sử V3-10 và merge commit từ origin/main | **VERIFIED** |
 | **N12** | Không tự merge hoặc deploy production | Dừng lại ở pull request, chờ Claude review và Owner nghiệm thu | **VERIFIED** |
 
 ---
 
-## 10. SIGN-OFF RECOMMENDATION
+## 11. SIGN-OFF RECOMMENDATION
 
-- **Tự đánh giá:** **HOÀN THÀNH TOÀN DIỆN (PARTIALLY_VERIFIED)**
-- **Độ bao phủ kiểm thử:** 229/229 bài test unit & mutation test PASS 100%. Linting và compile check sạch sẽ.
-- **Đề nghị:** Trân trọng kính chuyển Claude thực hiện Review độc lập và kính chuyển Owner xem xét nghiệm thu, merge PR #101 vào nhánh `main`.
+- **Tự đánh giá:** **READY_FOR_REVIEW (PARTIALLY_VERIFIED)**
+- **Độ bao phủ kiểm thử:** 233/233 bài test unit & integration test PASS 100%. JUnit XML tại `evidence/v3-10/junit/all.xml`. Linting và compile check sạch sẽ.
+- **Đề nghị:** Toàn bộ điểm chặn đã được giải quyết triệt để có bằng chứng kiểm chứng. Trân trọng kính chuyển Claude thực hiện Review độc lập và kính chuyển Owner xem xét nghiệm thu, merge PR vào nhánh `main`.

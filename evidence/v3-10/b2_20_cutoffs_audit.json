@@ -1,0 +1,524 @@
+{
+  "ALL_SIGNALS": {
+    "overall_status": "PARTIALLY_VERIFIED",
+    "duration_s": 638.35,
+    "b2_details": {
+      "seed": 20261110,
+      "n_cutoffs": 20,
+      "duration_s": 626.37,
+      "cutoffs_tested": [
+        {
+          "cutoff_ms": 1705919399999,
+          "cutoff_dt": "2024-01-22 10:29:59",
+          "expected_count": 218,
+          "replayed_count": 218,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1709045999999,
+          "cutoff_dt": "2024-02-27 14:59:59",
+          "expected_count": 489,
+          "replayed_count": 489,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1714337999999,
+          "cutoff_dt": "2024-04-28 20:59:59",
+          "expected_count": 832,
+          "replayed_count": 832,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1716065999999,
+          "cutoff_dt": "2024-05-18 20:59:59",
+          "expected_count": 934,
+          "replayed_count": 934,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1720173599999,
+          "cutoff_dt": "2024-07-05 09:59:59",
+          "expected_count": 1271,
+          "replayed_count": 1271,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1726829999999,
+          "cutoff_dt": "2024-09-20 10:59:59",
+          "expected_count": 1708,
+          "replayed_count": 1708,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1728932399999,
+          "cutoff_dt": "2024-10-14 18:59:59",
+          "expected_count": 1830,
+          "replayed_count": 1830,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1735914599999,
+          "cutoff_dt": "2025-01-03 14:29:59",
+          "expected_count": 2247,
+          "replayed_count": 2247,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1740506399999,
+          "cutoff_dt": "2025-02-25 17:59:59",
+          "expected_count": 2553,
+          "replayed_count": 2553,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1746701999999,
+          "cutoff_dt": "2025-05-08 10:59:59",
+          "expected_count": 2894,
+          "replayed_count": 2894,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1751839199999,
+          "cutoff_dt": "2025-07-06 21:59:59",
+          "expected_count": 3236,
+          "replayed_count": 3236,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1754564399999,
+          "cutoff_dt": "2025-08-07 10:59:59",
+          "expected_count": 3468,
+          "replayed_count": 3468,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1757596499999,
+          "cutoff_dt": "2025-09-11 13:14:59",
+          "expected_count": 3672,
+          "replayed_count": 3672,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1765707299999,
+          "cutoff_dt": "2025-12-14 10:14:59",
+          "expected_count": 4133,
+          "replayed_count": 4133,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1769943599999,
+          "cutoff_dt": "2026-02-01 10:59:59",
+          "expected_count": 4473,
+          "replayed_count": 4473,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1770811199999,
+          "cutoff_dt": "2026-02-11 11:59:59",
+          "expected_count": 4562,
+          "replayed_count": 4562,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1776607199999,
+          "cutoff_dt": "2026-04-19 13:59:59",
+          "expected_count": 4914,
+          "replayed_count": 4914,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1782309599999,
+          "cutoff_dt": "2026-06-24 13:59:59",
+          "expected_count": 5265,
+          "replayed_count": 5265,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1784224799999,
+          "cutoff_dt": "2026-07-16 17:59:59",
+          "expected_count": 5375,
+          "replayed_count": 5375,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1789779599999,
+          "cutoff_dt": "2026-09-19 00:59:59",
+          "expected_count": 5744,
+          "replayed_count": 5744,
+          "content_matched": true,
+          "pass": true
+        }
+      ],
+      "exit_code": 0,
+      "sampling_policy": "uniform_buckets_random_jitter",
+      "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+    }
+  },
+  "BINGX_PORTFOLIO": {
+    "overall_status": "PARTIALLY_VERIFIED",
+    "duration_s": 65.1,
+    "b2_details": {
+      "seed": 20261110,
+      "n_cutoffs": 20,
+      "duration_s": 41.46,
+      "cutoffs_tested": [
+        {
+          "cutoff_ms": 1705919399999,
+          "cutoff_dt": "2024-01-22 10:29:59",
+          "expected_count": 218,
+          "replayed_count": 218,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1709045999999,
+          "cutoff_dt": "2024-02-27 14:59:59",
+          "expected_count": 489,
+          "replayed_count": 489,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1714337999999,
+          "cutoff_dt": "2024-04-28 20:59:59",
+          "expected_count": 832,
+          "replayed_count": 832,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1716065999999,
+          "cutoff_dt": "2024-05-18 20:59:59",
+          "expected_count": 934,
+          "replayed_count": 934,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1720173599999,
+          "cutoff_dt": "2024-07-05 09:59:59",
+          "expected_count": 1271,
+          "replayed_count": 1271,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1726829999999,
+          "cutoff_dt": "2024-09-20 10:59:59",
+          "expected_count": 1708,
+          "replayed_count": 1708,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1728932399999,
+          "cutoff_dt": "2024-10-14 18:59:59",
+          "expected_count": 1830,
+          "replayed_count": 1830,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1735914599999,
+          "cutoff_dt": "2025-01-03 14:29:59",
+          "expected_count": 2247,
+          "replayed_count": 2247,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1740506399999,
+          "cutoff_dt": "2025-02-25 17:59:59",
+          "expected_count": 2553,
+          "replayed_count": 2553,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1746701999999,
+          "cutoff_dt": "2025-05-08 10:59:59",
+          "expected_count": 2894,
+          "replayed_count": 2894,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1751839199999,
+          "cutoff_dt": "2025-07-06 21:59:59",
+          "expected_count": 3236,
+          "replayed_count": 3236,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1754564399999,
+          "cutoff_dt": "2025-08-07 10:59:59",
+          "expected_count": 3468,
+          "replayed_count": 3468,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1757596499999,
+          "cutoff_dt": "2025-09-11 13:14:59",
+          "expected_count": 3672,
+          "replayed_count": 3672,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1765707299999,
+          "cutoff_dt": "2025-12-14 10:14:59",
+          "expected_count": 4133,
+          "replayed_count": 4133,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1769943599999,
+          "cutoff_dt": "2026-02-01 10:59:59",
+          "expected_count": 4473,
+          "replayed_count": 4473,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1770811199999,
+          "cutoff_dt": "2026-02-11 11:59:59",
+          "expected_count": 4562,
+          "replayed_count": 4562,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1776607199999,
+          "cutoff_dt": "2026-04-19 13:59:59",
+          "expected_count": 4914,
+          "replayed_count": 4914,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1782309599999,
+          "cutoff_dt": "2026-06-24 13:59:59",
+          "expected_count": 5265,
+          "replayed_count": 5265,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1784224799999,
+          "cutoff_dt": "2026-07-16 17:59:59",
+          "expected_count": 5375,
+          "replayed_count": 5375,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1789779599999,
+          "cutoff_dt": "2026-09-19 00:59:59",
+          "expected_count": 5744,
+          "replayed_count": 5744,
+          "content_matched": true,
+          "pass": true
+        }
+      ],
+      "exit_code": 0,
+      "sampling_policy": "uniform_buckets_random_jitter",
+      "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+    }
+  },
+  "ONE_TRADE_PER_COMBO": {
+    "overall_status": "PARTIALLY_VERIFIED",
+    "duration_s": 51.16,
+    "b2_details": {
+      "seed": 20261110,
+      "n_cutoffs": 20,
+      "duration_s": 40.76,
+      "cutoffs_tested": [
+        {
+          "cutoff_ms": 1705919399999,
+          "cutoff_dt": "2024-01-22 10:29:59",
+          "expected_count": 218,
+          "replayed_count": 218,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1709045999999,
+          "cutoff_dt": "2024-02-27 14:59:59",
+          "expected_count": 489,
+          "replayed_count": 489,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1714337999999,
+          "cutoff_dt": "2024-04-28 20:59:59",
+          "expected_count": 832,
+          "replayed_count": 832,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1716065999999,
+          "cutoff_dt": "2024-05-18 20:59:59",
+          "expected_count": 934,
+          "replayed_count": 934,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1720173599999,
+          "cutoff_dt": "2024-07-05 09:59:59",
+          "expected_count": 1271,
+          "replayed_count": 1271,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1726829999999,
+          "cutoff_dt": "2024-09-20 10:59:59",
+          "expected_count": 1708,
+          "replayed_count": 1708,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1728932399999,
+          "cutoff_dt": "2024-10-14 18:59:59",
+          "expected_count": 1830,
+          "replayed_count": 1830,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1735914599999,
+          "cutoff_dt": "2025-01-03 14:29:59",
+          "expected_count": 2247,
+          "replayed_count": 2247,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1740506399999,
+          "cutoff_dt": "2025-02-25 17:59:59",
+          "expected_count": 2553,
+          "replayed_count": 2553,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1746701999999,
+          "cutoff_dt": "2025-05-08 10:59:59",
+          "expected_count": 2894,
+          "replayed_count": 2894,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1751839199999,
+          "cutoff_dt": "2025-07-06 21:59:59",
+          "expected_count": 3236,
+          "replayed_count": 3236,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1754564399999,
+          "cutoff_dt": "2025-08-07 10:59:59",
+          "expected_count": 3468,
+          "replayed_count": 3468,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1757596499999,
+          "cutoff_dt": "2025-09-11 13:14:59",
+          "expected_count": 3672,
+          "replayed_count": 3672,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1765707299999,
+          "cutoff_dt": "2025-12-14 10:14:59",
+          "expected_count": 4133,
+          "replayed_count": 4133,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1769943599999,
+          "cutoff_dt": "2026-02-01 10:59:59",
+          "expected_count": 4473,
+          "replayed_count": 4473,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1770811199999,
+          "cutoff_dt": "2026-02-11 11:59:59",
+          "expected_count": 4562,
+          "replayed_count": 4562,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1776607199999,
+          "cutoff_dt": "2026-04-19 13:59:59",
+          "expected_count": 4914,
+          "replayed_count": 4914,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1782309599999,
+          "cutoff_dt": "2026-06-24 13:59:59",
+          "expected_count": 5265,
+          "replayed_count": 5265,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1784224799999,
+          "cutoff_dt": "2026-07-16 17:59:59",
+          "expected_count": 5375,
+          "replayed_count": 5375,
+          "content_matched": true,
+          "pass": true
+        },
+        {
+          "cutoff_ms": 1789779599999,
+          "cutoff_dt": "2026-09-19 00:59:59",
+          "expected_count": 5744,
+          "replayed_count": 5744,
+          "content_matched": true,
+          "pass": true
+        }
+      ],
+      "exit_code": 0,
+      "sampling_policy": "uniform_buckets_random_jitter",
+      "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+    }
+  }
+}

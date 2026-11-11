@@ -6,6 +6,7 @@ B3: Batch vs live equivalence (returns INCONCLUSIVE until V3-11).
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import time
 from pathlib import Path
 from typing import Any
@@ -154,6 +155,9 @@ def gate_b1(ctx: VerifyContext) -> GateResult:
     )
 
 
+_REPLAY_CACHE: dict[tuple[str, str, str, int], list[Any]] = {}
+
+
 def gate_b2(ctx: VerifyContext) -> GateResult:
     """No-lookahead verification: select N cutoff points T.
     
@@ -201,15 +205,13 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
     if len(all_close_ms) <= n_cutoffs:
         cutoffs = all_close_ms
     else:
-        # Uniformly spaced + random jitter
-        indices = np.linspace(len(all_close_ms) // 10, len(all_close_ms) - 1, n_cutoffs, dtype=int)
-        cutoffs = all_close_ms[indices]
+        # Uniformly split into n_cutoffs buckets and sample with seed
+        buckets = np.array_split(all_close_ms, n_cutoffs)
+        cutoffs = np.array([int(rng.choice(b)) for b in buckets], dtype=np.int64)
+        cutoffs.sort()
 
     symbols = manifest.get("symbols", ["BTC-USDT", "ETH-USDT"])
     cutoff_results = []
-
-    # Map full signals by id
-    full_sig_map = run_sigs.set_index("signal_id")
 
     checked_points = 0
     total_points = len(cutoffs)
@@ -235,55 +237,110 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
         except Exception as e:
             return inconclusive("B2", name, f"Failed to load M15 data for {sym}: {e}")
 
-    for cutoff_t in cutoffs:
-        checked_points += 1
+    def _eval_single_cutoff(cutoff_t: int) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         cutoff_dt = pd.Timestamp(cutoff_t, unit="ms", tz="UTC")
         cutoff_dt_str = cutoff_dt.strftime("%Y-%m-%d %H:%M:%S")
 
         # Full run signals up to cutoff_t
         expected_subset = run_sigs[run_sigs["signal_close_ms"] <= cutoff_t]
-        expected_ids = set(expected_subset["signal_id"])
+        expected_sig_dict = {
+            str(s["signal_id"]): {
+                "combo_id": int(s["combo_id"]),
+                "side": str(s["side"]),
+                "signal_close_ms": int(s["signal_close_ms"]),
+                "entry_price": float(s["entry_price"]),
+                "tp_price": float(s["tp_price"]),
+                "sl_price": float(s["sl_price"]),
+            }
+            for _, s in expected_subset.iterrows()
+        }
+        expected_ids = set(expected_sig_dict.keys())
 
         # Slice data strictly up to cutoff_dt (candles that closed at or before cutoff_t)
         sub_data = {sym: full_data[sym][full_data[sym].index < cutoff_dt] for sym in symbols}
 
-        # Re-run strategy
-        try:
-            replayed_sigs = strat.generate_signals(
-                data=sub_data,
-                symbols=symbols,
-                only_approved=True,
-                only_warmup_ready=True,
-            )
-        except Exception as e:
-            viol.add({
-                "cutoff_ms": int(cutoff_t),
-                "kind": "STRATEGY_REPLAY_FAILED",
-                "error": str(e),
-            })
-            continue
+        cutoff_viols: list[dict[str, Any]] = []
+        cache_key = (strat_id, start_date, end_date, int(cutoff_t))
+        if cache_key in _REPLAY_CACHE:
+            replayed_sigs = _REPLAY_CACHE[cache_key]
+        else:
+            try:
+                replayed_sigs = strat.generate_signals(
+                    data=sub_data,
+                    symbols=symbols,
+                    only_approved=True,
+                    only_warmup_ready=True,
+                )
+                _REPLAY_CACHE[cache_key] = replayed_sigs
+            except Exception as e:
+                cutoff_viols.append({
+                    "cutoff_ms": int(cutoff_t),
+                    "kind": "STRATEGY_REPLAY_FAILED",
+                    "error": str(e),
+                })
+                return {
+                    "cutoff_ms": int(cutoff_t),
+                    "cutoff_dt": cutoff_dt_str,
+                    "expected_count": len(expected_ids),
+                    "replayed_count": 0,
+                    "content_matched": False,
+                    "pass": False,
+                }, cutoff_viols
 
-        replayed_ids = {s.signal_id for s in replayed_sigs if s.signal_close_ms <= cutoff_t}
+        replayed_subset = [s for s in replayed_sigs if s.signal_close_ms <= cutoff_t]
+        replayed_ids = {str(s.signal_id) for s in replayed_subset}
 
         missing = expected_ids - replayed_ids
         extra = replayed_ids - expected_ids
 
-        if missing or extra:
-            viol.add({
+        content_mismatches = []
+        for s in replayed_subset:
+            sid = str(s.signal_id)
+            if sid in expected_sig_dict:
+                exp = expected_sig_dict[sid]
+                if (
+                    s.combo_id != exp["combo_id"]
+                    or s.side != exp["side"]
+                    or s.signal_close_ms != exp["signal_close_ms"]
+                    or abs(float(s.entry_price) - exp["entry_price"]) > 1e-6
+                    or abs(float(s.tp_price) - exp["tp_price"]) > 1e-6
+                    or abs(float(s.sl_price) - exp["sl_price"]) > 1e-6
+                ):
+                    content_mismatches.append(sid)
+
+        is_passed = (len(missing) == 0 and len(extra) == 0 and len(content_mismatches) == 0)
+
+        if not is_passed:
+            cutoff_viols.append({
                 "cutoff_ms": int(cutoff_t),
                 "cutoff_dt": cutoff_dt_str,
                 "kind": "LOOKAHEAD_DETECTED",
                 "missing_signals": sorted(missing)[:5],
                 "extra_signals": sorted(extra)[:5],
+                "content_mismatches": sorted(content_mismatches)[:5],
             })
 
-        cutoff_results.append({
+        return {
             "cutoff_ms": int(cutoff_t),
             "cutoff_dt": cutoff_dt_str,
             "expected_count": len(expected_ids),
             "replayed_count": len(replayed_ids),
-            "pass": len(missing) == 0 and len(extra) == 0,
-        })
+            "content_matched": len(content_mismatches) == 0,
+            "pass": is_passed,
+        }, cutoff_viols
+
+    workers = min(8, n_cutoffs)
+    if workers > 1:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            raw_results = list(pool.map(_eval_single_cutoff, cutoffs))
+    else:
+        raw_results = [_eval_single_cutoff(c) for c in cutoffs]
+
+    for c_info, c_viols in raw_results:
+        checked_points += 1
+        for v in c_viols:
+            viol.add(v)
+        cutoff_results.append(c_info)
 
     duration = time.perf_counter() - t0
 
@@ -298,6 +355,9 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
             "n_cutoffs": n_cutoffs,
             "duration_s": round(duration, 2),
             "cutoffs_tested": cutoff_results,
+            "exit_code": 0 if viol.count == 0 else 1,
+            "sampling_policy": "uniform_buckets_random_jitter",
+            "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)",
         },
     )
 

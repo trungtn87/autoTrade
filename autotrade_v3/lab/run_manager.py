@@ -315,6 +315,91 @@ class RunManager:
 
         return run_dir
 
+    def update_post_validation(
+        self,
+        run_dir: Path | str,
+        manifest: RunManifest,
+        analysis: dict[str, Any],
+        val_report: Any,
+    ) -> None:
+        """Synchronize manifest, analysis, report.md, validation.json, and ARTIFACTS.json after validation."""
+        r_dir = Path(run_dir)
+        manifest.validation_status = val_report.overall_status
+
+        # 1. Update run_manifest.json on disk
+        with open(r_dir / "run_manifest.json", "w", encoding="utf-8") as f:
+            json.dump(asdict(manifest), f, indent=2)
+
+        # 2. Update analysis.json on disk
+        val_dict: dict[str, Any] = {
+            "overall_status": val_report.overall_status,
+            "is_real_data": getattr(val_report, "is_real_data", False),
+            "gates": {},
+            "failure_reasons": getattr(val_report, "failure_reasons", []),
+        }
+        raw_gates = getattr(val_report, "gates", {})
+        for k, v in raw_gates.items():
+            if hasattr(v, "to_dict"):
+                val_dict["gates"][k] = v.to_dict()
+            elif isinstance(v, dict):
+                val_dict["gates"][k] = v
+            else:
+                val_dict["gates"][k] = str(v)
+        analysis["validation"] = val_dict
+        with open(r_dir / "analysis.json", "w", encoding="utf-8") as f:
+            json.dump(analysis, f, indent=2)
+
+        # 3. Update report.md on disk
+        md_report = self._render_markdown_report(manifest, analysis)
+        (r_dir / "report.md").write_text(md_report, encoding="utf-8")
+
+        # 4. Regenerate ARTIFACTS.json on disk
+        artifacts_index: dict[str, Any] = {
+            "mode": manifest.execution_mode,
+            "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+            "artifacts": {},
+        }
+        target_artifacts = [
+            "run_manifest.json",
+            "analysis.json",
+            "signals.parquet",
+            "trades.parquet",
+            "execution_events.parquet",
+            "skipped_signals.parquet",
+            "rejected_signals.parquet",
+        ]
+        for art_name in target_artifacts:
+            art_file = r_dir / art_name
+            if art_file.exists():
+                h_info = compute_artifact_hashes(art_file)
+                artifacts_index["artifacts"][art_name] = {
+                    "file_name": art_name,
+                    "size_bytes": h_info["size_bytes"],
+                    "sha256": h_info["sha256"],
+                    "content_hash": h_info["content_hash"],
+                    "row_count": h_info.get("row_count"),
+                }
+        snap_pq = r_dir / "snapshots.parquet"
+        if snap_pq.exists():
+            snap_size = snap_pq.stat().st_size
+            snap_sha = compute_artifact_hashes(snap_pq)["sha256"]
+            is_over_20mb = snap_size > 20 * 1024 * 1024
+            artifacts_index["artifacts"]["snapshots.parquet"] = {
+                "file_name": "snapshots.parquet",
+                "absolute_path": str(snap_pq.resolve()),
+                "size_bytes": snap_size,
+                "sha256": snap_sha,
+                "committed": not is_over_20mb,
+                "reason": "Exceeds 20 MB threshold; omitted from git" if is_over_20mb else "Committed",
+            }
+
+        with open(r_dir / "ARTIFACTS.json", "w", encoding="utf-8") as f:
+            json.dump(artifacts_index, f, indent=2)
+
+        # 5. Update catalog index if not golden
+        if not manifest.is_golden:
+            self._update_catalog(manifest, analysis)
+
     def _render_markdown_report(self, manifest: RunManifest, analysis: dict[str, Any]) -> str:
         acct = analysis.get("accounting", {})
         pnl = analysis.get("pnl", {})

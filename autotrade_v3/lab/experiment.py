@@ -261,7 +261,16 @@ class ExperimentRunner:
             artifacts_dir=run_dir,
             write_result=(not is_golden),
         )
-        manifest.validation_status = val_report.overall_status
+
+        if not is_golden:
+            self.run_manager.update_post_validation(
+                run_dir=run_dir,
+                manifest=manifest,
+                analysis=analysis,
+                val_report=val_report,
+            )
+        else:
+            manifest.validation_status = val_report.overall_status
 
         return ExperimentResult(
             run_id=run_id,
