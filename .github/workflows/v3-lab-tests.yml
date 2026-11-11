@@ -15,6 +15,9 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -24,16 +27,57 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r autotrade_v3/requirements-replay.txt pyarrow pytest ruff
+          python -m pip install -r autotrade_v3/requirements-replay.txt pyarrow pytest ruff pandas
+
+      - name: Prepare Artifacts Directory
+        run: |
+          mkdir -p evidence/ci_artifacts
+
+      - name: Record Git State & Commit SHA
+        run: |
+          echo "=== GIT REV-PARSE HEAD ===" > evidence/ci_artifacts/git_head.txt
+          git rev-parse HEAD >> evidence/ci_artifacts/git_head.txt
+          echo "=== GIT STATUS PORCELAIN ===" > evidence/ci_artifacts/git_status.txt
+          git status --porcelain >> evidence/ci_artifacts/git_status.txt
+          cat evidence/ci_artifacts/git_head.txt
+          cat evidence/ci_artifacts/git_status.txt
 
       - name: Ruff Lint Check
         run: |
-          ruff check autotrade_v3
+          ruff check autotrade_v3 scripts
 
       - name: Python Compileall Check
         run: |
-          python -m compileall autotrade_v3
+          python -m compileall autotrade_v3 scripts
 
-      - name: Run Synthetic Test Suite (pytest)
+      - name: AC5 Hardcoded Metrics Scan
         run: |
-          pytest autotrade_v3/tests --junitxml=evidence/v3-08/junit/ci_synthetic.xml
+          python -m autotrade_v3.tools.scan_hardcoded_metrics --log-out evidence/ci_artifacts/hardcode_scan.log
+
+      - name: Verify Golden Invariants & Hashes
+        run: |
+          python -c "
+          import hashlib
+          from pathlib import Path
+          golden_dir = Path('runs/golden/v3-08')
+          lines = ['=== GOLDEN PARQUET AUDIT ===']
+          if golden_dir.exists():
+              for p in sorted(golden_dir.rglob('*.parquet')):
+                  h = hashlib.sha256(p.read_bytes()).hexdigest()
+                  lines.append(f'{p.relative_to(golden_dir)}: {p.stat().st_size} bytes, sha256={h}')
+          else:
+              lines.append('runs/golden/v3-08 not found')
+          Path('evidence/ci_artifacts/golden_parity.log').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          print('\n'.join(lines))
+          "
+
+      - name: Run Test Suite (pytest)
+        run: |
+          pytest autotrade_v3/tests --junitxml=evidence/ci_artifacts/junit.xml | tee evidence/ci_artifacts/pytest_full.log
+
+      - name: Upload CI Evidence Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v3-09-ci-evidence-${{ github.event.pull_request.head.sha || github.sha }}
+          path: evidence/ci_artifacts/

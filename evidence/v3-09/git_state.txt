@@ -1,16 +1,17 @@
 === GIT REV-PARSE HEAD (Base Commit before new commit) ===
-21a832d7891d59d00c58bebf0e8982741852c611
+d301f02a46363e31b8d5827b3d39ee89969c65ee
 
 === GIT STATUS (Pre-commit packaging snapshot) ===
 On branch feat/v3-09-reporting
 Your branch is up to date with 'origin/feat/v3-09-reporting'.
 
 Changes to be committed:
+	modified:   .github/workflows/v3-lab-tests.yml
+	modified:   autotrade_v3/legacy/reconcile_runs.py
 	modified:   autotrade_v3/reports/reporter.py
 	modified:   autotrade_v3/tests/test_reporting_corrections_v309.py
+	modified:   autotrade_v3/tools/scan_hardcoded_metrics.py
 	modified:   evidence/v3-09/EVIDENCE_REPORT.md
 	modified:   evidence/v3-09/hardcode_scan.log
+	modified:   evidence/v3-09/junit.xml
 	modified:   scripts/reconcile_runs.py
-	new file:   autotrade_v3/legacy/__init__.py
-	new file:   autotrade_v3/legacy/reconcile_runs.py
-	new file:   autotrade_v3/tools/scan_hardcoded_metrics.py

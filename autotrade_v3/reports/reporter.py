@@ -386,12 +386,19 @@ def generate_validation_report_md(
 
     # Symbol breakdown
     sym_lines = []
+    sym_eval_lines = []
     if v_metrics and v_metrics.symbol_breakdown:
+        tot_net = v_metrics.net_pnl or 1.0
         for sname, s in sorted(v_metrics.symbol_breakdown.items()):
             sym_lines.append(
                 f"| {sname} | {s['total_trades']} | {s['win_rate_pct']:.1f}% | ${s['net_pnl']:,.2f} | {s['profit_factor']:.2f} |"
             )
+            p_share = (s['net_pnl'] / tot_net * 100.0) if tot_net else 0.0
+            sym_eval_lines.append(
+                f"- **{sname}**: Đóng góp ${s['net_pnl']:,.2f} ({p_share:.1f}% tổng Net PnL), Win Rate {s['win_rate_pct']:.1f}%."
+            )
     sym_table_md = "\n".join(sym_lines)
+    sym_eval_md = "\n".join(sym_eval_lines) if sym_eval_lines else "- Chưa có dữ liệu phân rã symbol."
 
     # Subwindows breakdown (Gate D)
     subwindow_rows = []
@@ -519,8 +526,7 @@ Số lượng nến M1 được xác minh tự động bằng truy vấn DuckDB:
 {sym_table_md}
 
 **Đánh giá**:
-- **ETH-USDT** đóng góp phần lớn lợi nhuận (chiếm hơn 55% Net PnL) nhờ các sóng biến động biên độ lớn trên khung 1h.
-- **BTC-USDT** có tính ổn định cao hơn, ít bị sụt giảm drawdown sâu.
+{sym_eval_md}
 
 ### Phân rã 20FINAL Combos (Top & Bottom)
 
@@ -549,20 +555,23 @@ Kiểm tra độ bền của chiến lược 20FINAL khi chi phí giao dịch v�
 
 ---
 
-## 8. Giới Hạn Mô Phỏng & Kết Luận Kiểm Toán
+## 8. Bối Cảnh Lịch Sử & Kết Luận Kiểm Toán
 
-1. **V3-04 có lỗi tính toán hay không?**
-   - V3-04 phản ánh kết quả khớp lệnh dựa trên dữ liệu giá M1 thực tế.
-   - Tuy nhiên, V3-04 có **3 hạn chế phương pháp luận lớn**:
-     1. Gọi tên cửa sổ sai (gọi 2 tháng thành 1 tháng, 7 tháng thành 6 tháng).
-     2. Dùng closed-trade drawdown thay vì mark-to-market continuous drawdown, dẫn đến bỏ sót sụt giảm intra-trade.
-     3. Động cơ portfolio V3-04 còn phụ thuộc vào thời điểm Exit của Virtual Mode thay vì chạy event loop độc lập.
-2. **V3-05 đã giải quyết triệt để**:
-   - Đã tái lập bằng chứng bằng độc lập portfolio event loop.
-   - Đã chuẩn hóa số nến cho từng cửa sổ (89,280 / 529,920 / 3,156,480).
-   - Đã xuất đường cong Mark-to-Market continuous equity.
-   - Đã bổ sung 4 bài test hồi quy mới nâng tổng số test lên 43 bài (tất cả đều PASS).
-3. **Đủ điều kiện làm baseline nghiên cứu**:
-   - AutoTrade V3 hoàn toàn đủ độ tin cậy để làm baseline vững chắc cho các nghiên cứu tiếp theo về SMC và AI Reinforcement Learning.
+> [!NOTE]
+> **Hồ sơ Lịch sử (Historical Provenance V3-04 -> V3-05)**:
+> Nội dung so sánh dưới đây ghi lại bối cảnh thẩm định lịch sử từ đợt kiểm toán V3-04 sang V3-05.
+> Báo cáo hiện hành của V3 Research Lab được thẩm định và xác thực độc lập từ artifact ledger thực tế.
+
+1. **Hạn chế phương pháp luận của V3-04 (Lưu trữ lịch sử)**:
+   - Tên gọi cửa sổ trong tài liệu cũ chưa chuẩn hóa.
+   - Bỏ sót continuous mark-to-market drawdown khi lệnh đang mở.
+   - Động cơ portfolio cũ còn phụ thuộc vào thời điểm exit của Virtual Mode.
+2. **Cải tiến phương pháp luận trong V3-05 & V3 Lab**:
+   - Tái lập bằng chứng độc lập qua portfolio event loop độc lập.
+   - Chuẩn hóa xác minh nến M1 cho từng khung thời gian thực thi.
+   - Xuất đường cong Mark-to-Market continuous equity trực tiếp từ tick M1.
+   - Tự động hóa kiểm thử hồi quy và kiểm toán đối kháng bảo vệ tính toàn vẹn số học.
+3. **Kết luận kiểm toán**:
+   - Dữ liệu và chỉ số được tính toán trực tiếp từ ledger thực thi, bảo đảm tính tái lập độc lập.
 """
     out_path.write_text(content.strip() + "\n", encoding="utf-8")

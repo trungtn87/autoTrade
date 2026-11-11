@@ -24,7 +24,8 @@
 | **Commit 5 (Harden Verifier & Mutations)** | `ab65225` — `fix(v3-09): harden report verifier with strict tolerances, mandatory tables, and comprehensive mutation tests` |
 | **Commit 6 (Fix Audit Regression & Fail-Closed)** | `59f577d` — `fix(v3-09): restore audit validation data, enforce fail-closed verification, and add regression tests` |
 | **Commit 7 (Audit Verification & Ambiguity Hardening)** | `21a832d` — `fix(v3-09): harden analysis.json validation verification, distinguish golden origin, and derive ambiguity directly from ledger` |
-| **Commit 8 (AC5, M4 & Shared Scanner)** | *(Commit hiện tại)* — `fix(v3-09): resolve AC5 hardcoding, implement shared metric scanner, and migrate legacy reconciliation` |
+| **Commit 8 (AC5, M4 & Shared Scanner)** | `d301f02` — `fix(v3-09): resolve AC5 hardcoding, implement shared metric scanner, and migrate legacy reconciliation` |
+| **Commit 9 (Legacy Fix, AC5 Conclusion & CI Pipeline)** | *(Commit hiện tại)* — `fix(v3-09): fix legacy module REPO_ROOT, harden conclusion AC5, and complete CI evidence pipeline` |
 
 ---
 
@@ -303,51 +304,67 @@ Nhằm giải đáp thắc mắc về các commit SHA xuất hiện trong quá t
 | **Phân biệt Nguồn Gốc Validation** | Không phân biệt | Hiển thị rõ `INHERITED_GOLDEN_BASELINE` vs `RE_VERIFIED` | **VERIFIED** |
 | **Độ tin cậy giá trị 0 trong ambiguity_stats** | Tin tưởng giá trị 0 | Bác bỏ giá trị 0 nếu ledger có ambiguity | **HARDENED** |
 | **Số lượng chỉ số xác minh mỗi mode** | 179 metrics | 191 metrics (+12 chỉ số kiểm toán analysis) | **EXPANDED** |
-| **Số bài test V3-09** | 28 tests | 31 tests (+3 mutation & regression mới) | **EXPANDED** |
-| **Toàn bộ test suite autotrade_v3** | 192 passed | 195 passed (0 failed, 100% pass) | **ALL PASSED** |
+| **Số bài test V3-09** | 28 tests | 32 tests (+4 mutation, regression & CLI smoke tests) | **EXPANDED** |
+| **Toàn bộ test suite autotrade_v3** | 192 passed | 196 passed (0 failed, 100% pass) | **ALL PASSED** |
 
 ---
 
-## L. Khắc Phục AC5, Scanner Dùng Chung và Kiểm Thử M4 Thực Chất
+## L. Khắc Phục AC5, Scanner Dùng Chung, Legacy Forwarding và CI Pipeline
 
 ### 1. Xử Lý AC5 & Phân Loại Legacy Theo Mục 4.6 Thiết Kế
 - **Loại bỏ hoàn toàn số liệu gõ cứng trong `autotrade_v3/reports/reporter.py`**:
   - Bảng cửa sổ Gate D (1 tháng, 6 tháng) trước đây chứa số liệu tĩnh (`111`, `31.5%`, `-$9.58`, `902`, `41.6%`, `+$6.82`) nay chuyển thành bảng động tính trực tiếp từ `subwindows` trong metadata hoặc hiển thị toàn kỳ động từ `window` và `p_metrics`.
   - Chuỗi kiểm toán độ bền `(3 năm, 6,271 trade legs)` được sửa thành f-string động `(3 năm, {p_trades} trade legs)`.
   - Đánh giá Top/Bottom Combos (C15, C11, C12, C2, C3) được tính toán động từ `v_metrics.combo_breakdown`.
-- **Phân loại mã lịch sử theo Mục 4.6 Thiết kế**:
-  - Di chuyển toàn bộ logic đối chiếu chéo V3-03..V3-05 từ `scripts/reconcile_runs.py` sang `autotrade_v3/legacy/reconcile_runs.py` kèm docstring phân loại: `LEGACY CLASSIFICATION (Design Doc Section 4.6): Mã lịch sử V3-03 đến V3-06, không dùng để báo cáo V3 Research Lab chính thức`.
-  - Trong `autotrade_v3/legacy/reconcile_runs.py`, toàn bộ bảng đối chiếu số học (Mathematical Parity) được chuyển đổi từ bảng tĩnh sang bảng động định dạng từ `pnl_data`.
-  - File `scripts/reconcile_runs.py` giữ lại stub wrapper chuyển tiếp (`forwarding`) để bảo toàn entrypoint CLI và tương thích ngược, đồng thời phát cảnh báo `DeprecationWarning`.
+  - Đánh giá symbol trong Mục 6 (Section 6) chuyển khẳng định tĩnh (`chiếm hơn 55% Net PnL`) thành chuỗi động `{sym_eval_md}` tính toán trực tiếp từ `v_metrics.symbol_breakdown`.
+  - Phần kết luận trong Mục 8 (Section 8) loại bỏ các khẳng định tĩnh (`43 bài (tất cả đều PASS)`, `89,280 / 529,920 / 3,156,480`), chuyển thành khối phân loại lịch sử rõ ràng (`Historical Provenance V3-04 -> V3-05`).
+- **Khắc phục Module Legacy & CLI Forwarding**:
+  - Sửa `REPO_ROOT` trong `autotrade_v3/legacy/reconcile_runs.py` thành `Path(__file__).resolve().parents[2]` (thay vì `parents[1]` chỉ trỏ tới `autotrade_v3`).
+  - Thêm `sys.path.insert(0, str(REPO_ROOT))` trong `scripts/reconcile_runs.py` trước khi import `autotrade_v3`, ngăn ngừa hoàn toàn lỗi `ModuleNotFoundError` khi chạy CLI từ môi trường ngoài.
+  - Smoke test `python scripts/reconcile_runs.py --help` thực tế trả về mã thoát 0 với đầy đủ hướng dẫn CLI arguments.
+  - Thêm bài test `test_legacy_reconcile_runs_cli_smoke_and_repo_root` kiểm tra CLI forwarding và giá trị `REPO_ROOT` trong subprocess.
 
 ### 2. Module Scanner Dùng Chung (`autotrade_v3/tools/scan_hardcoded_metrics.py`)
 - Module được thiết kế chạy cả qua CLI (`python -m autotrade_v3.tools.scan_hardcoded_metrics [paths...]`) và import trong pytest (`from autotrade_v3.tools.scan_hardcoded_metrics import scan_for_hardcoded_metrics`).
-- **4 Bộ Quy Tắc Phát Hiện Thấu Đáo**:
+- **5 Bộ Quy Tắc Phát Hiện Thấu Đáo**:
   1. `HARDCODED_METRIC_ASSIGNMENT`: Gán biến chỉ số backtest (`total_legs`, `net_pnl`, `gross_pnl`, `total_signals`, `win_rate_pct`, `profit_factor`, `roi_pct`, v.v.) bằng hằng số khác 0.
   2. `HARDCODED_METRIC_STRING`: Chuỗi chứa chỉ số số lượng giao dịch/legs/tín hiệu cụ thể (e.g. `'6,271 trade legs'`).
   3. `STATIC_MARKDOWN_TABLE`: Dòng bảng Markdown tĩnh chứa tiền tệ (`+$`, `-$`), tỷ lệ (`%`) và số lệnh mà không có biểu thức nội suy `{...}`.
+  4. `HARDCODED_TEST_PASS_CLAIM`: Chuỗi khẳng định số lượng test tĩnh đi kèm chữ PASS (e.g. `'43 bài (tất cả đều PASS)'`).
+  5. `HARDCODED_PERCENTAGE_CLAIM`: Chuỗi khẳng định tỷ trọng lợi nhuận tĩnh (e.g. `'chiếm hơn 55% Net PnL'`).
 - **Cơ chế miễn trừ chuẩn mực**:
   - Miễn trừ file test trong thư mục `tests/` hoặc bắt đầu bằng `test_` (test fixtures).
   - Miễn trừ file có header phân loại `LEGACY CLASSIFICATION`.
   - Không báo lỗi giả đối với tham số cấu hình chiến lược (`initial_equity`, `fee_rate_taker`, `slippage_rate`, `tp_pct`, `sl_pct`).
 
 ### 3. Kiểm Thử M4 Thực Chất
-- Bài kiểm thử `test_adversarial_mutation_m4_hardcoded_metric_scan` gọi trực tiếp scanner module và CLI thực tế trên 5 ca đột biến đối kháng:
+- Bài kiểm thử `test_adversarial_mutation_m4_hardcoded_metric_scan` gọi trực tiếp scanner module và CLI thực tế trên 7 ca đột biến đối kháng:
   1. `total_legs = 6265` -> Bị phát hiện (`HARDCODED_METRIC_ASSIGNMENT`, exit != 0).
   2. `net_pnl = 410.70` -> Bị phát hiện (`HARDCODED_METRIC_ASSIGNMENT`, exit != 0).
   3. `'6,271 trade legs'` -> Bị phát hiện (`HARDCODED_METRIC_STRING`, exit != 0).
   4. `total_signals = 5984` -> Bị phát hiện (`HARDCODED_METRIC_ASSIGNMENT`, exit != 0).
   5. Bảng Markdown kết quả giao dịch cố định -> Bị phát hiện (`STATIC_MARKDOWN_TABLE`, exit != 0).
+  6. Khẳng định số test PASS tĩnh (`43 bài kiểm thử (tất cả đều PASS)`) -> Bị phát hiện (`HARDCODED_TEST_PASS_CLAIM`, exit != 0).
+  7. Khẳng định tỷ lệ chia sẻ tĩnh (`chiếm hơn 55% Net PnL`) -> Bị phát hiện (`HARDCODED_PERCENTAGE_CLAIM`, exit != 0).
 - Kiểm chứng thêm: tham số cấu hình hợp lệ trả về 0 vi phạm (exit 0) và file legacy được bỏ qua khi `scan_legacy=False`.
+
+### 4. Nâng Cấp CI Pipeline (.github/workflows/v3-lab-tests.yml)
+- Bổ sung checkout với `ref: ${{ github.event.pull_request.head.sha || github.sha }}` và `fetch-depth: 0`.
+- Thêm bước kiểm tra tĩnh: `ruff check autotrade_v3 scripts` và `python -m compileall autotrade_v3 scripts`.
+- Thêm bước quét Hardcoded Metrics AC5 độc lập xuất log sang `evidence/ci_artifacts/hardcode_scan.log`.
+- Thêm bước xác minh Golden Invariants & SHA256 hashes xuất log sang `evidence/ci_artifacts/golden_parity.log`.
+- Lưu snapshot git state (`git_head.txt`, `git_status.txt`) và JUnit XML (`junit.xml`).
+- Upload toàn bộ minh chứng CI lên GitHub Actions artifact (`v3-09-ci-evidence-${{ github.sha }}`).
 
 ---
 
 ## M. Đề Xuất Nghiệm Thu V3-09
 
-Toàn bộ các yêu cầu trong Lệnh Sửa AC5, M4 và Evidence Reproducibility đã được thực thi hoàn tất:
+Toàn bộ các yêu cầu trong Lệnh Hoàn tất PR #100 đã được thực thi hoàn tất:
 - 10 Nguyên tắc bất biến (N1-N10) được tuân thủ nghiêm ngặt: không sửa `autotrade_v2`, không sửa 20FINAL, không sửa Golden Baseline, không can thiệp ledger giao dịch, 100% offline, không có số liệu hay trạng thái gõ cứng trong active reporting code.
 - Cả 12 content hashes của 3 chế độ chạy đều trùng khớp tuyệt đối 100% với Golden Baseline V3-08.
-- Toàn bộ 195 bài kiểm thử tự động, linter Ruff và compiler đều đạt PASS 100%.
+- Toàn bộ 196 bài kiểm thử tự động, linter Ruff và compiler đều đạt PASS 100%.
 - File nhật ký quét `evidence/v3-09/hardcode_scan.log` xác nhận 0 vi phạm trên toàn bộ mã reporting hoạt động.
+- CI pipeline tự động thu thập và lưu trữ toàn bộ minh chứng nghiệm thu độc lập.
 
 Kính chuyển Claude review độc lập và đề xuất Owner nghiệm thu, hợp nhất Pull Request #100 vào nhánh `main`.

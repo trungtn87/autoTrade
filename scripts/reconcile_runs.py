@@ -8,8 +8,13 @@ Forwarding to autotrade_v3.legacy.reconcile_runs.
 """
 from __future__ import annotations
 
+from pathlib import Path
 import sys
 import warnings
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from autotrade_v3.legacy.reconcile_runs import main, run_cross_reconciliation
 

@@ -840,6 +840,26 @@ class TestReportingAndPFCorrections:
         assert r5.returncode != 0
         assert "STATIC_MARKDOWN_TABLE" in r5.stdout
 
+        # Case 6: Hardcoded test pass claim in prose
+        c6 = tmp_path / "mutant_test_pass.py"
+        c6.write_text('summary = "Bổ sung kiểm thử mới nâng tổng số lên 43 bài (tất cả đều PASS)."\n', encoding="utf-8")
+        v6 = scan_for_hardcoded_metrics([c6])
+        assert len(v6) >= 1
+        assert any(v.rule_name == "HARDCODED_TEST_PASS_CLAIM" for v in v6)
+        r6 = subprocess.run([sys.executable, str(scanner_tool), str(c6)], capture_output=True, text=True)
+        assert r6.returncode != 0
+        assert "HARDCODED_TEST_PASS_CLAIM" in r6.stdout
+
+        # Case 7: Hardcoded market share / PnL percentage claim in prose
+        c7 = tmp_path / "mutant_pct_claim.py"
+        c7.write_text('eval_txt = "ETH đóng góp phần lớn lợi nhuận (chiếm hơn 55% Net PnL) nhờ sóng lớn."\n', encoding="utf-8")
+        v7 = scan_for_hardcoded_metrics([c7])
+        assert len(v7) >= 1
+        assert any(v.rule_name == "HARDCODED_PERCENTAGE_CLAIM" for v in v7)
+        r7 = subprocess.run([sys.executable, str(scanner_tool), str(c7)], capture_output=True, text=True)
+        assert r7.returncode != 0
+        assert "HARDCODED_PERCENTAGE_CLAIM" in r7.stdout
+
         # Clean case: Strategy configuration parameters must NOT be flagged (no false positives)
         clean_cfg = tmp_path / "valid_config.py"
         clean_cfg.write_text(
@@ -869,6 +889,22 @@ class TestReportingAndPFCorrections:
         )
         v_legacy = scan_for_hardcoded_metrics([legacy_file], scan_legacy=False)
         assert len(v_legacy) == 0, "Legacy classified file must be skipped when scan_legacy=False"
+
+    def test_legacy_reconcile_runs_cli_smoke_and_repo_root(self):
+        """Smoke test CLI forwarding from scripts/reconcile_runs.py and verify REPO_ROOT in legacy module."""
+        import autotrade_v3.legacy.reconcile_runs as leg_mod
+
+        # Verify REPO_ROOT resolves to actual repository root
+        assert leg_mod.REPO_ROOT == REPO_ROOT, f"Expected REPO_ROOT={REPO_ROOT}, got {leg_mod.REPO_ROOT}"
+        assert (leg_mod.REPO_ROOT / "autotrade_v3").is_dir()
+
+        # Smoke test CLI forwarding with --help on scripts/reconcile_runs.py
+        cmd = [sys.executable, str(REPO_ROOT / "scripts" / "reconcile_runs.py"), "--help"]
+        res = subprocess.run(cmd, capture_output=True, text=True, cwd=str(REPO_ROOT))
+        assert res.returncode == 0, f"CLI help failed:\n{res.stdout}\n{res.stderr}"
+        assert "--catalog" in res.stdout
+        assert "--out-dir" in res.stdout
+        assert "AutoTrade V3 Legacy Cross-Backtest Reconciliation" in res.stdout
 
     def test_to_utc_ms_all_timestamp_types(self):
         """P3-1 unit test: to_utc_ms with naive datetime, aware datetime, str, Timestamp, int."""

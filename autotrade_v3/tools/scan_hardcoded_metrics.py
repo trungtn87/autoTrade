@@ -37,6 +37,18 @@ MARKDOWN_STATIC_TABLE_PATTERN = re.compile(
     r"^\s*\|.*[-+]?\$?\d+.*\|.*[-+]?\d+(?:\.\d+)?%.*\|"
 )
 
+# Rule 4: Claims of fixed test counts and unconditional PASS statements in reports
+TEST_PASS_CLAIM_PATTERN = re.compile(
+    r"\b(?:\d+\s*(?:bài|tests?|kiểm\s+thử)|tất\s+cả)\b.*?\bPASS\b",
+    re.IGNORECASE,
+)
+
+# Rule 5: Hardcoded market share / PnL percentage claims in text (e.g. 'chiếm hơn 55% Net PnL')
+PERCENTAGE_CLAIM_PATTERN = re.compile(
+    r"\bchiếm\s+(?:hơn\s+)?\d+(?:\.\d+)?%\s*(?:Net\s+PnL|lợi\s+nhuận)?\b",
+    re.IGNORECASE,
+)
+
 # Legacy marker in module docstring
 LEGACY_MARKERS = [
     "LEGACY CLASSIFICATION",
@@ -140,6 +152,30 @@ def scan_file(file_path: Path, scan_legacy: bool = False) -> list[HardcodeViolat
                         description="Static Markdown table row contains fixed financial metrics without templating",
                     )
                 )
+
+        # Rule 4: Hardcoded test count / unconditional PASS claim
+        if TEST_PASS_CLAIM_PATTERN.search(stripped) and not ("{" in stripped and "}" in stripped):
+            violations.append(
+                HardcodeViolation(
+                    file_path=file_path,
+                    line_number=idx,
+                    rule_name="HARDCODED_TEST_PASS_CLAIM",
+                    line_content=stripped,
+                    description="Text contains literal hardcoded test count or unconditional PASS claim",
+                )
+            )
+
+        # Rule 5: Hardcoded market share / PnL percentage claim
+        if PERCENTAGE_CLAIM_PATTERN.search(stripped) and not ("{" in stripped and "}" in stripped):
+            violations.append(
+                HardcodeViolation(
+                    file_path=file_path,
+                    line_number=idx,
+                    rule_name="HARDCODED_PERCENTAGE_CLAIM",
+                    line_content=stripped,
+                    description="Text contains literal hardcoded PnL/share percentage claim",
+                )
+            )
 
     return violations
 
