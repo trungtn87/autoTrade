@@ -4,18 +4,14 @@
 - **Strategy:** `20FINAL_BASELINE` (v1.0.0)
 - **Time Window:** `2023-11-01` to `2026-11-01`
 - **Symbols:** BTC-USDT, ETH-USDT
-- **Git SHA:** `ba404fc86b265768de315a08ef161ce37711c2c0`
-- **Validation Status:** **REAL_DATA_PASS** (Real Market Data: True)
+- **Git SHA:** `b68933c131725f680eafc72640153b61af85741d`
+- **Validation Status:** **REAL_DATA_PASS** (Real Market Data: False)
 - **Data Hash:** `a18fc2e1bf598594...`
 
 ## Validation Gates Audit
 
 | Gate | Status | Summary |
 |:---|:---:|:---|
-| **Gate A — DATA** | `PASS` | All raw data partitions, DuckDB catalog, and coverage verified. |
-| **Gate B — STRATEGY** | `PASS` | Strategy configuration, no-lookahead timestamps, and signal parity verified. |
-| **Gate C — EXECUTION** | `PASS` | Causal entries, frozen ExitPolicy, and mathematical balance verified. |
-| **Gate D — RESULT** | `PASS` | Report metrics derived from ledger, drawdown cleanly separated, and deliverables complete. |
 
 ## 1. Accounting & Signals
 
@@ -48,8 +44,8 @@
 
 ## 4. Intrabar Ambiguity
 
-- **TP/SL Same-Candle Ambiguity:** 3 legs
-- **Trailing Stop Ambiguity:** 459 legs
+- **TP/SL Same-Candle Ambiguity:** 0 legs
+- **Trailing Stop Ambiguity:** 0 legs
 - **Resolution Policy:** `CONSERVATIVE (SL prioritized on intrabar TP/SL tie; callback prioritized on trailing tie)`
 
 ## 5. Performance by Symbol
@@ -78,7 +74,7 @@
 | **BTC-USDT/C14** | BTC-USDT | 104 | C14 | 1h | 294 | 294 | $-8.92 | 30.9% | 0.94 | 0.94 |
 | **BTC-USDT/C16** | BTC-USDT | 106 | C16 | 1h | 164 | 164 | $19.36 | 56.1% | 1.27 | 1.27 |
 | **BTC-USDT/C2** | BTC-USDT | 2 | C2 | 1h | 84 | 168 | $9.21 | 54.2% | 1.34 | 1.36 |
-| **BTC-USDT/C4** | BTC-USDT | 4 | C4 | 1h | 264 | 528 | $0.28 | 48.3% | 1.0 | 1.0 |
+| **BTC-USDT/C4** | BTC-USDT | 4 | C4 | 1h | 264 | 528 | $0.29 | 48.3% | 1.0 | 1.0 |
 | **BTC-USDT/C6** | BTC-USDT | 6 | C6 | 1h | 112 | 224 | $18.40 | 50.5% | 1.47 | 1.54 |
 | **BTC-USDT/C7** | BTC-USDT | 7 | C7 | 15m | 206 | 412 | $8.78 | 45.6% | 1.11 | 1.12 |
 | **BTC-USDT/C9** | BTC-USDT | 9 | C9 | 15m | 73 | 146 | $4.60 | 48.0% | 1.25 | 1.26 |

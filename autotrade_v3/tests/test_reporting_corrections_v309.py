@@ -77,6 +77,19 @@ def _load_run_as_sim_result(run_dir: Path, mode: str) -> SimulationResult:
     skipped = pd.read_parquet(skipped_pq).to_dict("records") if skipped_pq.exists() else []
     rejected = pd.read_parquet(rejected_pq).to_dict("records") if rejected_pq.exists() else []
 
+    # If skipped or rejected signals exist, accepted signals are the remaining signals
+    skipped_ids = {str(s.get("signal_id")) for s in skipped if isinstance(s, dict) and s.get("signal_id")}
+    rejected_ids = {str(r.get("signal_id")) for r in rejected if isinstance(r, dict) and r.get("signal_id")}
+    non_accepted = skipped_ids | rejected_ids
+    if non_accepted and "signal_id" in sigs_df.columns:
+        accepted_df = sigs_df[~sigs_df["signal_id"].astype(str).isin(non_accepted)]
+        accepted_signals = accepted_df.to_dict("records")
+    elif non_accepted:
+        accepted_cnt = max(0, len(sigs_df) - len(skipped) - len(rejected))
+        accepted_signals = sigs_df.iloc[:accepted_cnt].to_dict("records")
+    else:
+        accepted_signals = sigs_df.to_dict("records")
+
     summary: dict = {}
     an_path = run_dir / "analysis.json"
     if an_path.exists():
@@ -89,13 +102,33 @@ def _load_run_as_sim_result(run_dir: Path, mode: str) -> SimulationResult:
         mode=mode,
         trades=trades,
         events=[],
-        accepted_signals=sigs_df.to_dict("records"),
+        accepted_signals=accepted_signals,
         skipped_signals=skipped,
         rejected_signals=rejected,
         snapshots=pd.DataFrame(),
         ambiguity_stats={},
         summary_dict=summary,
     )
+
+
+def _setup_pristine_run(tmp_path: Path, mode: str = "ALL_SIGNALS") -> tuple[Path, str]:
+    """Helper to set up an isolated run directory with pristine report.md generated from golden baseline."""
+    from autotrade_v3.lab.run_manager import RunManager, RunManifest
+
+    golden_dir = REPO_ROOT / "runs" / "golden" / "v3-08" / mode
+    mode_tmp = tmp_path / mode
+    shutil.copytree(golden_dir, mode_tmp)
+
+    sim_res = _load_run_as_sim_result(mode_tmp, mode)
+    analysis = ResearchAnalyzer.analyze_simulation(sim_res)
+    with open(mode_tmp / "analysis.json", "w", encoding="utf-8") as f:
+        json.dump(analysis, f, indent=2)
+    with open(mode_tmp / "run_manifest.json", "r", encoding="utf-8") as f:
+        manifest = RunManifest(**json.load(f))
+
+    report_md = RunManager(runs_dir=mode_tmp)._render_markdown_report(manifest, analysis)
+    (mode_tmp / "report.md").write_text(report_md, encoding="utf-8")
+    return mode_tmp, report_md
 
 
 class TestReportingAndPFCorrections:
@@ -411,22 +444,7 @@ class TestReportingAndPFCorrections:
 
     def test_adversarial_mutation_m1_report_number_changed(self, tmp_path):
         """Adversarial M1: Alter a number in report.md -> verify_report must exit non-zero and identify error."""
-        from autotrade_v3.lab.run_manager import RunManager, RunManifest
-
-        mode = "ALL_SIGNALS"
-        golden_dir = REPO_ROOT / "runs" / "golden" / "v3-08" / mode
-        mode_tmp = tmp_path / "m1"
-        shutil.copytree(golden_dir, mode_tmp)
-
-        sim_res = _load_run_as_sim_result(mode_tmp, mode)
-        analysis = ResearchAnalyzer.analyze_simulation(sim_res)
-        with open(mode_tmp / "analysis.json", "w", encoding="utf-8") as f:
-            json.dump(analysis, f, indent=2)
-        with open(mode_tmp / "run_manifest.json", "r", encoding="utf-8") as f:
-            manifest = RunManifest(**json.load(f))
-
-        report_md = RunManager(runs_dir=mode_tmp)._render_markdown_report(manifest, analysis)
-        # Mutate net pnl in report.md
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
         assert "$410.70" in report_md, "Expected pristine report to contain $410.70"
         mutated_report = report_md.replace("$410.70", "$999.99")
         (mode_tmp / "report.md").write_text(mutated_report, encoding="utf-8")
@@ -437,6 +455,118 @@ class TestReportingAndPFCorrections:
         )
         assert res.returncode != 0, "verify_report must fail on mutated report.md"
         assert "FAIL" in res.stdout or "FAIL" in res.stderr
+
+    def test_adversarial_mutation_gross_pf_trade(self, tmp_path):
+        """Mutation test: changing Gross PF Trade in report.md must be detected by verify_report."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        assert "**Gross Profit Factor (Trade):**" in report_md
+        mutated_report = re.sub(
+            r"(\*\*Gross Profit Factor \(Trade\):\*\*\s*)[\d\.]+",
+            r"\g<1>9.99",
+            report_md,
+        )
+        assert mutated_report != report_md
+        (mode_tmp / "report.md").write_text(mutated_report, encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail on Gross PF Trade mutation"
+        out = res.stdout + res.stderr
+        assert "Gross Profit Factor (Trade)" in out
+
+    def test_adversarial_mutation_gross_pf_leg(self, tmp_path):
+        """Mutation test: changing Gross PF Leg in report.md must be detected by verify_report."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        assert "**Gross Profit Factor (Leg):**" in report_md
+        mutated_report = re.sub(
+            r"(\*\*Gross Profit Factor \(Leg\):\*\*\s*)[\d\.]+",
+            r"\g<1>9.99",
+            report_md,
+        )
+        assert mutated_report != report_md
+        (mode_tmp / "report.md").write_text(mutated_report, encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail on Gross PF Leg mutation"
+        out = res.stdout + res.stderr
+        assert "Gross Profit Factor (Leg)" in out
+
+    def test_adversarial_mutation_roi(self, tmp_path):
+        """Mutation test: changing ROI in report.md must be detected by verify_report."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        assert "+41.07%" in report_md
+        mutated_report = report_md.replace("+41.07%", "+99.99%")
+        assert mutated_report != report_md
+        (mode_tmp / "report.md").write_text(mutated_report, encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail on ROI mutation"
+        out = res.stdout + res.stderr
+        assert "ROI" in out
+
+    def test_adversarial_mutation_delete_combo_table(self, tmp_path):
+        """Mutation test: deleting the combo table from report.md must cause verify_report to fail."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        assert "## 7. Performance by Combo" in report_md
+        sec7_start = report_md.find("## 7. Performance by Combo")
+        sec8_start = report_md.find("## 8. Reconciliation Audit")
+        assert sec7_start != -1 and sec8_start != -1
+        mutated_report = report_md[:sec7_start] + report_md[sec8_start:]
+        assert "## 7. Performance by Combo" not in mutated_report
+        (mode_tmp / "report.md").write_text(mutated_report, encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail when combo table is deleted"
+        out = res.stdout + res.stderr
+        assert "Performance by Combo" in out
+
+    def test_adversarial_mutation_delete_exit_reason_table(self, tmp_path):
+        """Mutation test: deleting the exit reasons table from report.md must cause verify_report to fail."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        assert "## 6. Exit Reason Breakdown" in report_md
+        sec6_start = report_md.find("## 6. Exit Reason Breakdown")
+        sec7_start = report_md.find("## 7. Performance by Combo")
+        assert sec6_start != -1 and sec7_start != -1
+        mutated_report = report_md[:sec6_start] + report_md[sec7_start:]
+        assert "## 6. Exit Reason Breakdown" not in mutated_report
+        (mode_tmp / "report.md").write_text(mutated_report, encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail when exit reason table is deleted"
+        out = res.stdout + res.stderr
+        assert "Exit Reason Breakdown" in out
+
+    def test_adversarial_mutation_pnl_004_usd(self, tmp_path):
+        """Mutation test: changing Net PnL by exactly $0.04 USD must be caught by tol=0.009."""
+        mode_tmp, report_md = _setup_pristine_run(tmp_path, "ALL_SIGNALS")
+        assert "$410.70" in report_md
+        # Mutate by exactly 4 cents ($410.70 -> $410.74)
+        mutated_report = report_md.replace("$410.70", "$410.74")
+        assert mutated_report != report_md
+        (mode_tmp / "report.md").write_text(mutated_report, encoding="utf-8")
+
+        res = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "autotrade_v3" / "tools" / "verify_report.py"), "--run-dir", str(mode_tmp)],
+            capture_output=True, text=True,
+        )
+        assert res.returncode != 0, "verify_report must fail when Net PnL differs by $0.04 USD"
+        out = res.stdout + res.stderr
+        assert "Net PnL" in out
+        assert "0.04" in out
 
     def test_adversarial_mutation_m2_trade_net_pnl_changed(self, tmp_path):
         """Adversarial M2: Mutate net_pnl of one leg in trades.parquet -> verify_report on old report must fail."""

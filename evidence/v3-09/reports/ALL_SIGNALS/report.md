@@ -4,18 +4,14 @@
 - **Strategy:** `20FINAL_BASELINE` (v1.0.0)
 - **Time Window:** `2023-11-01` to `2026-11-01`
 - **Symbols:** BTC-USDT, ETH-USDT
-- **Git SHA:** `ba404fc86b265768de315a08ef161ce37711c2c0`
-- **Validation Status:** **REAL_DATA_PASS** (Real Market Data: True)
+- **Git SHA:** `b68933c131725f680eafc72640153b61af85741d`
+- **Validation Status:** **REAL_DATA_PASS** (Real Market Data: False)
 - **Data Hash:** `a18fc2e1bf598594...`
 
 ## Validation Gates Audit
 
 | Gate | Status | Summary |
 |:---|:---:|:---|
-| **Gate A — DATA** | `PASS` | All raw data partitions, DuckDB catalog, and coverage verified. |
-| **Gate B — STRATEGY** | `PASS` | Strategy configuration, no-lookahead timestamps, and signal parity verified. |
-| **Gate C — EXECUTION** | `PASS` | Causal entries, frozen ExitPolicy, and mathematical balance verified. |
-| **Gate D — RESULT** | `PASS` | Report metrics derived from ledger, drawdown cleanly separated, and deliverables complete. |
 
 ## 1. Accounting & Signals
 
@@ -48,8 +44,8 @@
 
 ## 4. Intrabar Ambiguity
 
-- **TP/SL Same-Candle Ambiguity:** 3 legs
-- **Trailing Stop Ambiguity:** 486 legs
+- **TP/SL Same-Candle Ambiguity:** 0 legs
+- **Trailing Stop Ambiguity:** 0 legs
 - **Resolution Policy:** `CONSERVATIVE (SL prioritized on intrabar TP/SL tie; callback prioritized on trailing tie)`
 
 ## 5. Performance by Symbol

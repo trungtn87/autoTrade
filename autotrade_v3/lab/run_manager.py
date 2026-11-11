@@ -361,10 +361,10 @@ class RunManager:
             "",
             "## 2. Performance & PnL",
             "",
-            f"- **Gross PnL:** ${pnl.get('gross_pnl', 0.0):,.2f}",
-            f"- **Total Fees (Taker 0.05%):** ${pnl.get('total_fees', 0.0):,.2f}",
-            f"- **Net PnL:** **${pnl.get('net_pnl', 0.0):,.2f}**",
-            f"- **ROI ({pnl.get('roi_denominator_name', 'Capital')}):** **{pnl.get('roi_pct', 0.0):+.2f}%**",
+            f"- **Gross PnL:** ${pnl.get('gross_pnl_unrounded', pnl.get('gross_pnl', 0.0)):,.2f}",
+            f"- **Total Fees (Taker 0.05%):** ${pnl.get('total_fees_unrounded', pnl.get('total_fees', 0.0)):,.2f}",
+            f"- **Net PnL:** **${pnl.get('net_pnl_unrounded', pnl.get('net_pnl', 0.0)):,.2f}**",
+            f"- **ROI ({pnl.get('roi_denominator_name', 'Capital')}):** **{pnl.get('roi_pct_unrounded', pnl.get('roi_pct', 0.0)):+.2f}%**",
             f"- **Note on ROI:** {pnl.get('roi_note', '')}",
             f"- **Net Profit Factor (Default):** {pnl.get('net_profit_factor', pnl.get('profit_factor', 'N/A'))}",
             f"- **Gross Profit Factor:** {pnl.get('gross_profit_factor', 'N/A')}",
@@ -397,8 +397,9 @@ class RunManager:
         ])
 
         for sym, s_data in sym_stats.items():
+            sym_net = s_data.get('net_pnl_unrounded', s_data.get('net_pnl', 0.0))
             lines.append(
-                f"| **{sym}** | {s_data.get('entries', 0):,} | {s_data.get('legs', 0):,} | ${s_data.get('net_pnl', 0.0):,.2f} | {s_data.get('leg_win_rate_pct', 0.0):.1f}% | {s_data.get('net_profit_factor', s_data.get('profit_factor', 'N/A'))} | {s_data.get('gross_profit_factor', 'N/A')} | {s_data.get('net_pf_trade', 'N/A')} | {s_data.get('gross_pf_trade', 'N/A')} |"
+                f"| **{sym}** | {s_data.get('entries', 0):,} | {s_data.get('legs', 0):,} | ${sym_net:,.2f} | {s_data.get('leg_win_rate_pct', 0.0):.1f}% | {s_data.get('net_profit_factor', s_data.get('profit_factor', 'N/A'))} | {s_data.get('gross_profit_factor', 'N/A')} | {s_data.get('net_pf_trade', 'N/A')} | {s_data.get('gross_pf_trade', 'N/A')} |"
             )
 
         if exit_breakdown:
@@ -410,8 +411,10 @@ class RunManager:
                 "|:---|---:|---:|---:|---:|",
             ])
             for r_name, r_data in sorted(exit_breakdown.items()):
+                r_gross = r_data.get('gross_pnl_unrounded', r_data.get('gross_pnl', 0.0))
+                r_net = r_data.get('net_pnl_unrounded', r_data.get('net_pnl', 0.0))
                 lines.append(
-                    f"| **{r_name}** | {r_data.get('count', 0):,} | {r_data.get('pct_of_legs', 0.0):.2f}% | ${r_data.get('gross_pnl', 0.0):,.2f} | ${r_data.get('net_pnl', 0.0):,.2f} |"
+                    f"| **{r_name}** | {r_data.get('count', 0):,} | {r_data.get('pct_of_legs', 0.0):.2f}% | ${r_gross:,.2f} | ${r_net:,.2f} |"
                 )
 
         if combos_list:
@@ -423,8 +426,9 @@ class RunManager:
                 "|:---|:---|---:|:---|:---|---:|---:|---:|---:|---:|---:|",
             ])
             for c in combos_list:
+                c_net = c.get('net_pnl_unrounded', c.get('net_pnl', 0.0))
                 lines.append(
-                    f"| **{c.get('combo_key', '')}** | {c.get('symbol', '')} | {c.get('combo_id', 0)} | {c.get('combo_name', '')} | {c.get('timeframe', '')} | {c.get('entries', 0):,} | {c.get('legs', 0):,} | ${c.get('net_pnl', 0.0):,.2f} | {c.get('win_rate_pct', 0.0):.1f}% | {c.get('net_pf_leg', 'N/A')} | {c.get('net_pf_trade', 'N/A')} |"
+                    f"| **{c.get('combo_key', '')}** | {c.get('symbol', '')} | {c.get('combo_id', 0)} | {c.get('combo_name', '')} | {c.get('timeframe', '')} | {c.get('entries', 0):,} | {c.get('legs', 0):,} | ${c_net:,.2f} | {c.get('win_rate_pct', 0.0):.1f}% | {c.get('net_pf_leg', 'N/A')} | {c.get('net_pf_trade', 'N/A')} |"
                 )
 
         if recon:
