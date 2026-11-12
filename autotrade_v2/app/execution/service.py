@@ -41,6 +41,10 @@ class ExecutionService:
         self.executor = Final14Executor(settings)
         self.event_cb = event_cb
         self.credentials_verified = False
+        # Separate ability to call BingX from admission of NEW Entry. Existing
+        # recovery and emergency-close operations must remain usable after a
+        # successful API check even when historical reconciliation fails.
+        self.entry_recovery_pending = False
         self.preflight_error: str | None = None
         self._execution_lock = threading.RLock()
         self._exit_cleanup_scan_errors = {}
@@ -294,23 +298,30 @@ class ExecutionService:
         fail-closed, rather than treating a successful balance GET as readiness.
         """
         with self._execution_lock:
+            self.entry_recovery_pending = True
             preflight = self.preflight()
             if not preflight.get("ok"):
                 return preflight
             try:
                 recovered = self.recover_pending()
             except Exception as exc:
-                self.credentials_verified = False
+                # BingX access was verified. Keep it available for persisted
+                # recovery / Force Close, but never admit a fresh Entry.
                 self.preflight_error = (
                     f"execution recovery failed: {type(exc).__name__}: {exc}"
                 )
                 return {
                     "ok": False,
-                    "credentials_verified": False,
+                    "credentials_verified": True,
                     "phase": "recovery",
                     "error": self.preflight_error,
                 }
+            self.entry_recovery_pending = False
             return {**preflight, "recovery": recovered}
+
+    @property
+    def entry_preflight_ready(self) -> bool:
+        return bool(self.credentials_verified and not self.entry_recovery_pending)
 
     @staticmethod
     def _state_payload(intent:TradeIntent,result:dict,terminal:bool)->dict:
@@ -728,6 +739,23 @@ class ExecutionService:
                     status="force_close_side_blocked",details={"epoch":emergency["epoch"]})
             result=ForceClose(self).run(intent,state,emergency["failed_kind"])
             return ExecutionResult(event_id=intent.event_id,accepted=True,status=result["stage"],details=result)
+        # Credential validation and historical recovery are different gates.
+        # Keep existing emergency epochs and recovery_only execution usable,
+        # but never send a NEW Entry while reconciliation is unfinished.
+        if self.entry_recovery_pending and not recovery_only:
+            self._emit(
+                "L3.EXEC.PREFLIGHT_BLOCK",
+                "CRITICAL",
+                "BingX API verified but persisted-entry recovery is unfinished",
+                intent,side=intent.side,entry=intent.entry,tp=intent.tp,sl=intent.sl,
+                error=self.preflight_error or "execution recovery pending",
+            )
+            return ExecutionResult(
+                event_id=intent.event_id, accepted=False,
+                status="preflight_recovery_pending",
+                details={"network_called":False,
+                         "error":self.preflight_error or "execution recovery pending"},
+            )
         if state and state.get("exchange_flat_reconciled"):
             # Some legacy states did not reach bingx_account/seen before a
             # manual close. Never resend an old signal after retirement.
