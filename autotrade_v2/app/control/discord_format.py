@@ -121,10 +121,32 @@ def incident_view(key: str, message: str, details: dict) -> tuple[str, str, str,
         return ("⚠️ DỮ LIỆU NẾN CHẬM",
                 "Dữ liệu thị trường chưa cập nhật hoặc tự phục hồi thất bại.",
                 "Theo dõi khôi phục dữ liệu; không suy diễn có lệnh đã vào.", risks)
-    if key in {"L3.EXEC.PREFLIGHT_BLOCK", "L3.EXEC.POSITION_PREFLIGHT_BLOCK"}:
+    if key in {"L3.EXEC.PREFLIGHT_BLOCK", "L3.EXEC.PREFLIGHT_FAIL"}:
+        error = str(details.get("error") or message or "")
+        lowered = error.lower()
+        if "timeout" in lowered or "timed out" in lowered:
+            cause = "Kết nối API BingX bị quá thời gian (SSL/TLS hoặc mạng)."
+        elif "missing bingx_api" in lowered:
+            cause = "Thiếu cấu hình khóa API BingX."
+        elif any(marker in lowered for marker in ("401", "unauthorized", "invalid api", "signature")):
+            cause = "BingX có thể từ chối xác thực API; cần đối chiếu mã lỗi."
+        elif "429" in lowered or "418" in lowered or "rate limit" in lowered:
+            cause = "BingX đang giới hạn hoặc tạm chặn yêu cầu API."
+        elif "recovery failed" in lowered:
+            cause = "Bước khôi phục trạng thái lệnh chưa hoàn tất."
+        else:
+            cause = "Chưa xác minh được quyền kết nối API BingX."
+        return ("🚨 BOT TẠM DỪNG ENTRY",
+                cause,
+                "Bot sẽ tự kiểm tra lại; xem trạng thái API và log lỗi trước khi can thiệp.", risks)
+    if key == "L3.EXEC.PREFLIGHT_RECOVERED":
+        return ("✅ ĐÃ KHÔI PHỤC KHẢ NĂNG ĐẶT LỆNH",
+                "BingX đã xác minh API và hoàn thành bước khôi phục lệnh tồn đọng.",
+                "Chỉ nhận tín hiệu mới; không vào lại lệnh cũ.", risks)
+    if key == "L3.EXEC.POSITION_PREFLIGHT_BLOCK":
         return ("⛔ TẠM CHẶN VÀO LỆNH",
-                "Thiếu bằng chứng an toàn trước khi gửi Entry.",
-                "Đối soát vị thế BingX trước khi mở lệnh mới.", risks)
+                "Chưa có đủ bằng chứng về vị thế/lệnh bảo vệ hiện tại trên BingX.",
+                "Đối soát vị thế và lệnh bảo vệ trước khi mở Entry mới.", risks)
     if key in {"L3.EXEC.EXCHANGE_FLAT_RECONCILED", "L3.EXEC.RECONCILE_CLEARED"}:
         return ("✅ ĐÃ ĐỐI SOÁT XONG",
                 "BingX đã được xác minh không còn vị thế liên quan.",
