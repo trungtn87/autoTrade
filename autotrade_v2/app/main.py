@@ -362,6 +362,14 @@ def _preflight_retry_loop()->None:
             str(result.get("error") or "preflight retry failed"),
             details={"attempt":attempts,"phase":result.get("phase","credentials")},
         )
+        # The first system webhook may itself have timed out. Re-alert on
+        # a bounded cadence even when there are no fresh trading signals.
+        if attempts in (1,3) or attempts % 6 == 0:
+            event_reporter.emit(
+                "L3.EXEC.PREFLIGHT_STILL_BLOCKED","CRITICAL",
+                str(result.get("error") or "BingX preflight still blocked"),
+                details={"attempt":attempts,"phase":result.get("phase","credentials")},
+            )
 
 
 def _execution_reconcile_loop()->None:
