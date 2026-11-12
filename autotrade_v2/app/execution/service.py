@@ -298,8 +298,16 @@ class ExecutionService:
         fail-closed, rather than treating a successful balance GET as readiness.
         """
         with self._execution_lock:
+            # If only persisted-state recovery failed, do not invalidate an
+            # already authenticated API session by repeating an unnecessary
+            # potentially timing-out GET. Existing emergency close must remain
+            # available. Any new Entry is still blocked by the pending gate.
+            already_verified = self.credentials_verified and self.entry_recovery_pending
             self.entry_recovery_pending = True
-            preflight = self.preflight()
+            preflight = (
+                {"ok": True, "credentials_verified": True, "phase": "recovery_retry"}
+                if already_verified else self.preflight()
+            )
             if not preflight.get("ok"):
                 return preflight
             try:
