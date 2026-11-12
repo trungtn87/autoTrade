@@ -88,7 +88,7 @@ class PreflightRecoveryTests(unittest.TestCase):
         self.assertEqual(client.calls, 2)
 
     def test_recovery_exception_keeps_new_entries_blocked(self):
-        service, _ = service_with([BALANCE, BALANCE])
+        service, client = service_with([BALANCE])
         service.recover_pending = Mock(side_effect=[
             RuntimeError("incomplete reconciliation"), [],
         ])
@@ -103,6 +103,7 @@ class PreflightRecoveryTests(unittest.TestCase):
         self.assertTrue(second["ok"])
         self.assertEqual(service.recover_pending.call_count, 2)
         self.assertTrue(service.entry_preflight_ready)
+        self.assertEqual(client.calls, 1, "recovery-only retries must not recheck an already verified API")
 
     def test_existing_emergency_remains_allowed_during_recovery_failure(self):
         service, _ = service_with([BALANCE])
