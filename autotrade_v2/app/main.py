@@ -327,7 +327,7 @@ def _preflight_retry_loop()->None:
         delay=PREFLIGHT_RETRY_DELAYS_SEC[min(attempts,len(PREFLIGHT_RETRY_DELAYS_SEC)-1)]
         if _execution_reconcile_stop.wait(delay):
             return
-        if execution_service.credentials_verified:
+        if execution_service.entry_preflight_ready:
             return
         attempts+=1
         result=execution_service.preflight_and_recover()
@@ -671,9 +671,9 @@ def health():
         # Liveness stays independent of the external exchange: do not trigger
         # container restart loops when BingX is temporarily unreachable.
         "trading_ready":bool(settings.execution_enabled and not settings.dry_run
-                             and execution_service.credentials_verified),
+                             and execution_service.entry_preflight_ready),
         "trading_blocked_reason":(
-            execution_service.preflight_error if not execution_service.credentials_verified
+            execution_service.preflight_error if not execution_service.entry_preflight_ready
             else None
         ),
         # Read-only, redacted status; a real API ban prevents both SL and close.
