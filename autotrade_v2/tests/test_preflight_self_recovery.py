@@ -208,6 +208,22 @@ class PreflightDiscordRoutingTests(unittest.TestCase):
         self.assertIn("quá thời gian", body)
         self.assertNotIn("Đặt lệnh thành công", body)
 
+    def test_persistent_incident_retries_system_webhook_without_spam(self):
+        key = "L3.EXEC.PREFLIGHT_STILL_BLOCKED"
+        self.reporter._notify(self.event(
+            key, event_id="retry-1",
+            details={"attempt": 1, "error": "SSL handshake timed out"},
+        ))
+        self.reporter._notify(self.event(
+            key, event_id="retry-3", symbol="BTC-USDT",
+            details={"attempt": 3, "error": "SSL handshake timed out"},
+        ))
+        self.assertEqual(self.post.call_count, 1)
+        self.assertEqual(self.post.call_args.args[0],
+                         "https://example.invalid/system")
+        self.assertIn("quá thời gian",
+                      self.post.call_args.kwargs["json"]["content"])
+
     def test_restored_notice_to_system_and_order_result_stays_trade(self):
         self.reporter._notify(self.event(
             "L3.EXEC.PREFLIGHT_RECOVERED", severity="WARNING",
