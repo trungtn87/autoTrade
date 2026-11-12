@@ -69,6 +69,7 @@ _DISCORD_ALERT_COOLDOWN_SEC = {
     "L3.EXEC.MERGED_RECONCILE_REQUIRED": 3600.0,
     "L3.EXEC.EXIT_CLEANUP_RISK": 3600.0,
     "L3.EXEC.PREFLIGHT_BLOCK": 3600.0,
+    "L3.EXEC.PREFLIGHT_STILL_BLOCKED": 1800.0,
 }
 
 _AI_REPORT_KEYS = {"L4.AI.PRE_REVIEW", "L4.AI.POST_REVIEW"}
@@ -649,7 +650,8 @@ class EventReporter:
     def _discord_dedupe_key(event: SystemEvent) -> str:
         # A failed startup is one system incident, not a fresh failed trade
         # per BTC/ETH combo. Applies to both email and Discord throttling.
-        if event.event_key == "L3.EXEC.PREFLIGHT_BLOCK":
+        if event.event_key in {"L3.EXEC.PREFLIGHT_BLOCK",
+                               "L3.EXEC.PREFLIGHT_STILL_BLOCKED"}:
             return event.event_key
         if event.event_key in {"L3.EXEC.MERGED_RECONCILE_REQUIRED",
                                "L3.EXEC.EXIT_CLEANUP_RISK"}:
