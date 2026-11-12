@@ -121,7 +121,8 @@ def incident_view(key: str, message: str, details: dict) -> tuple[str, str, str,
         return ("⚠️ DỮ LIỆU NẾN CHẬM",
                 "Dữ liệu thị trường chưa cập nhật hoặc tự phục hồi thất bại.",
                 "Theo dõi khôi phục dữ liệu; không suy diễn có lệnh đã vào.", risks)
-    if key in {"L3.EXEC.PREFLIGHT_BLOCK", "L3.EXEC.PREFLIGHT_FAIL"}:
+    if key in {"L3.EXEC.PREFLIGHT_BLOCK", "L3.EXEC.PREFLIGHT_FAIL",
+               "L3.EXEC.PREFLIGHT_STILL_BLOCKED"}:
         error = str(details.get("error") or message or "")
         lowered = error.lower()
         if "timeout" in lowered or "timed out" in lowered:
