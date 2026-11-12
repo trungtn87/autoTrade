@@ -30,6 +30,7 @@ RECOVERY_RETRY_MS=60_000
 RECOVERY_MAX_ATTEMPTS=2
 EXECUTION_RECONCILE_POLL_SEC=15.0
 EXIT_CLEANUP_POLL_SEC=60.0
+PREFLIGHT_RETRY_DELAYS_SEC=(10.0,30.0,60.0,120.0,300.0)
 
 settings=enable_runtime_trailing(Settings())
 configure_logging(settings.log_level)
@@ -314,6 +315,63 @@ def _candle_watchdog()->None:
                     _recovery_attempts.pop(key,None)
 
 
+def _preflight_retry_loop()->None:
+    """Recheck transient BingX startup failures without replaying old signals.
+
+    The authenticated GET and persisted-entry recovery share the execution
+    lock in preflight_and_recover(). All normal fresh Entry requests remain
+    blocked until recovery completes; no historical signal is re-submitted.
+    """
+    attempts=0
+    while True:
+        delay=PREFLIGHT_RETRY_DELAYS_SEC[min(attempts,len(PREFLIGHT_RETRY_DELAYS_SEC)-1)]
+        if _execution_reconcile_stop.wait(delay):
+            return
+        if execution_service.entry_preflight_ready:
+            return
+        attempts+=1
+        result=execution_service.preflight_and_recover()
+        with _state_lock:
+            runtime["execution_preflight"]={k:v for k,v in result.items() if k!="recovery"}
+            runtime["execution_preflight_retry"]={
+                "attempts":attempts,
+                "checked_at_ms":int(time.time()*1000),
+                "next_delay_seconds":PREFLIGHT_RETRY_DELAYS_SEC[
+                    min(attempts,len(PREFLIGHT_RETRY_DELAYS_SEC)-1)
+                ] if not result.get("ok") else None,
+                "ok":bool(result.get("ok")),
+            }
+        if result.get("ok"):
+            recovery=result.get("recovery") or []
+            with _state_lock:
+                runtime["execution_recovery"]=recovery
+            log.warning("EXECUTION_PREFLIGHT_RECOVERED attempts=%s recovery=%s",
+                        attempts,len(recovery))
+            event_reporter.emit(
+                "L3.EXEC.PREFLIGHT_RECOVERED","WARNING",
+                "BingX credential preflight and persisted-entry recovery passed",
+                details={"attempts":attempts,"recovered_states":len(recovery)},
+            )
+            return
+        log.warning("EXECUTION_PREFLIGHT_RETRY_FAIL attempt=%s error=%s",
+                    attempts,result.get("error"))
+        # Preserve individual retry diagnostics in system_events. A startup
+        # CRITICAL and a grouped blocked-Entry reminder handle Discord alerts.
+        event_reporter.emit(
+            "L3.EXEC.PREFLIGHT_RETRY_FAIL","INFO",
+            str(result.get("error") or "preflight retry failed"),
+            details={"attempt":attempts,"phase":result.get("phase","credentials")},
+        )
+        # The first system webhook may itself have timed out. Re-alert on
+        # a bounded cadence even when there are no fresh trading signals.
+        if attempts in (1,3) or attempts % 6 == 0:
+            event_reporter.emit(
+                "L3.EXEC.PREFLIGHT_STILL_BLOCKED","CRITICAL",
+                str(result.get("error") or "BingX preflight still blocked"),
+                details={"attempt":attempts,"phase":result.get("phase","credentials")},
+            )
+
+
 def _execution_reconcile_loop()->None:
     while not _execution_reconcile_stop.wait(EXECUTION_RECONCILE_POLL_SEC):
         _execution_recovery_busy.set()
@@ -493,54 +551,53 @@ def startup()->None:
             "Discord notification configuration is incomplete",
             details={"missing": missing_discord},
         )
-    preflight=execution_service.preflight()
+    preflight=execution_service.preflight_and_recover()
     with _state_lock:
-        runtime["execution_preflight"]=preflight
+        runtime["execution_preflight"]={k:v for k,v in preflight.items() if k!="recovery"}
     if preflight.get("ok"):
         log.info("EXECUTION_PREFLIGHT ok=true credentials_verified=true")
         event_reporter.emit(
             "L3.EXEC.PREFLIGHT_OK","INFO","BingX private read-only preflight passed",
             details={"credentials_verified":True},
         )
-        try:
-            recovery=execution_service.recover_pending()
-            with _state_lock:
-                runtime["execution_recovery"]=recovery
-            if recovery:
-                log.warning("EXECUTION_RECOVERY reconciled=%s",len(recovery))
-                event_reporter.emit(
-                    "L3.EXEC.RECOVERY_PASS","WARNING",
-                    "persisted non-terminal execution states reconciled at startup",
-                    details={"count":len(recovery),"results":recovery},
-                )
-        except Exception as exc:
-            log.exception("EXECUTION_RECOVERY_STARTUP_FAIL error=%s",exc)
-            with _state_lock:
-                runtime["execution_recovery"]={"error":str(exc)}
+        recovery=preflight.get("recovery") or []
+        with _state_lock:
+            runtime["execution_recovery"]=recovery
+        if recovery:
+            log.warning("EXECUTION_RECOVERY reconciled=%s",len(recovery))
             event_reporter.emit(
-                "L3.EXEC.RECOVERY_LOOP_FAIL","ERROR",str(exc),
-                details={"stage":"startup_reconciliation"},
+                "L3.EXEC.RECOVERY_PASS","WARNING",
+                "persisted non-terminal execution states reconciled at startup",
+                details={"count":len(recovery),"results":recovery},
             )
-
-        if settings.execution_enabled and not settings.dry_run:
-            _execution_reconcile_stop.clear()
-            threading.Thread(
-                target=_execution_reconcile_loop,
-                name="v2-execution-reconcile",
-                daemon=True,
-            ).start()
-            if settings.exit_cleanup_enabled:
-                threading.Thread(
-                    target=_exit_cleanup_loop,
-                    name="v2-exit-orphan-cleanup",
-                    daemon=True,
-                ).start()
     else:
         log.warning("EXECUTION_PREFLIGHT ok=false error=%s",preflight.get("error"))
         event_reporter.emit(
-            "L3.EXEC.PREFLIGHT_FAIL","CRITICAL",str(preflight.get("error") or "preflight failed"),
-            details={"credentials_verified":False},
+            "L3.EXEC.PREFLIGHT_FAIL","CRITICAL",
+            str(preflight.get("error") or "preflight failed"),
+            details={"credentials_verified":False,
+                     "phase":preflight.get("phase","credentials")},
         )
+
+    # Start operational workers even when the startup GET timed out. Before a
+    # successful credential check they are fail-closed; the retry loop restores
+    # readiness without requiring another process restart or a new signal.
+    if settings.execution_enabled and not settings.dry_run:
+        _execution_reconcile_stop.clear()
+        threading.Thread(
+            target=_execution_reconcile_loop,
+            name="v2-execution-reconcile",daemon=True,
+        ).start()
+        if settings.exit_cleanup_enabled:
+            threading.Thread(
+                target=_exit_cleanup_loop,
+                name="v2-exit-orphan-cleanup",daemon=True,
+            ).start()
+        if not preflight.get("ok"):
+            threading.Thread(
+                target=_preflight_retry_loop,
+                name="v2-preflight-retry",daemon=True,
+            ).start()
 
     event_reporter.emit(
         "L4.SYSTEM.STARTUP","INFO","AutoTrade V2 process started",
@@ -619,6 +676,20 @@ def health():
         "exit_cleanup_enabled":settings.exit_cleanup_enabled,
         "exit_cleanup_poll_seconds":EXIT_CLEANUP_POLL_SEC,
         "execution_credentials_verified":execution_service.credentials_verified,
+        # Liveness stays independent of the external exchange: do not trigger
+        # container restart loops when BingX is temporarily unreachable.
+        "trading_ready":bool(settings.execution_enabled and not settings.dry_run
+                             and execution_service.entry_preflight_ready),
+        # Public health must expose only bounded status codes, not raw
+        # httpx/BingX errors that could include signed request information.
+        "trading_blocked_reason":(
+            "execution_disabled" if not settings.execution_enabled
+            else "dry_run" if settings.dry_run
+            else "bingx_preflight_unverified"
+            if not execution_service.credentials_verified
+            else "execution_recovery_pending"
+            if execution_service.entry_recovery_pending else None
+        ),
         # Read-only, redacted status; a real API ban prevents both SL and close.
         "bingx_trade_guard":execution_service.executor.client.guard.status(),
         "dry_run":settings.dry_run,
