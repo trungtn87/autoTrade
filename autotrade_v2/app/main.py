@@ -680,9 +680,15 @@ def health():
         # container restart loops when BingX is temporarily unreachable.
         "trading_ready":bool(settings.execution_enabled and not settings.dry_run
                              and execution_service.entry_preflight_ready),
+        # Public health must expose only bounded status codes, not raw
+        # httpx/BingX errors that could include signed request information.
         "trading_blocked_reason":(
-            execution_service.preflight_error if not execution_service.entry_preflight_ready
-            else None
+            "execution_disabled" if not settings.execution_enabled
+            else "dry_run" if settings.dry_run
+            else "bingx_preflight_unverified"
+            if not execution_service.credentials_verified
+            else "execution_recovery_pending"
+            if execution_service.entry_recovery_pending else None
         ),
         # Read-only, redacted status; a real API ban prevents both SL and close.
         "bingx_trade_guard":execution_service.executor.client.guard.status(),
