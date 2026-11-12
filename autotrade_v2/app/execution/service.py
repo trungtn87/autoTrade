@@ -285,6 +285,33 @@ class ExecutionService:
                 "error": self.preflight_error,
             }
 
+    def preflight_and_recover(self) -> dict:
+        """Reopen fresh Entry only after credential check and crash recovery.
+
+        A retry must hold the execution lock from the first authenticated GET
+        through recovery. Recovery of persisted entries is still permitted;
+        a fresh Entry waits until the lock is released. Any failure remains
+        fail-closed, rather than treating a successful balance GET as readiness.
+        """
+        with self._execution_lock:
+            preflight = self.preflight()
+            if not preflight.get("ok"):
+                return preflight
+            try:
+                recovered = self.recover_pending()
+            except Exception as exc:
+                self.credentials_verified = False
+                self.preflight_error = (
+                    f"execution recovery failed: {type(exc).__name__}: {exc}"
+                )
+                return {
+                    "ok": False,
+                    "credentials_verified": False,
+                    "phase": "recovery",
+                    "error": self.preflight_error,
+                }
+            return {**preflight, "recovery": recovered}
+
     @staticmethod
     def _state_payload(intent:TradeIntent,result:dict,terminal:bool)->dict:
         return {
