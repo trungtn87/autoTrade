@@ -21,6 +21,12 @@ class EmptyStore:
     def list_states(self):
         return []
 
+    def get_state(self, event_id):
+        return None
+
+    def get(self, key, target):
+        return getattr(self, "emergency", None)
+
     @contextmanager
     def trading_lock(self):
         yield True
@@ -89,12 +95,32 @@ class PreflightRecoveryTests(unittest.TestCase):
         first = service.preflight_and_recover()
         self.assertFalse(first["ok"])
         self.assertEqual(first["phase"], "recovery")
-        self.assertFalse(service.credentials_verified)
+        self.assertTrue(service.credentials_verified)
+        self.assertFalse(service.entry_preflight_ready)
         self.assertEqual(service.execute(intent()).status,
-                         "credential_preflight_required")
+                         "preflight_recovery_pending")
         second = service.preflight_and_recover()
         self.assertTrue(second["ok"])
         self.assertEqual(service.recover_pending.call_count, 2)
+        self.assertTrue(service.entry_preflight_ready)
+
+    def test_existing_emergency_remains_allowed_during_recovery_failure(self):
+        service, _ = service_with([BALANCE])
+        service.credentials_verified = True
+        service.entry_recovery_pending = True
+        service.preflight_error = "execution recovery failed"
+        service.store.emergency = {
+            "phase": "in_progress",
+            "initiator": intent().event_id,
+            "failed_kind": "sl",
+            "epoch": "test-epoch",
+        }
+        with patch("autotrade_v2.app.execution.service.ForceClose") as close:
+            close.return_value.run.return_value = {"stage": "force_close_confirmed"}
+            result = service.execute(intent())
+        self.assertTrue(result.accepted)
+        self.assertEqual(result.status, "force_close_confirmed")
+        self.assertEqual(close.return_value.run.call_count, 1)
 
     def test_fresh_entry_cannot_overtake_pending_recovery(self):
         service, _ = service_with([BALANCE])
