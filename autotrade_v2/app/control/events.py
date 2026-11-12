@@ -54,6 +54,7 @@ _DISCORD_SYSTEM_WARNING_KEYS = {
     "L3.EXEC.FORCE_CLOSE_CONFIRMED",
     # Notify when a previously stuck execution history is safely retired.
     "L3.EXEC.EXCHANGE_FLAT_RECONCILED",
+    "L3.EXEC.PREFLIGHT_RECOVERED",
     # Data freshness is trading-critical even when the process is otherwise alive.
     # Route exactly these WARNING events to the error webhook.
     "L1.DATA.CANDLE_STALE",
@@ -67,6 +68,7 @@ _DISCORD_ALERT_COOLDOWN_SEC = {
     "L1.DATA.RECOVERY_FAIL": 1800.0,
     "L3.EXEC.MERGED_RECONCILE_REQUIRED": 3600.0,
     "L3.EXEC.EXIT_CLEANUP_RISK": 3600.0,
+    "L3.EXEC.PREFLIGHT_BLOCK": 3600.0,
 }
 
 _AI_REPORT_KEYS = {"L4.AI.PRE_REVIEW", "L4.AI.POST_REVIEW"}
@@ -85,7 +87,6 @@ _ORDER_RESULT_KEYS = {
     "L3.EXEC.PROTECTION_RECONCILE_REQUIRED",
     "L3.EXEC.ORPHAN_PROTECTION_CLEANUP",
     "L3.EXEC.TP_FAILED_SL_ACTIVE",
-    "L3.EXEC.PREFLIGHT_BLOCK",
 }
 
 _SECRET_KEYS = {
@@ -646,6 +647,10 @@ class EventReporter:
 
     @staticmethod
     def _discord_dedupe_key(event: SystemEvent) -> str:
+        # A failed startup is one system incident, not a fresh failed trade
+        # per BTC/ETH combo. Applies to both email and Discord throttling.
+        if event.event_key == "L3.EXEC.PREFLIGHT_BLOCK":
+            return event.event_key
         if event.event_key in {"L3.EXEC.MERGED_RECONCILE_REQUIRED",
                                "L3.EXEC.EXIT_CLEANUP_RISK"}:
             # Same incident can mention different signal IDs on every scan.
