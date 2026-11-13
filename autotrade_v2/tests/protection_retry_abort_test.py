@@ -36,7 +36,7 @@ class FailureExchange(Exchange):
 
     def close_market(self,symbol,entry_side,qty,leverage,client_order_id=None,position_id=None,quantity_precision=None):
         self.close_count+=1;assert position_id==self.position_id and leverage==50
-        assert Decimal(str(qty))==self.amount,'must own the entire selected container'
+        assert Decimal(str(qty))<=self.amount,'close must not exceed the container'
         assert quantity_precision==4
         oid=self._id();quantity=Decimal(str(qty))
         filled=(quantity/2).quantize(Decimal('0.0001')) if self.partial_close else quantity
@@ -194,8 +194,7 @@ def main():
                            client_order_id='abort-fixture',position_id='123',quantity_precision=5)
     assert sent[0]['quantity']=='0.00005'
 
-    # Owner-approved Option A closes the entire shared container after fencing
-    # every owned native exit. No blind partial-combo MARKET is attempted.
+    # Closes only the failing combo's quantity after fencing its own native exits.
     with TemporaryDirectory() as tmp:
         service,store,_=setup(tmp);ex=FailureExchange(failures=0);service.executor.client=ex
         a,b=signal(),signal(7)
@@ -203,8 +202,11 @@ def main():
         ex.failures=2
         result=service.execute(b)
         assert result.status=='force_close_confirmed',result
-        assert ex.amount==0 and all(ex.orders[oid]['status']=='CANCELLED' for oid in peer.values())
-        assert store.get_state(a.event_id)['stage']=='force_close_confirmed'
+        # Changed by the 16:51 owner direction: only the failing combo b is closed.
+        # The peer a keeps its quantity and its live exits; it is never cancelled.
+        assert ex.amount==Decimal('0.0013') and all(ex.orders[oid]['status']=='NEW' for oid in peer.values())
+        assert store.get_state(a.event_id)['stage']!='force_close_confirmed'
+        assert store.get_state(b.event_id)['stage']=='force_close_confirmed'
         assert ex.close_count==1 and ex.calls.count(('post','sl'))==3
 
     print({'ok':True,'retry_once_per_leg':True,'exhaustion_closes_exclusive_combo':True,

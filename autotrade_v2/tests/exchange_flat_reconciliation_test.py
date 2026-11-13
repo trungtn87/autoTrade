@@ -159,7 +159,10 @@ def test_force_close_does_not_include_prior_flat_epoch():
         epoch=store.get(side_key(peer.symbol,peer.side),TARGET)
         assert epoch["affected"]==sorted([new.event_id,peer.event_id]),epoch
         assert old.event_id not in epoch["affected"]
-        assert ex.close_count==1 and ex.amount==0
+        # Only the failing combo's quantity is closed; the live peer stays open.
+        assert ex.close_count==1 and ex.amount==Decimal("0.0013")
+        assert store.get_state(new.event_id).get("stage")!="force_close_confirmed"
+        assert all(ex.orders[x]["status"]=="NEW" for x in state_ids(store,new).values())
         assert store.get_state(old.event_id).get("exchange_flat_reconciled")
 
 
