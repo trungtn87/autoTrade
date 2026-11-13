@@ -756,6 +756,8 @@ class ExecutionService:
 
         state=self.store.get_state(intent.event_id)
         emergency=self.store.get(side_key(intent.symbol,intent.side),FORCE_TARGET)
+        # Owner decision: while an emergency is unresolved, same symbol/side
+        # entries wait. The lock lifts as soon as the epoch is closed.
         if emergency and emergency.get("phase")!="closed":
             if intent.event_id!=emergency["initiator"]:
                 return ExecutionResult(event_id=intent.event_id,accepted=False,
