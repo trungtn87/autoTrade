@@ -3,7 +3,7 @@ from __future__ import annotations
 from autotrade_v2.analytics.evidence import capture_entry
 
 import hashlib
-from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_DOWN, ROUND_HALF_UP
 import logging
 import time
 
@@ -337,7 +337,7 @@ class Final14Executor:
 
     def _verify_protection(
         self,symbol:str,payload:dict,kind:str,position_id:str|None=None,
-        *,entry_side:str|None=None,expected_quantity=None,expected_trigger=None,expected_callback=None,
+        *,entry_side:str|None=None,expected_quantity=None,expected_trigger=None,expected_callback=None,acknowledged_parameters=None,
     )->dict:
         order=self.client.extract_order(payload)
         order_id=self._order_id(order)
@@ -359,23 +359,53 @@ class Final14Executor:
                     or str(detail.get("positionSide") or "").upper()!=("LONG" if entry_side=="BUY" else "SHORT")
                     or str(detail.get("type") or "").upper()!=expected_types[kind]):
                 raise RuntimeError(f"{kind} protection symbol/side/type identity unverified")
-            original=Decimal(str(detail.get("origQty") or detail.get("quantity")))
-            filled=Decimal(str(detail.get("executedQty")))
-            if (not original.is_finite() or not filled.is_finite() or original<=0
-                    or filled<0 or filled>original or original!=Decimal(str(expected_quantity))):
+            def numeric(value,label):
+                try:
+                    number=Decimal(str(value))
+                except (InvalidOperation,TypeError,ValueError) as exc:
+                    raise RuntimeError(f"{kind} {label} missing or nonnumeric in BingX order detail") from exc
+                if not number.is_finite():
+                    raise RuntimeError(f"{kind} {label} nonfinite in BingX order detail")
+                return number
+
+            original=numeric(detail.get("origQty") or detail.get("quantity"),"origQty")
+            filled=numeric(detail.get("executedQty"),"executedQty")
+            if (original<=0 or filled<0 or filled>original
+                    or original!=numeric(expected_quantity,"expected_quantity")):
                 raise RuntimeError(f"{kind} protection quantity unverified")
+
+            parameter_sources={}
+            def trailing_parameter(field):
+                # Historical BingX GET snapshots have empty actPrice/priceRate,
+                # unlike the successful conditional POST acknowledgement. A
+                # trusted POST value may supplement a GET only for the exact
+                # durable order ID and matching exchange identity.
+                from_get=detail.get(field)
+                if from_get not in (None,""):
+                    parameter_sources[field]="GET"
+                    return from_get
+                ack=acknowledged_parameters
+                if not isinstance(ack,dict) or self._order_id(ack)!=order_id:
+                    raise RuntimeError(
+                        f"trailing {field} absent from GET; exact POST ACK evidence unavailable"
+                    )
+                for identity in ("symbol","side","positionSide","type"):
+                    if ack.get(identity) and ack[identity]!=detail.get(identity):
+                        raise RuntimeError(f"trailing POST/GET {identity} mismatch")
+                value=ack.get(field)
+                if value in (None,""):
+                    raise RuntimeError(f"trailing {field} absent from both GET and POST ACK")
+                parameter_sources[field]="POST_ACK"
+                return value
+
             if expected_trigger is not None:
-                trigger=detail.get("activationPrice") if kind=="trailing" else detail.get("stopPrice")
-                actual=Decimal(str(trigger))
-                requested=Decimal(str(expected_trigger))
-                if not actual.is_finite() or not requested.is_finite() or actual<=0 or requested<=0:
+                trigger=(trailing_parameter("activationPrice") if kind=="trailing"
+                         else detail.get("stopPrice"))
+                actual=numeric(trigger,"activationPrice" if kind=="trailing" else "stopPrice")
+                requested=numeric(expected_trigger,"expected_trigger")
+                if actual<=0 or requested<=0:
                     raise RuntimeError(f"{kind} trigger price unverified")
                 if actual!=requested:
-                    # Some BingX contracts normalize the submitted stopPrice
-                    # to their documented pricePrecision. Only accept that ONE
-                    # deterministic rounding, for an exact acknowledged orderId
-                    # with independently verified symbol/side/type/quantity.
-                    # Never apply a generic epsilon to a shape-only candidate.
                     rules=self.client.get_contract_rules(symbol)
                     precision=rules.get("pricePrecision")
                     if (isinstance(precision,bool) or not isinstance(precision,int)
@@ -384,9 +414,12 @@ class Final14Executor:
                     step=Decimal(1).scaleb(-precision)
                     rounded=requested.quantize(step,rounding=ROUND_HALF_UP)
                     if actual!=rounded:
-                        raise RuntimeError(f"{kind} trigger price unverified: exchange={actual} expected={requested}")
+                        raise RuntimeError(
+                            f"{kind} trigger price unverified: exchange={actual} expected={requested}"
+                        )
             if kind=="trailing" and expected_callback is not None:
-                if Decimal(str(detail.get("priceRate")))!=Decimal(str(expected_callback)):
+                callback=numeric(trailing_parameter("priceRate"),"priceRate")
+                if callback!=numeric(expected_callback,"expected_callback"):
                     raise RuntimeError("trailing callback unverified")
         if status not in {"NEW","PARTIALLY_FILLED","FILLED"}:
             raise RuntimeError(f"{kind} not active after placement: status={status or 'UNKNOWN'}")
@@ -395,6 +428,7 @@ class Final14Executor:
             "status":status,
             "payload":payload,
             "exchange_order":detail,
+            "parameter_sources":parameter_sources if entry_side is not None else {},
         }
 
     def execute(
@@ -740,6 +774,7 @@ class Final14Executor:
                     expected_quantity=((resume_state.get("protection_journal") or {}).get(kind) or {}).get("spec",{}).get("quantity"),
                     expected_trigger=((resume_state.get("protection_journal") or {}).get(kind) or {}).get("spec",{}).get("trigger"),
                     expected_callback=((resume_state.get("protection_journal") or {}).get(kind) or {}).get("spec",{}).get("callback_rate"),
+                    acknowledged_parameters=((resume_state.get("protection_journal") or {}).get(kind) or {}).get("acknowledged_parameters"),
                 ),before_retry=before_protection_retry,
             ) if protection_persist is not None else None
         )
