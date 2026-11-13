@@ -610,7 +610,7 @@ class ExecutionService:
                         # Never perform live orphan cleanup for an unfinished
                         # trailing journal, even when its current snapshot matches.
                         continue
-                    if report["status"]!="VERIFIED":
+                    if report["status"] not in {"VERIFIED","ADMISSION_SAFE_TRAILING_PARAMS_UNVERIFIED"}:
                         budget_only=set(report["risks"])=={"EXECUTABLE_EXIT_BUDGET_EXCEEDED"}
                         state["safety_status"]="EXIT_BUDGET_UNVERIFIED" if budget_only else "RECONCILE_REQUIRED"
                         own_risks=[r for r in report["risks"] if r.startswith(event_id+":")
