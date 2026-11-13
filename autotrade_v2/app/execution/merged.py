@@ -208,8 +208,13 @@ def reconcile_side(states, positions, open_by_id, history_by_id):
     # container cannot be declared safe just because every order is a close.
     if executable>actual:
         risks.append("EXECUTABLE_EXIT_BUDGET_EXCEEDED")
-    return {"status":("RECONCILE_REQUIRED" if risks else
-                      "ADMISSION_SAFE_TRAILING_PARAMS_UNVERIFIED" if warnings else "VERIFIED"),
+    # Exit-budget-only is an existing diagnostic, not an admission blocker.
+    # Do not let that diagnostic turn a structurally-proven trailing warning
+    # into the same RECONCILE_REQUIRED status as genuinely missing SL/exposure.
+    material_risks=[risk for risk in risks if risk!="EXECUTABLE_EXIT_BUDGET_EXCEEDED"]
+    return {"status":("RECONCILE_REQUIRED" if material_risks else
+                      "ADMISSION_SAFE_TRAILING_PARAMS_UNVERIFIED" if warnings else
+                      "RECONCILE_REQUIRED" if risks else "VERIFIED"),
             "actual_qty":str(actual),"tracked_qty":str(expected),
             "executable_exit_qty":str(executable),"risks":sorted(set(risks)),
             "warnings":sorted(set(warnings)),
