@@ -22,13 +22,13 @@ class PsycopgControlDb:
     def execute(self, sql, params) -> None:
         import psycopg
 
-        with psycopg.connect(self.database_url) as conn:
+        with psycopg.connect(self.database_url, connect_timeout=5) as conn:
             conn.execute(sql, params)
 
     def execute_returning(self, sql, params) -> int:
         import psycopg
 
-        with psycopg.connect(self.database_url) as conn:
+        with psycopg.connect(self.database_url, connect_timeout=5) as conn:
             row = conn.execute(sql, params).fetchone()
             return int(row[0])
 
@@ -42,6 +42,16 @@ def discord_post(url: str, content: str) -> None:
         raise RuntimeError("discord post failed") from None
 
 
+class NullControlLog:
+    """Used when no database is configured: alerts still go to Discord."""
+
+    def write(self, layer, message, **kwargs) -> int:
+        return -1
+
+    def mark_discord(self, log_id, status) -> None:
+        return None
+
+
 def build_l5(settings):
     webhooks = {
         "BTC": os.getenv("DISCORD_WEBHOOK_BTC", ""),
@@ -49,8 +59,7 @@ def build_l5(settings):
         "ERROR": os.getenv("DISCORD_WEBHOOK_ERROR", ""),
     }
     db_url = settings.database_url
-    if not db_url:
-        return None
-    writer = ControlLogWriter(PsycopgControlDb(db_url))
+    writer = (ControlLogWriter(PsycopgControlDb(db_url)) if db_url
+              else NullControlLog())
     router = DiscordRouter(webhooks, discord_post)
     return L5TradeAlerts(writer, router)

@@ -69,11 +69,13 @@ data_service=DataService(
     required=settings.required_15m,
 )
 strategy_engine=StrategyEngine()
-execution_service=ExecutionService(settings,execution_store,event_cb=event_reporter.emit,l5=build_l5(settings))
+l5_alerts=build_l5(settings)
+execution_service=ExecutionService(settings,execution_store,event_cb=event_reporter.emit,l5=l5_alerts)
 ai_observer=GeminiObserver(settings.database_url, event_cb=event_reporter.emit)
 orchestrator=Orchestrator(
     settings,data_service,strategy_engine,execution_service,event_cb=event_reporter.emit,
     observer=ai_observer,
+    l5_signal=(l5_alerts.signal if l5_alerts is not None else None),
 )
 
 app=FastAPI(title="AutoTrade V2")

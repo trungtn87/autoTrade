@@ -57,12 +57,17 @@ class ExecutionService:
 
     def _emit(self, key: str, severity: str, message: str, intent: TradeIntent | None = None, **extra) -> None:
         if self.l5 is not None and key.startswith("L3.EXEC.") and key not in LEGACY_FORWARDED_KEYS:
+            facts = {k: extra.get(k) for k in (
+                "side", "entry", "tp", "sl", "avg_price", "executed_qty",
+                "protection", "client_order_id", "stage", "error",
+            )}
             self.l5.handle(
                 key, severity, message,
                 symbol=(intent.symbol if intent is not None else extra.get("symbol")),
                 event_id=(intent.event_id if intent is not None else extra.get("event_id")),
                 order_id=extra.get("order_id"),
                 details=extra.get("details"),
+                facts=facts,
             )
             return
         if not self.event_cb:
@@ -1020,7 +1025,6 @@ class ExecutionService:
                            "recovery still pending after eight attempts; automatic exact-ID reconciliation continues with bounded backoff",intent)
             persisted["safety_status"]="RECONCILE_REQUIRED"
         failure_signature=str(result.get("stage"))+":"+str(result.get("error"))
-        repeated_failure=state.get("last_failure_signature")==failure_signature
         persisted["last_failure_signature"]=failure_signature if not result.get("ok") else None
         self.store.save_state(intent.event_id,persisted)
         if terminal:
@@ -1107,9 +1111,7 @@ class ExecutionService:
                 severity = "CRITICAL"
 
             failure_reason = str(result.get("error") or stage)
-            if repeated_failure:
-                return ExecutionResult(event_id=intent.event_id,accepted=accepted,
-                                       status=stage,order_id=order_id,details=result)
+            # Every failure is logged and alerted; no repeated-failure suppression.
             self._emit(
                 key,
                 severity,

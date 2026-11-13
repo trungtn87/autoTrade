@@ -1,10 +1,15 @@
 """L5 adapter: turns L3 execution events into control logs and Discord alerts.
 
-Rules: internal progress events are silent, only errors are logged and sent to
-the ERROR channel, and a success announcement is sent only after the entry and
-all protections are confirmed. Sends run through ``start_thread`` so the trading
-thread never waits on Discord. Each send is one attempt with no retry, dedup,
-cooldown or batching. ``handle`` never raises.
+Rules:
+- Any event with severity CRITICAL or ERROR, or whose key is an error key, is
+  logged to control_logs and sent once to the ERROR channel. Every occurrence
+  is logged and sent: no dedup, cooldown or repeated-failure suppression.
+- Internal progress events are silent. A success announcement goes to BTC or
+  ETH only after the entry and all protections are confirmed, and includes the
+  real fill and protection facts.
+- Log writes and Discord sends run in ``start_thread`` so the trading thread
+  never waits on the database or on Discord. Each send is one attempt.
+- ``handle`` never raises.
 """
 from __future__ import annotations
 
@@ -12,7 +17,7 @@ import re
 import threading
 from typing import Any, Callable
 
-from .alert_v2 import route_for_symbol
+from .alert_v2 import format_signal, route_for_symbol
 
 
 TRADE_ORDER_KEYS = {"L3.EXEC.ORDER_COMPLETE"}
@@ -42,6 +47,33 @@ def _safe(value: Any) -> str:
     return _URL_PATTERN.sub("[URL]", str(value))
 
 
+def _fact_lines(facts: dict | None) -> list[str]:
+    if not facts:
+        return []
+    lines = []
+    if facts.get("side") is not None:
+        lines.append(f"Chiều: {_safe(facts['side'])}")
+    if facts.get("entry") is not None:
+        lines.append(f"Giá tín hiệu: entry {_safe(facts['entry'])}, TP {_safe(facts.get('tp'))}, SL {_safe(facts.get('sl'))}")
+    if facts.get("avg_price") is not None:
+        lines.append(f"Giá khớp thực tế: {_safe(facts['avg_price'])}")
+    if facts.get("executed_qty") is not None:
+        lines.append(f"Khối lượng khớp: {_safe(facts['executed_qty'])}")
+    protection = facts.get("protection")
+    if isinstance(protection, dict) and protection:
+        parts = [f"{_safe(k)}={_safe(v)}" for k, v in protection.items()
+                 if v is not None and not isinstance(v, (dict, list))]
+        if parts:
+            lines.append("Bảo vệ BingX xác nhận: " + ", ".join(parts))
+    if facts.get("client_order_id") is not None:
+        lines.append(f"Client Order ID: {_safe(facts['client_order_id'])}")
+    if facts.get("stage") is not None:
+        lines.append(f"Giai đoạn: {_safe(facts['stage'])}")
+    if facts.get("error") is not None:
+        lines.append(f"Lỗi API hoặc nội bộ: {_safe(facts['error'])}")
+    return lines
+
+
 def _field_lines(symbol, event_id, order_id, message) -> list[str]:
     lines = []
     if symbol:
@@ -54,14 +86,16 @@ def _field_lines(symbol, event_id, order_id, message) -> list[str]:
     return lines
 
 
-def _error_text(key, symbol, event_id, order_id, message) -> str:
+def _error_text(key, symbol, event_id, order_id, message, facts) -> str:
     return "\n".join(["LỖI " + _safe(key),
-                      *_field_lines(symbol, event_id, order_id, message)])
+                      *_field_lines(symbol, event_id, order_id, message),
+                      *_fact_lines(facts)])
 
 
-def _success_text(symbol, event_id, order_id, message) -> str:
+def _success_text(symbol, event_id, order_id, message, facts) -> str:
     return "\n".join(["ĐẶT LỆNH THÀNH CÔNG",
-                      *_field_lines(symbol, event_id, order_id, message)])
+                      *_field_lines(symbol, event_id, order_id, message),
+                      *_fact_lines(facts)])
 
 
 class L5TradeAlerts:
@@ -80,49 +114,65 @@ class L5TradeAlerts:
         event_id: str | None = None,
         order_id: str | None = None,
         details: dict | None = None,
+        facts: dict | None = None,
     ) -> None:
         try:
-            if key in SILENT_TRADE_KEYS:
-                return
             is_error = (
                 severity in {"CRITICAL", "ERROR"}
                 or key.endswith("_FAIL")
                 or key in ERROR_KEYS
             )
             if is_error:
-                log_id = self._write_log(message, symbol, event_id, order_id, key, details)
-                content = _error_text(key, symbol, event_id, order_id, message)
+                content = _error_text(key, symbol, event_id, order_id, message, facts)
                 self._start_thread(
-                    self._deliver, (ERROR_CHANNEL, content, log_id))
+                    self._log_and_deliver,
+                    (ERROR_CHANNEL, content, key, message, symbol, event_id, order_id, details))
+                return
+            if key in SILENT_TRADE_KEYS:
                 return
             if key in TRADE_ORDER_KEYS:
                 channel = route_for_symbol(symbol)
-                content = _success_text(symbol, event_id, order_id, message)
-                self._start_thread(
-                    self._deliver, (channel, content, -1))
+                content = _success_text(symbol, event_id, order_id, message, facts)
+                self._start_thread(self._deliver, (channel, content))
                 return
         except Exception:
             return
 
-    def _write_log(self, message, symbol, event_id, order_id, key, details) -> int:
+    def signal(self, intent: Any) -> None:
+        """L2 signal announcement: BTC or ETH channel, one attempt, never raises."""
         try:
-            log_id = self.writer.write(
-                "L3", message, symbol=symbol, event_id=event_id,
-                order_id=order_id, step=key, error_code=None, details=details)
-            return int(log_id)
+            channel = route_for_symbol(intent.symbol)
+            content = format_signal(
+                intent.symbol, intent.combo, intent.side, intent.close_time,
+                intent.entry, intent.tp, intent.sl, intent.event_id,
+            )
+            self._start_thread(self._deliver, (channel, content))
         except Exception:
-            return -1
+            return
 
-    def _deliver(self, channel: str, content: str, log_id: int) -> None:
+    def _log_and_deliver(self, channel, content, key, message, symbol, event_id, order_id, details):
+        log_id = -1
         try:
-            status = self.router.send(channel, content)
+            log_id = int(self.writer.write(
+                "L3", message, symbol=symbol, event_id=event_id,
+                order_id=order_id, step=key, error_code=None, details=details))
         except Exception:
-            status = "failed"
-        if log_id is not None and log_id >= 0:
+            log_id = -1
+        status = self._send(channel, content)
+        if log_id >= 0:
             try:
                 self.writer.mark_discord(log_id, status)
             except Exception:
-                return
+                pass
+
+    def _deliver(self, channel: str, content: str) -> None:
+        self._send(channel, content)
+
+    def _send(self, channel: str, content: str) -> str:
+        try:
+            return str(self.router.send(channel, content))
+        except Exception:
+            return "failed"
 
 
 def _default_start_thread(target: Callable, args: tuple) -> None:

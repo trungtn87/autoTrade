@@ -16,9 +16,11 @@ WEBHOOK_KEYS = ("DISCORD_WEBHOOK_BTC", "DISCORD_WEBHOOK_ETH", "DISCORD_WEBHOOK_E
 
 
 class L5WiringTest(unittest.TestCase):
-    def test_build_l5_without_database_url_returns_none(self):
-        settings = SimpleNamespace(database_url="")
-        self.assertIsNone(build_l5(settings))
+    def test_build_l5_without_database_url_still_returns_adapter_with_null_log(self):
+        settings = type("S", (), {"database_url": ""})()
+        result = build_l5(settings)
+        self.assertIsInstance(result, L5TradeAlerts)
+        self.assertEqual(result.writer.write("L3", "x"), -1)
 
     def test_build_l5_with_database_url_returns_l5_adapter(self):
         settings = SimpleNamespace(database_url="postgresql://x")

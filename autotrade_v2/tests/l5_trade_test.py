@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 
 from app.control.l5_trade import L5TradeAlerts
 
@@ -61,12 +62,37 @@ class L5TradeAlertsTest(unittest.TestCase):
         self.assertEqual(writer.writes, [])
         self.assertEqual(writer.marks, [])
 
-    def test_silent_keys_do_nothing(self):
+    def test_silent_keys_do_nothing_at_info(self):
         alerts, writer, router = make()
         for key in ("L3.EXEC.SL_PLACED", "L3.EXEC.ORDER_SENT"):
-            alerts.handle(key, "CRITICAL", "x", symbol="BTC-USDT")
+            alerts.handle(key, "INFO", "x", symbol="BTC-USDT")
         self.assertEqual(router.sends, [])
         self.assertEqual(writer.writes, [])
+
+    def test_error_severity_on_silent_key_is_not_skipped(self):
+        alerts, writer, router = make()
+        alerts.handle("L3.EXEC.SL_PLACED", "CRITICAL", "sl failed", symbol="BTC-USDT")
+        self.assertEqual(len(writer.writes), 1)
+        self.assertEqual(router.sends[0][0], "ERROR")
+
+    def test_success_text_includes_real_fill_and_protection(self):
+        alerts, writer, router = make()
+        alerts.handle("L3.EXEC.ORDER_COMPLETE", "INFO", "done", symbol="BTC-USDT",
+                      event_id="evt-9", order_id="555",
+                      facts={"avg_price": 60010.5, "executed_qty": 0.0166,
+                             "protection": {"sl": 59000.0, "tp": 61000.0}})
+        channel, content = router.sends[0]
+        self.assertEqual(channel, "BTC")
+        self.assertIn("60010.5", content)
+        self.assertIn("0.0166", content)
+        self.assertIn("sl=59000.0", content)
+
+    def test_repeated_identical_errors_are_each_logged_and_sent(self):
+        alerts, writer, router = make()
+        for _ in range(3):
+            alerts.handle("L3.EXEC.ORDER_FAIL", "CRITICAL", "same", symbol="ETH-USDT")
+        self.assertEqual(len(writer.writes), 3)
+        self.assertEqual(len(router.sends), 3)
 
     def test_critical_fail_logs_and_sends_error_then_marks_sent(self):
         alerts, writer, router = make()
@@ -145,3 +171,20 @@ class L5TradeAlertsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SignalAnnouncementTest(unittest.TestCase):
+    def test_l2_signal_goes_to_symbol_channel_and_never_logs(self):
+        alerts, writer, router = make()
+        intent = SimpleNamespace(symbol="ETH-USDT", combo="7", side="BUY",
+                                 close_time=1700000000000, entry=2000.0,
+                                 tp=2100.0, sl=1950.0, event_id="evt-sig-1")
+        alerts.signal(intent)
+        self.assertEqual(router.sends[0][0], "ETH")
+        self.assertIn("CHƯA ĐẶT LỆNH", router.sends[0][1])
+        self.assertEqual(writer.writes, [])
+
+    def test_l2_signal_failure_does_not_raise(self):
+        alerts, writer, router = make()
+        alerts.signal(SimpleNamespace(symbol="DOGE-USDT"))
+        self.assertEqual(router.sends, [])
