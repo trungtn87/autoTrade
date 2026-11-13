@@ -84,12 +84,12 @@ class Final14Executor:
     )->tuple[dict|None,str|None]:
         last_error=None
         for attempt in range(1,AMBIGUOUS_RECHECK_ATTEMPTS+1):
-            try:
-                found=self.client.find_order_by_client_id(symbol,client_order_id)
-                if found is not None:
-                    return found,None
-            except Exception as exc:
-                last_error=f"{type(exc).__name__}: {exc}"
+            # All Entry reads go through L4 (read-only); L4 reports UNKNOWN on any failure.
+            lookup=L4EntryReader(self.client).get_entry(symbol,client_order_id)
+            if lookup["status"]=="FOUND":
+                return lookup["raw"],None
+            if lookup["status"]=="UNKNOWN":
+                last_error=str(lookup.get("error"))
             if attempt<AMBIGUOUS_RECHECK_ATTEMPTS:
                 time.sleep(AMBIGUOUS_RECHECK_SLEEP_SEC)
         return None,last_error
@@ -605,9 +605,12 @@ class Final14Executor:
                 final_avg=avg_price
                 final_order_id=order_id
                 for attempt in range(1,AMBIGUOUS_RECHECK_ATTEMPTS+1):
-                    raw=self.client.find_order_by_client_id(
+                    lookup=L4EntryReader(self.client).get_entry(
                         intent.symbol,client_order_id
                     )
+                    if lookup["status"]=="UNKNOWN":
+                        raise RuntimeError("entry re-query unknown: "+str(lookup.get("error")))
+                    raw=lookup["raw"]
                     if raw is not None:
                         detail=self.client.extract_order(raw)
                         capture_entry(resume_state, detail, client_order_id)
