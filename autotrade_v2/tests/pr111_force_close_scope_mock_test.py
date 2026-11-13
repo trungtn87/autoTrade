@@ -17,11 +17,23 @@ def entry_calls(ex):
     return [x for x in ex.calls if x[0] == 'entry']
 
 
+class TriggerDuringClose(FailureExchange):
+    """Peer TP fills at the moment the emergency MARKET is sent."""
+
+    on_close = None
+
+    def close_market(self, *args, **kwargs):
+        if self.on_close:
+            callback, self.on_close = self.on_close, None
+            callback()
+        return super().close_market(*args, **kwargs)
+
+
 def main():
     # 1. C1 force close leaves C2 intact in the same container.
     with TemporaryDirectory() as tmp:
         service, store, _ = setup(tmp)
-        ex = FailureExchange(failures=0)
+        ex = TriggerDuringClose(failures=0)
         service.executor.client = ex
         c2, c1 = signal(), signal(7)  # c2 is the peer that must survive
         assert service.execute(c2).status == 'complete'
@@ -34,6 +46,33 @@ def main():
         assert not any(c[0] == 'cancel' and c[1] in c2_ids.values() for c in ex.calls)
         assert store.get_state(c2.event_id).get('stage') != 'force_close_confirmed'
         assert store.get_state(c1.event_id)['stage'] == 'force_close_confirmed'
+
+    # 1b. Peer TP fills while C1's emergency MARKET is being sent: the close
+    # quantity stays C1's own, and the peer's fill is not counted as C1's.
+    with TemporaryDirectory() as tmp:
+        service, store, _ = setup(tmp)
+        ex = TriggerDuringClose(failures=0)
+        service.executor.client = ex
+        c2, c1 = signal(), signal(7)
+        assert service.execute(c2).status == 'complete'
+        c2_ids = state_ids(store, c2)
+        c2_qty = Decimal(str(store.get_state(c2.event_id)['executed_qty']))
+        tp_fill = Decimal('0.0006')
+        def fill_peer_tp():
+            row = ex.orders[c2_ids['tp']]
+            row['status'] = 'FILLED'
+            child = {**row, 'orderID': ex._id(), 'triggerOrderId': c2_ids['tp'],
+                     'executedQty': str(tp_fill)}
+            child['orderId'] = int(child['orderID'])
+            ex.orders[child['orderID']] = child
+            ex.amount -= tp_fill
+        ex.on_close = fill_peer_tp
+        ex.failures = 2
+        result = service.execute(c1)
+        assert result.status == 'force_close_confirmed', result
+        assert ex.amount == c2_qty - tp_fill, (ex.amount, c2_qty, tp_fill)
+        assert not any(c[0] == 'cancel' and c[1] in c2_ids.values() for c in ex.calls)
+        assert store.get_state(c2.event_id).get('stage') != 'force_close_confirmed'
 
     # 2. C2 signal while C1 emergency is pending: refused, and no new Entry POST.
     with TemporaryDirectory() as tmp:
