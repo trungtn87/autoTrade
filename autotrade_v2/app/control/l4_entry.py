@@ -31,6 +31,7 @@ class L4EntryReader:
             "executed_qty": _to_float(order.get("executedQty")),
             "avg_price": _to_float(order.get("avgPrice")),
             "error": None,
+            "raw": payload,
         }
 
     @staticmethod
@@ -42,6 +43,7 @@ class L4EntryReader:
             "executed_qty": None,
             "avg_price": None,
             "error": error,
+            "raw": None,
         }
 
 

@@ -50,6 +50,11 @@ class L4EntryReaderTest(unittest.TestCase):
         self.assertEqual(result["avg_price"], 100.25)
         self.assertIsNone(result["error"])
 
+    def test_found_raw_is_original_payload(self):
+        payload = {"orderId": 987654, "executedQty": "1.5", "avgPrice": "100.25"}
+        result = L4EntryReader(FakeClient(lookup=payload)).get_entry("BTC-USDT", self.CID)
+        self.assertEqual(result["raw"], payload)
+
     def test_none_lookup_is_absent(self):
         result = L4EntryReader(FakeClient(lookup=None)).get_entry("BTC-USDT", self.CID)
         self.assertEqual(result["status"], "ABSENT")

@@ -15,6 +15,7 @@ from .identity import identify_entry_position, position_id as exchange_position_
 from .protection_journal import ProtectionJournal,ProtectionReconcilePending,ProtectionAttemptsExhausted
 from .protection_abort import abort_setup
 from .close_position_check import position_remaining,PositionConfirmationError
+from ..control.l4_entry import L4EntryReader
 
 log=logging.getLogger(__name__)
 
@@ -464,7 +465,12 @@ class Final14Executor:
 
         # PRE-CHECK: if the exact deterministic clientOrderId already exists,
         # never submit the MARKET entry again.
-        existing=self.client.find_order_by_client_id(intent.symbol,client_order_id)
+        lookup=L4EntryReader(self.client).get_entry(intent.symbol,client_order_id)
+        if lookup["status"]=="UNKNOWN":
+            return {"processed":False,"entry_accepted":False,"entry_filled":False,"ok":False,
+                    "stage":"entry_unknown_reconcile_required","client_order_id":client_order_id,
+                    "error":"entry lookup unknown; not resending: "+str(lookup.get("error"))}
+        existing=lookup["raw"] if lookup["status"]=="FOUND" else None
         if existing is not None:
             entry_result=existing
             log.warning(
