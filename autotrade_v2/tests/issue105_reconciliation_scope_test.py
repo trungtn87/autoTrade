@@ -127,6 +127,17 @@ def check_trailing_explicit_price_mismatch_still_blocks():
         assert len(exchange.clients)==1
 
 
+def check_conflicting_actprice_alias_still_blocks():
+    with TemporaryDirectory() as tmp:
+        service,store,exchange=setup(tmp)
+        _,ids=incident(service,store,exchange)
+        exchange.orders[ids["trailing"]]["actPrice"]="999999"
+        newer=signal(13)
+        result=service.execute(newer)
+        assert not result.accepted and result.status=="merged_reconcile_required",result
+        assert len(exchange.clients)==1
+
+
 def check_missing_trailing_order_still_blocks():
     with TemporaryDirectory() as tmp:
         service,store,exchange=setup(tmp)
@@ -182,6 +193,7 @@ def main():
     check_wrong_trailing_quantity_still_blocks()
     check_wrong_trailing_identity_still_blocks()
     check_trailing_explicit_price_mismatch_still_blocks()
+    check_conflicting_actprice_alias_still_blocks()
     check_missing_trailing_order_still_blocks()
     check_single_combo_recovery_exception_not_account_lock()
     check_shared_database_failure_still_fails_closed()
