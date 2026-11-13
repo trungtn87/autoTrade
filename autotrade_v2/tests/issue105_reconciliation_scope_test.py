@@ -6,6 +6,7 @@ No exchange credentials, sockets or production mutations.
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 from tempfile import TemporaryDirectory
 
@@ -20,7 +21,9 @@ def incident(service, store, exchange):
     The state deliberately lacks VERIFIED trailing. It must remain pending
     and must never result in a replacement conditional POST.
     """
-    c4=signal(4)
+    # The exchange fake fills its first Entry at 79701.6; preserve the
+    # original FINAL14 range while assigning the incident C4 combo identity.
+    c4=replace(signal(106),event_id="BTC-USDT|C4|1",combo=4)
     first=service.execute(c4)
     assert first.status=="complete",first
     saved=store.get_state(c4.event_id)
