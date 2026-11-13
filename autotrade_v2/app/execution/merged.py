@@ -31,6 +31,80 @@ def entry_proof(state, row, client_id):
     return filled, position_id(row)
 
 
+
+def _structurally_present_pending_trailing(state, open_by_id):
+    """Exact-ID proof of a live trailing order, NOT proof of callback/activation.
+
+    Historical BingX order snapshots may omit activationPrice and priceRate.
+    Only use this proof to classify a parser/parameter issue as a warning,
+    never to mark the pending protection journal VERIFIED or resend the POST.
+    A stale/closed/wrong order, numeric mismatch, or missing position ID fails
+    closed and retains the ordinary side-level reconciliation blockers.
+    """
+    if state.get("exit_mode")!="split_trailing" or (state.get("protection") or {}).get("trailing"):
+        return ""
+    pending=(state.get("protection_journal") or {}).get("trailing") or {}
+    if pending.get("phase") not in ("prepared", "acknowledged", None):
+        return ""
+    acknowledged=str(pending.get("acknowledged_order_id") or "")
+    spec=pending.get("spec") or {}
+    row=open_by_id.get(acknowledged)
+    if not acknowledged or not isinstance(row,dict) or oid(row)!=acknowledged:
+        return ""
+    intent=state.get("intent") or {}
+    side="BUY" if intent.get("side")=="SELL" else "SELL"
+    position_side="SHORT" if intent.get("side")=="SELL" else "LONG"
+    pid=str(state.get("position_id") or "")
+    if (spec.get("kind")!="trailing"
+            or spec.get("symbol")!=intent.get("symbol")
+            or spec.get("side")!=side
+            or spec.get("position_side")!=position_side
+            or str(spec.get("position_id") or "")!=pid
+            or not pid
+            or row.get("symbol")!=intent.get("symbol")
+            or str(row.get("type") or "").upper()!="TRAILING_STOP_MARKET"
+            or str(row.get("side") or "").upper()!=side
+            or str(row.get("positionSide") or "").upper()!=position_side
+            or str(row.get("status") or "").upper()!="NEW"):
+        return ""
+    try:
+        if position_id(row)!=pid:
+            return ""
+        qty=positive(row.get("origQty") or row.get("quantity"),"trailing origQty")
+        executed=positive(row.get("executedQty"),"trailing executedQty")
+        requested=positive(spec.get("quantity"),"trailing requested quantity")
+        trigger=positive(spec.get("trigger"),"trailing requested activation")
+        callback=positive(spec.get("callback_rate"),"trailing requested callback")
+        if (qty<=0 or qty!=requested or executed!=0 or trigger<=0 or callback<=0):
+            return ""
+        # Explicit exchange values cannot be overridden by an absent-field
+        # compatibility rule. A value disagreeing with the POST spec BLOCKS.
+        for key,wanted in (("activationPrice",trigger),("actPrice",trigger),("priceRate",callback)):
+            reported=row.get(key)
+            if reported not in (None,"") and positive(reported,key)!=wanted:
+                return ""
+        # The original POST acknowledgement may contain the only reliable
+        # activation/callback fields; GET can legitimately leave both blank.
+        # A KNOWN contradiction in that durable, exact-ID acknowledgement
+        # must NEVER be relabelled as a harmless missing-GET-fields warning.
+        # Older incident journals without POST parameters are still eligible
+        # for structural-only evidence when the full hard-SL ledger is safe.
+        ack=pending.get("acknowledged_parameters")
+        if ack is not None:
+            if (not isinstance(ack,dict) or oid(ack)!=acknowledged
+                    or any(str(ack.get(k) or "").upper()!=v for k,v in (
+                        ("symbol",intent.get("symbol")),
+                        ("side",side),
+                        ("positionSide",position_side),
+                        ("type","TRAILING_STOP_MARKET"),
+                    ))
+                    or positive(ack.get("activationPrice"),"ACK activationPrice")!=trigger
+                    or positive(ack.get("priceRate"),"ACK priceRate")!=callback):
+                return ""
+    except CleanupUncertain:
+        return ""
+    return acknowledged
+
 def reconcile_side(states, positions, open_by_id, history_by_id):
     """Return per-event ledgers and group risk; never assign a size delta.
 
@@ -52,7 +126,7 @@ def reconcile_side(states, positions, open_by_id, history_by_id):
         amount=positive(row.get("positionAmt"),"positionAmt")
         containers[pid]=amount
         actual+=amount
-    owners={}; ledgers={}; expected=Decimal(0); risks=[]
+    owners={}; ledgers={}; expected=Decimal(0); risks=[];warnings=[]
     for event_id,state in states:
         if state["intent"]["symbol"]!=symbol or str(state["intent"]["side"]).upper()!=side:
             raise CleanupUncertain("mixed side ledger")
@@ -82,12 +156,20 @@ def reconcile_side(states, positions, open_by_id, history_by_id):
         abort=state.get("abort") or {}
         if abort and abort.get("phase")!="closed":
             risks.append(f"{event_id}:ABORT_IN_PROGRESS")
-        if not state.get("protection") and not abort.get("close_order") and not state.get("force_close_allocation"):
+        # An exact acknowledged trailing may be visible on BingX even when
+        # GET omits activation/callback. Count its *observed* zero-fill order
+        # in this READ-ONLY ledger; never persist it as verified protection.
+        pending_trailing=_structurally_present_pending_trailing(state,open_by_id)
+        observed_protection=dict(state.get("protection") or {})
+        if pending_trailing:
+            observed_protection["trailing"]={"order_id":pending_trailing}
+            warnings.append(f"{event_id}:TRAILING_PARAMS_UNVERIFIED")
+        if not observed_protection and not abort.get("close_order") and not state.get("force_close_allocation"):
             remaining=initial; monitor={"fills_verified":False}
             risks.append(f"{event_id}:PROTECTION_UNVERIFIED")
         else:
             # Do not trust 'done' as a quantity proof; recalculate owned fills.
-            check={**state,"protection":state.get("protection") or {},"exit_cleanup":{**(state.get("exit_cleanup") or {}),"status":"watching"}}
+            check={**state,"protection":observed_protection,"exit_cleanup":{**(state.get("exit_cleanup") or {}),"status":"watching"}}
             monitor,_,_=inspect_one(None,check,open_by_id,positions,historical_by_id=history_by_id,allow_incomplete=True)
             remaining=positive(monitor.get("remaining_qty"),"remaining_qty")
             if not monitor.get("fills_verified"):
@@ -98,12 +180,16 @@ def reconcile_side(states, positions, open_by_id, history_by_id):
         ledgers[event_id]={"entry_qty":str(initial),"remaining_qty":str(remaining),
                            "exit_filled_qty_by_kind":quantities,
                            "monitor":monitor,"position_id":state.get("position_id")}
-        if any(x.get("phase")!="rejected" for x in (state.get("protection_journal") or {}).values()):
+        if any(
+            item.get("phase")!="rejected" and
+            not (kind=="trailing" and pending_trailing)
+            for kind,item in (state.get("protection_journal") or {}).items()
+        ):
             risks.append(f"{event_id}:PROTECTION_SUBMISSION_UNRESOLVED")
         if remaining:
             required={"sl","tp"}|({"trailing"} if state.get("exit_mode")=="split_trailing" else set())
             for kind in required:
-                item=(state.get("protection") or {}).get(kind) or {}
+                item=observed_protection.get(kind) or {}
                 order_id=str(item.get("order_id") or "")
                 observed=(monitor.get("orders") or {}).get(order_id) or {}
                 if order_id not in open_by_id and positive(observed.get("executed_qty",0),"exit fill")==0:
@@ -140,8 +226,15 @@ def reconcile_side(states, positions, open_by_id, history_by_id):
     # container cannot be declared safe just because every order is a close.
     if executable>actual:
         risks.append("EXECUTABLE_EXIT_BUDGET_EXCEEDED")
-    return {"status":"RECONCILE_REQUIRED" if risks else "VERIFIED",
+    # Exit-budget-only is an existing diagnostic, not an admission blocker.
+    # Do not let that diagnostic turn a structurally-proven trailing warning
+    # into the same RECONCILE_REQUIRED status as genuinely missing SL/exposure.
+    material_risks=[risk for risk in risks if risk!="EXECUTABLE_EXIT_BUDGET_EXCEEDED"]
+    return {"status":("RECONCILE_REQUIRED" if material_risks else
+                      "ADMISSION_SAFE_TRAILING_PARAMS_UNVERIFIED" if warnings else
+                      "RECONCILE_REQUIRED" if risks else "VERIFIED"),
             "actual_qty":str(actual),"tracked_qty":str(expected),
             "executable_exit_qty":str(executable),"risks":sorted(set(risks)),
+            "warnings":sorted(set(warnings)),
             "shared":sum(1 for x in ledgers.values() if Decimal(x["remaining_qty"])>0)>1,
             "combos":ledgers}

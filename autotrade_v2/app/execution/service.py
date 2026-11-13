@@ -12,7 +12,7 @@ from .final14_executor import Final14Executor
 from .identity import entry_baseline
 from .exit_cleanup import clean_one, eligible, oid, CleanupUncertain
 from .store import ExecutionStore
-from .merged import reconcile_side
+from .merged import reconcile_side, _structurally_present_pending_trailing
 from .force_close import ForceClose, side_key, TARGET as FORCE_TARGET
 
 
@@ -177,7 +177,15 @@ class ExecutionService:
 
     @staticmethod
     def _has_blocking_reconciliation(state):
-        """Exit-budget-only diagnostic does not block a safe same-side Entry."""
+        """An exact-ID trailing parameter warning is not a side-wide entry ban.
+
+        Recovery still retries this nonterminal trade by acknowledged order ID.
+        Every *new* entry always reruns the fresh exchange/SL/ledger checks.
+        """
+        if (state.get("entry_filled")
+                and state.get("stage")=="trailing_parameters_unverified"
+                and state.get("safety_status")=="TRAILING_PARAMS_UNVERIFIED"):
+            return False
         return bool(
             state.get("safety_status") not in (None, "", "EXIT_BUDGET_UNVERIFIED")
             or not state.get("terminal")
@@ -414,7 +422,25 @@ class ExecutionService:
             # submit a second conditional order for an ambiguous POST.
             if time.time() < float(recovery.get("next_at",0)):
                 continue
-            result=self.execute(intent,recovery_only=True)
+            try:
+                result=self.execute(intent,recovery_only=True)
+            except Exception as exc:
+                # A single combo's read/parse/reconciliation failure does not
+                # turn the successful account preflight into a global lock.
+                # Fresh entries still need exact live-side ledger + SL proof.
+                self._emit(
+                    "L3.EXEC.RECOVERY_COMBO_FAILED","ERROR",
+                    "persisted combo recovery failed; other symbol/side admission remains independently verified",
+                    intent,impact_scope="combo",
+                    recovery_error=f"{type(exc).__name__}: {exc}",
+                    affected_event_ids=[event_id],
+                    no_reentry=True,
+                )
+                recovered.append({
+                    "event_id":event_id,"status":"recovery_combo_failed",
+                    "accepted":bool(state.get("entry_accepted")),
+                })
+                continue
             recovered.append({
                 "event_id":event_id,
                 "status":result.status,
@@ -560,7 +586,31 @@ class ExecutionService:
                     state["merged_reconcile"]={k:v for k,v in report.items() if k!="combos"}
                     if own_report.get("monitor"):
                         state["exit_cleanup"]=own_report["monitor"]
-                    if report["status"]!="VERIFIED":
+                    if (report["status"]=="ADMISSION_SAFE_TRAILING_PARAMS_UNVERIFIED"
+                            and f"{event_id}:TRAILING_PARAMS_UNVERIFIED" in (report.get("warnings") or [])):
+                        # Only the specific pending combo remains in warning
+                        # status. Healthy peer combos retain their completion
+                        # and may continue independent cleanup.
+                        # Keep the WAL/terminal=false for strict recovery.
+                        # The side ledger proved live quantities and hard SL,
+                        # not callback or activation parameters.
+                        if (state.get("safety_status")!="TRAILING_PARAMS_UNVERIFIED"
+                                or state.get("stage")!="trailing_parameters_unverified"):
+                            state["safety_status"]="TRAILING_PARAMS_UNVERIFIED"
+                            state["stage"]="trailing_parameters_unverified"
+                            state["last_safety_warning"]="|".join(report.get("warnings") or [])
+                            self.store.save_state(event_id,state)
+                            self._emit(
+                                "L3.EXEC.TRAILING_PARAMS_UNVERIFIED","WARNING",
+                                "trailing parameters still unverified; live hard SL and exit ledger structurally match; recovery continues",
+                                intent,impact_scope="owned_combo",
+                                affected_event_ids=[event_id],
+                                warnings=report.get("warnings") or [],
+                            )
+                        # Never perform live orphan cleanup for an unfinished
+                        # trailing journal, even when its current snapshot matches.
+                        continue
+                    if report["status"] not in {"VERIFIED","ADMISSION_SAFE_TRAILING_PARAMS_UNVERIFIED"}:
                         budget_only=set(report["risks"])=={"EXECUTABLE_EXIT_BUDGET_EXCEEDED"}
                         state["safety_status"]="EXIT_BUDGET_UNVERIFIED" if budget_only else "RECONCILE_REQUIRED"
                         own_risks=[r for r in report["risks"] if r.startswith(event_id+":")
@@ -655,6 +705,26 @@ class ExecutionService:
             if any(str(row.get("positionSide") or "").upper()==side for row in opened.values()):
                 risks.append("UNOWNED_OPEN_ORDER")
             return baseline,{"blocking_risks":risks,"shared":False}
+        # BingX openOrders may omit native conditional exits. A known exact
+        # acknowledged trailing ID can be checked with read-only order GET.
+        # The GET must return THAT ID and pass the same strict structural
+        # identity/quantity proof; no shape-only adoption or synthetic ACK.
+        direct_get_proofs=[]
+        for _,s in siblings:
+            journal=(s.get("protection_journal") or {}).get("trailing") or {}
+            acknowledged=str(journal.get("acknowledged_order_id") or "")
+            if not acknowledged or acknowledged in opened:
+                continue
+            raw=self.executor.client.get_order_detail(
+                intent.symbol,order_id=acknowledged
+            )
+            row=self.executor.client.extract_order(raw)
+            if (isinstance(row,dict) and oid(row)==acknowledged
+                    and _structurally_present_pending_trailing(
+                        s,{acknowledged:row}
+                    )==acknowledged):
+                opened[acknowledged]=row
+                direct_get_proofs.append(acknowledged)
         required=set()
         for _,s in siblings:
             cached=(s.get("exit_cleanup") or {}).get("orders") or {}
@@ -676,7 +746,22 @@ class ExecutionService:
         # It must remain explicit in the draft; do not use it as a disguised
         # blanket same-side entry switch.
         blockers=[r for r in report["risks"] if r!="EXECUTABLE_EXIT_BUDGET_EXCEEDED"]
-        return baseline,{**{k:v for k,v in report.items() if k!="combos"},"blocking_risks":blockers}
+        # Never claim the trailing callback/activation has been verified.
+        # This warning means only that the exact owned trailing is currently
+        # structurally present and the full hard SL/exposure ledger is healthy.
+        if report.get("warnings") and not blockers:
+            self._emit(
+                "L3.EXEC.TRAILING_PARAMS_UNVERIFIED","WARNING",
+                "exact acknowledged trailing is active but callback/activation cannot be verified; independent entry admission uses full hard-SL proof",
+                intent,impact_scope="owned_combo",
+                affected_event_ids=[w.split(":")[0] for w in report["warnings"]],
+                evidence=report["warnings"],
+                confirmation="NOT_FULLY_VERIFIED",
+                direct_get_order_ids=direct_get_proofs,
+            )
+        return baseline,{**{k:v for k,v in report.items() if k!="combos"},
+                         "direct_get_order_ids":direct_get_proofs,
+                         "blocking_risks":blockers}
 
     @staticmethod
     def _order_map(rows,symbol):
