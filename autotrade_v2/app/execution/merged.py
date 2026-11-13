@@ -79,7 +79,7 @@ def _structurally_present_pending_trailing(state, open_by_id):
             return ""
         # Explicit exchange values cannot be overridden by an absent-field
         # compatibility rule. A value disagreeing with the POST spec BLOCKS.
-        for key,wanted in (("activationPrice",trigger),("priceRate",callback)):
+        for key,wanted in (("activationPrice",trigger),("actPrice",trigger),("priceRate",callback)):
             reported=row.get(key)
             if reported not in (None,"") and positive(reported,key)!=wanted:
                 return ""
