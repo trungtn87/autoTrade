@@ -83,6 +83,24 @@ def _structurally_present_pending_trailing(state, open_by_id):
             reported=row.get(key)
             if reported not in (None,"") and positive(reported,key)!=wanted:
                 return ""
+        # The original POST acknowledgement may contain the only reliable
+        # activation/callback fields; GET can legitimately leave both blank.
+        # A KNOWN contradiction in that durable, exact-ID acknowledgement
+        # must NEVER be relabelled as a harmless missing-GET-fields warning.
+        # Older incident journals without POST parameters are still eligible
+        # for structural-only evidence when the full hard-SL ledger is safe.
+        ack=pending.get("acknowledged_parameters")
+        if ack is not None:
+            if (not isinstance(ack,dict) or oid(ack)!=acknowledged
+                    or any(str(ack.get(k) or "").upper()!=v for k,v in (
+                        ("symbol",intent.get("symbol")),
+                        ("side",side),
+                        ("positionSide",position_side),
+                        ("type","TRAILING_STOP_MARKET"),
+                    ))
+                    or positive(ack.get("activationPrice"),"ACK activationPrice")!=trigger
+                    or positive(ack.get("priceRate"),"ACK priceRate")!=callback):
+                return ""
     except CleanupUncertain:
         return ""
     return acknowledged
