@@ -97,6 +97,39 @@ def check_structural_warning_is_not_full_verification():
         assert store.get_state(c15.event_id)["stage"]=="complete","healthy peers must not be relabelled"
 
 
+def check_openorders_omits_trailing_but_exact_get_proves_it():
+    with TemporaryDirectory() as tmp:
+        service,store,exchange=eth_setup(tmp)
+        c4,ids=incident(service,store,exchange)
+        original=exchange.get_open_orders
+        def omit_known_trailing(symbol):
+            return [r for r in original(symbol)
+                    if r["orderID"]!=ids["trailing"]]
+        exchange.get_open_orders=omit_known_trailing
+        _,report=service._entry_admission(signal(103))
+        assert report["blocking_risks"]==[],report
+        assert report["status"]=="ADMISSION_SAFE_TRAILING_PARAMS_UNVERIFIED",report
+        assert report["direct_get_order_ids"]==[ids["trailing"]],report
+        # No duplicate C4 conditional should be issued on this fallback.
+        assert service.execute(signal(103)).status=="complete"
+        assert len(exchange.clients)==2
+        assert store.get_state(c4.event_id)["protection"].get("trailing") is None
+
+
+def check_unrelated_get_order_id_can_never_replace_missing_openorder():
+    with TemporaryDirectory() as tmp:
+        service,store,exchange=eth_setup(tmp)
+        _,ids=incident(service,store,exchange)
+        original=exchange.get_open_orders
+        exchange.get_open_orders=lambda symbol:[
+            r for r in original(symbol) if r["orderID"]!=ids["trailing"]
+        ]
+        exchange.bad_get=True  # fake GET 200 but with orderID=999
+        result=service.execute(signal(103))
+        assert not result.accepted and result.status=="merged_reconcile_required",result
+        assert len(exchange.clients)==1
+
+
 def check_real_sl_loss_still_blocks():
     with TemporaryDirectory() as tmp:
         service,store,exchange=eth_setup(tmp)
@@ -204,6 +237,8 @@ def check_shared_database_failure_still_fails_closed():
 
 def main():
     check_structural_warning_is_not_full_verification()
+    check_openorders_omits_trailing_but_exact_get_proves_it()
+    check_unrelated_get_order_id_can_never_replace_missing_openorder()
     check_real_sl_loss_still_blocks()
     check_wrong_trailing_quantity_still_blocks()
     check_wrong_trailing_identity_still_blocks()
