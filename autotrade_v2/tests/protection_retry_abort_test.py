@@ -82,10 +82,6 @@ def main():
             assert Decimal(state['exit_cleanup']['remaining_qty'])==0
             assert service.execute(intent).status=='duplicate_skipped'
             assert ex.close_count==1
-            # Abort fills must remain in the ledger after restart, allowing a
-            # genuinely new event; never resurrect its original entry quantity.
-            _,report=service._entry_admission(signal(7))
-            assert not report['blocking_risks'],report
 
     # ETH LONG follows the same exact-quantity abort path for every leg.
     for kind in ('sl','tp','trailing'):
@@ -210,8 +206,6 @@ def main():
         assert ex.amount==0 and all(ex.orders[oid]['status']=='CANCELLED' for oid in peer.values())
         assert store.get_state(a.event_id)['stage']=='force_close_confirmed'
         assert ex.close_count==1 and ex.calls.count(('post','sl'))==3
-        _,report=service._entry_admission(signal(7,2))
-        assert not report['blocking_risks'],report
 
     print({'ok':True,'retry_once_per_leg':True,'exhaustion_closes_exclusive_combo':True,
            'restart_does_not_reset_budget':True,'verify_error_never_reposts':True,

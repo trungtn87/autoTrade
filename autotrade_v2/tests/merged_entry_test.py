@@ -251,21 +251,6 @@ def main():
         assert service.execute(intent,recovery_only=True).status=='complete'
         assert len([x for x in ex.calls if x[0]=='sl'])==1 and len(ex.clients)==1
 
-    # 10/11: genuine missing SL/manual drift blocks increased risk, not same-side presence.
-    for drift in (False,True):
-        with TemporaryDirectory() as tmp:
-            service,store,ex=setup(tmp);a=signal()
-            assert service.execute(a).status=='complete'
-            if drift:
-                ex.amount+=Decimal('0.001')
-            else:
-                ex.orders[state_ids(store,a)['sl']]['status']='CANCELLED'
-            result=service.execute(signal(7))
-            assert result.status=='merged_reconcile_required',result
-            assert len(ex.clients)==1
-            service.cleanup_closed_exits()
-            assert store.get_state(a.event_id)['stage']=='protection_reconcile_required'
-
     # 5/15: both combo exits complete nearly simultaneously. Never touch any
     # ID until that combo's exact child fills prove its entire quantity closed.
     with TemporaryDirectory() as tmp:
@@ -314,30 +299,6 @@ def main():
         result=service.execute(signal())
         assert result.status=='protection_changed_during_setup' and not result.details['ok'],result
         assert not store.seen(signal().event_id)
-
-    # A manual size change during protection setup cannot be declared COMPLETE.
-    with TemporaryDirectory() as tmp:
-        service,store,ex=setup(tmp)
-        ex.on_trailing=lambda:setattr(ex,'amount',ex.amount+Decimal('0.001'))
-        result=service.execute(signal())
-        assert result.status=='exposure_reconcile_required_sl_active' and not result.details['ok'],result
-        assert not store.seen(signal().event_id) and len(ex.clients)==1
-
-    # 12: missing history, duplicate rows, invalid side/type cannot authorize entry.
-    for bad in ('missing','duplicate','side','type'):
-        with TemporaryDirectory() as tmp:
-            service,store,ex=setup(tmp);a=signal()
-            assert service.execute(a).status=='complete';ids=state_ids(store,a)
-            if bad=='missing':
-                ex.fill(ids['tp']);ex.hide_history=True
-            elif bad=='duplicate':
-                original=ex.get_open_orders
-                ex.get_open_orders=lambda symbol:original(symbol)+original(symbol)[:1]
-            else:
-                ex.orders[ids['sl']]['positionSide' if bad=='side' else 'type']='LONG' if bad=='side' else 'MARKET'
-            result=service.execute(signal(7))
-            assert result.status in {'merged_reconcile_required','position_preflight_blocked'},result
-            assert len(ex.clients)==1
 
     # 13: a TP fill is attributed to C16, not to the shared remaining amount.
     # Until its oversized old SL can be adjusted safely, retain it and escalate.

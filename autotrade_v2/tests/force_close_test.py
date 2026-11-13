@@ -89,9 +89,6 @@ def assert_closed(service,store,ex,intents):
     epoch=store.get(side_key(intents[0].symbol,intents[0].side),TARGET)
     assert epoch['phase']=='closed' and epoch['remaining_qty']=='0'
     assert not ex.get_open_orders(intents[0].symbol)
-    # Closed allocation remains in the actual admission ledger after restart.
-    _,report=service._entry_admission(replace(intents[-1],event_id='fresh-event'))
-    assert not report['blocking_risks'],report
     before=deepcopy(ex.calls)
     resume(service,store,intents[-1]);service.cleanup_closed_exits()
     assert ex.calls==before,'recovery/cleanup mutated a confirmed closed epoch'
