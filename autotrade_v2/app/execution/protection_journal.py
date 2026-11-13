@@ -101,6 +101,16 @@ class ProtectionJournal:
         journal=dict(next_state.get("protection_journal") or {})
         prepared=dict(journal.get(kind) or {})
         prepared["acknowledged_order_id"]=acknowledged
+        if kind=="trailing" and row.get("activationPrice") not in (None,"") and row.get("priceRate") not in (None,""):
+            # The successful BingX POST has these fields; the historical GET
+            # representation may omit them. Persist exact-ID-bound evidence
+            # BEFORE verifying, so a restart can finish without resending.
+            prepared["acknowledged_parameters"]={
+                key:row[key] for key in (
+                    "orderID","orderId","symbol","side","positionSide","type",
+                    "activationPrice","priceRate",
+                ) if key in row
+            }
         journal[kind]=prepared
         next_state["protection_journal"]=journal
         self._persist(next_state)  # acknowledgement is durable before verification
