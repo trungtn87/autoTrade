@@ -780,15 +780,14 @@ class ExecutionService:
         client_order_id=self.executor.client_order_id(intent.event_id,"entry")
         if not state:
             lookup=L4EntryReader(self.executor.client).get_entry(intent.symbol,client_order_id)
-            if lookup["status"]=="UNKNOWN":
-                return ExecutionResult(event_id=intent.event_id,accepted=False,
-                    status="entry_unknown_reconcile_required",
-                    details={"network_called":True,"client_order_id":client_order_id,
-                             "error":str(lookup.get("error"))})
+            # No persisted state means this signal has never been sent: state is
+            # written before any POST. An UNKNOWN lookup therefore does not block
+            # here; the executor marks the send durably before POST and blocks on
+            # UNKNOWN only once a send may have happened.
             if lookup["status"]=="FOUND":
                 pending=True
             before_positions=None
-            if lookup["status"]=="ABSENT":
+            if lookup["status"]!="FOUND":
                 # Durable pre-entry baseline for exact positionId attribution.
                 try:
                     before_positions=entry_baseline(
@@ -803,6 +802,7 @@ class ExecutionService:
             new_state={
                     "terminal":False,
                     "stage":"entry_intent",
+                    "entry_post":"not_sent",
                     "pre_entry_positions":before_positions,
                     "shared_position":False,
                     "admission":admission,

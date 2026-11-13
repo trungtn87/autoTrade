@@ -4,7 +4,7 @@ Every scenario runs against the in-memory exchange fake from merged_entry_test.p
 This is mock evidence only. It is NOT live BingX evidence and proves nothing
 about the real exchange behaviour. No network access.
 """
-from dataclasses import replace
+from dataclasses import asdict, replace
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -94,19 +94,13 @@ def main():
         ex = BlindExchange()
         service.executor.client = ex
         intent = signal()
-        # Blind before any POST: the pre-check is UNKNOWN, so nothing is sent.
+        # Blind GET on a never-sent signal: the durable "not_sent" state proves no
+        # POST happened, so the one POST is allowed. Its confirmation is UNKNOWN.
         ex.blind = True
-        blind_first = service.execute(intent)
-        assert blind_first.status == 'entry_unknown_reconcile_required', blind_first
-        assert entry_calls(ex) == [], ex.calls
-        # POST accepted, response lost, then GET fails: UNKNOWN, never ABSENT.
-        ex.blind = False
-        ex.lose_entry = True
-        ex.on_entry = lambda: setattr(ex, 'blind', True)
-        result = service.execute(intent)
-        assert result.status != 'complete', result
-        assert len(entry_calls(ex)) == 1
-        # Repeated attempts while still blind must not place a second entry.
+        first = service.execute(intent)
+        assert first.status == 'entry_unknown_reconcile_required', first
+        assert len(entry_calls(ex)) == 1, ex.calls
+        # The send is now marked "sending". Repeated attempts while blind never re-POST.
         service.execute(intent)
         service.execute(intent)
         assert len(entry_calls(ex)) == 1, ex.calls
@@ -114,6 +108,22 @@ def main():
         ex.blind = False
         service.execute(intent)
         assert len(entry_calls(ex)) == 1, ex.calls
+
+    # 5b. Legacy state without the "not_sent" mark: an UNKNOWN lookup must block, no POST.
+    with TemporaryDirectory() as tmp:
+        service, store, _ = setup(tmp)
+        ex = BlindExchange()
+        service.executor.client = ex
+        intent = signal()
+        cid = service.executor.client_order_id(intent.event_id, 'entry')
+        store.save_state(intent.event_id, {'terminal': False, 'stage': 'entry_intent',
+            'intent': asdict(intent), 'client_order_id': cid, 'pre_entry_positions': {},
+            'shared_position': False, 'admission': {'blocking_risks': [], 'shared': False,
+            'existing_entry_recovery': False}, 'exit_mode': 'split_trailing'})
+        ex.blind = True
+        result = service.execute(intent)
+        assert result.status == 'entry_unknown_reconcile_required', result
+        assert entry_calls(ex) == [], ex.calls
 
     # 6. Restart after an entry POST was accepted: the restarted worker must not re-POST.
     with TemporaryDirectory() as tmp:
