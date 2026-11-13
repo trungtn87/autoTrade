@@ -239,9 +239,13 @@ class ForceClose:
                 self.store.save_state(eid,s)
                 self.store.mark(eid,{"stage":"force_close_confirmed","epoch":epoch["epoch"]})
             save(phase="closed",closed_at=time.time(),remaining_qty=str(actual),error=None)
+            # Only the failing combo is closed. Peers keep their own exposure, so
+            # the message must not claim the container is zero.
             self.service._emit("L3.EXEC.FORCE_CLOSE_CONFIRMED","WARNING",
-                "Emergency Force Close confirmed: merged position is zero",intent,
-                side=intent.side,affected_combos=epoch["affected"],remaining_exposure="0")
+                f"Emergency Force Close confirmed for failing combo {intent.event_id}; "
+                f"protection step {kind} failed; remaining container quantity {actual}",
+                intent,side=intent.side,affected_combos=epoch["affected"],
+                closed_combo=intent.event_id,remaining_exposure=str(actual))
             return result()
         except Exception as exc:
             # A lost owner cannot write a stale verdict or make another API
