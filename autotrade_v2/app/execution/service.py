@@ -586,7 +586,11 @@ class ExecutionService:
                     state["merged_reconcile"]={k:v for k,v in report.items() if k!="combos"}
                     if own_report.get("monitor"):
                         state["exit_cleanup"]=own_report["monitor"]
-                    if report["status"]=="ADMISSION_SAFE_TRAILING_PARAMS_UNVERIFIED":
+                    if (report["status"]=="ADMISSION_SAFE_TRAILING_PARAMS_UNVERIFIED"
+                            and f"{event_id}:TRAILING_PARAMS_UNVERIFIED" in (report.get("warnings") or [])):
+                        # Only the specific pending combo remains in warning
+                        # status. Healthy peer combos retain their completion
+                        # and may continue independent cleanup.
                         # Keep the WAL/terminal=false for strict recovery.
                         # The side ledger proved live quantities and hard SL,
                         # not callback or activation parameters.
