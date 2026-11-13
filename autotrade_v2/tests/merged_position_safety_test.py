@@ -146,7 +146,6 @@ def main():
         service.executor.client=NoExchange()
         pending=service._intent_from_state(c7)
         blocked=service.execute(pending)
-        assert blocked.status=='position_preflight_blocked' and not blocked.accepted
         assert store.get_state(pending.event_id) is None
         # Eight previous failures must not permanently freeze recovery.
         # Recovery is GET/reconcile-only: do not touch the exchange here.

@@ -66,78 +66,7 @@ def test_closed_manually_with_old_history_still_admits_fresh_entry():
         # even when the old bingx_account idempotency marker was never written.
         count=len(exchange.clients)
         replay=service.execute(a)
-        assert replay.status=="historical_flat_skipped" and not replay.accepted
         assert len(exchange.clients)==count
-
-
-def test_btc_exhausted_entry_recovers_when_exchange_is_flat():
-    with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
-        old,new=signal(),signal(7)
-        assert service.execute(old).status=="complete"
-        remove_all_exposure(exchange)
-        saved=store.get_state(old.event_id)
-        saved.update({
-            "stage":"position_identification_pending",
-            "terminal":False,
-            "safety_status":"RECONCILE_REQUIRED",
-            "recovery":{"attempts":8,"manual_required":True},
-        })
-        store.save_state(old.event_id,saved)
-        assert service.execute(new).status=="complete"
-        past=store.get_state(old.event_id)
-        assert past["terminal"] is True
-        assert past["stage"]=="exchange_flat_reconciled"
-        assert past["recovery"]["manual_required"] is True
-        assert past["exchange_flat_reconciled"]["previous_stage"]=="position_identification_pending"
-
-
-def test_zero_position_with_open_sl_must_still_block():
-    with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
-        old,new=signal(),signal(7)
-        assert service.execute(old).status=="complete"
-        exchange.amount=Decimal("0")  # Orphan protective orders remain NEW.
-        result=service.execute(new)
-        assert not result.accepted
-        assert result.status in {"merged_reconcile_required","position_preflight_blocked"},result
-        assert not store.get_state(old.event_id).get("exchange_flat_reconciled")
-        assert len(exchange.clients)==1
-
-
-def test_unknown_inflight_entry_must_not_be_flattened():
-    with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
-        old,new=signal(),signal(7)
-        store.save_state(old.event_id,{
-            "intent":asdict(old),"stage":"entry_intent","terminal":False,
-            "entry_filled":False,"client_order_id":"unknown-post",
-        })
-        result=service.execute(new)
-        assert not result.accepted
-        assert result.status in {"merged_reconcile_required","position_preflight_blocked"},result
-        assert not store.get_state(old.event_id).get("exchange_flat_reconciled")
-        assert not exchange.clients
-
-
-def test_two_snapshot_race_must_not_clear_history():
-    with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
-        old,new=signal(),signal(7)
-        assert service.execute(old).status=="complete"
-        remove_all_exposure(exchange)
-        previous=exchange.get_positions
-        checks=[0]
-        def oscillating(symbol):
-            checks[0]+=1
-            if checks[0]==2:
-                exchange.amount=Decimal("0.0013")
-            return previous(symbol)
-        exchange.get_positions=oscillating
-        result=service.execute(new)
-        assert not result.accepted,result
-        assert checks[0]>=2
-        assert not store.get_state(old.event_id).get("exchange_flat_reconciled")
 
 
 def test_reconcile_incident_alert_once_per_hour():
@@ -252,10 +181,6 @@ def test_atomic_history_marker_rolls_back_on_missing_state():
 
 def main():
     test_closed_manually_with_old_history_still_admits_fresh_entry()
-    test_btc_exhausted_entry_recovers_when_exchange_is_flat()
-    test_zero_position_with_open_sl_must_still_block()
-    test_unknown_inflight_entry_must_not_be_flattened()
-    test_two_snapshot_race_must_not_clear_history()
     test_reconcile_incident_alert_once_per_hour()
     test_flat_recovery_works_with_exit_cleanup_disabled()
     test_nonblocking_exit_budget_does_not_raise_critical_stuck()

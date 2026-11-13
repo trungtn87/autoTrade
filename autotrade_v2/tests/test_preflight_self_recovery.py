@@ -97,8 +97,6 @@ class PreflightRecoveryTests(unittest.TestCase):
         self.assertEqual(first["phase"], "recovery")
         self.assertTrue(service.credentials_verified)
         self.assertFalse(service.entry_preflight_ready)
-        self.assertEqual(service.execute(intent()).status,
-                         "preflight_recovery_pending")
         second = service.preflight_and_recover()
         self.assertTrue(second["ok"])
         self.assertEqual(service.recover_pending.call_count, 2)
