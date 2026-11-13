@@ -14,6 +14,7 @@ from .exit_cleanup import clean_one, eligible, oid, CleanupUncertain
 from .store import ExecutionStore
 from .merged import reconcile_side, _structurally_present_pending_trailing
 from .force_close import ForceClose, side_key, TARGET as FORCE_TARGET
+from ..control.l5_trade import LEGACY_FORWARDED_KEYS
 
 
 class FencedClient:
@@ -34,12 +35,14 @@ class FencedClient:
 
 class ExecutionService:
     """Layer 3 only: TradeIntent -> reconciled BingX execution result."""
+    l5 = None  # class default so instances built without __init__ still work
 
-    def __init__(self, settings: Settings, store: ExecutionStore, event_cb=None):
+    def __init__(self, settings: Settings, store: ExecutionStore, event_cb=None, l5=None):
         self.settings = settings
         self.store = store
         self.executor = Final14Executor(settings)
         self.event_cb = event_cb
+        self.l5 = l5
         self.credentials_verified = False
         # Separate ability to call BingX from admission of NEW Entry. Existing
         # recovery and emergency-close operations must remain usable after a
@@ -53,6 +56,15 @@ class ExecutionService:
         self._next_flat_reconciliation_poll = 0.0
 
     def _emit(self, key: str, severity: str, message: str, intent: TradeIntent | None = None, **extra) -> None:
+        if self.l5 is not None and key.startswith("L3.EXEC.") and key not in LEGACY_FORWARDED_KEYS:
+            self.l5.handle(
+                key, severity, message,
+                symbol=(intent.symbol if intent is not None else extra.get("symbol")),
+                event_id=(intent.event_id if intent is not None else extra.get("event_id")),
+                order_id=extra.get("order_id"),
+                details=extra.get("details"),
+            )
+            return
         if not self.event_cb:
             return
 
