@@ -408,8 +408,10 @@ class ExecutionService:
             emergency=self.store.get(side_key(intent.symbol,intent.side),FORCE_TARGET)
             if emergency and emergency.get("phase")!="closed":
                 continue  # above epoch recovery owns this side
-            if int(recovery.get("attempts",0))>=8 and not (emergency and emergency.get("phase")!="closed"):
-                continue  # bounded automated recovery; persisted manual intervention
+            # Retry read/reconciliation indefinitely with bounded backoff.
+            # Eight failed attempts require an alert, NOT a permanent lock.
+            # The executor still uses the acknowledged order ID and does not
+            # submit a second conditional order for an ambiguous POST.
             if time.time() < float(recovery.get("next_at",0)):
                 continue
             result=self.execute(intent,recovery_only=True)
@@ -776,11 +778,10 @@ class ExecutionService:
         pending=bool(state and not state.get("terminal"))
         if pending:
             recovery=state.get("recovery") or {}
-            exhausted=int(recovery.get("attempts",0))>=8
-            if exhausted or time.time()<float(recovery.get("next_at",0)):
+            if time.time()<float(recovery.get("next_at",0)):
                 return ExecutionResult(event_id=intent.event_id,
                     accepted=bool(state.get("entry_accepted")),
-                    status="manual_reconcile_required" if exhausted else "recovery_backoff",
+                    status="recovery_backoff",
                     order_id=state.get("order_id"),details={"network_called":False,"recovery":recovery})
 
         if self.store.seen(intent.event_id) and not pending:
@@ -914,11 +915,12 @@ class ExecutionService:
         # Do not create a post-entry SL lifecycle. BingX manages confirmed exits.
         if not terminal:
             attempts=int((state.get("recovery") or {}).get("attempts",0))+1
-            persisted["recovery"]={"attempts":attempts,"manual_required":attempts>=8,
+            persisted["recovery"]={"attempts":attempts,"manual_review_recommended":attempts>=8,
+                "auto_retry_enabled":True,
                 "next_at":time.time()+min(900,15*2**min(attempts,6))}
             if attempts==8:
-                self._emit("L3.EXEC.RECOVERY_EXHAUSTED","CRITICAL",
-                           "automated recovery exhausted; manual reconciliation required, no further order submissions",intent)
+                self._emit("L3.EXEC.RECOVERY_STILL_PENDING","CRITICAL",
+                           "recovery still pending after eight attempts; automatic exact-ID reconciliation continues with bounded backoff",intent)
             persisted["safety_status"]="RECONCILE_REQUIRED"
         failure_signature=str(result.get("stage"))+":"+str(result.get("error"))
         repeated_failure=state.get("last_failure_signature")==failure_signature
