@@ -6,11 +6,8 @@ No exchange credentials, sockets or production mutations.
 """
 from __future__ import annotations
 
-from dataclasses import asdict
 from decimal import Decimal
-from pathlib import Path
 from tempfile import TemporaryDirectory
-from types import SimpleNamespace
 
 from app.execution.service import ExecutionService
 from merged_entry_test import setup, signal, state_ids
