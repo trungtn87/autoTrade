@@ -12,7 +12,7 @@ from .final14_executor import Final14Executor
 from .identity import entry_baseline
 from .exit_cleanup import clean_one, eligible, oid, CleanupUncertain
 from .store import ExecutionStore
-from .merged import reconcile_side
+from .merged import reconcile_side, _structurally_present_pending_trailing
 from .force_close import ForceClose, side_key, TARGET as FORCE_TARGET
 
 
@@ -705,6 +705,26 @@ class ExecutionService:
             if any(str(row.get("positionSide") or "").upper()==side for row in opened.values()):
                 risks.append("UNOWNED_OPEN_ORDER")
             return baseline,{"blocking_risks":risks,"shared":False}
+        # BingX openOrders may omit native conditional exits. A known exact
+        # acknowledged trailing ID can be checked with read-only order GET.
+        # The GET must return THAT ID and pass the same strict structural
+        # identity/quantity proof; no shape-only adoption or synthetic ACK.
+        direct_get_proofs=[]
+        for _,s in siblings:
+            journal=(s.get("protection_journal") or {}).get("trailing") or {}
+            acknowledged=str(journal.get("acknowledged_order_id") or "")
+            if not acknowledged or acknowledged in opened:
+                continue
+            raw=self.executor.client.get_order_detail(
+                intent.symbol,order_id=acknowledged
+            )
+            row=self.executor.client.extract_order(raw)
+            if (isinstance(row,dict) and oid(row)==acknowledged
+                    and _structurally_present_pending_trailing(
+                        s,{acknowledged:row}
+                    )==acknowledged):
+                opened[acknowledged]=row
+                direct_get_proofs.append(acknowledged)
         required=set()
         for _,s in siblings:
             cached=(s.get("exit_cleanup") or {}).get("orders") or {}
@@ -737,8 +757,11 @@ class ExecutionService:
                 affected_event_ids=[w.split(":")[0] for w in report["warnings"]],
                 evidence=report["warnings"],
                 confirmation="NOT_FULLY_VERIFIED",
+                direct_get_order_ids=direct_get_proofs,
             )
-        return baseline,{**{k:v for k,v in report.items() if k!="combos"},"blocking_risks":blockers}
+        return baseline,{**{k:v for k,v in report.items() if k!="combos"},
+                         "direct_get_order_ids":direct_get_proofs,
+                         "blocking_risks":blockers}
 
     @staticmethod
     def _order_map(rows,symbol):
