@@ -522,7 +522,14 @@ class Final14Executor:
         order_id=""
         expected_entry_id=str(resume_state.get("order_id") or self._order_id(self.client.extract_order(entry_result or {})) or "")
         for attempt in range(1,ENTRY_CONFIRM_ATTEMPTS+1):
-            raw=self.client.find_order_by_client_id(intent.symbol,client_order_id)
+            lookup=L4EntryReader(self.client).get_entry(intent.symbol,client_order_id)
+            if lookup["status"]=="UNKNOWN":
+                return {"processed":False,"entry_accepted":entry_result is not None,
+                        "entry_filled":False,"ok":False,
+                        "stage":"entry_unknown_reconcile_required",
+                        "client_order_id":client_order_id,
+                        "error":"entry confirmation unknown: "+str(lookup.get("error"))}
+            raw=lookup["raw"]
             if raw is None:
                 if attempt<ENTRY_CONFIRM_ATTEMPTS:
                     time.sleep(ENTRY_CONFIRM_SLEEP_SEC)
