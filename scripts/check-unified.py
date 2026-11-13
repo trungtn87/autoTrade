@@ -79,16 +79,16 @@ with TestClient(app, follow_redirects=False) as client:
 
     engine = client.get("/engine/status")
     assert engine.status_code == 200, engine.text
+    assert engine.json()["engine"] == "autotrade-v3"
     assert engine.json()["runtime"]["execution_enabled"] is False
-    assert engine.json()["lifecycle_writer"] == {
-        "state":"disabled", "reason":"collector_contract_pending"}
+    assert engine.json()["legacy_v2_trading"] is False
 
     candle = client.get("/engine/health")
     assert candle.status_code in (200, 503), candle.text
-    assert candle.json()["engine"] == "autotrade-v2"
-    # Cleanup is production default, while retired SL resizing remains off.
-    assert candle.json()["exit_cleanup_enabled"] is True
-    assert candle.json()["position_lifecycle_enabled"] is False
+    assert candle.json()["engine"] == "autotrade-v3"
+
+    # The V2 engine is not imported, so it can neither trade nor alert.
+    assert "autotrade_v2.app.main" not in sys.modules
 
     static = client.get("/static/manifest.webmanifest")
     assert static.status_code == 200, static.text
@@ -97,4 +97,4 @@ with TestClient(app, follow_redirects=False) as client:
     assert worker.headers["service-worker-allowed"] == "/"
     assert "serviceWorker" not in worker.text or "fetch" in worker.text
 
-print("PASS: one public port, direct PWA Dashboard, redacted read-only API, Engine lifespan/status")
+print("PASS: one public port, direct PWA Dashboard, redacted read-only API, V3 Engine lifespan/status")

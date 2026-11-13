@@ -35,6 +35,10 @@ jobs:
         run: python scripts/check-offline.py autotrade_v2
       - name: Run ALL Dashboard offline tests (no exchange network)
         run: python scripts/check-offline.py dashboard
+      - name: Run V3 live engine MOCK tests (fake BingX/Discord, no network)
+        env:
+          DISCORD_ENABLED: 'false'
+        run: python -m pytest autotrade_v3/live/tests -q -p no:cacheprovider
       - name: Test cgroup app metrics sampler without credentials
         run: python scripts/check-container-metrics.py
       - name: Test single app routes, lifespans, public PWA and cleanup default
@@ -43,7 +47,7 @@ jobs:
         run: python scripts/check-unified.py
       - name: Compile Python and check browser JavaScript
         run: |
-          python -m compileall -q unified_app.py autotrade_v2/app dashboard/autotrade_live
+          python -m compileall -q unified_app.py autotrade_v2/app autotrade_v3/live dashboard/autotrade_live
           node --check dashboard/autotrade_live/static/app.js
           node --check dashboard/autotrade_live/static/pnl_chart.js
           node dashboard/tests/test_pnl_chart.cjs
@@ -56,6 +60,8 @@ jobs:
           python scripts/check-merged-postgres.py
       - name: Verify private analytics schema and cross-session lock on isolated Postgres
         run: python scripts/check-analytics-postgres.py
+      - name: Verify V3 migration (6 new tables) and V3 store on isolated PostgreSQL
+        run: python scripts/check-v3-postgres.py
       - name: Build ONLY the production root Docker image
         run: docker build -t autotrade-baseline .
       - name: Verify production image serves Dashboard and Engine with no credentials
@@ -72,8 +78,8 @@ jobs:
           engine = json.load(urllib.request.urlopen("http://127.0.0.1:8000/engine/status"))
           assert root["service"] == "autotrade-dashboard"
           assert root["trade_api"] is False
+          assert engine["engine"] == "autotrade-v3"
           assert engine["runtime"]["execution_enabled"] is False
-          assert engine["lifecycle_writer"] == {"state":"disabled", "reason":"collector_contract_pending"}
           assert urllib.request.urlopen("http://127.0.0.1:8000/mobile").status == 200
           print("Single-host production smoke PASS")
           '; then
