@@ -204,41 +204,6 @@ class RecoveryAfterEightAttempts(unittest.TestCase):
         self.assertEqual(recovered[0]["status"], "recovery_pending")
 
 
-    def test_unrelated_symbol_has_no_side_reconcile_blocker(self):
-        event_id = "ETH-USDT|1h|C4|SELL|1794542399999"
-        class Store:
-            def list_states(self):
-                return [(event_id, {
-                    "intent": {"symbol": "ETH-USDT", "side": "SELL"},
-                    "terminal": False, "safety_status": "RECONCILE_REQUIRED",
-                })]
-
-            def get(self, *args):
-                return None
-
-        class Client:
-            def get_positions(self, symbol):
-                self._check(symbol)
-                return []
-
-            def get_open_orders(self, symbol):
-                self._check(symbol)
-                return []
-
-            @staticmethod
-            def _check(symbol):
-                assert symbol == "BTC-USDT"
-
-        service = ExecutionService.__new__(ExecutionService)
-        service.store = Store()
-        service.executor = SimpleNamespace(client=Client())
-        intent = SimpleNamespace(
-            event_id="BTC-USDT|1h|C4|SELL|1794542399999",
-            symbol="BTC-USDT", side="SELL",
-        )
-        baseline, report = service._entry_admission(intent)
-        self.assertEqual(baseline, {})
-        self.assertEqual(report["blocking_risks"], [])
 
 
 if __name__ == "__main__":

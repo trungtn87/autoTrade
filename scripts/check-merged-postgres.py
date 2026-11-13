@@ -107,9 +107,11 @@ with TemporaryDirectory(prefix='merged-pg-') as tmp:
                 if row.get('status')=='NEW':
                     row['status']='CANCELLED'
         assert service.execute(flat_new).status=='complete'
+        # Entry no longer retires old history: the independent new entry is admitted
+        # and the old record is left untouched, not auto-marked as reconciled.
         historical=ExecutionStore('',database_url=uri).get_state(flat_old.event_id)
-        assert historical['terminal'] and historical['exchange_flat_reconciled']
-        assert historical['exchange_flat_reconciled']['previous_safety_status']=='RECONCILE_REQUIRED'
+        assert historical['safety_status']=='RECONCILE_REQUIRED',historical
+        assert not historical.get('exchange_flat_reconciled')
         try:
             a.save_states_atomic([
                 (flat_old.event_id,{'stage':'corrupted-partial-epoch'}),
@@ -121,9 +123,8 @@ with TemporaryDirectory(prefix='merged-pg-') as tmp:
                 raise
             assert 'state missing' in str(exc)
         historical=ExecutionStore('',database_url=uri).get_state(flat_old.event_id)
-        assert historical['exchange_flat_reconciled']
         assert historical['stage']!='corrupted-partial-epoch'
-        print('PASS PostgreSQL: 2-snapshot exchange-flat history, durable epoch and rollback')
+        print('PASS PostgreSQL: old flat history does not block a new entry; atomic rollback')
 
         from protection_retry_abort_test import FailureExchange
         for kind in ('sl','tp','trailing'):

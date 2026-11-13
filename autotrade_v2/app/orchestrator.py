@@ -26,6 +26,7 @@ class Orchestrator:
         execution: ExecutionService,
         event_cb=None,
         observer=None,
+        l5_signal=None,
     ):
         self.settings = settings
         self.data = data
@@ -33,6 +34,7 @@ class Orchestrator:
         self.execution = execution
         self.event_cb = event_cb
         self.observer = observer
+        self.l5_signal = l5_signal
 
     def _emit(self, key: str, severity: str, message: str, **kwargs) -> None:
         if not self.event_cb:
@@ -144,6 +146,13 @@ class Orchestrator:
                         "smc_dir":intent.smc_dir,
                     },
                 )
+
+            if self.l5_signal is not None:
+                for intent in intents:
+                    try:
+                        self.l5_signal(intent)
+                    except Exception:
+                        pass  # Discord never blocks signal or execution.
 
             # OBSERVE is strictly side-channel, dispatched BEFORE execution.
             # Its result is never read by the execution path.

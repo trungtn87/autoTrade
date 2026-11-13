@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from .config import Settings, enable_runtime_trailing, validate_settings
 from .control.logging import configure_logging
 from .control.events import EventReporter
+from .control.l5_wiring import build_l5
 from .data.historical import HistoricalKlineClient
 from .data.service import DataService
 from .data.store import CandleStore
@@ -68,11 +69,13 @@ data_service=DataService(
     required=settings.required_15m,
 )
 strategy_engine=StrategyEngine()
-execution_service=ExecutionService(settings,execution_store,event_cb=event_reporter.emit)
+l5_alerts=build_l5(settings)
+execution_service=ExecutionService(settings,execution_store,event_cb=event_reporter.emit,l5=l5_alerts)
 ai_observer=GeminiObserver(settings.database_url, event_cb=event_reporter.emit)
 orchestrator=Orchestrator(
     settings,data_service,strategy_engine,execution_service,event_cb=event_reporter.emit,
     observer=ai_observer,
+    l5_signal=(l5_alerts.signal if l5_alerts is not None else None),
 )
 
 app=FastAPI(title="AutoTrade V2")

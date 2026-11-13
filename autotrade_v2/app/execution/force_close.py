@@ -77,6 +77,7 @@ class ForceClose:
             if not states or intent.event_id not in states:
                 raise CleanupUncertain("emergency initiator/entry evidence missing")
             save(affected=sorted(states))
+            init_id=intent.event_id
             owners={}
             for eid,s in states.items():
                 verified_entry_order(s["verified_entry"],intent.symbol,intent.side,s["client_order_id"],s["order_id"])
@@ -95,6 +96,7 @@ class ForceClose:
                         raise CleanupUncertain("acknowledged exit ownership conflict")
                     owners[acknowledged]=(eid,k)
                     s.setdefault("protection",{})[k]={"order_id":acknowledged}
+            closing_owners={o:v for o,v in owners.items() if v[0]==init_id}
 
             def close_rows():
                 total=Decimal(0)
@@ -129,16 +131,18 @@ class ForceClose:
                 opened=maps(self.client.get_open_orders(intent.symbol))
                 positions=self.client.get_positions(intent.symbol)
                 containers=entry_baseline(positions,intent.symbol,intent.side)
-                if any(pid!=epoch["position_id"] for pid in containers):
-                    raise CleanupUncertain("emergency container changed or external same-side exposure")
+                # A separate positionId is another combo's own position: it is
+                # neither closed nor a reason to stop. Only our container is read.
                 actual=Decimal(containers.get(epoch["position_id"],"0"))
-                save(remaining_qty=str(actual),active_exit_ids=sorted(owners.keys() & opened.keys()))
+                save(remaining_qty=str(actual),active_exit_ids=sorted(closing_owners.keys() & opened.keys()))
                 wanted="LONG" if intent.side=="BUY" else "SHORT"
                 emergency_ids={oid(x["order"]) for x in epoch["closes"] if x.get("order")}
                 for order_id,row in opened.items():
                     if str(row.get("positionSide","")).upper()!=wanted:
                         continue
                     if order_id in emergency_ids:
+                        continue
+                    if str(row.get("positionId") or row.get("positionID") or "")not in ("",epoch["position_id"]):
                         continue
                     if order_id not in owners:
                         raise CleanupUncertain("unowned/manual same-side order; no cancellation or MARKET")
@@ -170,7 +174,7 @@ class ForceClose:
                 raise CleanupUncertain("exchange quantity and exact fills disagree; possible stale/manual change")
             # Cancel TP/trailing before SL, retaining coverage as long as
             # possible. Every exact DELETE intent is persisted before sending.
-            for order_id,(eid,k) in sorted(owners.items(),key=lambda x:x[1][1]=="sl"):
+            for order_id,(eid,k) in sorted(closing_owners.items(),key=lambda x:x[1][1]=="sl"):
                 if order_id not in opened:
                     continue
                 count=int(epoch["cancels"].get(order_id,0))
@@ -186,7 +190,7 @@ class ForceClose:
                     # authoritative. Never infer cancellation from the reply.
                     pass
             actual,opened,residuals=observe()
-            if owners.keys() & opened.keys():
+            if closing_owners.keys() & opened.keys():
                 raise CleanupUncertain("native exits still active; MARKET withheld")
             if epoch["closes"]:
                 market_filled=close_rows()
@@ -194,33 +198,35 @@ class ForceClose:
                 raise CleanupUncertain("emergency MARKET active/partial; no duplicate close")
             if sum(residuals.values())-market_filled!=actual:
                 raise CleanupUncertain("pre-MARKET position/fill mismatch")
-            if actual:
+            close_qty=residuals[init_id]-market_filled
+            if close_qty>0:
                 if len(epoch["closes"])>=3:
                     raise CleanupUncertain("emergency residual close budget exhausted")
                 precision=int(self.client.get_contract_rules(intent.symbol)["quantityPrecision"])
-                if actual.quantize(Decimal(1).scaleb(-precision))!=actual:
-                    raise CleanupUncertain("actual quantity exceeds contract precision")
+                if close_qty.quantize(Decimal(1).scaleb(-precision))!=close_qty:
+                    raise CleanupUncertain("close quantity exceeds contract precision")
                 revision=len(epoch["closes"])
                 cid="fc_"+hashlib.sha256(f"{epoch['epoch']}|{revision}".encode()).hexdigest()[:32]
-                item={"client_order_id":cid,"requested_qty":str(actual),"revision":revision}
+                item={"client_order_id":cid,"requested_qty":str(close_qty),"revision":revision}
                 epoch["closes"].append(item)
                 save(phase="close_prepared",closes=epoch["closes"])
                 self.store.assert_trading_owner()
                 try:
-                    self.client.close_market(intent.symbol,intent.side,actual,50,
+                    self.client.close_market(intent.symbol,intent.side,close_qty,50,
                         client_order_id=cid,position_id=epoch["position_id"],quantity_precision=precision)
                 except Exception:
                     pass
                 market_filled=close_rows()
                 actual,opened,residuals=observe()
-            if (actual or owners.keys() & opened.keys()
-                    or any(str(x["order"]["status"]).upper() in ACTIVE for x in epoch["closes"])
-                    or sum(residuals.values())!=market_filled):
+            others=sum(residuals[e] for e in states if e!=init_id)
+            if (residuals[init_id]!=market_filled or actual!=others
+                    or closing_owners.keys() & opened.keys()
+                    or any(str(x["order"]["status"]).upper() in ACTIVE for x in epoch["closes"])):
                 raise CleanupUncertain("emergency closure not proven by zero exposure and attributable fills")
             # Epoch finalization precedes individual states: crash midway is
             # recoverable and still blocks admission until all states commit.
-            save(phase="finalizing",allocations={eid:str(q) for eid,q in residuals.items()},error=None)
-            for eid,s in states.items():
+            save(phase="finalizing",allocations={init_id:str(residuals[init_id])},error=None)
+            for eid,s in {init_id:states[init_id]}.items():
                 s.update(terminal=True,ok=False,stage="force_close_confirmed",force_close_epoch=epoch["epoch"],
                     force_close_allocation={"epoch":epoch["epoch"],"quantity":str(residuals[eid]),
                         "orders":[x["order"] for x in epoch["closes"]],"position_id":epoch["position_id"]},
@@ -232,10 +238,14 @@ class ForceClose:
                 s["protection_journal"]={}
                 self.store.save_state(eid,s)
                 self.store.mark(eid,{"stage":"force_close_confirmed","epoch":epoch["epoch"]})
-            save(phase="closed",closed_at=time.time(),remaining_qty="0",error=None)
+            save(phase="closed",closed_at=time.time(),remaining_qty=str(actual),error=None)
+            # Only the failing combo is closed. Peers keep their own exposure, so
+            # the message must not claim the container is zero.
             self.service._emit("L3.EXEC.FORCE_CLOSE_CONFIRMED","WARNING",
-                "Emergency Force Close confirmed: merged position is zero",intent,
-                side=intent.side,affected_combos=epoch["affected"],remaining_exposure="0")
+                f"Emergency Force Close confirmed for failing combo {intent.event_id}; "
+                f"protection step {kind} failed; remaining container quantity {actual}",
+                intent,side=intent.side,affected_combos=epoch["affected"],
+                closed_combo=intent.event_id,remaining_exposure=str(actual))
             return result()
         except Exception as exc:
             # A lost owner cannot write a stale verdict or make another API

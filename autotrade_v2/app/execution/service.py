@@ -14,6 +14,8 @@ from .exit_cleanup import clean_one, eligible, oid, CleanupUncertain
 from .store import ExecutionStore
 from .merged import reconcile_side, _structurally_present_pending_trailing
 from .force_close import ForceClose, side_key, TARGET as FORCE_TARGET
+from ..control.l5_trade import LEGACY_FORWARDED_KEYS
+from ..control.l4_entry import L4EntryReader
 
 
 class FencedClient:
@@ -34,12 +36,14 @@ class FencedClient:
 
 class ExecutionService:
     """Layer 3 only: TradeIntent -> reconciled BingX execution result."""
+    l5 = None  # class default so instances built without __init__ still work
 
-    def __init__(self, settings: Settings, store: ExecutionStore, event_cb=None):
+    def __init__(self, settings: Settings, store: ExecutionStore, event_cb=None, l5=None):
         self.settings = settings
         self.store = store
         self.executor = Final14Executor(settings)
         self.event_cb = event_cb
+        self.l5 = l5
         self.credentials_verified = False
         # Separate ability to call BingX from admission of NEW Entry. Existing
         # recovery and emergency-close operations must remain usable after a
@@ -53,6 +57,20 @@ class ExecutionService:
         self._next_flat_reconciliation_poll = 0.0
 
     def _emit(self, key: str, severity: str, message: str, intent: TradeIntent | None = None, **extra) -> None:
+        if self.l5 is not None and key.startswith("L3.EXEC.") and key not in LEGACY_FORWARDED_KEYS:
+            facts = {k: extra.get(k) for k in (
+                "side", "entry", "tp", "sl", "avg_price", "executed_qty",
+                "protection", "client_order_id", "stage", "error",
+            )}
+            self.l5.handle(
+                key, severity, message,
+                symbol=(intent.symbol if intent is not None else extra.get("symbol")),
+                event_id=(intent.event_id if intent is not None else extra.get("event_id")),
+                order_id=extra.get("order_id"),
+                details=extra.get("details"),
+                facts=facts,
+            )
+            return
         if not self.event_cb:
             return
 
@@ -673,96 +691,6 @@ class ExecutionService:
                                        status="execution_lock_busy", details={"network_called":False})
             return self._execute_unlocked(intent,recovery_only=recovery_only)
 
-    def _entry_admission(self,intent,include_current=False):
-        """Read-only admission. Same symbol/side alone never blocks an entry."""
-        positions=self.executor.client.get_positions(intent.symbol)
-        baseline=entry_baseline(positions,intent.symbol,intent.side)
-        opened=self._order_map(self.executor.client.get_open_orders(intent.symbol),intent.symbol)
-        siblings=[(eid,s) for eid,s in self.store.list_states()
-                  if (include_current or eid!=intent.event_id) and (s.get("intent") or {}).get("symbol")==intent.symbol
-                  and (s.get("intent") or {}).get("side")==intent.side
-                  and not s.get("exchange_flat_reconciled")]
-        emergency=self._emergency(intent.symbol,intent.side)
-        if (siblings and not include_current
-                and not (emergency and emergency.get("phase")!="closed")):
-            # A verified empty exchange account starts a fresh risk epoch.
-            # Historic TP/SL gaps remain auditable but may not lock Entry.
-            if not self._unresolved_submission(siblings):
-                flat,positions,opened=self._confirm_exchange_flat(
-                    intent.symbol,positions,opened
-                )
-                baseline=entry_baseline(positions,intent.symbol,intent.side)
-                if flat:
-                    self._retire_flat_history(
-                        intent.symbol,intent.side,siblings,"entry-admission"
-                    )
-                    siblings=[]
-        if not siblings:
-            side="LONG" if intent.side=="BUY" else "SHORT"
-            risks=[]
-            if baseline:
-                risks.append("UNTRACKED_POSITION")
-            if any(str(row.get("positionSide") or "").upper()==side for row in opened.values()):
-                risks.append("UNOWNED_OPEN_ORDER")
-            return baseline,{"blocking_risks":risks,"shared":False}
-        # BingX openOrders may omit native conditional exits. A known exact
-        # acknowledged trailing ID can be checked with read-only order GET.
-        # The GET must return THAT ID and pass the same strict structural
-        # identity/quantity proof; no shape-only adoption or synthetic ACK.
-        direct_get_proofs=[]
-        for _,s in siblings:
-            journal=(s.get("protection_journal") or {}).get("trailing") or {}
-            acknowledged=str(journal.get("acknowledged_order_id") or "")
-            if not acknowledged or acknowledged in opened:
-                continue
-            raw=self.executor.client.get_order_detail(
-                intent.symbol,order_id=acknowledged
-            )
-            row=self.executor.client.extract_order(raw)
-            if (isinstance(row,dict) and oid(row)==acknowledged
-                    and _structurally_present_pending_trailing(
-                        s,{acknowledged:row}
-                    )==acknowledged):
-                opened[acknowledged]=row
-                direct_get_proofs.append(acknowledged)
-        required=set()
-        for _,s in siblings:
-            cached=(s.get("exit_cleanup") or {}).get("orders") or {}
-            for item in (s.get("protection") or {}).values():
-                if not isinstance(item,dict):
-                    continue
-                order_id=str(item.get("order_id") or "")
-                if order_id and order_id not in opened and not (cached.get(order_id) or {}).get("status") in {
-                    "FILLED","CANCELED","CANCELLED","EXPIRED","REJECTED"}:
-                    required.add(order_id)
-        history={}
-        if required:
-            now=int(time.time()*1000)
-            history=self._order_map(self.executor.client.get_order_history(
-                intent.symbol,now-6*86400_000,now,required_ids=required),intent.symbol)
-        report=reconcile_side(siblings,positions,opened,history)
-        # Sum of resting native conditional quantities is a separate unresolved
-        # design diagnostic, not proof a healthy same-side combo is unprotected.
-        # It must remain explicit in the draft; do not use it as a disguised
-        # blanket same-side entry switch.
-        blockers=[r for r in report["risks"] if r!="EXECUTABLE_EXIT_BUDGET_EXCEEDED"]
-        # Never claim the trailing callback/activation has been verified.
-        # This warning means only that the exact owned trailing is currently
-        # structurally present and the full hard SL/exposure ledger is healthy.
-        if report.get("warnings") and not blockers:
-            self._emit(
-                "L3.EXEC.TRAILING_PARAMS_UNVERIFIED","WARNING",
-                "exact acknowledged trailing is active but callback/activation cannot be verified; independent entry admission uses full hard-SL proof",
-                intent,impact_scope="owned_combo",
-                affected_event_ids=[w.split(":")[0] for w in report["warnings"]],
-                evidence=report["warnings"],
-                confirmation="NOT_FULLY_VERIFIED",
-                direct_get_order_ids=direct_get_proofs,
-            )
-        return baseline,{**{k:v for k,v in report.items() if k!="combos"},
-                         "direct_get_order_ids":direct_get_proofs,
-                         "blocking_risks":blockers}
-
     @staticmethod
     def _order_map(rows,symbol):
         result={}
@@ -828,47 +756,15 @@ class ExecutionService:
 
         state=self.store.get_state(intent.event_id)
         emergency=self.store.get(side_key(intent.symbol,intent.side),FORCE_TARGET)
+        # Owner decision: while an emergency is unresolved, same symbol/side
+        # entries wait. The lock lifts as soon as the epoch is closed.
         if emergency and emergency.get("phase")!="closed":
             if intent.event_id!=emergency["initiator"]:
                 return ExecutionResult(event_id=intent.event_id,accepted=False,
                     status="force_close_side_blocked",details={"epoch":emergency["epoch"]})
             result=ForceClose(self).run(intent,state,emergency["failed_kind"])
             return ExecutionResult(event_id=intent.event_id,accepted=True,status=result["stage"],details=result)
-        # Credential validation and historical recovery are different gates.
-        # Keep existing emergency epochs and recovery_only execution usable,
-        # but never send a NEW Entry while reconciliation is unfinished.
-        if self.entry_recovery_pending and not recovery_only:
-            self._emit(
-                "L3.EXEC.PREFLIGHT_BLOCK",
-                "CRITICAL",
-                "BingX API verified but persisted-entry recovery is unfinished",
-                intent,side=intent.side,entry=intent.entry,tp=intent.tp,sl=intent.sl,
-                error=self.preflight_error or "execution recovery pending",
-            )
-            return ExecutionResult(
-                event_id=intent.event_id, accepted=False,
-                status="preflight_recovery_pending",
-                details={"network_called":False,
-                         "error":self.preflight_error or "execution recovery pending"},
-            )
-        if state and state.get("exchange_flat_reconciled"):
-            # Some legacy states did not reach bingx_account/seen before a
-            # manual close. Never resend an old signal after retirement.
-            return ExecutionResult(
-                event_id=intent.event_id,accepted=False,
-                status="historical_flat_skipped",
-                details={"network_called":False,
-                         "reconciled_at_ms":(state["exchange_flat_reconciled"] or {}).get("at_ms")},
-            )
         pending=bool(state and not state.get("terminal"))
-        if pending:
-            recovery=state.get("recovery") or {}
-            if time.time()<float(recovery.get("next_at",0)):
-                return ExecutionResult(event_id=intent.event_id,
-                    accepted=bool(state.get("entry_accepted")),
-                    status="recovery_backoff",
-                    order_id=state.get("order_id"),details={"network_called":False,"recovery":recovery})
-
         if self.store.seen(intent.event_id) and not pending:
             self._emit(
                 "L3.EXEC.DUPLICATE_SKIPPED",
@@ -885,36 +781,32 @@ class ExecutionService:
 
         client_order_id=self.executor.client_order_id(intent.event_id,"entry")
         if not state:
-            # A peer's presence is not a rejection reason. Reconcile its exact
-            # fills/protections against the exchange before increasing exposure.
-            try:
-                existing=self.executor.client.find_order_by_client_id(intent.symbol,client_order_id)
-                if existing is not None:
-                    # A prior MARKET can outlive a lost local state write.
-                    # Reconcile that exact ID; never admit another MARKET.
-                    before_positions=None
-                    admission={"blocking_risks":[],"existing_entry_recovery":True}
-                    pending=True
-                else:
-                    before_positions,admission=self._entry_admission(intent)
-            except Exception as exc:
-                self._emit("L3.EXEC.POSITION_PREFLIGHT_BLOCK","CRITICAL",
-                           "exchange exposure/protection evidence unavailable; entry not submitted",
-                           intent,error=str(exc))
-                return ExecutionResult(event_id=intent.event_id,accepted=False,
-                    status="position_preflight_blocked",details={"network_called":True,"error":str(exc)})
-            if admission["blocking_risks"]:
-                self._emit("L3.EXEC.MERGED_RECONCILE_REQUIRED","CRITICAL",
-                           "verified exposure/protection mismatch; entry not submitted",intent,
-                           risks=admission["blocking_risks"])
-                return ExecutionResult(event_id=intent.event_id,accepted=False,
-                    status="merged_reconcile_required",details=admission)
+            lookup=L4EntryReader(self.executor.client).get_entry(intent.symbol,client_order_id)
+            # No persisted state means this signal has never been sent: state is
+            # written before any POST. An UNKNOWN lookup therefore does not block
+            # here; the executor marks the send durably before POST and blocks on
+            # UNKNOWN only once a send may have happened.
+            if lookup["status"]=="FOUND":
+                pending=True
+            before_positions=None
+            if lookup["status"]!="FOUND":
+                # Durable pre-entry baseline for exact positionId attribution.
+                try:
+                    before_positions=entry_baseline(
+                        self.executor.client.get_positions(intent.symbol),intent.symbol,intent.side)
+                except Exception as exc:
+                    return ExecutionResult(event_id=intent.event_id,accepted=False,
+                        status="entry_unknown_reconcile_required",
+                        details={"network_called":True,"client_order_id":client_order_id,
+                                 "error":str(exc)})
+            admission={"blocking_risks":[],"shared":False,
+                       "existing_entry_recovery":lookup["status"]=="FOUND"}
             new_state={
                     "terminal":False,
                     "stage":"entry_intent",
-                    # Snapshot is durable across an ambiguous MARKET POST/restart.
+                    "entry_post":"not_sent",
                     "pre_entry_positions":before_positions,
-                    "shared_position":bool(before_positions),
+                    "shared_position":False,
                     "admission":admission,
                     "exit_mode":"split_trailing" if self.settings.tp_trailing_split_enabled else "hard_tp",
                     "client_order_id":client_order_id,
@@ -966,26 +858,12 @@ class ExecutionService:
         def persist_protection(next_state):
             self.store.save_state(intent.event_id,next_state)
 
-        def exposure_check(current):
-            _,report=self._entry_admission(intent,include_current=True)
-            # Missing current TP/trailing is expected while establishing them.
-            # Proven peer fills/old oversized SLs do not erase current entry
-            # ownership. Their repair/cleanup remains a separate exact-ID task.
-            blockers=[r for r in report.get("risks",[]) if
-                r!="EXECUTABLE_EXIT_BUDGET_EXCEEDED"
-                and not r.startswith(intent.event_id+":")
-                and not r.endswith(":SL_QUANTITY_MISMATCH")
-                and not r.endswith(":CLOSED_COMBO_ACTIVE_EXIT")]
-            current["merged_reconcile"]={k:v for k,v in report.items() if k!="blocking_risks"}
-            self.store.save_state(intent.event_id,current)
-            return blockers
-
         result = self.executor.execute_safe(
             intent,
             resume_state=state,
             allow_new_entry=not (pending or recovery_only),
             protection_persist=persist_protection,
-            exposure_check=exposure_check,
+            exposure_check=None,
             force_close=lambda current,kind:ForceClose(self).run(intent,current,kind),
         )
         accepted = bool(result.get("entry_accepted") or result.get("ok"))
@@ -1008,7 +886,6 @@ class ExecutionService:
                            "recovery still pending after eight attempts; automatic exact-ID reconciliation continues with bounded backoff",intent)
             persisted["safety_status"]="RECONCILE_REQUIRED"
         failure_signature=str(result.get("stage"))+":"+str(result.get("error"))
-        repeated_failure=state.get("last_failure_signature")==failure_signature
         persisted["last_failure_signature"]=failure_signature if not result.get("ok") else None
         self.store.save_state(intent.event_id,persisted)
         if terminal:
@@ -1095,9 +972,7 @@ class ExecutionService:
                 severity = "CRITICAL"
 
             failure_reason = str(result.get("error") or stage)
-            if repeated_failure:
-                return ExecutionResult(event_id=intent.event_id,accepted=accepted,
-                                       status=stage,order_id=order_id,details=result)
+            # Every failure is logged and alerted; no repeated-failure suppression.
             self._emit(
                 key,
                 severity,

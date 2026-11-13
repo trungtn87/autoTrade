@@ -81,20 +81,29 @@ def resume(service,store,intent):
 
 
 def assert_closed(service,store,ex,intents):
-    assert ex.amount==0 and ex.close_count<=3
-    for intent in intents:
+    # Only the failing (last) combo is closed; each peer keeps its own quantity and exits.
+    peers=intents[:-1]
+    assert ex.close_count<=3
+    # Peers keep their residual; the epoch records exactly what remains on the container.
+    initiator=store.get_state(intents[-1].event_id)
+    assert initiator['terminal'] and initiator['stage']=='force_close_confirmed',initiator
+    assert initiator['force_close_allocation']
+    for intent in peers:
         state=store.get_state(intent.event_id)
-        assert state['terminal'] and state['stage']=='force_close_confirmed',state
-        assert state['force_close_allocation']
+        assert state.get('stage')!='force_close_confirmed',state
+        assert not any(c[0]=='cancel' and c[1] in state_ids(store,intent).values() for c in ex.calls)
     epoch=store.get(side_key(intents[0].symbol,intents[0].side),TARGET)
-    assert epoch['phase']=='closed' and epoch['remaining_qty']=='0'
-    assert not ex.get_open_orders(intents[0].symbol)
-    # Closed allocation remains in the actual admission ledger after restart.
-    _,report=service._entry_admission(replace(intents[-1],event_id='fresh-event'))
-    assert not report['blocking_risks'],report
+    assert epoch['phase']=='closed' and Decimal(epoch['remaining_qty'])==ex.amount
+    peer_orders={oid for intent in peers for oid in state_ids(store,intent).values()}
+    assert not ({str(x['orderID']) for x in ex.get_open_orders(intents[0].symbol)} & set(map(str,state_ids(store,intents[-1]).values())))
     before=deepcopy(ex.calls)
     resume(service,store,intents[-1]);service.cleanup_closed_exits()
-    assert ex.calls==before,'recovery/cleanup mutated a confirmed closed epoch'
+    # Peer exit cleanup may act on peers' own fills; the confirmed epoch must not
+    # touch the failing combo again or close anything.
+    after=ex.calls[len(before):]
+    initiator_ids=set(state_ids(store,intents[-1]).values())
+    assert not any(c[0]=='close' for c in after),after
+    assert not any(c[1] in initiator_ids for c in after),after
 
 
 def schedules(factory):
@@ -178,7 +187,9 @@ def schedules(factory):
             epoch=store.get(side_key(b.symbol,b.side),TARGET)
             assert epoch['phase']=='unresolved' and epoch['last_alert_at']
             before=ex.close_count
-            assert service.execute(replace(b,event_id='blocked-new')).status=='force_close_side_blocked'
+            # Owner decision: a new same-side signal waits while the epoch is unresolved.
+            blocked=service.execute(replace(b,event_id='blocked-new'))
+            assert blocked.status=='force_close_side_blocked',blocked
             if mode!='terminal_partial':
                 resume(service,store,b)
             assert ex.close_count==before,(mode,ex.close_count,before)
@@ -188,8 +199,10 @@ def schedules(factory):
                 assert resume(service,store,b).status=='force_close_confirmed'
                 assert_closed(service,store,ex,intents)
             if mode=='partial':
-                row=ex.orders[ex.clients[ex.close_cid]];row.update(status='FILLED',executedQty=row['origQty'])
-                ex.amount=Decimal(0)
+                row=ex.orders[ex.clients[ex.close_cid]]
+                # Only the rest of this close's own quantity fills; peers keep theirs.
+                ex.amount-=Decimal(str(row['origQty']))-Decimal(str(row['executedQty']))
+                row.update(status='FILLED',executedQty=row['origQty'])
                 assert resume(service,store,b).status=='force_close_confirmed'
                 assert_closed(service,store,ex,intents)
             if mode=='terminal_partial':
@@ -324,7 +337,8 @@ def schedules(factory):
             if mode=='acknowledged_peer':
                 assert result.status=='force_close_confirmed',result
                 assert_closed(service,store,ex,intents)
-                assert not store.get_state(a.event_id)['protection_journal']
+                # The peer's live exits keep their journal; only the failing combo is finalized.
+                assert store.get_state(a.event_id)['protection_journal']
             else:
                 assert result.status=='force_close_unresolved' and ex.close_count==0
                 assert 'entry outcome' in result.details['error']

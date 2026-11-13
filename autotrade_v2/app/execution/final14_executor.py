@@ -15,6 +15,7 @@ from .identity import identify_entry_position, position_id as exchange_position_
 from .protection_journal import ProtectionJournal,ProtectionReconcilePending,ProtectionAttemptsExhausted
 from .protection_abort import abort_setup
 from .close_position_check import position_remaining,PositionConfirmationError
+from ..control.l4_entry import L4EntryReader
 
 log=logging.getLogger(__name__)
 
@@ -83,12 +84,12 @@ class Final14Executor:
     )->tuple[dict|None,str|None]:
         last_error=None
         for attempt in range(1,AMBIGUOUS_RECHECK_ATTEMPTS+1):
-            try:
-                found=self.client.find_order_by_client_id(symbol,client_order_id)
-                if found is not None:
-                    return found,None
-            except Exception as exc:
-                last_error=f"{type(exc).__name__}: {exc}"
+            # All Entry reads go through L4 (read-only); L4 reports UNKNOWN on any failure.
+            lookup=L4EntryReader(self.client).get_entry(symbol,client_order_id)
+            if lookup["status"]=="FOUND":
+                return lookup["raw"],None
+            if lookup["status"]=="UNKNOWN":
+                last_error=str(lookup.get("error"))
             if attempt<AMBIGUOUS_RECHECK_ATTEMPTS:
                 time.sleep(AMBIGUOUS_RECHECK_SLEEP_SEC)
         return None,last_error
@@ -464,7 +465,18 @@ class Final14Executor:
 
         # PRE-CHECK: if the exact deterministic clientOrderId already exists,
         # never submit the MARKET entry again.
-        existing=self.client.find_order_by_client_id(intent.symbol,client_order_id)
+        lookup=L4EntryReader(self.client).get_entry(intent.symbol,client_order_id)
+        # An UNKNOWN lookup blocks only if a MARKET POST may already have been
+        # sent. "not_sent" is written before any POST, so it proves the send
+        # never started; it needs a durable "sending" mark before the POST.
+        if lookup["status"]=="UNKNOWN" and (
+            resume_state.get("entry_post")!="not_sent"
+            or protection_persist is None or not allow_new_entry
+        ):
+            return {"processed":False,"entry_accepted":False,"entry_filled":False,"ok":False,
+                    "stage":"entry_unknown_reconcile_required","client_order_id":client_order_id,
+                    "error":"entry lookup unknown; not resending: "+str(lookup.get("error"))}
+        existing=lookup["raw"] if lookup["status"]=="FOUND" else None
         if existing is not None:
             entry_result=existing
             log.warning(
@@ -482,6 +494,12 @@ class Final14Executor:
                 "error":"no BingX order exists for persisted event; entry not resent",
             }
         else:
+            # Durable "sending" mark before the MARKET POST. Any later lookup that
+            # is UNKNOWN then blocks, because the POST may have reached BingX.
+            if protection_persist is not None:
+                marked={**resume_state,"entry_post":"sending"}
+                protection_persist(marked)
+                resume_state.update(marked)
             try:
                 entry_result=self.client.place_market_entry(
                     intent.symbol,side,qty,FINAL14_EXECUTION_LEVERAGE,
@@ -516,7 +534,14 @@ class Final14Executor:
         order_id=""
         expected_entry_id=str(resume_state.get("order_id") or self._order_id(self.client.extract_order(entry_result or {})) or "")
         for attempt in range(1,ENTRY_CONFIRM_ATTEMPTS+1):
-            raw=self.client.find_order_by_client_id(intent.symbol,client_order_id)
+            lookup=L4EntryReader(self.client).get_entry(intent.symbol,client_order_id)
+            if lookup["status"]=="UNKNOWN":
+                return {"processed":False,"entry_accepted":entry_result is not None,
+                        "entry_filled":False,"ok":False,
+                        "stage":"entry_unknown_reconcile_required",
+                        "client_order_id":client_order_id,
+                        "error":"entry confirmation unknown: "+str(lookup.get("error"))}
+            raw=lookup["raw"]
             if raw is None:
                 if attempt<ENTRY_CONFIRM_ATTEMPTS:
                     time.sleep(ENTRY_CONFIRM_SLEEP_SEC)
@@ -580,9 +605,12 @@ class Final14Executor:
                 final_avg=avg_price
                 final_order_id=order_id
                 for attempt in range(1,AMBIGUOUS_RECHECK_ATTEMPTS+1):
-                    raw=self.client.find_order_by_client_id(
+                    lookup=L4EntryReader(self.client).get_entry(
                         intent.symbol,client_order_id
                     )
+                    if lookup["status"]=="UNKNOWN":
+                        raise RuntimeError("entry re-query unknown: "+str(lookup.get("error")))
+                    raw=lookup["raw"]
                     if raw is not None:
                         detail=self.client.extract_order(raw)
                         capture_entry(resume_state, detail, client_order_id)
