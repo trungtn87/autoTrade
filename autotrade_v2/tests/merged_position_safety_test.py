@@ -148,10 +148,21 @@ def main():
         blocked=service.execute(pending)
         assert blocked.status=='position_preflight_blocked' and not blocked.accepted
         assert store.get_state(pending.event_id) is None
-        store.save_state('C16',{**c16,'terminal':False,'recovery':{'attempts':8}})
-        assert service.recover_pending()==[],"exhaustion survives restart without another method retry"
-        store.save_state('C16',{**c16,'terminal':False,'recovery':{'attempts':1,'next_at':10**12}})
+        # Eight previous failures must not permanently freeze recovery.
+        # Recovery is GET/reconcile-only: do not touch the exchange here.
+        recovery_calls=[]
+        def fake_recovery(intent,recovery_only=False):
+            assert recovery_only
+            recovery_calls.append(intent.event_id)
+            return SimpleNamespace(status="recovery_pending",accepted=True)
+        service.execute=fake_recovery
+        store.save_state('C16',{**c16,'terminal':False,'recovery':{'attempts':8,'next_at':0}})
+        recovered=service.recover_pending()
+        assert len(recovered)==1 and recovered[0]['status']=='recovery_pending',recovered
+        assert recovery_calls==[c16['intent']['event_id']],recovery_calls
+        store.save_state('C16',{**c16,'terminal':False,'recovery':{'attempts':9,'next_at':10**12}})
         assert service.recover_pending()==[],"durable backoff prevents immediate retry"
+        assert len(recovery_calls)==1,"backoff must not call exchange"
     print({'ok':True,'shared_ledger':True,'concurrent_tp_trailing':True,
            'exact_cleanup_only':True,'manual_mutation_blocks':True,
            'missing_history_blocks':True,'budget_overcommit_blocks':True,
