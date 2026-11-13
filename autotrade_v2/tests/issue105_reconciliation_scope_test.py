@@ -6,12 +6,29 @@ No exchange credentials, sockets or production mutations.
 """
 from __future__ import annotations
 
-from dataclasses import replace
 from decimal import Decimal
 from tempfile import TemporaryDirectory
 
-from app.execution.service import ExecutionService
-from merged_entry_test import setup, signal, state_ids
+from app.contracts import TradeIntent
+from merged_entry_test import Exchange, setup, state_ids
+
+
+def signal(combo):
+    name=f"C{combo-90}" if combo>=101 else f"C{combo}"
+    return TradeIntent(
+        event_id=f"ETH-USDT|1h|{name}|SELL|{1794542399999+combo}",
+        symbol="ETH-USDT", combo=combo, side="SELL", timeframe="1h",
+        close_time=1794542399999+combo, entry=1933.24,
+        tp=1900.0, sl=1950.0, smc_dir=-1,
+    )
+
+
+def eth_setup(tmp):
+    service,store,_=setup(tmp)
+    # Same symbol, same SHORT container as the actual 13 Nov incident.
+    exchange=Exchange(side="SELL",prices=("1933.24","1930.0"))
+    service.executor.client=exchange
+    return service,store,exchange
 
 
 def incident(service, store, exchange):
@@ -21,9 +38,7 @@ def incident(service, store, exchange):
     The state deliberately lacks VERIFIED trailing. It must remain pending
     and must never result in a replacement conditional POST.
     """
-    # The exchange fake fills its first Entry at 79701.6; preserve the
-    # original FINAL14 range while assigning the incident C4 combo identity.
-    c4=replace(signal(106),event_id="BTC-USDT|C4|1",combo=4)
+    c4=signal(4)
     first=service.execute(c4)
     assert first.status=="complete",first
     saved=store.get_state(c4.event_id)
@@ -57,9 +72,9 @@ def incident(service, store, exchange):
 
 def check_structural_warning_is_not_full_verification():
     with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
+        service,store,exchange=eth_setup(tmp)
         c4,ids=incident(service,store,exchange)
-        c13,c15=signal(13),signal(15)
+        c13,c15=signal(103),signal(105)
         before,report=service._entry_admission(c13)
         assert before,report
         assert report["blocking_risks"]==[],report
@@ -84,10 +99,10 @@ def check_structural_warning_is_not_full_verification():
 
 def check_real_sl_loss_still_blocks():
     with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
+        service,store,exchange=eth_setup(tmp)
         _,ids=incident(service,store,exchange)
         exchange.orders[ids["sl"]]["status"]="CANCELLED"
-        newer=signal(13)
+        newer=signal(103)
         result=service.execute(newer)
         assert result.status in {"merged_reconcile_required","position_preflight_blocked"},result
         assert not result.accepted and len(exchange.clients)==1
@@ -96,10 +111,10 @@ def check_real_sl_loss_still_blocks():
 
 def check_wrong_trailing_quantity_still_blocks():
     with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
+        service,store,exchange=eth_setup(tmp)
         _,ids=incident(service,store,exchange)
         exchange.orders[ids["trailing"]]["origQty"]="0.1234"
-        newer=signal(13)
+        newer=signal(103)
         result=service.execute(newer)
         assert not result.accepted and result.status=="merged_reconcile_required",result
         assert len(exchange.clients)==1
@@ -107,10 +122,10 @@ def check_wrong_trailing_quantity_still_blocks():
 
 def check_wrong_trailing_identity_still_blocks():
     with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
+        service,store,exchange=eth_setup(tmp)
         _,ids=incident(service,store,exchange)
         exchange.orders[ids["trailing"]]["positionID"]="9999"
-        newer=signal(13)
+        newer=signal(103)
         result=service.execute(newer)
         assert not result.accepted and result.status in {"merged_reconcile_required","position_preflight_blocked"},result
         assert len(exchange.clients)==1
@@ -118,10 +133,10 @@ def check_wrong_trailing_identity_still_blocks():
 
 def check_trailing_explicit_price_mismatch_still_blocks():
     with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
+        service,store,exchange=eth_setup(tmp)
         _,ids=incident(service,store,exchange)
         exchange.orders[ids["trailing"]]["activationPrice"]="999999"
-        newer=signal(13)
+        newer=signal(103)
         result=service.execute(newer)
         assert not result.accepted and result.status=="merged_reconcile_required",result
         assert len(exchange.clients)==1
@@ -129,10 +144,10 @@ def check_trailing_explicit_price_mismatch_still_blocks():
 
 def check_conflicting_actprice_alias_still_blocks():
     with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
+        service,store,exchange=eth_setup(tmp)
         _,ids=incident(service,store,exchange)
         exchange.orders[ids["trailing"]]["actPrice"]="999999"
-        newer=signal(13)
+        newer=signal(103)
         result=service.execute(newer)
         assert not result.accepted and result.status=="merged_reconcile_required",result
         assert len(exchange.clients)==1
@@ -140,10 +155,10 @@ def check_conflicting_actprice_alias_still_blocks():
 
 def check_missing_trailing_order_still_blocks():
     with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
+        service,store,exchange=eth_setup(tmp)
         _,ids=incident(service,store,exchange)
         exchange.orders[ids["trailing"]]["status"]="CANCELLED"
-        newer=signal(13)
+        newer=signal(103)
         result=service.execute(newer)
         assert not result.accepted and result.status=="merged_reconcile_required",result
         assert len(exchange.clients)==1
@@ -151,7 +166,7 @@ def check_missing_trailing_order_still_blocks():
 
 def check_single_combo_recovery_exception_not_account_lock():
     with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
+        service,store,exchange=eth_setup(tmp)
         c4,ids=incident(service,store,exchange)
         old=store.get_state(c4.event_id)
         old["recovery"]["next_at"]=0
@@ -169,13 +184,13 @@ def check_single_combo_recovery_exception_not_account_lock():
         assert result["recovery"]==[{"event_id":c4.event_id,"status":"recovery_combo_failed","accepted":True}] or (
             result["recovery"][0]["status"]=="recovery_combo_failed"),result
         service.execute=original_execute
-        assert service.execute(signal(13)).status=="complete","C4 parsing error must not globally gate C13"
+        assert service.execute(signal(103)).status=="complete","C4 parsing error must not globally gate C13"
         assert len(exchange.clients)==2
 
 
 def check_shared_database_failure_still_fails_closed():
     with TemporaryDirectory() as tmp:
-        service,store,exchange=setup(tmp)
+        service,store,exchange=eth_setup(tmp)
         service.entry_recovery_pending=True
         original=store.list_states
         def db_failure():
