@@ -466,7 +466,13 @@ class Final14Executor:
         # PRE-CHECK: if the exact deterministic clientOrderId already exists,
         # never submit the MARKET entry again.
         lookup=L4EntryReader(self.client).get_entry(intent.symbol,client_order_id)
-        if lookup["status"]=="UNKNOWN":
+        # An UNKNOWN lookup blocks only if a MARKET POST may already have been
+        # sent. "not_sent" is written before any POST, so it proves the send
+        # never started; it needs a durable "sending" mark before the POST.
+        if lookup["status"]=="UNKNOWN" and (
+            resume_state.get("entry_post")!="not_sent"
+            or protection_persist is None or not allow_new_entry
+        ):
             return {"processed":False,"entry_accepted":False,"entry_filled":False,"ok":False,
                     "stage":"entry_unknown_reconcile_required","client_order_id":client_order_id,
                     "error":"entry lookup unknown; not resending: "+str(lookup.get("error"))}
@@ -488,6 +494,12 @@ class Final14Executor:
                 "error":"no BingX order exists for persisted event; entry not resent",
             }
         else:
+            # Durable "sending" mark before the MARKET POST. Any later lookup that
+            # is UNKNOWN then blocks, because the POST may have reached BingX.
+            if protection_persist is not None:
+                marked={**resume_state,"entry_post":"sending"}
+                protection_persist(marked)
+                resume_state.update(marked)
             try:
                 entry_result=self.client.place_market_entry(
                     intent.symbol,side,qty,FINAL14_EXECUTION_LEVERAGE,
