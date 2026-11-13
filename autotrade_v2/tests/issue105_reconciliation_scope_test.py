@@ -186,6 +186,62 @@ def check_conflicting_actprice_alias_still_blocks():
         assert len(exchange.clients)==1
 
 
+def check_durable_post_ack_conflicts_still_block():
+    # Review P2: GET can omit activation/callback but POST's durable ACK
+    # must never be ignored when it explicitly contradicts the request.
+    for changed,wrong in (
+        ("activationPrice","999999"),
+        ("priceRate","0.75"),
+        ("orderID","999999"),
+        ("side","SELL"),
+        ("symbol","BTC-USDT"),
+        ("positionSide","LONG"),
+    ):
+        with TemporaryDirectory() as tmp:
+            service,store,exchange=eth_setup(tmp)
+            c4,ids=incident(service,store,exchange)
+            current=store.get_state(c4.event_id)
+            journal=current["protection_journal"]["trailing"]
+            spec=journal["spec"]
+            ack={
+                "orderID":ids["trailing"],
+                "symbol":spec["symbol"],
+                "side":spec["side"],
+                "positionSide":spec["position_side"],
+                "type":"TRAILING_STOP_MARKET",
+                "activationPrice":spec["trigger"],
+                "priceRate":spec["callback_rate"],
+            }
+            ack[changed]=wrong
+            journal["acknowledged_parameters"]=ack
+            store.save_state(c4.event_id,current)
+            result=service.execute(signal(103))
+            assert not result.accepted, (changed,result)
+            assert result.status=="merged_reconcile_required",(changed,result)
+            assert len(exchange.clients)==1,changed
+
+
+def check_matching_durable_post_ack_allows_warning_not_verification():
+    with TemporaryDirectory() as tmp:
+        service,store,exchange=eth_setup(tmp)
+        c4,ids=incident(service,store,exchange)
+        current=store.get_state(c4.event_id)
+        journal=current["protection_journal"]["trailing"]
+        spec=journal["spec"]
+        journal["acknowledged_parameters"]={
+            "orderID":ids["trailing"],
+            "symbol":spec["symbol"],"side":spec["side"],
+            "positionSide":spec["position_side"],"type":"TRAILING_STOP_MARKET",
+            "activationPrice":spec["trigger"],"priceRate":spec["callback_rate"],
+        }
+        store.save_state(c4.event_id,current)
+        _,report=service._entry_admission(signal(103))
+        assert report["blocking_risks"]==[],report
+        assert report["status"]=="ADMISSION_SAFE_TRAILING_PARAMS_UNVERIFIED",report
+        assert service.execute(signal(103)).status=="complete"
+        assert store.get_state(c4.event_id)["protection"].get("trailing") is None
+
+
 def check_missing_trailing_order_still_blocks():
     with TemporaryDirectory() as tmp:
         service,store,exchange=eth_setup(tmp)
@@ -244,6 +300,8 @@ def main():
     check_wrong_trailing_identity_still_blocks()
     check_trailing_explicit_price_mismatch_still_blocks()
     check_conflicting_actprice_alias_still_blocks()
+    check_durable_post_ack_conflicts_still_block()
+    check_matching_durable_post_ack_allows_warning_not_verification()
     check_missing_trailing_order_still_blocks()
     check_single_combo_recovery_exception_not_account_lock()
     check_shared_database_failure_still_fails_closed()
