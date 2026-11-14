@@ -1,0 +1,10 @@
+Mode: BINGX_PORTFOLIO
+Commit SHA: a4b7555e77871e62007065e943a8c335971ceeb5
+Golden Ref: runs/golden/v3-12/BINGX_PORTFOLIO/trades.parquet
+Rows Golden: 6265
+Rows New: 6265
+Matched: 6265
+Rows Only In Golden: 0
+Rows Only In New: 0
+Bad Cols: []
+Net Invariant Max Abs Diff (raw-costs vs net): 1.398e+00

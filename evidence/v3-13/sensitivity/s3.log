@@ -1,0 +1,6 @@
+Commit SHA: a4b7555e77871e62007065e943a8c335971ceeb5
+Scenario: Mode C, LEGACY, fee_taker=0.0005, slippage=3 bps, spread=0
+New total_legs: 6273
+New net_pnl: 38.327278
+Historical (Scenario S2): total_trades=6273, net_pnl=38.3273
+Diff (new - historical): -0.000022

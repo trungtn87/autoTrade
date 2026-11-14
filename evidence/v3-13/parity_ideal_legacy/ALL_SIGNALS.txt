@@ -1,0 +1,10 @@
+Mode: ALL_SIGNALS
+Commit SHA: a4b7555e77871e62007065e943a8c335971ceeb5
+Golden Ref: runs/golden/v3-12/ALL_SIGNALS/trades.parquet
+Rows Golden: 8258
+Rows New: 8258
+Matched: 8258
+Rows Only In Golden: 0
+Rows Only In New: 0
+Bad Cols: []
+Net Invariant Max Abs Diff (raw-costs vs net): 0.000e+00
