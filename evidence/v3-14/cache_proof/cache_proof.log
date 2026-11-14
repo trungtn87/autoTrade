@@ -1,0 +1,4 @@
+=== B4: SignalCache Proof (COMPUTED -> CACHE on exit change -> COMPUTED on entry change) ===
+Run 1 (baseline): run_id=R_9ba448bdd59dd5f6 signal_source=COMPUTED signal_gen_calls=1 signal_compute_time_s=19.964992 total_s=50.437 net_pnl=None
+Run 2 (exit tp_pct=0.035): run_id=R_01180d0ce30eb5e7 signal_source=CACHE signal_gen_calls=0 signal_compute_time_s=0.499004 total_s=30.816 net_pnl=None
+Run 3 (entry spec changed): run_id=R_eb9a9a5350372bc5 signal_source=COMPUTED signal_gen_calls=1 signal_compute_time_s=19.325642 total_s=44.636 net_pnl=None

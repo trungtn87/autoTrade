@@ -1,0 +1,21 @@
+=== B3: RunStore vs runs/golden/v3-13 (IDEAL + CONSERVATIVE) ===
+
+--- Mode: ALL_SIGNALS | run_id=R_cbeda03593afcbb5 | validation=PARTIALLY_VERIFIED ---
+  legs.parquet vs golden/trades.parquet: golden=569bceccfe188d9d.. store=569bceccfe188d9d.. match=True
+  signals.parquet vs golden/signals.parquet: golden=52ed9b559dfba752.. store=52ed9b559dfba752.. match=True
+  signal_decisions.parquet vs golden/signal_decisions.parquet: golden=2b3455653e043ac4.. store=2b3455653e043ac4.. match=True
+  re-run reproducible_hit=True run_id=R_cbeda03593afcbb5
+
+--- Mode: ONE_TRADE_PER_COMBO | run_id=R_49d448154f17036b | validation=PARTIALLY_VERIFIED ---
+  legs.parquet vs golden/trades.parquet: golden=ad8a69ea7922c3c6.. store=ad8a69ea7922c3c6.. match=True
+  signals.parquet vs golden/signals.parquet: golden=52ed9b559dfba752.. store=52ed9b559dfba752.. match=True
+  signal_decisions.parquet vs golden/signal_decisions.parquet: golden=5b621544e832661c.. store=5b621544e832661c.. match=True
+  re-run reproducible_hit=True run_id=R_49d448154f17036b
+
+--- Mode: BINGX_PORTFOLIO | run_id=R_f4ae5e858e8533ad | validation=PARTIALLY_VERIFIED ---
+  legs.parquet vs golden/trades.parquet: golden=64812518e6012fed.. store=64812518e6012fed.. match=True
+  signals.parquet vs golden/signals.parquet: golden=52ed9b559dfba752.. store=52ed9b559dfba752.. match=True
+  signal_decisions.parquet vs golden/signal_decisions.parquet: golden=5b621544e832661c.. store=5b621544e832661c.. match=True
+  re-run reproducible_hit=True run_id=R_f4ae5e858e8533ad
+
+--- Reindex check: before=3 rebuilt=3 after=3 ---

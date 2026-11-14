@@ -1,0 +1,61 @@
+{
+  "run_a": "R_SYNTHETIC_IDEAL",
+  "run_b": "R_SYNTHETIC_TEST_ONLY",
+  "total_signals": 10,
+  "net_a": -10.994999999999994,
+  "net_b": -11.53922774999992,
+  "expected_delta_net": -0.5442277499999264,
+  "actual_delta_net": -0.5442277499999293,
+  "invariant_diff": 2.886579864025407e-15,
+  "unexplained_count": 0,
+  "by_category": {
+    "IDENTICAL": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "DATA": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "SIGNAL": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "ENTRY": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "AMBIGUITY": {
+      "count": 10,
+      "net_a": -10.994999999999992,
+      "net_b": -11.53922774999992,
+      "delta_net": -0.5442277499999293
+    },
+    "EXIT_LOGIC": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "COST": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "UNEXPLAINED": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    }
+  }
+}

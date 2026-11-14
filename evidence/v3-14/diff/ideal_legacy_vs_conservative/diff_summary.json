@@ -1,0 +1,61 @@
+{
+  "run_a": "R_20058e9e1e8f7bbd",
+  "run_b": "R_cbeda03593afcbb5",
+  "total_signals": 5984,
+  "net_a": 410.70067524980027,
+  "net_b": 410.70067524980027,
+  "expected_delta_net": 0.0,
+  "actual_delta_net": 0.0,
+  "invariant_diff": 0.0,
+  "unexplained_count": 0,
+  "by_category": {
+    "IDENTICAL": {
+      "count": 5984,
+      "net_a": 410.70067524980027,
+      "net_b": 410.70067524980027,
+      "delta_net": 0.0
+    },
+    "DATA": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "SIGNAL": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "ENTRY": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "AMBIGUITY": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "EXIT_LOGIC": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "COST": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "UNEXPLAINED": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    }
+  }
+}

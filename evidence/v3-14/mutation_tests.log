@@ -1,0 +1,7 @@
+=== M1-M6: Mutation Tests (temp copies only) ===
+M1 (future annotation): visible_rows=0 dropped_future=1
+M2 (1-byte cache tamper): hit=False warning=CACHE_CORRUPT
+M3 (leg net_pnl tamper): diff_rows=1 D1=FAIL
+M4 (tp_pct tamper keeping spec_hash): C2=FAIL
+M5 (mutated diff invariant): exit_code=1 (expected != 0)
+M6 (signal symbol change): categories={'S1': 'SIGNAL', 'S1_RENAMED': 'SIGNAL'}
