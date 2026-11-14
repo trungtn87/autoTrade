@@ -1,0 +1,14 @@
+﻿command: .\.venv\Scripts\python.exe -m pytest autotrade_v3/tests --junitxml=evidence/v3-15b/junit/all.xml -v
+cwd: D:\AutoTrade
+sha: 32a0dd3d3ae411089fbaa0c22f10008bf13d773a
+start_time: 2026-11-15T01:25:12.7190830+07:00
+end_time: 2026-11-15T01:41:34.9687407+07:00
+exit_code: 0
+PYTHONUTF8: ''
+PYTHONIOENCODING: ''
+junit_path: evidence/v3-15b/junit/all.xml
+log_path: evidence/v3-15b/pytest_all.log
+summary:
+autotrade_v3/tests/test_verify_bingx_exits.py::ExitLineageTests::test_trigger_id_alone_is_insufficient PASSED [ 99%]
+autotrade_v3/tests/test_verify_bingx_exits.py::ExitLineageTests::test_zero_position_id_cannot_claim_execution_owner PASSED [100%]
+================= 387 passed, 6 warnings in 980.27s (0:16:20) =================
