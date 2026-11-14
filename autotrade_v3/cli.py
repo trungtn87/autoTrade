@@ -201,6 +201,87 @@ def cmd_compare(args: argparse.Namespace) -> None:
         ))
 
 
+def cmd_verify(args: argparse.Namespace) -> None:
+    """Verify run artifacts via the 12 independent validation gates."""
+    from autotrade_v3.validation.runner import run_validation
+
+    run_dir = Path(args.run_dir)
+    if not run_dir.exists():
+        print(f"Error: Run directory does not exist: {run_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    no_write = getattr(args, "no_write", False)
+    output_dir = getattr(args, "output_dir", None)
+
+    print(f"Starting Independent Validation Gates verification on: {run_dir}")
+    report = run_validation(
+        run_dir=run_dir,
+        dataset_root=args.dataset_root,
+        n_cutoffs=args.cutoffs,
+        seed=args.seed,
+        write_result=not no_write,
+        output_dir=output_dir,
+    )
+
+    print(f"\n=======================================================")
+    print(f"Validation Complete | Run ID: {report.run_id}")
+    print(f"Overall Status: {report.overall_status}")
+    print(f"Mode: {report.execution_mode} | Real Market Data: {report.is_real_data}")
+    print(f"Duration: {report.total_duration_s:.2f}s | Seed: {report.seed} | Cutoffs: {report.n_cutoffs}")
+    print(f"=======================================================\n")
+
+    fmt = "{:<6} {:<28} {:<16} {:<14} {:<12} {:<10}"
+    print(fmt.format("Gate", "Name", "Status", "Checked/Total", "Violations", "Duration"))
+    print("-" * 90)
+
+    for gid, g in report.gates.items():
+        chk_str = f"{g['rows_checked']:,}/{g['rows_total']:,}"
+        dur_str = f"{g['duration_s']:.2f}s"
+        print(fmt.format(
+            gid,
+            g["name"][:27],
+            g["status"],
+            chk_str,
+            str(g["violation_count"]),
+            dur_str,
+        ))
+        if g.get("reason"):
+            print(f"       Reason: {g['reason']}")
+
+    if report.failure_reasons:
+        print("\nFailure details:")
+        for fr in report.failure_reasons:
+            print(f"  - {fr}")
+
+    if not no_write:
+        if output_dir:
+            out_target = Path(output_dir) / "validation.json"
+            print(f"\nValidation artifact written to: {out_target}")
+        elif "runs/golden/v3-08" in str(run_dir).replace("\\", "/"):
+            print("\nNote: Golden run validation artifact was not written to run_dir (golden runs are immutable). Pass --output-dir to save.")
+        else:
+            out_target = run_dir / "validation.json"
+            print(f"\nValidation artifact written to: {out_target}")
+    else:
+        print("\nRead-only mode (--no-write): validation artifact not written.")
+
+    if report.overall_status in ("FAILED", "UNVERIFIED_DIRTY"):
+        print(f"\nVerification FAILED with status: {report.overall_status}", file=sys.stderr)
+        sys.exit(1)
+    elif report.overall_status == "PARTIALLY_VERIFIED":
+        print(
+            "\nVerification Result: PARTIALLY_VERIFIED "
+            "(All executable gates passed; Gate B3 remains INCONCLUSIVE by design pending V3-11)."
+        )
+        sys.exit(0)
+    elif report.overall_status in ("VERIFIED", "SYNTHETIC"):
+        print(f"\nVerification Result: {report.overall_status}")
+        sys.exit(0)
+    else:
+        print(f"\nVerification Result: {report.overall_status}", file=sys.stderr)
+        sys.exit(1)
+
+
 def cmd_report(args: argparse.Namespace) -> None:
     """View report for a specific run."""
     rm = RunManager(runs_dir=args.out_dir)
@@ -269,6 +350,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_rp.add_argument("run_id", help="Run ID to display")
     p_rp.add_argument("--out-dir", default="runs/lab", help="Directory where runs are stored")
     p_rp.set_defaults(func=cmd_report)
+
+    # Verify (V3-10 Independent Validation Gates)
+    p_vf = subparsers.add_parser("verify", help="Verify run artifacts with 12 independent validation gates")
+    p_vf.add_argument("run_dir", help="Run directory to verify (e.g. runs/golden/v3-08/ALL_SIGNALS)")
+    p_vf.add_argument("--dataset-root", default=".", help="Root directory containing dataset partition files")
+    p_vf.add_argument("--cutoffs", type=int, default=20, help="Number of cutoff points for B2 no-lookahead check")
+    p_vf.add_argument("--seed", type=int, default=20261110, help="Seed for cutoff sampling")
+    p_vf.add_argument("--output-dir", default=None, help="Directory to write validation.json (avoids writing into run_dir)")
+    p_vf.add_argument("--no-write", action="store_true", help="Read-only mode: do not write validation.json anywhere")
+    p_vf.set_defaults(func=cmd_verify)
 
     return parser
 

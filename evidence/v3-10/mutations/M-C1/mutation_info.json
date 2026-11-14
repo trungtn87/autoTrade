@@ -1,0 +1,9 @@
+{
+  "mutation_id": "M-C1",
+  "description": "Shift entry_time_ms by 1 minute",
+  "target_gate": "C1",
+  "sha256_original_before": "fb888c864074a4c7247192794ec2dc42977185c2c957adcfb861b32fa94efe6f",
+  "sha256_original_after": "fb888c864074a4c7247192794ec2dc42977185c2c957adcfb861b32fa94efe6f",
+  "original_unmodified": true,
+  "expected_status": "FAIL"
+}

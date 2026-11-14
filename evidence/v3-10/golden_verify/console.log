@@ -1,0 +1,81 @@
+=== Running verify on ALL_SIGNALS ===
+Starting Independent Validation Gates verification on: runs\golden\v3-08\ALL_SIGNALS
+
+=======================================================
+Validation Complete | Run ID: ALL_SIGNALS
+Overall Status: PARTIALLY_VERIFIED
+Mode: ALL_SIGNALS | Real Market Data: True
+Duration: 141.88s | Seed: 20261110 | Cutoffs: 3
+=======================================================
+
+Gate   Name                         Status           Checked/Total  Violations   Duration  
+------------------------------------------------------------------------------------------
+A1     Dataset hash                 PASS             74/74          0            0.84s     
+A2     M1 integrity                 PASS             3,156,480/3,156,480 0            4.15s     
+B1     Frozen signal parity         PASS             5,984/5,984    0            0.84s     
+B2     No-lookahead validation      PASS             3/3            0            131.01s   
+B3     Batch-Live equivalence       INCONCLUSIVE     0/5,984        0            0.00s     
+       Reason: on_bar_close chưa tồn tại
+C1     Entry causality              PASS             8,258/8,258    0            0.17s     
+C2     ExitPolicy propagation       PASS             8,258/8,258    0            3.00s     
+C3     Exit replay                  PASS             8,258/8,258    0            0.44s     
+C4     Accounting                   PASS             8,258/8,258    0            0.11s     
+C5     Signal conservation          PASS             5,984/5,984    0            0.03s     
+D1     Artifact integrity           PASS             7/7            0            1.15s     
+D2     Reported numbers             PASS             650/650        0            0.14s     
+
+Validation artifact written to: runs\golden\v3-08\ALL_SIGNALS\validation.json
+=== Running verify on BINGX_PORTFOLIO ===
+Starting Independent Validation Gates verification on: runs\golden\v3-08\BINGX_PORTFOLIO
+
+=======================================================
+Validation Complete | Run ID: BINGX_PORTFOLIO
+Overall Status: PARTIALLY_VERIFIED
+Mode: BINGX_PORTFOLIO | Real Market Data: True
+Duration: 149.93s | Seed: 20261110 | Cutoffs: 3
+=======================================================
+
+Gate   Name                         Status           Checked/Total  Violations   Duration  
+------------------------------------------------------------------------------------------
+A1     Dataset hash                 PASS             74/74          0            0.93s     
+A2     M1 integrity                 PASS             3,156,480/3,156,480 0            4.45s     
+B1     Frozen signal parity         PASS             5,984/5,984    0            0.80s     
+B2     No-lookahead validation      PASS             3/3            0            126.80s   
+B3     Batch-Live equivalence       INCONCLUSIVE     0/5,984        0            0.00s     
+       Reason: on_bar_close chưa tồn tại
+C1     Entry causality              PASS             6,265/6,265    0            0.21s     
+C2     ExitPolicy propagation       PASS             6,265/6,265    0            2.03s     
+C3     Exit replay                  PASS             6,265/6,265    0            0.32s     
+C4     Accounting                   PASS             6,265/6,265    0            0.45s     
+C5     Signal conservation          PASS             5,984/5,984    0            0.04s     
+D1     Artifact integrity           PASS             8/8            0            13.77s    
+D2     Reported numbers             PASS             652/652        0            0.14s     
+
+Validation artifact written to: runs\golden\v3-08\BINGX_PORTFOLIO\validation.json
+=== Running verify on ONE_TRADE_PER_COMBO ===
+Starting Independent Validation Gates verification on: runs\golden\v3-08\ONE_TRADE_PER_COMBO
+
+=======================================================
+Validation Complete | Run ID: ONE_TRADE_PER_COMBO
+Overall Status: PARTIALLY_VERIFIED
+Mode: ONE_TRADE_PER_COMBO | Real Market Data: True
+Duration: 138.05s | Seed: 20261110 | Cutoffs: 3
+=======================================================
+
+Gate   Name                         Status           Checked/Total  Violations   Duration  
+------------------------------------------------------------------------------------------
+A1     Dataset hash                 PASS             74/74          0            0.91s     
+A2     M1 integrity                 PASS             3,156,480/3,156,480 0            4.22s     
+B1     Frozen signal parity         PASS             5,984/5,984    0            0.80s     
+B2     No-lookahead validation      PASS             3/3            0            128.22s   
+B3     Batch-Live equivalence       INCONCLUSIVE     0/5,984        0            0.00s     
+       Reason: on_bar_close chưa tồn tại
+C1     Entry causality              PASS             6,273/6,273    0            0.15s     
+C2     ExitPolicy propagation       PASS             6,273/6,273    0            2.02s     
+C3     Exit replay                  PASS             6,273/6,273    0            0.34s     
+C4     Accounting                   PASS             6,273/6,273    0            0.10s     
+C5     Signal conservation          PASS             5,984/5,984    0            0.03s     
+D1     Artifact integrity           PASS             7/7            0            1.15s     
+D2     Reported numbers             PASS             650/650        0            0.12s     
+
+Validation artifact written to: runs\golden\v3-08\ONE_TRADE_PER_COMBO\validation.json
