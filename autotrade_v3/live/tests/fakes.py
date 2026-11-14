@@ -94,9 +94,56 @@ class FakeBingX:
         if self.get_mode == "error":
             raise RuntimeError("BingX trade transport failed: ReadTimeout")
         oid = order_id or self.by_client.get(client_order_id or "")
-        if not oid or oid not in self.orders:
+        if not oid or oid not in self.orders or self.orders[oid].get("_hidden"):
             raise BingXApiError("109421", "order not exist", "/openApi/swap/v2/trade/order", {})
         return {"code": 0, "data": {"order": dict(self.orders[oid])}}
+
+    # ---- cleanup support (MOCK) ---------------------------------------------
+    COND = ("STOP_MARKET", "TAKE_PROFIT_MARKET", "TRAILING_STOP_MARKET")
+
+    def trigger_fill(self, order_id, qty=None, price="66000", parent="gone"):
+        """Simulate BingX triggering a conditional order: a FILLED child with triggerOrderId=parent."""
+        o = self.orders[order_id]
+        q = qty or o["origQty"]
+        child_id = str(next(self.ids))
+        self.orders[child_id] = {"orderId": child_id, "symbol": o["symbol"], "side": o["side"], "positionSide": o["positionSide"],
+                                 "type": o["type"], "status": "FILLED", "origQty": q, "executedQty": q, "avgPrice": str(price),
+                                 "triggerOrderId": order_id, "clientOrderId": "", "updateTime": 1763000100000}
+        if parent == "gone":
+            o["_hidden"] = True
+        else:
+            o["status"], o["executedQty"] = "FILLED", "0"
+        return child_id
+
+    def auto_cancel(self, order_id):
+        self.orders[order_id]["status"] = "CANCELED"
+
+    def get_open_orders(self, symbol):
+        self.open_gets = getattr(self, "open_gets", 0) + 1
+        if getattr(self, "open_mode", "ok") == "error":
+            raise RuntimeError("BingX trade transport failed: ReadTimeout")
+        hide = getattr(self, "open_hides", ())
+        return [dict(o) for o in self.orders.values() if o["symbol"] == symbol and o["type"] in self.COND
+                and o["status"] in ("NEW", "PARTIALLY_FILLED") and not o.get("_hidden") and o["type"] not in hide]
+
+    def cancel_order(self, symbol, order_id=None, client_order_id=None):
+        self.cancels = getattr(self, "cancels", [])
+        self.cancels.append(str(order_id))
+        mode = getattr(self, "cancel_mode", "ok")
+        o = self.orders.get(str(order_id))
+        if mode == "reject" or o is None or o["status"] != "NEW":
+            raise BingXApiError("109421", "order not exist", "/openApi/swap/v2/trade/order", {})
+        if mode == "lost_not_applied":
+            raise RuntimeError("BingX trade transport failed: ReadTimeout")
+        o["status"] = "CANCELED"
+        if mode == "lost_applied":
+            raise RuntimeError("BingX trade transport failed: ReadTimeout")
+        return {"code": 0, "data": {"order": {"orderId": str(order_id), "status": "CANCELED"}}}
+
+    def get_order_history(self, symbol, start_ms, end_ms, required_ids=None):
+        if getattr(self, "history_mode", "ok") == "error":
+            raise ValueError("BingX history missing/truncated")
+        return [dict(o) for o in self.orders.values() if o["symbol"] == symbol and not o.get("_hidden")]
 
     def get_positions(self, symbol):
         self.position_gets.append(symbol)

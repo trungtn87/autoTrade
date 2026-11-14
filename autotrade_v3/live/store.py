@@ -195,6 +195,13 @@ class MemoryStore:
         with self._lock:
             return [dict(r) for r in self.executions.values() if r.get("entry_order_id") and r.get("executed_qty")]
 
+    def executions_for_cleanup(self, since: datetime) -> list[dict]:
+        self._maybe_fail("executions_for_cleanup")
+        with self._lock:
+            return [dict(r) for r in self.executions.values() if r.get("entry_order_id") and r.get("executed_qty")
+                    and r.get("stage") in ("protected", "protection_incomplete")
+                    and ((r.get("raw_protection") or {}).get("cleanup") or {}).get("status") != "done"]
+
     def archive_rows(self, order_ids: list[str]) -> tuple[list[dict], list[dict]]:
         self._maybe_fail("archive_rows")
         ids = {str(x) for x in order_ids}
@@ -280,6 +287,12 @@ class PostgresStore:
             f"SELECT e.* FROM {SCHEMA}.execution_orders e LEFT JOIN {SCHEMA}.execution_finances f"
             " ON f.execution_order_id=e.id WHERE e.entry_order_id IS NOT NULL AND e.executed_qty > 0"
             " AND e.created_at >= %s AND COALESCE(f.is_fully_closed,false)=false", (since,), fetch="all") or []
+
+    def executions_for_cleanup(self, since: datetime) -> list[dict]:
+        return self._exec(
+            f"SELECT * FROM {SCHEMA}.execution_orders WHERE entry_order_id IS NOT NULL AND executed_qty > 0"
+            " AND stage IN ('protected','protection_incomplete') AND created_at >= %s"
+            " AND COALESCE(raw_protection->'cleanup'->>'status','') <> 'done' ORDER BY id", (since,), fetch="all") or []
 
     def archive_rows(self, order_ids: list[str]) -> tuple[list[dict], list[dict]]:
         """Read-only view of the hourly BingX archive (kept existing :07 function).

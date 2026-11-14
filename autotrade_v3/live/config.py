@@ -43,6 +43,9 @@ class V3Settings:
     discord_webhook_eth: str = field(default_factory=lambda: os.getenv("DISCORD_WEBHOOK_ETH", ""))
     discord_webhook_error: str = field(default_factory=lambda: os.getenv("DISCORD_WEBHOOK_ERROR", ""))
 
+    # Leftover protection cleanup after a combo closes: off | shadow (record only, default) | live (cancel).
+    leftover_cleanup_mode: str = field(default_factory=lambda: os.getenv("V3_LEFTOVER_CLEANUP_MODE", "shadow").strip().lower())
+
     log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO").upper())
 
     @property
