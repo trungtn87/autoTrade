@@ -135,7 +135,7 @@ def closed_message(r: dict) -> str:
     left = r.get("leftover") or {}
     names = ", ".join(LEG_LABELS.get(k, k) for k in left.get("legs") or [])
     if left.get("mode") == "shadow" and names:
-        cleanup = f"🧹 Còn lệnh dư: {names} (shadow, chưa hủy)"
+        cleanup = f"🧹 Còn lệnh dư: {names} (chế độ shadow, chưa hủy)"
     elif names:
         cleanup = f"🧹 Đã dọn lệnh dư: {names}"
     else:
