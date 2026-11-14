@@ -190,6 +190,7 @@ class UnifiedSimulator:
         signals: list[Signal],
         candle_dict: dict[str, pd.DataFrame],
         sample_snapshot_interval_m1: int = 15,
+        pre_filtered_decisions: list[SignalDecision] | None = None,
     ) -> SimulationResult:
         canonical_mode = _canonicalize_mode(mode)
         arrays_by_sym = {
@@ -200,10 +201,18 @@ class UnifiedSimulator:
         sorted_signals = sorted(signals, key=lambda s: (s.signal_close_ms, s.combo_id, s.side))
 
         if canonical_mode in ("ALL_SIGNALS", "ONE_TRADE_PER_COMBO"):
-            return self._run_virtual_mode(canonical_mode, sorted_signals, arrays_by_sym)
-        return self._run_portfolio_mode(
-            sorted_signals, arrays_by_sym, sample_snapshot_interval_m1=sample_snapshot_interval_m1
-        )
+            res = self._run_virtual_mode(canonical_mode, sorted_signals, arrays_by_sym)
+        else:
+            res = self._run_portfolio_mode(
+                sorted_signals, arrays_by_sym, sample_snapshot_interval_m1=sample_snapshot_interval_m1
+            )
+        if pre_filtered_decisions:
+            merged = list(res.signal_decisions) + list(pre_filtered_decisions)
+            merged.sort(key=lambda d: (d.signal_close_ms, d.combo_id, d.side, d.signal_id))
+            res.signal_decisions = merged
+            res.extra_summary = dict(res.extra_summary or {})
+            res.extra_summary["filtered_signals_count"] = len(pre_filtered_decisions)
+        return res
 
     def _find_entry_idx(
         self,
