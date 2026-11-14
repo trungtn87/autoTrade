@@ -149,14 +149,12 @@ class UnifiedSimulator:
         trailing_act_pct: float = 0.005,
         trailing_cb_pct: float = 0.005,
         *,
-        strict_mode_b_same_bar: bool = False,
         force_close_before_exit_on_final_bar_mode_c: bool = True,
     ) -> None:
         self.risk = risk_config or RiskConfig()
         self.final14_exit_mode = final14_exit_mode
         self.trailing_act_pct = trailing_act_pct
         self.trailing_cb_pct = trailing_cb_pct
-        self.strict_mode_b_same_bar = strict_mode_b_same_bar
         self.force_close_before_exit_on_final_bar_mode_c = force_close_before_exit_on_final_bar_mode_c
 
     def run(
@@ -200,7 +198,7 @@ class UnifiedSimulator:
         policy = (
             AllSignals()
             if canonical_mode == "ALL_SIGNALS"
-            else OneTradePerCombo(strict_same_bar=self.strict_mode_b_same_bar)
+            else OneTradePerCombo()
         )
         trades: list[TradeRecord] = []
         events: list[ExecutionEvent] = []

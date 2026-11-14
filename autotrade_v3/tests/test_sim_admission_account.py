@@ -86,7 +86,7 @@ def test_admission_mode_a_never_skips() -> None:
 
 
 def test_admission_mode_b_skips_open_combo_and_same_bar() -> None:
-    pol = OneTradePerCombo(strict_same_bar=True)
+    pol = OneTradePerCombo()
     d1 = pol.evaluate(
         signal_id="S1", symbol="BTC-USDT", combo_id=1, combo_name="C1",
         timeframe="15m", side="BUY", signal_close_ms=1000, signal_close_dt="t1",

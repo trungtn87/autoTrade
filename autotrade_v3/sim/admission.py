@@ -69,10 +69,7 @@ class AllSignals(AdmissionPolicy):
 class OneTradePerCombo(AdmissionPolicy):
     """Mode B: at most one open trade per (symbol, combo_id) at a time."""
 
-    def __init__(self, *, strict_same_bar: bool = False) -> None:
-        # strict_same_bar=False reproduces legacy `combo_free_bar > entry_idx` (parity checkpoint).
-        # strict_same_bar=True enforces `combo_free_bar >= entry_idx` (V3-12 4.7a).
-        self.strict_same_bar = strict_same_bar
+    def __init__(self) -> None:
         self._combo_open: dict[tuple[str, int], tuple[str, int]] = {}
 
     def evaluate(
@@ -93,8 +90,7 @@ class OneTradePerCombo(AdmissionPolicy):
         key = (symbol, combo_id)
         if key in self._combo_open:
             blocking_trade_id, free_bar_idx = self._combo_open[key]
-            is_blocked = (free_bar_idx >= entry_idx) if self.strict_same_bar else (free_bar_idx > entry_idx)
-            if is_blocked:
+            if free_bar_idx >= entry_idx:
                 return SignalDecision(
                     signal_id=signal_id,
                     symbol=symbol,
