@@ -1,4 +1,4 @@
-"""Leftover-protection cleanup — MOCK tests (fake BingX, fake Discord, in-memory DB).
+"""L4 leftover-protection cleanup — MOCK tests (fake BingX, fake Discord, in-memory DB).
 
 Fixtures only: these prove code behaviour, NOT how live BingX behaves.
 """
@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import threading
 
-from autotrade_v3.live.l3_leftover import LeftoverCleaner, norm_id
+from autotrade_v3.live.l4_leftover import LeftoverCleaner, norm_id
 from autotrade_v3.live.l4_control import HourlySync
 from autotrade_v3.live.tests.fakes import build, sig
 

@@ -11,8 +11,10 @@ Exactly three BingX read mechanisms (Owner decision, Issue #109):
      with its 3-hour window, unchanged, followed by a projection of the archived
      rows into execution_results / execution_finances.
 
-L4 never POSTs, cancels or modifies orders and no GET result is used to block
-an independent signal.
+L4 never POSTs or modifies orders and no GET result is used to block an
+independent signal. The one write L4 owns is the leftover cleanup in
+``l4_leftover`` (DELETE of a closed combo's own orphan protection orders by exact
+orderId, Owner decision 2026-11-14); it never blocks or delays an Entry.
 """
 from __future__ import annotations
 
