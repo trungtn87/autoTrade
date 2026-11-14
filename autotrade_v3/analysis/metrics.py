@@ -350,18 +350,9 @@ def compute_four_profit_factors(trades: list[TradeRecord] | pd.DataFrame) -> dic
 def get_baseline_combo_keys() -> set[str]:
     """Return the canonical set of 20 {symbol}/{combo_name} combo keys from baseline config."""
     try:
-        from autotrade_v3.data_backtest.replay_20final import modules
-        m = modules()
-        f14 = m.get("FINAL14_CASES", {})
-        n6 = m.get("NEW6_CASES", {})
-        case_name_fn = m.get("case_name", lambda c: f"C{c}")
-        keys = set()
-        for sym, c_dict in f14.items():
-            for cid in c_dict.keys():
-                keys.add(f"{sym}/{case_name_fn(cid)}")
-        for sym, c_dict in n6.items():
-            for cid in c_dict.keys():
-                keys.add(f"{sym}/{case_name_fn(cid)}")
+        from autotrade_v3.strategy_core.registry import StrategyCoreRegistry
+        strat = StrategyCoreRegistry.get("20FINAL", "1")
+        keys = {c.combo_key for c in strat.spec().combos}
         if keys:
             return keys
     except Exception:

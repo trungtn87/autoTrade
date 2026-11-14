@@ -15,6 +15,17 @@ from autotrade_v3.validation.context import VerifyContext
 from autotrade_v3.validation import gates_a, gates_b, gates_c, gates_d
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _has_real_m1_data() -> bool:
+    return (
+        (REPO_ROOT / "catalog" / "research.duckdb").exists()
+        and (REPO_ROOT / "data" / "m1_raw").exists()
+        and any((REPO_ROOT / "data" / "m1_raw").rglob("*.parquet"))
+    )
+
+
 class TestValidationGatesV310(unittest.TestCase):
     """Verify validation gates unit behavior on small fixtures."""
 
@@ -49,12 +60,17 @@ class TestValidationGatesV310(unittest.TestCase):
         self.assertFalse(report.is_real_data)
         self.assertIn("GATE_A_DATA", report.gates)
 
-    def test_gate_b3_is_inconclusive(self):
-        """Gate B3 must always return INCONCLUSIVE in V3-10."""
+    @unittest.skipUnless(
+        _has_real_m1_data(),
+        "Real M1 dataset (catalog/research.duckdb & data/m1_raw/*.parquet) not present in CI; skipping Gate B3 real-data check per Invariant N8",
+    )
+    def test_gate_b3_batch_live_equivalence(self):
+        """Gate B3 verifies batch generate() vs incremental on_bar_close() equivalence in V3-11."""
         ctx = VerifyContext(Path("runs/golden/v3-08/ALL_SIGNALS"), Path("."), Path("."))
         res = gates_b.gate_b3(ctx)
-        self.assertEqual(res.status, "INCONCLUSIVE")
-        self.assertIn("chưa tồn tại", res.reason)
+        self.assertEqual(res.status, "PASS")
+        self.assertEqual(res.violation_count, 0)
+        self.assertTrue(res.details.get("unclosed_bar_rejected"))
 
     def test_gate_d1_golden(self):
         """Gate D1 verifies file SHA256 and content hashes."""

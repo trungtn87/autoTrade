@@ -58,10 +58,11 @@ def get_git_state(repo_dir: Path = REPO_ROOT) -> tuple[str, bool, str]:
     try:
         status_out = subprocess.check_output(
             ["git", "status", "--porcelain"], cwd=repo_dir, text=True, stderr=subprocess.DEVNULL
-        ).strip()
+        ).rstrip("\r\n")
         filtered = [
             line for line in status_out.splitlines()
-            if not line[3:].startswith("runs/") and not line[3:].startswith("runs\\")
+            if line.strip()
+            and not line[3:].startswith("runs/") and not line[3:].startswith("runs\\")
             and not line[3:].startswith("evidence/") and not line[3:].startswith("evidence\\")
         ]
         code_dirty = len(filtered) > 0
@@ -129,6 +130,9 @@ class RunManifest:
     duckdb_version: str = ""
     pyarrow_version: str = ""
     dataset_hash: str = ""
+    signal_spec_hash: str = ""
+    exit_spec_hash: str = ""
+    spec_hash: str = ""
     is_golden: bool = False
     created_at_utc: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 

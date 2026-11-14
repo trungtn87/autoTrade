@@ -1,13 +1,14 @@
 """Strategy and signal verification gates B1, B2, B3.
 
-B1: Frozen signal parity against reference signals.parquet (for 20FINAL baseline: runs/golden/v3-08/ALL_SIGNALS/signals.parquet).
+B1: Frozen signal parity against versioned reference signals.parquet (for 20FINAL@1: runs/golden/v3-08/ALL_SIGNALS/signals.parquet) and baseline lock verification.
 B2: No-lookahead test using N cutoff points.
-B3: Batch vs live equivalence (returns INCONCLUSIVE until V3-11).
+B3: Batch (`generate`) vs Live incremental (`on_bar_close`) equivalence and closed-candle enforcement.
 """
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
+import json
 import time
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from autotrade_v3.strategy_core.hashing import normalize_lf
+from autotrade_v3.strategy_core.registry import StrategyCoreRegistry, parse_strategy_ref
 from autotrade_v3.validation.context import VerifyContext
 from autotrade_v3.validation.hashing import content_hash
 from autotrade_v3.validation.types import (
@@ -26,8 +29,35 @@ from autotrade_v3.validation.types import (
 )
 
 
+def _resolve_reference_signals_by_version(
+    repo_root: Path,
+    strategy_id: str,
+    strategy_version: str,
+    explicit_ref: Path | None = None,
+) -> Path | None:
+    """Resolve reference signals.parquet path by (strategy_id, version)."""
+    if explicit_ref is not None:
+        return explicit_ref
+
+    sid, ver = parse_strategy_ref(strategy_id, strategy_version)
+    if (sid, ver) == ("20FINAL", "1"):
+        cand = repo_root / "runs" / "golden" / "v3-08" / "ALL_SIGNALS" / "signals.parquet"
+        if cand.exists():
+            return cand
+
+    # Versioned reference path lookup for other strategy versions if available
+    slug = f"{sid.lower()}_v{ver}"
+    for cand in (
+        repo_root / "runs" / "golden" / slug / "ALL_SIGNALS" / "signals.parquet",
+        repo_root / "autotrade_v3" / "strategy_core" / "strategies" / "final20" / "params" / slug / "reference_signals.parquet",
+    ):
+        if cand.exists():
+            return cand
+    return None
+
+
 def gate_b1(ctx: VerifyContext) -> GateResult:
-    """Compare the run's signals with the frozen reference signals for the strategy & window."""
+    """Compare the run's signals with the frozen reference signals for (strategy_id, version) & window."""
     name = "Frozen signal parity"
     manifest = ctx.run.manifest
     run_sigs = ctx.run.signals
@@ -37,25 +67,34 @@ def gate_b1(ctx: VerifyContext) -> GateResult:
 
     total = len(run_sigs)
 
-    # Determine reference signals file
-    ref_path = ctx.reference_signals
-    if ref_path is None:
-        # Default baseline reference for 20FINAL 3Y window
-        cand = ctx.repo_root / "runs" / "golden" / "v3-08" / "ALL_SIGNALS" / "signals.parquet"
-        if cand.exists():
-            ref_path = cand
-
     strat_id = str(manifest.get("strategy_id", ""))
+    strat_ver = str(manifest.get("strategy_version", "1"))
+    sid_canon, ver_canon = parse_strategy_ref(strat_id, strat_ver)
+
     tw = manifest.get("time_window", {})
     start = tw.get("start", "")
     end = tw.get("end", "")
 
-    # B1 is only applicable if using 20FINAL_BASELINE on 2023-11-01 -> 2026-11-01
-    if strat_id != "20FINAL_BASELINE" or start != "2023-11-01" or end != "2026-11-01":
+    ref_path = _resolve_reference_signals_by_version(
+        ctx.repo_root,
+        sid_canon,
+        ver_canon,
+        ctx.reference_signals,
+    )
+
+    if (sid_canon, ver_canon) != ("20FINAL", "1") and ref_path is None:
         return inconclusive(
             "B1",
             name,
-            f"Strategy ({strat_id}) or window ({start} to {end}) does not match frozen reference baseline.",
+            f"Strategy ({sid_canon}@{ver_canon}) has no registered frozen reference baseline.",
+            total=total,
+        )
+
+    if start != "2023-11-01" or end != "2026-11-01":
+        return inconclusive(
+            "B1",
+            name,
+            f"Window ({start} to {end}) does not match frozen 3-year reference window (2023-11-01 to 2026-11-01).",
             total=total,
         )
 
@@ -90,6 +129,39 @@ def gate_b1(ctx: VerifyContext) -> GateResult:
         return failed("B1", name, f"Cannot read reference signals: {e}", total=total)
 
     viol = ViolationCollector()
+
+    # Verify signal_spec_hash against baseline lock if present in manifest and lock file exists
+    lock_file = (
+        ctx.repo_root
+        / "autotrade_v3"
+        / "strategy_core"
+        / "strategies"
+        / "final20"
+        / "params"
+        / "20final_v1.lock"
+    )
+    lock_verified = False
+    if (sid_canon, ver_canon) == ("20FINAL", "1"):
+        if not lock_file.exists():
+            viol.add({"kind": "LOCK_FILE_MISSING", "path": str(lock_file)})
+        else:
+            try:
+                lock_data = json.loads(normalize_lf(lock_file.read_text(encoding="utf-8")))
+                run_sig_hash = manifest.get("signal_spec_hash")
+                if run_sig_hash:
+                    if run_sig_hash != lock_data.get("signal_spec_hash"):
+                        viol.add({
+                            "kind": "SIGNAL_SPEC_HASH_MISMATCH",
+                            "expected": lock_data.get("signal_spec_hash"),
+                            "actual": run_sig_hash,
+                        })
+                    else:
+                        lock_verified = True
+                else:
+                    # Legacy manifests (e.g. V3-08 golden) predate signal_spec_hash; never mark lock_verified=True
+                    lock_verified = False
+            except Exception as e:
+                viol.add({"kind": "LOCK_READ_ERROR", "error": str(e)})
 
     ref_ids = set(ref_sigs["signal_id"].astype(str))
     run_ids = set(run_sigs["signal_id"].astype(str))
@@ -149,7 +221,9 @@ def gate_b1(ctx: VerifyContext) -> GateResult:
         total=total,
         viol=viol,
         details={
+            "strategy_ref": f"{sid_canon}@{ver_canon}",
             "reference_file": str(ref_path),
+            "lock_verified": lock_verified,
             "per_combo": per_combo,
             "total_signals": total,
         },
@@ -157,17 +231,19 @@ def gate_b1(ctx: VerifyContext) -> GateResult:
 
 
 _REPLAY_CACHE: dict[tuple[Any, ...], list[Any]] = {}
+_B3_CACHE: dict[tuple[Any, ...], tuple[int, int, list[dict[str, Any]], dict[str, Any]]] = {}
 
 
 def clear_replay_cache() -> None:
-    """Clear in-memory strategy replay cache for Gate B2."""
-    global _REPLAY_CACHE
+    """Clear in-memory strategy replay caches for Gates B2 and B3."""
+    global _REPLAY_CACHE, _B3_CACHE
     _REPLAY_CACHE.clear()
+    _B3_CACHE.clear()
 
 
 def gate_b2(ctx: VerifyContext) -> GateResult:
     """No-lookahead verification: select N cutoff points T.
-    
+
     Re-generate signals only from M1 data before T and ensure that signals
     with signal_close_ms <= T match exactly the corresponding subset of the full run.
     """
@@ -190,9 +266,13 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
         return inconclusive("B2", name, f"BLOCKED: M1 data not present under {ctx.data_root}")
 
     strat_id = str(manifest.get("strategy_id", ""))
+    strat_ver = str(manifest.get("strategy_version", "1"))
     try:
         from autotrade_v3.strategy.registry import StrategyRegistry
-        strat = StrategyRegistry.get(strat_id)
+        try:
+            strat = StrategyRegistry.get(f"{strat_id}@{strat_ver}")
+        except KeyError:
+            strat = StrategyRegistry.get(strat_id)
     except Exception as e:
         return inconclusive("B2", name, f"Cannot load strategy {strat_id}: {e}")
 
@@ -212,7 +292,6 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
     if len(all_close_ms) <= n_cutoffs:
         cutoffs = all_close_ms
     else:
-        # Uniformly split into n_cutoffs buckets and sample with seed
         buckets = np.array_split(all_close_ms, n_cutoffs)
         cutoffs = np.array([int(rng.choice(b)) for b in buckets], dtype=np.int64)
         cutoffs.sort()
@@ -230,7 +309,12 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
     start_date = tw.get("start", "2023-11-01")
     end_date = tw.get("end", "2026-11-01")
 
-    config_hash = str(manifest.get("config_hash") or "")
+    config_hash = str(
+        manifest.get("spec_hash")
+        or manifest.get("signal_spec_hash")
+        or manifest.get("config_hash")
+        or ""
+    )
     if not config_hash:
         cfg_repr = f"{strat_id}_{getattr(strat, 'version', '1.0')}"
         config_hash = hashlib.sha256(cfg_repr.encode("utf-8")).hexdigest()
@@ -257,7 +341,6 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
         cutoff_dt = pd.Timestamp(cutoff_t, unit="ms", tz="UTC")
         cutoff_dt_str = cutoff_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        # Full run signals up to cutoff_t
         expected_subset = run_sigs[run_sigs["signal_close_ms"] <= cutoff_t]
         expected_sig_dict = {
             str(s["signal_id"]): {
@@ -272,7 +355,6 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
         }
         expected_ids = set(expected_sig_dict.keys())
 
-        # Slice data strictly up to cutoff_dt (candles that closed at or before cutoff_t)
         sub_data = {sym: full_data[sym][full_data[sym].index < cutoff_dt] for sym in symbols}
 
         cutoff_viols: list[dict[str, Any]] = []
@@ -391,19 +473,294 @@ def gate_b2(ctx: VerifyContext) -> GateResult:
 
 
 def gate_b3(ctx: VerifyContext) -> GateResult:
-    """Batch vs live equivalence test.
-    
-    Must return INCONCLUSIVE until V3-11 introduces on_bar_close.
-    Never returns PASS.
+    """Batch vs Live incremental equivalence test (enabled in V3-11).
+
+    Verifies that:
+    1. Incremental `on_bar_close(state, bar)` rejects unclosed candles (`is_closed=False`).
+    2. Across the run's M15 dataset, `generate(bars)` (batch) and `on_bar_close(state, bar)`
+       (bar-by-bar incremental O(1)) produce the exact same SignalEvent set and identical fields/tags.
+    3. The run's persisted `signals.parquet` matches the evaluation-window signals from `on_bar_close`.
     """
     name = "Batch-Live equivalence"
-    return inconclusive(
+    manifest = ctx.run.manifest
+    run_sigs = ctx.run.signals
+
+    if manifest is None or run_sigs is None:
+        return inconclusive("B3", name, f"required inputs unavailable: {sorted(ctx.run.errors)}")
+
+    total = len(run_sigs)
+    if ctx.is_synthetic:
+        return inconclusive(
+            "B3",
+            name,
+            "Synthetic dataset run; Batch-Live full M15 equivalence requires real dataset.",
+            total=total,
+        )
+
+    dm = ctx.run.dataset_manifest
+    if not dm:
+        return inconclusive("B3", name, "dataset_manifest.json missing", total=total)
+    parts = dm.get("partitions", [])
+    if parts and not any((ctx.data_root / p["relative_path"]).exists() for p in parts):
+        return inconclusive("B3", name, f"BLOCKED: M1 data not present under {ctx.data_root}", total=total)
+
+    strat_id = str(manifest.get("strategy_id", "20FINAL"))
+    strat_ver = str(manifest.get("strategy_version", "1"))
+    try:
+        core_strat = StrategyCoreRegistry.get(strat_id, strat_ver)
+    except Exception as e:
+        return inconclusive("B3", name, f"Cannot load core strategy {strat_id}@{strat_ver}: {e}", total=total)
+
+    viol = ViolationCollector()
+    t0 = time.perf_counter()
+
+    # 1. Verify closed-candle enforcement: passing is_closed=False must raise ValueError
+    unclosed_rejected = False
+    try:
+        probe_state: dict[str, Any] = {}
+        core_strat.on_bar_close(
+            probe_state,
+            {
+                "symbol": "BTC-USDT",
+                "open_ms": 1698796800000,
+                "open": 35000.0,
+                "high": 35100.0,
+                "low": 34900.0,
+                "close": 35050.0,
+                "volume": 100.0,
+                "is_closed": False,
+            },
+        )
+    except ValueError:
+        unclosed_rejected = True
+    except Exception as e:
+        viol.add({"kind": "UNCLOSED_BAR_UNEXPECTED_ERROR", "error": str(e)})
+
+    if not unclosed_rejected:
+        viol.add({"kind": "UNCLOSED_BAR_ACCEPTED", "detail": "on_bar_close did not reject is_closed=False"})
+
+    # 2. Check batch vs live equivalence over the M15 window
+    symbols = manifest.get("symbols", ["BTC-USDT", "ETH-USDT"])
+    tw = manifest.get("time_window", {})
+    start_date = tw.get("start", "2023-11-01")
+    end_date = tw.get("end", "2026-11-01")
+    start_ms = int(pd.Timestamp(start_date, tz="UTC").value // 1_000_000)
+    end_ms = int(pd.Timestamp(end_date, tz="UTC").value // 1_000_000)
+
+    spec = core_strat.spec()
+    dataset_hash = str(manifest.get("dataset_hash") or (dm.get("dataset_hash") if dm else "") or "")
+    cache_key = (
+        spec.strategy_id,
+        spec.version,
+        spec.signal_spec_hash,
+        dataset_hash,
+        tuple(sorted(symbols)),
+        start_date,
+        end_date,
+    )
+
+    if cache_key in _B3_CACHE:
+        cached_checked, _, cached_viols, cached_details = _B3_CACHE[cache_key]
+        for v in cached_viols:
+            viol.add(v)
+        live_eval_records = list(cached_details.get("live_eval_records", []))
+        per_symbol_stats = cached_details.get("per_symbol", {})
+    else:
+        from autotrade_v3.data_layer import DataLayer
+        dl = DataLayer(
+            catalog_path=ctx.repo_root / "catalog" / "research.duckdb",
+            data_dir=ctx.data_root / "data" / "m1_raw",
+        )
+        per_symbol_stats = {}
+        live_eval_records: list[dict[str, Any]] = []
+        replay_viols: list[dict[str, Any]] = []
+
+        for sym in symbols:
+            try:
+                df = dl.query_timeframe(sym, "15m", start_date, end_date, include_warmup=True)
+            except Exception as e:
+                return inconclusive("B3", name, f"Failed to load M15 data for {sym}: {e}", total=total)
+
+            batch_evs = core_strat.generate(df, symbols=[sym], only_approved=True, only_warmup_ready=True)
+
+            live_state: dict[str, Any] = {}
+            t_arr = df.index.asi8 // 1_000_000
+            o_arr = df["open"].to_numpy(float)
+            h_arr = df["high"].to_numpy(float)
+            l_arr = df["low"].to_numpy(float)
+            c_arr = df["close"].to_numpy(float)
+            v_arr = df["volume"].to_numpy(float)
+            p_arr = df["provider"].astype(str).to_numpy() if "provider" in df.columns else np.full(len(df), "UNKNOWN")
+
+            live_evs = []
+            for i in range(len(df)):
+                bar_dict = {
+                    "symbol": sym,
+                    "open_ms": int(t_arr[i]),
+                    "open": float(o_arr[i]),
+                    "high": float(h_arr[i]),
+                    "low": float(l_arr[i]),
+                    "close": float(c_arr[i]),
+                    "volume": float(v_arr[i]),
+                    "provider": str(p_arr[i]),
+                    "is_closed": True,
+                }
+                evs = core_strat.on_bar_close(live_state, bar_dict, only_approved=True, only_warmup_ready=True)
+                live_evs.extend(evs)
+
+            b_map = {e.signal_id: e for e in batch_evs}
+            l_map = {e.signal_id: e for e in live_evs}
+
+            only_batch = sorted(set(b_map.keys()) - set(l_map.keys()))
+            only_live = sorted(set(l_map.keys()) - set(b_map.keys()))
+            field_diffs = []
+            for sid in sorted(set(b_map.keys()) & set(l_map.keys())):
+                be = b_map[sid]
+                le = l_map[sid]
+                if (
+                    be.combo_key != le.combo_key
+                    or be.symbol != le.symbol
+                    or be.side != le.side
+                    or be.native_open_ms != le.native_open_ms
+                    or be.signal_close_ms != le.signal_close_ms
+                    or abs(be.ref_price - le.ref_price) > 1e-12
+                    or be.tags != le.tags
+                ):
+                    field_diffs.append(sid)
+
+            if only_batch:
+                replay_viols.append({
+                    "symbol": sym,
+                    "kind": "ONLY_IN_BATCH",
+                    "count": len(only_batch),
+                    "sample": only_batch[:10],
+                })
+            if only_live:
+                replay_viols.append({
+                    "symbol": sym,
+                    "kind": "ONLY_IN_LIVE",
+                    "count": len(only_live),
+                    "sample": only_live[:10],
+                })
+            if field_diffs:
+                replay_viols.append({
+                    "symbol": sym,
+                    "kind": "FIELD_MISMATCH_BATCH_VS_LIVE",
+                    "count": len(field_diffs),
+                    "sample": field_diffs[:10],
+                })
+
+            for e in live_evs:
+                if start_ms <= e.signal_close_ms + 1 < end_ms:
+                    live_eval_records.append({
+                        "signal_id": str(e.signal_id),
+                        "symbol": str(e.symbol),
+                        "combo_id": int(e.tags["combo_id"]),
+                        "side": str(e.side),
+                        "signal_close_ms": int(e.signal_close_ms),
+                        "ref_price": float(e.ref_price),
+                    })
+
+            per_symbol_stats[sym] = {
+                "bars_processed": len(df),
+                "batch_signals": len(batch_evs),
+                "live_signals": len(live_evs),
+                "only_in_batch": len(only_batch),
+                "only_in_live": len(only_live),
+                "field_mismatches": len(field_diffs),
+            }
+
+        for v in replay_viols:
+            viol.add(v)
+
+        _B3_CACHE[cache_key] = (
+            total,
+            total,
+            replay_viols,
+            {
+                "live_eval_records": live_eval_records,
+                "per_symbol": per_symbol_stats,
+            },
+        )
+
+    # 3. Verify run's signals.parquet against live_eval_records (field-level + multiplicity)
+    from collections import Counter
+
+    live_by_sid: dict[str, dict[str, Any]] = {}
+    live_sid_counts: Counter[str] = Counter()
+    for rec in live_eval_records:
+        sid = rec["signal_id"]
+        live_sid_counts[sid] += 1
+        live_by_sid[sid] = rec
+
+    run_sid_counts: Counter[str] = Counter()
+    run_field_mismatches: list[str] = []
+    for _, row in run_sigs.iterrows():
+        sid = str(row["signal_id"])
+        run_sid_counts[sid] += 1
+        if sid in live_by_sid:
+            exp = live_by_sid[sid]
+            r_sym = str(row["symbol"])
+            r_cid = int(row["combo_id"])
+            r_side = str(row["side"])
+            r_close = int(row["signal_close_ms"])
+            r_price = float(row["entry_price"])
+            if (
+                r_sym != exp["symbol"]
+                or r_cid != exp["combo_id"]
+                or r_side != exp["side"]
+                or r_close != exp["signal_close_ms"]
+                or abs(r_price - exp["ref_price"]) > 1e-8
+            ):
+                run_field_mismatches.append(sid)
+
+    missing_from_run = sorted(set(live_sid_counts.keys()) - set(run_sid_counts.keys()))
+    extra_in_run = sorted(set(run_sid_counts.keys()) - set(live_sid_counts.keys()))
+    multiplicity_mismatches = sorted(
+        sid for sid in (set(live_sid_counts.keys()) & set(run_sid_counts.keys()))
+        if run_sid_counts[sid] != live_sid_counts[sid]
+    )
+
+    if missing_from_run:
+        viol.add({
+            "kind": "RUN_SIGNALS_MISSING_FROM_LIVE",
+            "count": len(missing_from_run),
+            "sample": missing_from_run[:10],
+        })
+    if extra_in_run:
+        viol.add({
+            "kind": "RUN_SIGNALS_EXTRA_VS_LIVE",
+            "count": len(extra_in_run),
+            "sample": extra_in_run[:10],
+        })
+    if multiplicity_mismatches:
+        viol.add({
+            "kind": "DUPLICATE_SIGNAL_IN_RUN",
+            "count": len(multiplicity_mismatches),
+            "sample": [
+                {"signal_id": sid, "run_count": run_sid_counts[sid], "live_count": live_sid_counts[sid]}
+                for sid in multiplicity_mismatches[:10]
+            ],
+        })
+    if run_field_mismatches:
+        viol.add({
+            "kind": "RUN_SIGNAL_FIELD_MISMATCH",
+            "count": len(run_field_mismatches),
+            "sample": sorted(set(run_field_mismatches))[:10],
+        })
+
+    duration = time.perf_counter() - t0
+    return finalize(
         "B3",
         name,
-        reason="on_bar_close chưa tồn tại",
-        total=len(ctx.run.signals) if ctx.run.signals is not None else 0,
+        checked=total,
+        total=total,
+        viol=viol,
         details={
-            "spec_section": "4.3 Gate B3",
-            "blocked_until": "V3-11",
+            "strategy_ref": f"{spec.strategy_id}@{spec.version}",
+            "signal_spec_hash": spec.signal_spec_hash,
+            "unclosed_bar_rejected": unclosed_rejected,
+            "per_symbol": per_symbol_stats,
+            "duration_s": round(duration, 2),
         },
     )

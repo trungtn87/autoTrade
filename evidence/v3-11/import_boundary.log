@@ -1,0 +1,35 @@
+=== V3-11 IMPORT BOUNDARY & V2 DECOUPLING AUDIT LOG ===
+
+1. AST Scan of autotrade_v3/strategy_core/:
+  [PASS] autotrade_v3/strategy_core/__init__.py                         imports=['__future__']
+  [PASS] autotrade_v3/strategy_core/api.py                              imports=['__future__', 'abc', 'dataclasses', 'hashlib', 'json', 'pandas', 'typing']
+  [PASS] autotrade_v3/strategy_core/hashing.py                          imports=['__future__', 'hashlib', 'json', 'pathlib', 'typing']
+  [PASS] autotrade_v3/strategy_core/indicators/__init__.py              imports=['__future__']
+  [PASS] autotrade_v3/strategy_core/indicators/indicators.py            imports=['__future__', 'numpy', 'pandas']
+  [PASS] autotrade_v3/strategy_core/indicators/layer3_long.py           imports=['.indicators', '.signals', '__future__', 'itertools', 'numpy', 'pandas']
+  [PASS] autotrade_v3/strategy_core/indicators/signals.py               imports=['.indicators', '__future__', 'numpy', 'pandas']
+  [PASS] autotrade_v3/strategy_core/indicators/smc_ob.py                imports=['.indicators', '__future__', 'dataclasses', 'numpy', 'pandas']
+  [PASS] autotrade_v3/strategy_core/indicators/smc_structure.py         imports=['__future__', 'numpy', 'pandas']
+  [PASS] autotrade_v3/strategy_core/indicators/two_trail_layer12.py     imports=['__future__']
+  [PASS] autotrade_v3/strategy_core/registry.py                         imports=['.api', '.hashing', '.strategies.final20.logic', '__future__', 'copy', 'json', 'pathlib', 'typing']
+  [PASS] autotrade_v3/strategy_core/strategies/__init__.py              imports=['__future__']
+  [PASS] autotrade_v3/strategy_core/strategies/final20/__init__.py      imports=['__future__']
+  [PASS] autotrade_v3/strategy_core/strategies/final20/logic.py         imports=['...api', '...hashing', '...indicators.indicators', '...indicators.layer3_long', '...indicators.signals', '...indicators.smc_ob', '...indicators.smc_structure', '...indicators.two_trail_layer12', '__future__', 'json', 'math', 'numpy', 'pandas', 'pathlib', 'typing']
+
+Total strategy_core AST violations: 0
+
+2. Search for 'autotrade_v2', 'sys.path', 'from app.' across autotrade_v3/:
+  autotrade_v3/legacy/reconcile_runs.py:26: if __package__ in (None, "") and str(REPO_ROOT) not in sys.path:
+  autotrade_v3/legacy/reconcile_runs.py:27: sys.path.insert(0, str(REPO_ROOT))
+  autotrade_v3/tests/test_strategy_core_v311.py:406: bad_py.write_text("from autotrade_v2.app.strategy import final14_config\n", encoding="utf-8")
+  autotrade_v3/tests/test_strategy_core_v311.py:412: self.assertTrue(caught, "M5: AST boundary scanner must catch autotrade_v2 import")
+  autotrade_v3/tests/test_validation_import_boundary.py:17: "autotrade_v2",
+  autotrade_v3/tools/extract_20final_params.py:1: """Programmatic parameter extractor for 20FINAL v1 from autotrade_v2/app/strategy/final14_config.py.
+  autotrade_v3/tools/extract_20final_params.py:3: Reads V2 configuration via Python AST without importing autotrade_v2 or modifying sys.path,
+  autotrade_v3/tools/extract_20final_params.py:17: DEFAULT_V2_CONFIG = REPO_ROOT / "autotrade_v2" / "app" / "strategy" / "final14_config.py"
+  autotrade_v3/tools/extract_20final_params.py:227: "and V2 default in autotrade_v2/app/config.py; live V2 runtime environment "
+  autotrade_v3/tools/extract_20final_params.py:283: "- **Ghi chú Trailing:** `trailing_act_pct=0.005` và `trailing_cb_pct=0.005` lấy theo giả định V3 hiện tại và giá trị mặc định trong `autotrade_v2/app/config.py` (dòng 53-54); cấu hình biến môi trường V2 đang chạy thật chưa đối chiếu.",
+  autotrade_v3/tools/run_head_verification.py:20: if __package__ in (None, "") and str(REPO_ROOT) not in sys.path:
+  autotrade_v3/tools/run_head_verification.py:21: sys.path.insert(0, str(REPO_ROOT))
+
+Total matches in autotrade_v3/ runtime backtest path (excluding tools/extract_20final_params.py & tests): 0

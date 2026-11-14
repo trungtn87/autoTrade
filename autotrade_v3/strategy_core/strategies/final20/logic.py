@@ -1,0 +1,2787 @@
+from __future__ import annotations
+
+import json
+import math
+from pathlib import Path
+from typing import Any
+import numpy as np
+import pandas as pd
+
+from ...api import ComboSpec, ExitPolicy, SignalEvent, Strategy, StrategySpec
+from ...hashing import compute_all_hashes, normalize_lf
+from ...indicators.indicators import (
+    atr,
+    cci,
+    crossover,
+    crossunder,
+    edge_event,
+    ema,
+    obv_variant,
+    parabolic_sar,
+    pine_custom_supertrend_dir,
+    sma,
+    stochastic,
+    session_vwap,
+)
+from ...indicators.layer3_long import _nadaraya, precompute, entry_variants, NATIVE
+from ...indicators.signals import align_confirmed
+from ...indicators.smc_structure import smc_direction
+from ...indicators.smc_ob import ob_context, OBConfig
+from ...indicators.two_trail_layer12 import approved
+
+MIN_LIVE_15M_BARS = 3400
+
+
+def _research_frame(m15: pd.DataFrame) -> pd.DataFrame:
+    d=m15.copy(deep=True)
+    if not isinstance(d.index,pd.DatetimeIndex):
+        d.index=pd.to_datetime(d["open_time"],unit="ms",utc=True)
+    elif d.index.tz is None:
+        d.index=d.index.tz_localize("UTC")
+    else:
+        d.index=d.index.tz_convert("UTC")
+    return d.sort_index()
+
+
+def _combo_name(combo:int)->str:
+    return "TIER" if int(combo)==11 else f"C{int(combo)}"
+
+
+# -----------------------------------------------------------------------------
+# NEW6 exact indicator ports. These intentionally mirror the research scripts
+# used to select N1..N6. All operate on confirmed native 1H candles only.
+# -----------------------------------------------------------------------------
+
+def _clean_bool(values, index:pd.Index)->pd.Series:
+    return pd.Series(values,index=index).fillna(False).astype(bool)
+
+
+def _cross_up(a:np.ndarray,b:np.ndarray)->np.ndarray:
+    return (a>b) & np.r_[False,a[:-1]<=b[:-1]]
+
+
+def _cross_down(a:np.ndarray,b:np.ndarray)->np.ndarray:
+    return (a<b) & np.r_[False,a[:-1]>=b[:-1]]
+
+
+def _demarker(high:np.ndarray,low:np.ndarray,n:int)->np.ndarray:
+    prev_h=np.r_[np.nan,high[:-1]]
+    prev_l=np.r_[np.nan,low[:-1]]
+    demax=np.maximum(high-prev_h,0)
+    demin=np.maximum(prev_l-low,0)
+    a=pd.Series(demax).rolling(n).mean().to_numpy()
+    b=pd.Series(demin).rolling(n).mean().to_numpy()
+    return a/(a+b)
+
+
+def _aroon(high:np.ndarray,low:np.ndarray,period:int)->tuple[np.ndarray,np.ndarray]:
+    n=len(high)
+    up=np.full(n,np.nan)
+    down=np.full(n,np.nan)
+    for i in range(period-1,n):
+        hs=high[i-period+1:i+1]
+        ls=low[i-period+1:i+1]
+        imax=0
+        imin=0
+        mx=hs[0]
+        mn=ls[0]
+        for j in range(1,period):
+            if hs[j]>=mx:
+                mx=hs[j]
+                imax=j
+            if ls[j]<=mn:
+                mn=ls[j]
+                imin=j
+        since_h=(period-1)-imax
+        since_l=(period-1)-imin
+        up[i]=100.0*(period-since_h)/period
+        down[i]=100.0*(period-since_l)/period
+    return up,down
+
+
+def _cmo(close:np.ndarray,length:int)->np.ndarray:
+    s=pd.Series(close)
+    delta=s.diff()
+    up=delta.clip(lower=0).rolling(length).sum()
+    down=(-delta.clip(upper=0)).rolling(length).sum()
+    return (100*(up-down)/(up+down)).to_numpy()
+
+
+def _ichimoku(
+    high:np.ndarray,low:np.ndarray,conv:int,base:int,spanb:int
+)->tuple[np.ndarray,np.ndarray,np.ndarray,np.ndarray]:
+    hs=pd.Series(high)
+    ls=pd.Series(low)
+    tenkan=(hs.rolling(conv).max()+ls.rolling(conv).min())/2
+    kijun=(hs.rolling(base).max()+ls.rolling(base).min())/2
+    span_a=((tenkan+kijun)/2).shift(base)
+    span_b=((hs.rolling(spanb).max()+ls.rolling(spanb).min())/2).shift(base)
+    return (
+        tenkan.to_numpy(),kijun.to_numpy(),
+        span_a.to_numpy(),span_b.to_numpy(),
+    )
+
+
+def _kama_er(
+    close:np.ndarray,erlen:int,fastlen:int,slowlen:int
+)->tuple[np.ndarray,np.ndarray]:
+    n=len(close)
+    kama=np.full(n,np.nan)
+    er=np.full(n,np.nan)
+    fast=2.0/(fastlen+1.0)
+    slow=2.0/(slowlen+1.0)
+    if n<=erlen:
+        return kama,er
+    kama[erlen]=close[erlen]
+    for i in range(erlen,n):
+        change=abs(close[i]-close[i-erlen])
+        volatility=0.0
+        for j in range(i-erlen+1,i+1):
+            volatility+=abs(close[j]-close[j-1])
+        efficiency=change/volatility if volatility>1e-12 else 0.0
+        er[i]=efficiency
+        if i>erlen:
+            sc=(efficiency*(fast-slow)+slow)**2
+            kama[i]=kama[i-1]+sc*(close[i]-kama[i-1])
+    return kama,er
+
+
+def _vortex(
+    high:np.ndarray,low:np.ndarray,close:np.ndarray,length:int
+)->tuple[np.ndarray,np.ndarray]:
+    prev_c=np.r_[np.nan,close[:-1]]
+    prev_h=np.r_[np.nan,high[:-1]]
+    prev_l=np.r_[np.nan,low[:-1]]
+    tr=np.nanmax(
+        np.vstack([high-low,np.abs(high-prev_c),np.abs(low-prev_c)]),
+        axis=0,
+    )
+    vm_plus=np.abs(high-prev_l)
+    vm_minus=np.abs(low-prev_h)
+    tr_sum=pd.Series(tr).rolling(length).sum().to_numpy()
+    vi_plus=pd.Series(vm_plus).rolling(length).sum().to_numpy()/tr_sum
+    vi_minus=pd.Series(vm_minus).rolling(length).sum().to_numpy()/tr_sum
+    return vi_plus,vi_minus
+
+
+def _new6_raw_signals(d1:pd.DataFrame,combo:int)->tuple[pd.Series,pd.Series]:
+    h=d1.high.to_numpy(float)
+    l=d1.low.to_numpy(float)
+    c=d1.close.to_numpy(float)
+    combo=int(combo)
+
+    if combo==101:
+        z=_demarker(h,l,60)
+        return _clean_bool(z>.75,d1.index),_clean_bool(z<.25,d1.index)
+
+    if combo==102:
+        up,down=_aroon(h,l,40)
+        return (
+            _clean_bool(_cross_up(up,down)&(up>=70),d1.index),
+            _clean_bool(_cross_up(down,up)&(down>=70),d1.index),
+        )
+
+    if combo==103:
+        z=_cmo(c,40)
+        long=(z>40)&np.r_[False,z[:-1]<=40]
+        short=(z<-40)&np.r_[False,z[:-1]>=-40]
+        return _clean_bool(long,d1.index),_clean_bool(short,d1.index)
+
+    if combo==104:
+        tenkan,kijun,span_a,span_b=_ichimoku(h,l,12,30,60)
+        top=np.maximum(span_a,span_b)
+        bottom=np.minimum(span_a,span_b)
+        return (
+            _clean_bool(
+                _cross_up(tenkan,kijun)&(c>top)&(span_a>span_b),d1.index
+            ),
+            _clean_bool(
+                _cross_down(tenkan,kijun)&(c<bottom)&(span_a<span_b),d1.index
+            ),
+        )
+
+    if combo==105:
+        kama,er=_kama_er(c,40,2,40)
+        slope=np.r_[np.nan,np.diff(kama)]
+        return (
+            _clean_bool((c>kama)&(slope>0)&(er>.4),d1.index),
+            _clean_bool((c<kama)&(slope<0)&(er>.4),d1.index),
+        )
+
+    if combo==106:
+        vi_plus,vi_minus=_vortex(h,l,c,14)
+        return (
+            _clean_bool(
+                _cross_up(vi_plus,vi_minus)&(vi_plus>vi_minus*1.2),d1.index
+            ),
+            _clean_bool(
+                _cross_up(vi_minus,vi_plus)&(vi_minus>vi_plus*1.2),d1.index
+            ),
+        )
+
+    raise KeyError(f"unknown NEW6 combo {combo}")
+
+
+def _new6_filtered_signals(
+    d1:pd.DataFrame,
+    combo:int,
+    cfg:dict,
+    smc1:pd.Series,
+    ob1:pd.DataFrame|None,
+)->tuple[pd.Series,pd.Series]:
+    raw_l,raw_s=_new6_raw_signals(d1,combo)
+    long=pd.Series(False,index=d1.index,dtype=bool)
+    short=pd.Series(False,index=d1.index,dtype=bool)
+    layer2=str(cfg["layer2"])
+
+    for i,ot in enumerate(d1.index):
+        is_long=bool(raw_l.iloc[i])
+        is_short=bool(raw_s.iloc[i])
+        if is_long==is_short:
+            continue
+        side_code="L" if is_long else "S"
+        sd=int(smc1.loc[ot]) if ot in smc1.index else 0
+        blocked=False
+        if ob1 is not None and ot in ob1.index:
+            col="buy_blocked" if is_long else "sell_blocked"
+            blocked=bool(ob1.loc[ot,col])
+        if approved(side_code,sd,blocked,layer2):
+            if is_long:
+                long.loc[ot]=True
+            else:
+                short.loc[ot]=True
+    return long,short
+
+
+# =============================================================================
+# V3-11 Strategy Core Adapter (Batch generate() & Parameter-Driven Evaluation)
+# =============================================================================
+
+M15_MS = 900_000
+FINAL20_DIR = Path(__file__).resolve().parent
+DEFAULT_PARAMS_PATH = FINAL20_DIR / "params" / "20final_v1.json"
+DEFAULT_LOCK_PATH = FINAL20_DIR / "params" / "20final_v1.lock"
+
+_BASELINE_ENTRY_DEFAULTS: dict[tuple[int, str], dict[str, Any]] = {
+    (1, "MFI_L50_S50"): {"mfi_long": 50.0, "mfi_short": 50.0},
+    (2, "ADX_20"): {"adx": 20.0},
+    (3, "ADX_34"): {"adx": 34.0},
+    (4, "ADX_23"): {"adx": 23.0},
+    (6, "BODY_1.4"): {"body_atr": 1.4},
+    (6, "BODY_1.8"): {"body_atr": 1.8},
+    (7, "BODY1.6_VOL2.0"): {"body_atr": 1.6, "volume_mult": 2.0},
+    (7, "BODY1.3_VOL1.5"): {"body_atr": 1.3, "volume_mult": 1.5},
+    (9, "RSI45_FIXST"): {"rsi_long_max": 45.0, "rsi_short_min": 55.0, "fix_short_supertrend": True},
+    (10, "ADX_22"): {"adx": 22.0},
+    (10, "ADX_28"): {"adx": 28.0},
+    (11, "ADX30_T27_T35_V1.3"): {"adx": 30.0, "tier2_score": 7.0, "tier3_score": 5.0, "volume_mult": 1.3},
+    (101, "trend_n60_0.25_0.75"): {"indicator": "DeMarker", "period": 60, "short_max": 0.25, "long_min": 0.75},
+    (102, "cross_n40_t70"): {"indicator": "Aroon", "period": 40, "threshold": 70.0},
+    (103, "momcross_n40_t40"): {"indicator": "CMO", "period": 40, "threshold": 40.0},
+    (104, "tkcross_12_30_60"): {"indicator": "Ichimoku", "conv": 12, "base": 30, "spanb": 60},
+    (105, "state_e40_s40_t0.4"): {"indicator": "KAMA_ER", "er_len": 40, "fast_len": 2, "slow_len": 40, "er_min": 0.4},
+    (106, "cross_n14_r1.2"): {"indicator": "Vortex", "period": 14, "ratio": 1.2},
+}
+
+
+class BaselineLockError(RuntimeError):
+    """Raised when loading 20FINAL@1 fails baseline lock verification."""
+
+
+def _is_default_entry(combo: ComboSpec) -> bool:
+    expected = _BASELINE_ENTRY_DEFAULTS.get((combo.combo_id, combo.entry_variant))
+    return expected is not None and combo.entry == expected
+
+
+def _custom_final14_signals(pc: dict[str, Any], combo: ComboSpec) -> tuple[pd.Series, pd.Series]:
+    """Evaluate FINAL14 entry signals when a clone modifies entry thresholds outside the default grid."""
+    cid = combo.combo_id
+    ent = combo.entry
+    d15 = pc["d15"]
+    d1 = pc["d1"]
+    d4 = pc["d4"]
+    d6 = pc["d6"]
+    p15 = pc["15"]
+    p1 = pc["1"]
+
+    if cid in (1, 2, 3, 4, 6, 11):
+        d = d1
+        A21 = p1["A21"]
+        R = p1["R"]
+        M = p1["M"]
+        ADX = p1["ADX"]
+        K = p1["K"]
+        D = p1["D"]
+        C = p1["C"]
+        macd = ema(d.close, 8) - ema(d.close, 21)
+        sig = ema(macd, 9)
+        hist = macd - sig
+        volma = p1["volma"]
+        volsp = d.volume > volma * 1.5
+        adxr = ADX > ADX.shift(1)
+        sb08 = (d.close > d.open) & ((d.close - d.open) > A21 * 0.8)
+        ss08 = (d.close < d.open) & ((d.open - d.close) > A21 * 0.8)
+        tu = d.close > p1["ema1504"]
+        td = d.close < p1["ema1504"]
+        longc = (K > 30) & (K > D) & (C > 80) & (C > C.shift(1))
+        shortc = (K < 70) & (K < D) & (C > -80) & (C < C.shift(1))
+
+        if cid == 1:
+            lth = float(ent.get("mfi_long", 50.0))
+            sth = float(ent.get("mfi_short", 50.0))
+            L = longc & (R > 55) & (hist > 0) & (M > lth) & adxr & sb08 & tu & volsp
+            S = shortc & (R < 45) & (hist < 0) & (M < sth) & adxr & ss08 & td & volsp
+            return edge_event(L), edge_event(S)
+
+        if cid == 2:
+            adxth = float(ent.get("adx", 20.0))
+            e10 = ema(d.close, 10)
+            e25 = ema(d.close, 25)
+            basis = sma(d.close, 20)
+            dev = 1.8 * d.close.rolling(20, min_periods=20).std(ddof=0)
+            bbup = d.close > (basis + dev)
+            bbdn = d.close < (basis - dev)
+            a14 = p1.get("A14") if "A14" in p1 else atr(d, 14)
+            trstop = 1.5 * a14
+            x = d.close.to_numpy(float)
+            ts = trstop.to_numpy(float)
+            arr = np.full(len(d), np.nan)
+            for i in range(len(d)):
+                prev = arr[i - 1] if i else np.nan
+                nz = 0 if not np.isfinite(prev) else prev
+                prevsrc = x[i - 1] if i else np.nan
+                if i and x[i] > nz and prevsrc > nz:
+                    arr[i] = max(nz, x[i] - ts[i])
+                elif i and x[i] < nz and prevsrc < nz:
+                    arr[i] = min(nz, x[i] + ts[i])
+                else:
+                    arr[i] = x[i] - ts[i] if x[i] > nz else x[i] + ts[i]
+            ats = pd.Series(arr, index=d.index)
+            above = crossover(ema(d.close, 1), ats)
+            below = crossover(ats, ema(d.close, 1))
+            L = (d.close > ats) & above & (e10 > e25) & (macd > sig) & (ADX > adxth) & bbup
+            S = (d.close < ats) & below & (e10 < e25) & (macd < sig) & (ADX > adxth) & bbdn
+            return edge_event(L), edge_event(S)
+
+        stdir1 = pine_custom_supertrend_dir(d, 8, 4.0)
+        if cid == 3:
+            adxth = float(ent.get("adx", 34.0))
+            sar = parabolic_sar(d, 0.05, 0.2, 0.3)
+            bull_eng = (d.close > d.open) & (d.close.shift(1) < d.open.shift(1)) & (d.close > d.open.shift(1)) & (d.open < d.close.shift(1))
+            bear_eng = (d.close < d.open) & (d.close.shift(1) > d.open.shift(1)) & (d.close < d.open.shift(1)) & (d.open > d.close.shift(1))
+            O = obv_variant(d)
+            oup = O > O.shift(1)
+            odn = O < O.shift(1)
+            L = (stdir1 == 1) & (ADX > adxth) & (d.close > sar) & bull_eng & oup
+            S = (stdir1 == -1) & (ADX > adxth) & (d.close < sar) & bear_eng & odn
+            return edge_event(L), edge_event(S)
+
+        e50_6 = align_confirmed(ema(d6.close, 50), d.index, "6h")
+        tfast = ema(d.close, 21)
+        tslow = ema(d.close, 42)
+        bt = tfast > tslow
+        br = tfast < tslow
+        std20 = d.close.rolling(20, min_periods=20).std(ddof=0)
+        bbu = sma(d.close, 20) + 2 * std20
+        bbl = sma(d.close, 20) - 2 * std20
+        ku = sma(d.close, 20) + 1.7 * atr(d, 20)
+        kl = sma(d.close, 20) - 1.7 * atr(d, 20)
+        breakout_b = crossover(d.close, bbu) & (d.close > ku)
+        breakout_s = crossunder(d.close, bbl) & (d.close < kl)
+
+        if cid == 4:
+            adxth = float(ent.get("adx", 23.0))
+            L = bt & breakout_b & (d.close > e50_6) & (stdir1 == 1) & sb08 & volsp & (ADX > adxth)
+            S = br & breakout_s & (d.close < e50_6) & (stdir1 == -1) & ss08 & volsp & (ADX > adxth)
+            return edge_event(L), edge_event(S)
+
+        if cid == 6:
+            bm = float(ent.get("body_atr", 1.4))
+            lc6 = (R > 30) & (K > 30) & (K > D) & (C > 100) & (C > C.shift(1))
+            sc6 = (R < 70) & (K < 70) & (K < D) & (C > -100) & (C < C.shift(1))
+            adxs = (ADX > 20) & adxr
+            sb = (d.close > d.open) & ((d.close - d.open) > A21 * bm)
+            ss = (d.close < d.open) & ((d.open - d.close) > A21 * bm)
+            return edge_event(sb & breakout_b & lc6 & adxs), edge_event(ss & breakout_s & sc6 & adxs)
+
+        if cid == 11:
+            adxth = float(ent.get("adx", 30.0))
+            t2 = float(ent.get("tier2_score", 7.0))
+            t3 = float(ent.get("tier3_score", 5.0))
+            vm = float(ent.get("volume_mult", 1.3))
+            dip = p1["dip"]
+            dim = p1["dim"]
+            A20 = atr(d, 20)
+            e50 = align_confirmed(ema(d4.close, 50), d.index, "4h")
+            e150 = align_confirmed(ema(d4.close, 150), d.index, "4h")
+            e200 = align_confirmed(ema(d4.close, 200), d.index, "4h")
+            V = session_vwap(d)
+            macd12 = ema(d.close, 12) - ema(d.close, 26)
+            sig12 = ema(macd12, 9)
+            hist12 = macd12 - sig12
+            C9 = cci(d.close, d.high, d.low, 9)
+            K14 = stochastic(d.close, d.high, d.low, 14)
+            D14 = sma(K14, 3)
+            e9 = ema(d.close, 9)
+            e21 = ema(d.close, 21)
+            sup = sma(d.close, 8) + 2 * A20
+            strong = (d.close - d.open).abs() > A20 * 0.8
+            sd = d.close.rolling(20, min_periods=20).std(ddof=0)
+            z = (d.close - sma(d.close, 20)) / sd
+            ao = ema(d.close, 5) - ema(d.close, 34)
+            sq = ema(d.close, 20) - ema(d.close, 50)
+            rav = sma(R, 14)
+            stdt = pine_custom_supertrend_dir(d, 8, 4.0)
+            pcL = d.close > d.close.rolling(20, min_periods=20).max().shift(1)
+            pcS = d.close < d.close.rolling(20, min_periods=20).min().shift(1)
+            vs = d.volume > sma(d.volume, 20) * vm
+            tdL = (dip > dim) & (dip > 22)
+            tdS = (dip < dim) & (dim > 22)
+            trL = (e50 > e200) & tdL & (d.close > V) & (e50 > e50.shift(1))
+            trS = (e50 < e200) & tdS & (d.close < V) & (e50 < e50.shift(1))
+            t1L = trL & vs & (ADX > adxth)
+            t1S = trS & vs & (ADX > adxth)
+            s2L = (hist12 > 0) * 2 + (e150 > e200) * 2 + (C9 > 100) * 1 + (R > 50) * 1 + (d.close > sup) * 1 + crossover(K14, D14) * 0.5 + (d.close > e21) * 1 + (strong & (d.close > d.open)) * 1
+            s2S = (hist12 < 0) * 2 + (e150 < e200) * 2 + (C9 < -100) * 1 + (R < 50) * 1 + (d.close < sup) * 1 + crossunder(K14, D14) * 0.5 + (d.close < e21) * 1 + (strong & (d.close < d.open)) * 1
+            s2L = s2L + (M > 55) * 1 + (A20 > A20.shift(1)) * 1 + (e9 > e21) * 1 + ((C9 > C9.shift(1)) & (C9 > 100)) * 1 + ((K14 > K14.shift(1)) & (K14 > 50)) * 1
+            s2S = s2S + (M < 45) * 1 + (A20 > A20.shift(1)) * 1 + (e9 < e21) * 1 + ((C9 < C9.shift(1)) & (C9 < -100)) * 1 + ((K14 < K14.shift(1)) & (K14 < 50)) * 1
+            s3L = (z < -1.5) * 1 + (ao > 0) * 1 + (sq > 0) * 1 + (R > rav) * 1 + (e9 > e21) * 1 + (hist12 > 0) * 1 + (stdt == 1) * 1
+            s3S = (z > 1.5) * 1 + (ao < 0) * 1 + (sq < 0) * 1 + (R < rav) * 1 + (e9 < e21) * 1 + (hist12 < 0) * 1 + (stdt == -1) * 1
+            vma = sma(d.volume, 20)
+            vsp = d.volume > vma * vm
+            mrL = (M > 60) & (M > M.shift(1)) & vsp
+            mrS = (M < 40) & (M < M.shift(1)) & vsp
+            s3L = s3L + pcL * 1 + mrL * 1 + (R > 50) * 1 + vsp * 1
+            s3S = s3S + pcS * 1 + mrS * 1 + (R < 50) * 1 + vsp * 1
+            return edge_event(t1L & (s2L >= t2) & (s3L >= t3)), edge_event(t1S & (s2S >= t2) & (s3S >= t3))
+
+    # 15m combos (7, 9, 10, or 5, 8)
+    d = d15
+    A = p15["A"]
+    R = p15["R"]
+    M = p15["M"]
+    ADX = p15["ADX"]
+    volSMA = p15["volSMA"]
+    body_ratio = p15["body_ratio"]
+    valid = body_ratio > 0.75
+
+    if cid == 7:
+        bm = float(ent.get("body_atr", 1.6))
+        vm = float(ent.get("volume_mult", 2.0))
+        ef = ema(d.close, 21)
+        es = ema(d.close, 55)
+        adxr = ADX > ADX.shift(1)
+        volume_surge = d.volume > d.volume.shift(1) * 1.8
+        tu = d.close > p15["trend100"]
+        td = d.close < p15["trend100"]
+        strong_b = (d.close > d.open) & ((d.close - d.open) > A * bm)
+        strong_s = (d.close < d.open) & ((d.open - d.close) > A * bm)
+        volsp = d.volume > volSMA * vm
+        L = volume_surge & (ef > es) & tu & adxr & (ADX > 25) & strong_b & volsp & valid & (R > 60) & (R < 85)
+        S = volume_surge & (ef < es) & td & adxr & (ADX > 25) & strong_s & volsp & valid & (R < 40) & (R > 15)
+        return edge_event(L), edge_event(S)
+
+    if cid == 9:
+        r_long = float(ent.get("rsi_long_max", 45.0))
+        r_short = float(ent.get("rsi_short_min", 100.0 - r_long))
+        fix_st = bool(ent.get("fix_short_supertrend", True))
+        ema200 = p15["ema200"]
+        stdir15 = p15["stdir"]
+        mid = _nadaraya(d.close, 24, 3.0)
+        nr = d.close.rolling(24, min_periods=24).std(ddof=0) * 2.3
+        upper = mid + nr
+        lower = mid - nr
+        L = (d.close > ema200) & (R < r_long) & (d.close < lower) & (stdir15 == 1) & (body_ratio > 0.4)
+        st_cond = (stdir15 == -1) if fix_st else (stdir15 == 1)
+        S = (d.close < ema200) & (R > r_short) & (d.close > upper) & st_cond & (body_ratio > 0.4)
+        return edge_event(L), edge_event(S)
+
+    if cid == 10:
+        adxth = float(ent.get("adx", 22.0))
+        ao = sma((d.high + d.low) / 2, 5) - sma((d.high + d.low) / 2, 34)
+        squeeze = ema(d.close, 20) - ema(d.close, 50)
+        mean = sma(d.close, 20)
+        sd = d.close.rolling(20, min_periods=20).std(ddof=0)
+        z = (d.close - mean) / sd
+        tu4 = d.close > p15["trend100"]
+        td4 = d.close < p15["trend100"]
+        upper_w = d.high - pd.concat([d.close, d.open], axis=1).max(axis=1)
+        lower_w = pd.concat([d.close, d.open], axis=1).min(axis=1) - d.low
+        body = (d.close - d.open).abs()
+        bull_pin = (lower_w > body * 1.5) & (d.close > d.open)
+        bear_pin = (upper_w > body * 1.5) & (d.close < d.open)
+        L = (ao > 0) & (squeeze > 0) & (z < -1.5) & tu4 & (ADX > adxth) & bull_pin
+        S = (ao < 0) & (squeeze < 0) & (z > 1.5) & td4 & (ADX > adxth) & bear_pin
+        return edge_event(L), edge_event(S)
+
+    raise KeyError(f"Unsupported custom FINAL14 combo {combo.combo_key}")
+
+
+def _custom_new6_raw_signals(d1: pd.DataFrame, combo: ComboSpec) -> tuple[pd.Series, pd.Series]:
+    """Evaluate NEW6 raw signals when a clone modifies entry parameters."""
+    if _is_default_entry(combo):
+        return _new6_raw_signals(d1, combo.combo_id)
+
+    h = d1.high.to_numpy(float)
+    l = d1.low.to_numpy(float)
+    c = d1.close.to_numpy(float)
+    cid = int(combo.combo_id)
+    ent = combo.entry
+
+    if cid == 101:
+        n = int(ent.get("period", 60))
+        long_min = float(ent.get("long_min", 0.75))
+        short_max = float(ent.get("short_max", 0.25))
+        z = _demarker(h, l, n)
+        return _clean_bool(z > long_min, d1.index), _clean_bool(z < short_max, d1.index)
+    if cid == 102:
+        period = int(ent.get("period", 40))
+        th = float(ent.get("threshold", 70.0))
+        up, down = _aroon(h, l, period)
+        return (
+            _clean_bool(_cross_up(up, down) & (up >= th), d1.index),
+            _clean_bool(_cross_up(down, up) & (down >= th), d1.index),
+        )
+    if cid == 103:
+        length = int(ent.get("period", 40))
+        th = float(ent.get("threshold", 40.0))
+        z = _cmo(c, length)
+        long = (z > th) & np.r_[False, z[:-1] <= th]
+        short = (z < -th) & np.r_[False, z[:-1] >= -th]
+        return _clean_bool(long, d1.index), _clean_bool(short, d1.index)
+    if cid == 104:
+        conv = int(ent.get("conv", 12))
+        base = int(ent.get("base", 30))
+        spanb = int(ent.get("spanb", 60))
+        tenkan, kijun, span_a, span_b = _ichimoku(h, l, conv, base, spanb)
+        top = np.maximum(span_a, span_b)
+        bottom = np.minimum(span_a, span_b)
+        return (
+            _clean_bool(_cross_up(tenkan, kijun) & (c > top) & (span_a > span_b), d1.index),
+            _clean_bool(_cross_down(tenkan, kijun) & (c < bottom) & (span_a < span_b), d1.index),
+        )
+    if cid == 105:
+        er_len = int(ent.get("er_len", 40))
+        fast_len = int(ent.get("fast_len", 2))
+        slow_len = int(ent.get("slow_len", 40))
+        er_min = float(ent.get("er_min", 0.4))
+        kama, er = _kama_er(c, er_len, fast_len, slow_len)
+        slope = np.r_[np.nan, np.diff(kama)]
+        return (
+            _clean_bool((c > kama) & (slope > 0) & (er > er_min), d1.index),
+            _clean_bool((c < kama) & (slope < 0) & (er > er_min), d1.index),
+        )
+    if cid == 106:
+        length = int(ent.get("period", 14))
+        ratio = float(ent.get("ratio", 1.2))
+        vi_plus, vi_minus = _vortex(h, l, c, length)
+        return (
+            _clean_bool(_cross_up(vi_plus, vi_minus) & (vi_plus > vi_minus * ratio), d1.index),
+            _clean_bool(_cross_up(vi_minus, vi_plus) & (vi_minus > vi_plus * ratio), d1.index),
+        )
+    raise KeyError(f"Unknown NEW6 combo {cid}")
+
+
+def _make_signal_event(
+    sym: str,
+    combo: ComboSpec,
+    side_code: str,
+    ot: pd.Timestamp,
+    pos: int,
+    sd: int,
+    blocked: bool,
+    ok: bool,
+    d: pd.DataFrame,
+    warmup_bars: int,
+) -> SignalEvent:
+    native = combo.native_timeframe
+    last_open = ot + (pd.Timedelta(minutes=45) if native == "1h" else pd.Timedelta(0))
+    if d.index[pos] != last_open:
+        raise AssertionError("Cannot publish signal before native candle close")
+    close_ms = int(d.index[pos].value // 1_000_000 + M15_MS - 1)
+    native_open_ms = int(ot.value // 1_000_000)
+    bar_open_ms = int(d.index[pos].value // 1_000_000)
+    side_str = "BUY" if side_code == "L" else "SELL"
+    sym_clean = sym.replace("-", "").replace("_", "")
+    signal_id = f"SIG_{sym_clean}_{combo.combo_name}_{native}_{side_str}_{close_ms}"
+    ref_price = float(d.iloc[pos]["close"])
+    provider = str(d.iloc[pos].get("provider", "UNKNOWN"))
+
+    return SignalEvent(
+        signal_id=signal_id,
+        combo_key=combo.combo_key,
+        symbol=sym,
+        side=side_str,
+        native_open_ms=native_open_ms,
+        signal_close_ms=close_ms,
+        ref_price=ref_price,
+        tags={
+            "smc_dir": int(sd),
+            "ob_blocked": bool(blocked),
+            "approved": bool(ok),
+            "warmup_ready": bool(pos >= warmup_bars - 1),
+            "combo_id": int(combo.combo_id),
+            "combo_name": combo.combo_name,
+            "timeframe": native,
+            "bar_position": int(pos),
+            "bar_open_ms": bar_open_ms,
+            "provider": provider,
+            "is_new6": bool(combo.is_new6),
+        },
+    )
+
+
+class Final20Strategy(Strategy):
+    """Independent 20FINAL Strategy Core implementation."""
+
+    def __init__(
+        self,
+        params_data: dict[str, Any] | None = None,
+        params_path: Path | None = None,
+        lock_path: Path | None = None,
+        core_root: Path | None = None,
+        enforce_lock: bool = True,
+    ):
+        self._params_path = Path(params_path) if params_path is not None else DEFAULT_PARAMS_PATH
+        self._lock_path = Path(lock_path) if lock_path is not None else DEFAULT_LOCK_PATH
+        self._core_root = Path(core_root) if core_root is not None else FINAL20_DIR.parents[1]
+
+        if params_data is None:
+            raw_text = normalize_lf(self._params_path.read_text(encoding="utf-8"))
+            params_data = json.loads(raw_text)
+        self._params_data = params_data
+
+        strategy_id = str(params_data.get("strategy_id", "20FINAL"))
+        version = str(params_data.get("version", "1"))
+        warmup_bars = int(params_data.get("warmup_bars", MIN_LIVE_15M_BARS))
+        timeframes = tuple(str(tf) for tf in params_data.get("timeframes", ["15m", "1h"]))
+        parent = params_data.get("parent")
+
+        hashes = compute_all_hashes(params_data, core_root=self._core_root)
+
+        # Enforce baseline immutability lock when loading 20FINAL version 1 (fail-closed)
+        if enforce_lock and strategy_id in ("20FINAL", "20FINAL_BASELINE") and version in ("1", "1.0.0"):
+            if not self._lock_path.exists():
+                raise BaselineLockError(
+                    f"Baseline 20FINAL@1 lock file missing (fail-closed): {self._lock_path}"
+                )
+            lock_data = json.loads(normalize_lf(self._lock_path.read_text(encoding="utf-8")))
+            for h_key in ("signal_spec_hash", "exit_spec_hash", "spec_hash"):
+                expected_h = lock_data.get(h_key)
+                actual_h = hashes.get(h_key)
+                if expected_h != actual_h:
+                    raise BaselineLockError(
+                        f"Baseline 20FINAL@1 lock mismatch on {h_key}: "
+                        f"expected={expected_h}, actual={actual_h}"
+                    )
+
+        combos = tuple(ComboSpec.from_dict(c) for c in params_data.get("combos", []))
+        self._spec = StrategySpec(
+            strategy_id=strategy_id,
+            version=version,
+            combos=combos,
+            timeframes=timeframes,
+            warmup_bars=warmup_bars,
+            signal_spec_hash=hashes["signal_spec_hash"],
+            exit_spec_hash=hashes["exit_spec_hash"],
+            spec_hash=hashes["spec_hash"],
+            parent=str(parent) if parent is not None else None,
+        )
+
+    def spec(self) -> StrategySpec:
+        return self._spec
+
+    def _generate_symbol(
+        self,
+        sym: str,
+        d_in: pd.DataFrame,
+        only_approved: bool = True,
+        only_warmup_ready: bool = True,
+    ) -> list[SignalEvent]:
+        if not isinstance(d_in.index, pd.DatetimeIndex) or d_in.index.tz is None:
+            raise ValueError("Need timestamp-indexed UTC M15 candles")
+        d = d_in.tz_convert("UTC")
+        t = d.index.asi8 // 1_000_000
+        warmup_bars = self._spec.warmup_bars
+        if (
+            len(d) < warmup_bars
+            or d.index.has_duplicates
+            or not d.index.is_monotonic_increasing
+            or (t % M15_MS).any()
+            or (t[1:] - t[:-1] != M15_MS).any()
+        ):
+            raise ValueError("M15 gapped, misaligned or insufficient live warmup")
+
+        sym_combos = [c for c in self._spec.combos if c.symbol.upper() == sym.upper()]
+        if not sym_combos:
+            return []
+
+        final14_combos = sorted([c for c in sym_combos if not c.is_new6], key=lambda c: c.combo_id)
+        new6_combos = sorted([c for c in sym_combos if c.is_new6], key=lambda c: c.combo_id)
+
+        wanted: dict[str, set[str]] = {}
+        for c in final14_combos:
+            wanted.setdefault(c.combo_name, set()).add(c.entry_variant)
+
+        pc = precompute(d, wanted if wanted else None)
+        selected = entry_variants(pc, wanted) if wanted else {}
+        d1 = pc["d1"]
+        smc15 = smc_direction(d, 50, False)
+        smc1 = smc_direction(d1, 50, False)
+        obcfg = OBConfig(pivot_len=5, search_bars=12, max_age=80, danger_atr=0.5)
+        ob15 = ob_context(d, obcfg)
+        ob1 = ob_context(d1, obcfg)
+        posmap = {ts: i for i, ts in enumerate(d.index)}
+
+        events: list[SignalEvent] = []
+
+        for c in final14_combos:
+            native = c.native_timeframe
+            if _is_default_entry(c):
+                variants = [x for x in selected.get(c.combo_name, []) if x[0] == c.entry_variant]
+                if len(variants) == 1:
+                    _, L, S = variants[0]
+                else:
+                    L, S = _custom_final14_signals(pc, c)
+            else:
+                L, S = _custom_final14_signals(pc, c)
+
+            rows = []
+            for side_code, series in (("L", L), ("S", S)):
+                for ot in series.index[series.fillna(False)]:
+                    last = ot + (pd.Timedelta(minutes=45) if native == "1h" else pd.Timedelta(0))
+                    if last not in posmap:
+                        continue
+                    sd = int((smc1 if native == "1h" else smc15).loc[ot])
+                    ob = (ob1 if native == "1h" else ob15).loc[ot]
+                    blocked = bool(ob["buy_blocked" if side_code == "L" else "sell_blocked"])
+                    ok = bool(approved(side_code, sd, blocked, c.layer2))
+                    rows.append((posmap[last], side_code, ot, sd, blocked, ok))
+            rows.sort(key=lambda x: x[0])
+            for p, side_code, ot, sd, blocked, ok in rows:
+                ev = _make_signal_event(sym, c, side_code, ot, p, sd, blocked, ok, d, warmup_bars)
+                if only_approved and not ev.tags["approved"]:
+                    continue
+                if only_warmup_ready and not ev.tags["warmup_ready"]:
+                    continue
+                events.append(ev)
+
+        for c in new6_combos:
+            L, S = _custom_new6_raw_signals(d1, c)
+            for ot in d1.index:
+                lng, shrt = bool(L.loc[ot]), bool(S.loc[ot])
+                if lng == shrt:
+                    continue
+                last = ot + pd.Timedelta(minutes=45)
+                if last not in posmap:
+                    continue
+                side_code = "L" if lng else "S"
+                sd = int(smc1.loc[ot])
+                blocked = bool(ob1.loc[ot, "buy_blocked" if lng else "sell_blocked"])
+                ok = bool(approved(side_code, sd, blocked, c.layer2))
+                ev = _make_signal_event(sym, c, side_code, ot, posmap[last], sd, blocked, ok, d, warmup_bars)
+                if only_approved and not ev.tags["approved"]:
+                    continue
+                if only_warmup_ready and not ev.tags["warmup_ready"]:
+                    continue
+                events.append(ev)
+
+        events.sort(key=lambda e: (e.signal_close_ms, int(e.tags["combo_id"]), e.side))
+        return events
+
+    @staticmethod
+    def _canonical_symbol(sym: str) -> str:
+        up = sym.upper()
+        if "BTC" in up:
+            return "BTC-USDT"
+        if "ETH" in up:
+            return "ETH-USDT"
+        return sym
+
+    def generate(
+        self,
+        bars: dict[str, pd.DataFrame] | pd.DataFrame,
+        symbols: list[str] | None = None,
+        only_approved: bool = True,
+        only_warmup_ready: bool = True,
+    ) -> list[SignalEvent]:
+        """Batch signal generation across provided closed M15 candle frames."""
+        if isinstance(bars, pd.DataFrame):
+            sym = symbols[0] if symbols else "BTC-USDT"
+            sym_canonical = self._canonical_symbol(sym)
+            evs = self._generate_symbol(
+                sym_canonical,
+                bars,
+                only_approved=only_approved,
+                only_warmup_ready=only_warmup_ready,
+            )
+            if sym != sym_canonical:
+                evs = [
+                    SignalEvent(
+                        signal_id=e.signal_id,
+                        combo_key=e.combo_key,
+                        symbol=sym,
+                        side=e.side,
+                        native_open_ms=e.native_open_ms,
+                        signal_close_ms=e.signal_close_ms,
+                        ref_price=e.ref_price,
+                        tags=e.tags,
+                    )
+                    for e in evs
+                ]
+            return evs
+
+        target_symbols = symbols or list(bars.keys())
+        all_events: list[SignalEvent] = []
+        for sym in target_symbols:
+            if sym not in bars:
+                continue
+            sym_canonical = self._canonical_symbol(sym)
+            evs = self._generate_symbol(
+                sym_canonical,
+                bars[sym],
+                only_approved=only_approved,
+                only_warmup_ready=only_warmup_ready,
+            )
+            if sym != sym_canonical:
+                evs = [
+                    SignalEvent(
+                        signal_id=e.signal_id,
+                        combo_key=e.combo_key,
+                        symbol=sym,
+                        side=e.side,
+                        native_open_ms=e.native_open_ms,
+                        signal_close_ms=e.signal_close_ms,
+                        ref_price=e.ref_price,
+                        tags=e.tags,
+                    )
+                    for e in evs
+                ]
+            all_events.extend(evs)
+
+        all_events.sort(key=lambda e: (e.signal_close_ms, int(e.tags["combo_id"]), e.side))
+        return all_events
+
+    def on_bar_close(
+        self,
+        state: Any,
+        bar: Any,
+        only_approved: bool | None = None,
+        only_warmup_ready: bool | None = None,
+    ) -> list[SignalEvent]:
+        """Incremental O(1) bar-by-bar signal generation on each closed M15 candle.
+
+        Args:
+            state: Either a `Final20LiveState`, a `SymbolLiveState`, or a mutable `dict`
+                   that will be initialized in-place on first call.
+            bar: Mapping/dict/Series/object representing a closed M15 candle with fields:
+                 `symbol` (optional if state is single-symbol, defaults to 'BTC-USDT'),
+                 `open_ms` (or `open_time` / `timestamp`), `open`, `high`, `low`, `close`, `volume`,
+                 and optional `is_closed` (must be True if present), `close_ms`, `provider`.
+            only_approved: Optional override. If None, preserves the setting configured on `state` (default True).
+            only_warmup_ready: Optional override. If None, preserves the setting configured on `state` (default True).
+        """
+        if isinstance(state, dict):
+            live_state = state.get("_final20_live_state")
+            if live_state is None:
+                eff_approved = bool(state.get("only_approved", True)) if only_approved is None else bool(only_approved)
+                eff_warmup = bool(state.get("only_warmup_ready", True)) if only_warmup_ready is None else bool(only_warmup_ready)
+                live_state = self.init_live_state(
+                    only_approved=eff_approved,
+                    only_warmup_ready=eff_warmup,
+                )
+                state["_final20_live_state"] = live_state
+        elif isinstance(state, Final20LiveState):
+            live_state = state
+        elif isinstance(state, SymbolLiveState):
+            return state.step_bar_dict(
+                bar,
+                only_approved=True if only_approved is None else bool(only_approved),
+                only_warmup_ready=True if only_warmup_ready is None else bool(only_warmup_ready),
+            )
+        else:
+            raise TypeError(f"Unsupported state type for on_bar_close: {type(state)}")
+
+        return live_state.on_bar_close(
+            bar,
+            only_approved=only_approved,
+            only_warmup_ready=only_warmup_ready,
+        )
+
+    def init_live_state(
+        self,
+        only_approved: bool = True,
+        only_warmup_ready: bool = True,
+    ) -> Final20LiveState:
+        """Create a fresh incremental state container for `on_bar_close`."""
+        return Final20LiveState(
+            spec=self._spec,
+            only_approved=only_approved,
+            only_warmup_ready=only_warmup_ready,
+        )
+
+
+# =============================================================================
+# V3-11 Incremental O(1) Live State Machine for on_bar_close(state, bar)
+# =============================================================================
+
+H1_MS = 3_600_000
+H4_MS = 14_400_000
+H6_MS = 21_600_000
+DAY_MS = 86_400_000
+
+
+class _IncSMA:
+    def __init__(self, n: int):
+        self.n = n
+        self.buf: list[float] = []
+
+    def step(self, x: float) -> float:
+        xf = float(x)
+        self.buf.append(xf)
+        if len(self.buf) > self.n:
+            self.buf.pop(0)
+        if len(self.buf) < self.n or not all(math.isfinite(v) for v in self.buf):
+            return np.nan
+        return sum(self.buf) / self.n
+
+
+class _IncStd:
+    def __init__(self, n: int):
+        self.n = n
+        self.buf: list[float] = []
+
+    def step(self, x: float) -> float:
+        xf = float(x)
+        self.buf.append(xf)
+        if len(self.buf) > self.n:
+            self.buf.pop(0)
+        if len(self.buf) < self.n or not all(math.isfinite(v) for v in self.buf):
+            return np.nan
+        mean = sum(self.buf) / self.n
+        var = sum((v - mean) ** 2 for v in self.buf) / self.n
+        return math.sqrt(var)
+
+
+class _IncRMA:
+    def __init__(self, n: int):
+        self.n = n
+        self.buf: list[float] = []
+        self.val: float = np.nan
+        self.seeded: bool = False
+        self.idx: int = 0
+
+    def step(self, x: float) -> float:
+        self.idx += 1
+        xf = float(x)
+        if not self.seeded:
+            self.buf.append(xf)
+            if len(self.buf) > self.n:
+                self.buf.pop(0)
+            if self.idx >= self.n and len(self.buf) == self.n and all(math.isfinite(v) for v in self.buf):
+                self.val = sum(self.buf) / self.n
+                self.seeded = True
+            return self.val
+        if math.isfinite(xf) and math.isfinite(self.val):
+            self.val = (self.val * (self.n - 1) + xf) / self.n
+        return self.val
+
+
+class _IncEMA:
+    def __init__(self, n: int):
+        self.n = n
+        self.alpha = 2.0 / (n + 1.0)
+        self.val: float = np.nan
+        self.total_count: int = 0
+
+    def step(self, x: float) -> float:
+        self.total_count += 1
+        xf = float(x)
+        if math.isfinite(xf):
+            if math.isnan(self.val):
+                self.val = xf
+            else:
+                self.val = (1.0 - self.alpha) * self.val + self.alpha * xf
+        if self.total_count < self.n or math.isnan(self.val):
+            return np.nan
+        return self.val
+
+
+class _IncATR:
+    def __init__(self, n: int):
+        self.rma = _IncRMA(n)
+        self.prev_c: float = np.nan
+
+    def step(self, h: float, l: float, c: float) -> float:
+        if math.isnan(self.prev_c):
+            tr = h - l
+        else:
+            tr = max(h - l, abs(h - self.prev_c), abs(l - self.prev_c))
+        self.prev_c = c
+        return self.rma.step(tr)
+
+
+class _IncRSI:
+    def __init__(self, n: int = 14):
+        self.au = _IncRMA(n)
+        self.ad = _IncRMA(n)
+        self.prev_c: float = np.nan
+
+    def step(self, c: float) -> float:
+        if math.isnan(self.prev_c):
+            up = np.nan
+            dn = np.nan
+        else:
+            d = c - self.prev_c
+            up = d if d > 0.0 else 0.0
+            dn = -d if d < 0.0 else 0.0
+        self.prev_c = c
+        u = self.au.step(up)
+        d_val = self.ad.step(dn)
+        if math.isnan(u) or math.isnan(d_val):
+            return np.nan
+        if u == 0.0:
+            return 0.0
+        if d_val == 0.0:
+            return 100.0
+        rs = u / d_val
+        return 100.0 - 100.0 / (1.0 + rs)
+
+
+class _IncMFI:
+    def __init__(self, n: int = 14):
+        self.n = n
+        self.prev_tp: float = np.nan
+        self.pos_buf: list[float] = []
+        self.neg_buf: list[float] = []
+
+    def step(self, h: float, l: float, c: float, v: float) -> float:
+        tp = (h + l + c) / 3.0
+        mf = tp * v
+        if math.isnan(self.prev_tp):
+            pos = 0.0
+            neg = 0.0
+        else:
+            d = tp - self.prev_tp
+            pos = mf if d > 0.0 else 0.0
+            neg = mf if d < 0.0 else 0.0
+        self.prev_tp = tp
+        self.pos_buf.append(pos)
+        self.neg_buf.append(neg)
+        if len(self.pos_buf) > self.n:
+            self.pos_buf.pop(0)
+            self.neg_buf.pop(0)
+        if len(self.pos_buf) < self.n:
+            return np.nan
+        ps = sum(self.pos_buf)
+        ns = sum(self.neg_buf)
+        if ns == 0.0:
+            return 100.0
+        ratio = ps / ns
+        return 100.0 - 100.0 / (1.0 + ratio)
+
+
+class _IncCCI:
+    def __init__(self, n: int = 9):
+        self.n = n
+        self.c_buf: list[float] = []
+
+    def step(self, c: float) -> float:
+        self.c_buf.append(float(c))
+        if len(self.c_buf) > self.n:
+            self.c_buf.pop(0)
+        if len(self.c_buf) < self.n:
+            return np.nan
+        ma = sum(self.c_buf) / self.n
+        md = sum(abs(v - ma) for v in self.c_buf) / self.n
+        if md == 0.0:
+            return np.nan
+        return (c - ma) / (0.015 * md)
+
+
+class _IncStoch:
+    def __init__(self, n: int, d_len: int = 3):
+        self.n = n
+        self.h_buf: list[float] = []
+        self.l_buf: list[float] = []
+        self.d_sma = _IncSMA(d_len)
+
+    def step(self, h: float, l: float, c: float) -> tuple[float, float]:
+        self.h_buf.append(h)
+        self.l_buf.append(l)
+        if len(self.h_buf) > self.n:
+            self.h_buf.pop(0)
+            self.l_buf.pop(0)
+        if len(self.h_buf) < self.n:
+            k = np.nan
+        else:
+            lo = min(self.l_buf)
+            hi = max(self.h_buf)
+            k = (100.0 * (c - lo) / (hi - lo)) if hi != lo else np.nan
+        d = self.d_sma.step(k)
+        return k, d
+
+
+class _IncDMI:
+    def __init__(self, di_len: int = 14, adx_len: int = 14):
+        self.tr_rma = _IncRMA(di_len)
+        self.plus_rma = _IncRMA(di_len)
+        self.minus_rma = _IncRMA(di_len)
+        self.adx_rma = _IncRMA(adx_len)
+        self.prev_h: float = np.nan
+        self.prev_l: float = np.nan
+        self.prev_c: float = np.nan
+
+    def step(self, h: float, l: float, c: float) -> tuple[float, float, float]:
+        if math.isnan(self.prev_c):
+            tr = h - l
+            plus_dm = 0.0
+            minus_dm = 0.0
+        else:
+            tr = max(h - l, abs(h - self.prev_c), abs(l - self.prev_c))
+            up = h - self.prev_h
+            down = -(l - self.prev_l)
+            plus_dm = up if (up > down and up > 0.0) else 0.0
+            minus_dm = down if (down > up and down > 0.0) else 0.0
+        self.prev_h = h
+        self.prev_l = l
+        self.prev_c = c
+
+        tr_v = self.tr_rma.step(tr)
+        p_v = self.plus_rma.step(plus_dm)
+        m_v = self.minus_rma.step(minus_dm)
+        if math.isnan(tr_v) or tr_v == 0.0 or math.isnan(p_v) or math.isnan(m_v):
+            plus = np.nan
+            minus = np.nan
+            dx = np.nan
+        else:
+            plus = 100.0 * p_v / tr_v
+            minus = 100.0 * m_v / tr_v
+            denom = plus + minus
+            dx = (100.0 * abs(plus - minus) / denom) if denom != 0.0 else np.nan
+        adx = self.adx_rma.step(dx)
+        return plus, minus, adx
+
+
+class _IncPSAR:
+    def __init__(self, start: float = 0.02, inc: float = 0.02, max_af: float = 0.2):
+        self.start = start
+        self.inc = inc
+        self.max_af = max_af
+        self.idx = 0
+        self.h0 = np.nan
+        self.l0 = np.nan
+        self.c0 = np.nan
+        self.h_prev1 = np.nan
+        self.h_prev2 = np.nan
+        self.l_prev1 = np.nan
+        self.l_prev2 = np.nan
+        self.bull = True
+        self.af = start
+        self.ep = np.nan
+        self.sar = np.nan
+
+    def step(self, h: float, l: float, c: float) -> float:
+        i = self.idx
+        self.idx += 1
+        if i == 0:
+            self.h0, self.l0, self.c0 = h, l, c
+            self.h_prev1, self.l_prev1 = h, l
+            return np.nan
+        if i == 1:
+            self.bull = c >= self.c0
+            self.af = self.start
+            self.ep = self.h0 if self.bull else self.l0
+            self.sar = self.l0 if self.bull else self.h0
+
+        sar = self.sar + self.af * (self.ep - self.sar)
+        if self.bull:
+            sar = min(sar, self.l_prev1, self.l_prev2) if i >= 2 else min(sar, self.l_prev1)
+            if l < sar:
+                self.bull = False
+                sar = self.ep
+                self.ep = l
+                self.af = self.start
+            elif h > self.ep:
+                self.ep = h
+                self.af = min(self.max_af, self.af + self.inc)
+        else:
+            sar = max(sar, self.h_prev1, self.h_prev2) if i >= 2 else max(sar, self.h_prev1)
+            if h > sar:
+                self.bull = True
+                sar = self.ep
+                self.ep = h
+                self.af = self.start
+            elif l < self.ep:
+                self.ep = l
+                self.af = min(self.max_af, self.af + self.inc)
+
+        self.sar = sar
+        self.h_prev2 = self.h_prev1
+        self.l_prev2 = self.l_prev1
+        self.h_prev1 = h
+        self.l_prev1 = l
+        return sar
+
+
+class _IncCustomSupertrend:
+    def __init__(self, atr_n: int, factor: float):
+        self.atr = _IncATR(atr_n)
+        self.factor = factor
+        self.prev_trend: float = np.nan
+        self.prev_c: float = np.nan
+        self.idx = 0
+
+    def step(self, h: float, l: float, c: float) -> int:
+        a = self.atr.step(h, l, c)
+        mid = (h + l) / 2.0
+        up = (mid + self.factor * a) if math.isfinite(a) else np.nan
+        lo = (mid - self.factor * a) if math.isfinite(a) else np.nan
+        if self.idx == 0 or not math.isfinite(self.prev_trend):
+            trend = mid
+        else:
+            if self.prev_c > self.prev_trend:
+                trend = max(lo, self.prev_trend) if math.isfinite(lo) else self.prev_trend
+            else:
+                trend = min(up, self.prev_trend) if math.isfinite(up) else self.prev_trend
+        self.prev_trend = trend
+        self.prev_c = c
+        self.idx += 1
+        return 1 if c > trend else -1
+
+
+class _IncCombo15Supertrend:
+    def __init__(self):
+        self.atr = _IncATR(14)
+        self.c_buf: list[float] = []
+        self.prev_out: int = 1
+        self.idx = 0
+
+    def step(self, h: float, l: float, c: float) -> int:
+        a = self.atr.step(h, l, c)
+        self.c_buf.append(c)
+        if len(self.c_buf) > 8:
+            self.c_buf.pop(0)
+        base = (sum(self.c_buf) / 8.0) if len(self.c_buf) == 8 else np.nan
+        u = (base + 2.0 * a) if (math.isfinite(base) and math.isfinite(a)) else np.nan
+        lo = (base - 2.0 * a) if (math.isfinite(base) and math.isfinite(a)) else np.nan
+        prev = self.prev_out if self.idx > 0 else 1
+        if math.isfinite(lo) and c > lo:
+            out = 1
+        elif math.isfinite(u) and c < u:
+            out = -1
+        else:
+            out = prev
+        self.prev_out = out
+        self.idx += 1
+        return out
+
+
+class _IncNadaraya:
+    def __init__(self, length: int = 24, smooth: float = 3.0):
+        self.length = length
+        self.weights = [math.exp(-((i / length * smooth) ** 2)) for i in range(length + 1)]
+        self.denom = sum(self.weights)
+        self.c_buf: list[float] = []
+
+    def step(self, c: float) -> float:
+        self.c_buf.append(c)
+        if len(self.c_buf) > self.length + 1:
+            self.c_buf.pop(0)
+        if len(self.c_buf) < self.length + 1:
+            return np.nan
+        num = sum(self.c_buf[-1 - i] * self.weights[i] for i in range(self.length + 1))
+        return num / self.denom
+
+
+class _IncATRTrailingStop:
+    def __init__(self):
+        self.prev_ats: float = np.nan
+        self.prev_c: float = np.nan
+        self.idx = 0
+
+    def step(self, c: float, atr14: float) -> tuple[float, bool, bool]:
+        ts = 1.5 * atr14
+        nz = 0.0 if not math.isfinite(self.prev_ats) else self.prev_ats
+        if self.idx > 0 and c > nz and self.prev_c > nz:
+            ats = max(nz, c - ts)
+        elif self.idx > 0 and c < nz and self.prev_c < nz:
+            ats = min(nz, c + ts)
+        else:
+            ats = (c - ts) if c > nz else (c + ts)
+        above = (
+            self.idx > 0
+            and math.isfinite(ats)
+            and math.isfinite(self.prev_ats)
+            and (c > ats)
+            and (self.prev_c <= self.prev_ats)
+        )
+        below = (
+            self.idx > 0
+            and math.isfinite(ats)
+            and math.isfinite(self.prev_ats)
+            and (ats > c)
+            and (self.prev_ats <= self.prev_c)
+        )
+        self.prev_ats = ats
+        self.prev_c = c
+        self.idx += 1
+        return ats, above, below
+
+
+class _IncSMC:
+    def __init__(self, swing_len: int = 50, confluence: bool = False):
+        self.swing_len = swing_len
+        self.confluence = confluence
+        self.h_buf: list[float] = []
+        self.l_buf: list[float] = []
+        self.prev_c: float = np.nan
+        self.idx = 0
+
+        self.swing_leg = 0
+        self.internal_leg = 0
+        self.swing_hi = np.nan
+        self.swing_lo = np.nan
+        self.internal_hi = np.nan
+        self.internal_lo = np.nan
+        self.swing_hi_crossed = False
+        self.swing_lo_crossed = False
+        self.internal_hi_crossed = False
+        self.internal_lo_crossed = False
+        self.swing_bias = 0
+        self.internal_bias = 0
+
+    def step(self, o: float, h: float, l: float, c: float) -> int:
+        i = self.idx
+        self.idx += 1
+        L = self.swing_len
+        self.h_buf.append(h)
+        self.l_buf.append(l)
+        if len(self.h_buf) > L + 1:
+            self.h_buf.pop(0)
+            self.l_buf.pop(0)
+
+        swing_new_high = (i >= L) and (self.h_buf[0] > max(self.h_buf[1:]))
+        swing_new_low = (i >= L) and (self.l_buf[0] < min(self.l_buf[1:]))
+        old = self.swing_leg
+        if swing_new_high:
+            self.swing_leg = 0
+        elif swing_new_low:
+            self.swing_leg = 1
+        swing_change = self.swing_leg - old
+
+        ilen = 5
+        int_new_high = (i >= ilen) and (self.h_buf[-ilen - 1] > max(self.h_buf[-ilen:]))
+        int_new_low = (i >= ilen) and (self.l_buf[-ilen - 1] < min(self.l_buf[-ilen:]))
+        oldi = self.internal_leg
+        if int_new_high:
+            self.internal_leg = 0
+        elif int_new_low:
+            self.internal_leg = 1
+        int_change = self.internal_leg - oldi
+
+        prev_swing_hi = self.swing_hi
+        prev_swing_lo = self.swing_lo
+        prev_internal_hi = self.internal_hi
+        prev_internal_lo = self.internal_lo
+
+        if swing_change == 1:
+            self.swing_lo = self.l_buf[0]
+            self.swing_lo_crossed = False
+        elif swing_change == -1:
+            self.swing_hi = self.h_buf[0]
+            self.swing_hi_crossed = False
+
+        if int_change == 1:
+            self.internal_lo = self.l_buf[-ilen - 1]
+            self.internal_lo_crossed = False
+        elif int_change == -1:
+            self.internal_hi = self.h_buf[-ilen - 1]
+            self.internal_hi_crossed = False
+
+        bullbar = True
+        bearbar = True
+        if self.confluence:
+            upper = h - max(c, o)
+            rhs = min(c, o - l)
+            bullbar = upper > rhs
+            bearbar = upper < rhs
+
+        def _xover(level: float, prev_level: float) -> bool:
+            return i > 0 and math.isfinite(level) and math.isfinite(prev_level) and c > level and self.prev_c <= prev_level
+
+        def _xunder(level: float, prev_level: float) -> bool:
+            return i > 0 and math.isfinite(level) and math.isfinite(prev_level) and c < level and self.prev_c >= prev_level
+
+        internal_bull_extra = (
+            math.isfinite(self.internal_hi)
+            and math.isfinite(self.swing_hi)
+            and (self.internal_hi != self.swing_hi)
+            and bullbar
+        )
+        if (not self.internal_hi_crossed) and internal_bull_extra and _xover(self.internal_hi, prev_internal_hi):
+            self.internal_hi_crossed = True
+            self.internal_bias = 1
+
+        internal_bear_extra = (
+            math.isfinite(self.internal_lo)
+            and math.isfinite(self.swing_lo)
+            and (self.internal_lo != self.swing_lo)
+            and bearbar
+        )
+        if (not self.internal_lo_crossed) and internal_bear_extra and _xunder(self.internal_lo, prev_internal_lo):
+            self.internal_lo_crossed = True
+            self.internal_bias = -1
+
+        if (not self.swing_hi_crossed) and _xover(self.swing_hi, prev_swing_hi):
+            self.swing_hi_crossed = True
+            self.swing_bias = 1
+        if (not self.swing_lo_crossed) and _xunder(self.swing_lo, prev_swing_lo):
+            self.swing_lo_crossed = True
+            self.swing_bias = -1
+
+        self.prev_c = c
+        if self.internal_bias == 1 and self.swing_bias == 1:
+            return 1
+        if self.internal_bias == -1 and self.swing_bias == -1:
+            return -1
+        return 0
+
+
+class _IncOB:
+    def __init__(self, pivot_len: int = 5, search_bars: int = 12, max_age: int = 80, danger_atr: float = 0.5):
+        self.pivot_len = pivot_len
+        self.search_bars = search_bars
+        self.max_age = max_age
+        self.danger_atr = danger_atr
+        self.atr = _IncATR(14)
+        self.o_buf: list[float] = []
+        self.h_buf: list[float] = []
+        self.l_buf: list[float] = []
+        self.c_buf: list[float] = []
+        self.idx = 0
+
+        self.sh = np.nan
+        self.sl = np.nan
+        self.sh_broken = False
+        self.sl_broken = False
+        self.blo = np.nan
+        self.bhi = np.nan
+        self.bro = -1
+        self.elo = np.nan
+        self.ehi = np.nan
+        self.ero = -1
+
+    def step(self, o: float, h: float, l: float, c: float) -> tuple[bool, bool]:
+        i = self.idx
+        self.idx += 1
+        a = self.atr.step(h, l, c)
+        n = self.pivot_len
+        keep = max(2 * n + 1, self.search_bars + 1)
+        self.o_buf.append(o)
+        self.h_buf.append(h)
+        self.l_buf.append(l)
+        self.c_buf.append(c)
+        if len(self.h_buf) > keep:
+            self.o_buf.pop(0)
+            self.h_buf.pop(0)
+            self.l_buf.pop(0)
+            self.c_buf.pop(0)
+
+        ph_i = np.nan
+        pl_i = np.nan
+        if i >= 2 * n:
+            mid_idx = len(self.h_buf) - 1 - n
+            hj = self.h_buf[mid_idx]
+            lj = self.l_buf[mid_idx]
+            neighbors_h = self.h_buf[mid_idx - n : mid_idx] + self.h_buf[mid_idx + 1 : mid_idx + n + 1]
+            neighbors_l = self.l_buf[mid_idx - n : mid_idx] + self.l_buf[mid_idx + 1 : mid_idx + n + 1]
+            if hj > max(neighbors_h):
+                ph_i = hj
+            if lj < min(neighbors_l):
+                pl_i = lj
+
+        if math.isfinite(ph_i):
+            self.sh = ph_i
+            self.sh_broken = False
+        if math.isfinite(pl_i):
+            self.sl = pl_i
+            self.sl_broken = False
+
+        bull_bos = math.isfinite(self.sh) and (not self.sh_broken) and (c > self.sh)
+        bear_bos = math.isfinite(self.sl) and (not self.sl_broken) and (c < self.sl)
+
+        if bull_bos:
+            self.sh_broken = True
+            for j in range(1, min(self.search_bars, i) + 1):
+                k_buf = len(self.c_buf) - 1 - j
+                if self.c_buf[k_buf] < self.o_buf[k_buf]:
+                    self.blo = self.l_buf[k_buf]
+                    self.bhi = self.h_buf[k_buf]
+                    self.bro = i - j
+                    break
+        if bear_bos:
+            self.sl_broken = True
+            for j in range(1, min(self.search_bars, i) + 1):
+                k_buf = len(self.c_buf) - 1 - j
+                if self.c_buf[k_buf] > self.o_buf[k_buf]:
+                    self.elo = self.l_buf[k_buf]
+                    self.ehi = self.h_buf[k_buf]
+                    self.ero = i - j
+                    break
+
+        if math.isfinite(self.blo) and ((i - self.bro) > self.max_age or c < self.blo):
+            self.blo = np.nan
+            self.bhi = np.nan
+            self.bro = -1
+        if math.isfinite(self.ehi) and ((i - self.ero) > self.max_age or c > self.ehi):
+            self.elo = np.nan
+            self.ehi = np.nan
+            self.ero = -1
+
+        danger = (a * self.danger_atr) if math.isfinite(a) else 0.0
+        buy_blocked = bool(math.isfinite(self.elo) and c <= self.ehi and (self.elo - c) <= danger)
+        sell_blocked = bool(math.isfinite(self.bhi) and c >= self.blo and (c - self.bhi) <= danger)
+        return buy_blocked, sell_blocked
+
+
+class _IncDeMarker:
+    def __init__(self, n: int = 60):
+        self.prev_h = np.nan
+        self.prev_l = np.nan
+        self.max_sma = _IncSMA(n)
+        self.min_sma = _IncSMA(n)
+
+    def step(self, h: float, l: float) -> float:
+        if math.isnan(self.prev_h):
+            demax = np.nan
+            demin = np.nan
+        else:
+            demax = max(h - self.prev_h, 0.0)
+            demin = max(self.prev_l - l, 0.0)
+        self.prev_h = h
+        self.prev_l = l
+        a = self.max_sma.step(demax)
+        b = self.min_sma.step(demin)
+        if math.isnan(a) or math.isnan(b) or (a + b) == 0.0:
+            return np.nan
+        return a / (a + b)
+
+
+class _IncAroon:
+    def __init__(self, period: int = 40):
+        self.period = period
+        self.h_buf: list[float] = []
+        self.l_buf: list[float] = []
+
+    def step(self, h: float, l: float) -> tuple[float, float]:
+        self.h_buf.append(h)
+        self.l_buf.append(l)
+        if len(self.h_buf) > self.period:
+            self.h_buf.pop(0)
+            self.l_buf.pop(0)
+        if len(self.h_buf) < self.period:
+            return np.nan, np.nan
+        imax = 0
+        imin = 0
+        mx = self.h_buf[0]
+        mn = self.l_buf[0]
+        for j in range(1, self.period):
+            if self.h_buf[j] >= mx:
+                mx = self.h_buf[j]
+                imax = j
+            if self.l_buf[j] <= mn:
+                mn = self.l_buf[j]
+                imin = j
+        since_h = (self.period - 1) - imax
+        since_l = (self.period - 1) - imin
+        up = 100.0 * (self.period - since_h) / self.period
+        down = 100.0 * (self.period - since_l) / self.period
+        return up, down
+
+
+class _IncCMO:
+    def __init__(self, length: int = 40):
+        self.length = length
+        self.prev_c = np.nan
+        self.up_buf: list[float] = []
+        self.dn_buf: list[float] = []
+
+    def step(self, c: float) -> float:
+        if math.isnan(self.prev_c):
+            up = np.nan
+            dn = np.nan
+        else:
+            d = c - self.prev_c
+            up = d if d > 0.0 else 0.0
+            dn = -d if d < 0.0 else 0.0
+        self.prev_c = c
+        self.up_buf.append(up)
+        self.dn_buf.append(dn)
+        if len(self.up_buf) > self.length:
+            self.up_buf.pop(0)
+            self.dn_buf.pop(0)
+        if len(self.up_buf) < self.length or not all(math.isfinite(v) for v in self.up_buf):
+            return np.nan
+        u = sum(self.up_buf)
+        d_val = sum(self.dn_buf)
+        if (u + d_val) == 0.0:
+            return np.nan
+        return 100.0 * (u - d_val) / (u + d_val)
+
+
+class _IncIchimoku:
+    def __init__(self, conv: int = 12, base: int = 30, spanb: int = 60):
+        self.conv = conv
+        self.base = base
+        self.spanb = spanb
+        self.h_buf: list[float] = []
+        self.l_buf: list[float] = []
+        self.sa_hist: list[float] = []
+        self.sb_hist: list[float] = []
+
+    def step(self, h: float, l: float) -> tuple[float, float, float, float]:
+        self.h_buf.append(h)
+        self.l_buf.append(l)
+        max_len = max(self.conv, self.base, self.spanb)
+        if len(self.h_buf) > max_len:
+            self.h_buf.pop(0)
+            self.l_buf.pop(0)
+        tenkan = ((max(self.h_buf[-self.conv :]) + min(self.l_buf[-self.conv :])) / 2.0) if len(self.h_buf) >= self.conv else np.nan
+        kijun = ((max(self.h_buf[-self.base :]) + min(self.l_buf[-self.base :])) / 2.0) if len(self.h_buf) >= self.base else np.nan
+        sa_raw = ((tenkan + kijun) / 2.0) if (math.isfinite(tenkan) and math.isfinite(kijun)) else np.nan
+        sb_raw = ((max(self.h_buf[-self.spanb :]) + min(self.l_buf[-self.spanb :])) / 2.0) if len(self.h_buf) >= self.spanb else np.nan
+        self.sa_hist.append(sa_raw)
+        self.sb_hist.append(sb_raw)
+        if len(self.sa_hist) > self.base + 1:
+            self.sa_hist.pop(0)
+            self.sb_hist.pop(0)
+        span_a = self.sa_hist[0] if len(self.sa_hist) == self.base + 1 else np.nan
+        span_b = self.sb_hist[0] if len(self.sb_hist) == self.base + 1 else np.nan
+        return tenkan, kijun, span_a, span_b
+
+
+class _IncKAMA:
+    def __init__(self, er_len: int = 40, fast_len: int = 2, slow_len: int = 40):
+        self.er_len = er_len
+        self.fast = 2.0 / (fast_len + 1.0)
+        self.slow = 2.0 / (slow_len + 1.0)
+        self.c_buf: list[float] = []
+        self.kama = np.nan
+        self.idx = 0
+
+    def step(self, c: float) -> tuple[float, float, float]:
+        i = self.idx
+        self.idx += 1
+        self.c_buf.append(c)
+        if len(self.c_buf) > self.er_len + 1:
+            self.c_buf.pop(0)
+        if i < self.er_len:
+            return np.nan, np.nan, np.nan
+        change = abs(self.c_buf[-1] - self.c_buf[0])
+        vol = sum(abs(self.c_buf[j] - self.c_buf[j - 1]) for j in range(1, len(self.c_buf)))
+        er = (change / vol) if vol > 1e-12 else 0.0
+        prev_kama = self.kama
+        if i == self.er_len:
+            self.kama = c
+            slope = np.nan
+        else:
+            sc = (er * (self.fast - self.slow) + self.slow) ** 2
+            self.kama = self.kama + sc * (c - self.kama)
+            slope = self.kama - prev_kama
+        return self.kama, er, slope
+
+
+class _IncVortex:
+    def __init__(self, length: int = 14):
+        self.length = length
+        self.prev_h = np.nan
+        self.prev_l = np.nan
+        self.prev_c = np.nan
+        self.tr_buf: list[float] = []
+        self.vmp_buf: list[float] = []
+        self.vmm_buf: list[float] = []
+
+    def step(self, h: float, l: float, c: float) -> tuple[float, float]:
+        if math.isnan(self.prev_c):
+            tr = h - l
+            vmp = np.nan
+            vmm = np.nan
+        else:
+            tr = max(h - l, abs(h - self.prev_c), abs(l - self.prev_c))
+            vmp = abs(h - self.prev_l)
+            vmm = abs(l - self.prev_h)
+        self.prev_h = h
+        self.prev_l = l
+        self.prev_c = c
+        self.tr_buf.append(tr)
+        self.vmp_buf.append(vmp)
+        self.vmm_buf.append(vmm)
+        if len(self.tr_buf) > self.length:
+            self.tr_buf.pop(0)
+            self.vmp_buf.pop(0)
+            self.vmm_buf.pop(0)
+        if len(self.tr_buf) < self.length or not all(math.isfinite(v) for v in self.vmp_buf):
+            return np.nan, np.nan
+        tr_sum = sum(self.tr_buf)
+        if tr_sum == 0.0:
+            return np.nan, np.nan
+        return sum(self.vmp_buf) / tr_sum, sum(self.vmm_buf) / tr_sum
+
+
+class _PeriodAggregator:
+    """Resamples 15m bars into higher timeframe periods (1h, 4h, 6h) with label='left', closed='left'."""
+
+    def __init__(self, period_ms: int):
+        self.period_ms = period_ms
+        self.cur_period_open_ms: int | None = None
+        self.o = np.nan
+        self.h = np.nan
+        self.l = np.nan
+        self.c = np.nan
+        self.v = 0.0
+
+    def update(
+        self,
+        open_ms: int,
+        o: float,
+        h: float,
+        l: float,
+        c: float,
+        v: float,
+    ) -> tuple[bool, int, float, float, float, float, float]:
+        p_open = (open_ms // self.period_ms) * self.period_ms
+        if self.cur_period_open_ms != p_open:
+            self.cur_period_open_ms = p_open
+            self.o = o
+            self.h = h
+            self.l = l
+            self.c = c
+            self.v = v
+        else:
+            if h > self.h:
+                self.h = h
+            if l < self.l:
+                self.l = l
+            self.c = c
+            self.v += v
+        is_period_close = ((open_ms + M15_MS) % self.period_ms) == 0
+        return is_period_close, p_open, self.o, self.h, self.l, self.c, self.v
+
+
+class SymbolLiveState:
+    """Per-symbol O(1) incremental indicator and signal state."""
+
+    def __init__(self, symbol: str, combos: list[ComboSpec], warmup_bars: int):
+        self.symbol = symbol
+        self.combos = sorted(combos, key=lambda c: c.combo_id)
+        self.warmup_bars = warmup_bars
+        self.bar_pos = 0
+        self.last_open_ms: int | None = None
+
+        self.agg_1h = _PeriodAggregator(H1_MS)
+        self.agg_4h = _PeriodAggregator(H4_MS)
+        self.agg_6h = _PeriodAggregator(H6_MS)
+
+        # 4h & 6h EMAs (confirmed only after 4h/6h bar closes)
+        self.ema4h_50 = _IncEMA(50)
+        self.ema4h_100 = _IncEMA(100)
+        self.ema4h_150 = _IncEMA(150)
+        self.ema4h_200 = _IncEMA(200)
+        self.ema6h_50 = _IncEMA(50)
+
+        self.confirmed_ema4h_50 = np.nan
+        self.prev_confirmed_ema4h_50_1h = np.nan
+        self.confirmed_ema4h_100 = np.nan
+        self.confirmed_ema4h_150 = np.nan
+        self.confirmed_ema4h_200 = np.nan
+        self.confirmed_ema6h_50 = np.nan
+
+        # 15m indicators
+        self.m15_atr14 = _IncATR(14)
+        self.m15_rsi14 = _IncRSI(14)
+        self.m15_mfi14 = _IncMFI(14)
+        self.m15_dmi14 = _IncDMI(14, 14)
+        self.m15_vol_sma20 = _IncSMA(20)
+        self.m15_ema21 = _IncEMA(21)
+        self.m15_ema55 = _IncEMA(55)
+        self.m15_ema200 = _IncEMA(200)
+        self.m15_st15 = _IncCombo15Supertrend()
+        self.m15_nw = _IncNadaraya(24, 3.0)
+        self.m15_std24 = _IncStd(24)
+        self.m15_hl2_sma5 = _IncSMA(5)
+        self.m15_hl2_sma34 = _IncSMA(34)
+        self.m15_ema20 = _IncEMA(20)
+        self.m15_ema50 = _IncEMA(50)
+        self.m15_c_sma20 = _IncSMA(20)
+        self.m15_c_std20 = _IncStd(20)
+        self.m15_smc = _IncSMC(50, False)
+        self.m15_ob = _IncOB(5, 12, 80, 0.5)
+
+        self.m15_prev_adx = np.nan
+        self.m15_prev_vol = np.nan
+
+        # 1h indicators
+        self.h1_atr21 = _IncATR(21)
+        self.h1_atr14 = _IncATR(14)
+        self.h1_atr20 = _IncATR(20)
+        self.h1_rsi14 = _IncRSI(14)
+        self.h1_rsi_sma14 = _IncSMA(14)
+        self.h1_mfi14 = _IncMFI(14)
+        self.h1_dmi14 = _IncDMI(14, 14)
+        self.h1_vol_sma20 = _IncSMA(20)
+        self.h1_stoch11 = _IncStoch(11, 3)
+        self.h1_stoch14 = _IncStoch(14, 3)
+        self.h1_cci9 = _IncCCI(9)
+        self.h1_ema8 = _IncEMA(8)
+        self.h1_ema21 = _IncEMA(21)
+        self.h1_macd8_sig9 = _IncEMA(9)
+        self.h1_ema10 = _IncEMA(10)
+        self.h1_ema25 = _IncEMA(25)
+        self.h1_ema42 = _IncEMA(42)
+        self.h1_c_sma20 = _IncSMA(20)
+        self.h1_c_std20 = _IncStd(20)
+        self.h1_ats = _IncATRTrailingStop()
+        self.h1_st_custom = _IncCustomSupertrend(8, 4.0)
+        self.h1_psar = _IncPSAR(0.05, 0.2, 0.3)
+        self.h1_ema12 = _IncEMA(12)
+        self.h1_ema26 = _IncEMA(26)
+        self.h1_macd12_sig9 = _IncEMA(9)
+        self.h1_ema9 = _IncEMA(9)
+        self.h1_c_sma8 = _IncSMA(8)
+        self.h1_ema5 = _IncEMA(5)
+        self.h1_ema34 = _IncEMA(34)
+        self.h1_ema20 = _IncEMA(20)
+        self.h1_ema50 = _IncEMA(50)
+        self.h1_smc = _IncSMC(50, False)
+        self.h1_ob = _IncOB(5, 12, 80, 0.5)
+
+        self.h1_prev_adx = np.nan
+        self.h1_prev_cci9 = np.nan
+        self.h1_prev_c = np.nan
+        self.h1_prev_o = np.nan
+        self.h1_obv = 0.0
+        self.h1_prev_obv = np.nan
+        self.h1_obv_seeded = False
+        self.h1_prev_bbu = np.nan
+        self.h1_prev_bbl = np.nan
+        self.h1_prev_atr20 = np.nan
+        self.h1_prev_mfi = np.nan
+        self.h1_prev_k14 = np.nan
+        self.h1_prev_d14 = np.nan
+        self.h1_c_win20: list[float] = []
+        self.h1_cur_day: int | None = None
+        self.h1_vwap_pv = 0.0
+        self.h1_vwap_vol = 0.0
+
+        # Per-combo state (edge_event memory & NEW6 custom indicator instances)
+        self.prev_cond_L: dict[str, bool] = {c.combo_key: False for c in self.combos}
+        self.prev_cond_S: dict[str, bool] = {c.combo_key: False for c in self.combos}
+        self.new6_states: dict[str, dict[str, Any]] = {}
+        for c in self.combos:
+            if c.is_new6:
+                cid = c.combo_id
+                ent = c.entry
+                if cid == 101:
+                    self.new6_states[c.combo_key] = {"ind": _IncDeMarker(int(ent.get("period", 60)))}
+                elif cid == 102:
+                    self.new6_states[c.combo_key] = {
+                        "ind": _IncAroon(int(ent.get("period", 40))),
+                        "prev_up": np.nan,
+                        "prev_dn": np.nan,
+                    }
+                elif cid == 103:
+                    self.new6_states[c.combo_key] = {
+                        "ind": _IncCMO(int(ent.get("period", 40))),
+                        "prev_z": np.nan,
+                    }
+                elif cid == 104:
+                    self.new6_states[c.combo_key] = {
+                        "ind": _IncIchimoku(int(ent.get("conv", 12)), int(ent.get("base", 30)), int(ent.get("spanb", 60))),
+                        "prev_t": np.nan,
+                        "prev_k": np.nan,
+                    }
+                elif cid == 105:
+                    self.new6_states[c.combo_key] = {
+                        "ind": _IncKAMA(int(ent.get("er_len", 40)), int(ent.get("fast_len", 2)), int(ent.get("slow_len", 40)))
+                    }
+                elif cid == 106:
+                    self.new6_states[c.combo_key] = {
+                        "ind": _IncVortex(int(ent.get("period", 14))),
+                        "prev_vip": np.nan,
+                        "prev_vim": np.nan,
+                    }
+
+    def step_bar_dict(
+        self,
+        bar: Any,
+        only_approved: bool = True,
+        only_warmup_ready: bool = True,
+    ) -> list[SignalEvent]:
+        if isinstance(bar, dict):
+            get_fn = bar.get
+        elif hasattr(bar, "get"):
+            get_fn = bar.get
+        else:
+            def get_fn(k: str, default: Any = None) -> Any:
+                return getattr(bar, k, default)
+
+        is_closed = get_fn("is_closed", True)
+        if not is_closed:
+            raise ValueError("on_bar_close rejected unclosed candle (is_closed=False)")
+
+        raw_ts = get_fn("open_ms")
+        if raw_ts is None:
+            raw_ts = get_fn("open_time")
+        if raw_ts is None:
+            raw_ts = get_fn("timestamp")
+        if raw_ts is None and isinstance(bar, pd.Series) and isinstance(bar.name, pd.Timestamp):
+            raw_ts = int(bar.name.value // 1_000_000)
+        if isinstance(raw_ts, pd.Timestamp):
+            open_ms = int(raw_ts.value // 1_000_000)
+        else:
+            open_ms = int(raw_ts)
+
+        if open_ms % M15_MS != 0:
+            raise ValueError(f"M15 bar open_ms is not aligned to 15-minute boundary: {open_ms}")
+
+        close_ms_arg = get_fn("close_ms")
+        if close_ms_arg is not None and int(close_ms_arg) < open_ms + M15_MS - 1:
+            raise ValueError(f"on_bar_close rejected incomplete M15 candle: close_ms={close_ms_arg} < {open_ms + M15_MS - 1}")
+
+        o = float(get_fn("open"))
+        h = float(get_fn("high"))
+        l = float(get_fn("low"))
+        c = float(get_fn("close"))
+        v = float(get_fn("volume"))
+        provider = str(get_fn("provider", "UNKNOWN") or "UNKNOWN")
+
+        return self.step_bar(
+            open_ms=open_ms,
+            o=o,
+            h=h,
+            l=l,
+            c=c,
+            v=v,
+            provider=provider,
+            only_approved=only_approved,
+            only_warmup_ready=only_warmup_ready,
+        )
+
+    def step_bar(
+        self,
+        open_ms: int,
+        o: float,
+        h: float,
+        l: float,
+        c: float,
+        v: float,
+        provider: str = "UNKNOWN",
+        only_approved: bool = True,
+        only_warmup_ready: bool = True,
+    ) -> list[SignalEvent]:
+        if open_ms % M15_MS != 0:
+            raise ValueError(f"M15 bar open_ms is not aligned to 15-minute boundary: {open_ms}")
+        if self.last_open_ms is not None and open_ms - self.last_open_ms != M15_MS:
+            raise ValueError(f"M15 bar gap or out-of-order: prev={self.last_open_ms}, cur={open_ms}")
+        self.last_open_ms = open_ms
+        pos = self.bar_pos
+        self.bar_pos += 1
+
+        # Snapshot confirmed 4h/6h EMAs BEFORE updating 4h/6h aggregators on the current bar.
+        # In batch `align_confirmed`, source_index is `h4_open_ms + 4h`, so a 4h bar closing at
+        # the end of `:45` (`open_ms + 15m`) only has `src_t <= target_open_ms` starting from the NEXT bar.
+        cur_ema4h_50 = self.confirmed_ema4h_50
+        cur_ema4h_100 = self.confirmed_ema4h_100
+        cur_ema4h_150 = self.confirmed_ema4h_150
+        cur_ema4h_200 = self.confirmed_ema4h_200
+        cur_ema6h_50 = self.confirmed_ema6h_50
+
+        # Update 15m indicators
+        a15 = self.m15_atr14.step(h, l, c)
+        r15 = self.m15_rsi14.step(c)
+        _ = self.m15_mfi14.step(h, l, c, v)
+        _, _, adx15 = self.m15_dmi14.step(h, l, c)
+        vol_sma15 = self.m15_vol_sma20.step(v)
+        body15 = abs(c - o)
+        rng15 = h - l
+        body_ratio15 = (body15 / rng15) if rng15 != 0.0 else np.nan
+        valid15 = math.isfinite(body_ratio15) and body_ratio15 > 0.75
+
+        ef15 = self.m15_ema21.step(c)
+        es15 = self.m15_ema55.step(c)
+        ema200_15 = self.m15_ema200.step(c)
+        st15 = self.m15_st15.step(h, l, c)
+        nw15 = self.m15_nw.step(c)
+        std24_15 = self.m15_std24.step(c)
+        hl2 = (h + l) / 2.0
+        ao15 = self.m15_hl2_sma5.step(hl2) - self.m15_hl2_sma34.step(hl2)
+        sq15 = self.m15_ema20.step(c) - self.m15_ema50.step(c)
+        mean20_15 = self.m15_c_sma20.step(c)
+        std20_15 = self.m15_c_std20.step(c)
+        z15 = ((c - mean20_15) / std20_15) if (math.isfinite(std20_15) and std20_15 != 0.0) else np.nan
+        smc15 = self.m15_smc.step(o, h, l, c)
+        ob15_buy, ob15_sell = self.m15_ob.step(o, h, l, c)
+
+        adxr15 = math.isfinite(adx15) and math.isfinite(self.m15_prev_adx) and (adx15 > self.m15_prev_adx)
+        vol_surge15 = math.isfinite(self.m15_prev_vol) and (v > self.m15_prev_vol * 1.8)
+        tu100_15 = math.isfinite(cur_ema4h_100) and (c > cur_ema4h_100)
+        td100_15 = math.isfinite(cur_ema4h_100) and (c < cur_ema4h_100)
+
+        self.m15_prev_adx = adx15
+        self.m15_prev_vol = v
+
+        raw_candidates: list[tuple[ComboSpec, str, int, int, bool, bool]] = []
+
+        # Evaluate 15m combos
+        for combo in self.combos:
+            if combo.native_timeframe != "15m":
+                continue
+            cid = combo.combo_id
+            ent = combo.entry
+            cond_l = False
+            cond_s = False
+            if cid == 7:
+                bm = float(ent.get("body_atr", 1.6))
+                vm = float(ent.get("volume_mult", 2.0))
+                strong_b = (c > o) and math.isfinite(a15) and ((c - o) > a15 * bm)
+                strong_s = (c < o) and math.isfinite(a15) and ((o - c) > a15 * bm)
+                volsp = math.isfinite(vol_sma15) and (v > vol_sma15 * vm)
+                cond_l = bool(
+                    vol_surge15
+                    and math.isfinite(ef15)
+                    and math.isfinite(es15)
+                    and (ef15 > es15)
+                    and tu100_15
+                    and adxr15
+                    and (adx15 > 25.0)
+                    and strong_b
+                    and volsp
+                    and valid15
+                    and math.isfinite(r15)
+                    and (r15 > 60.0)
+                    and (r15 < 85.0)
+                )
+                cond_s = bool(
+                    vol_surge15
+                    and math.isfinite(ef15)
+                    and math.isfinite(es15)
+                    and (ef15 < es15)
+                    and td100_15
+                    and adxr15
+                    and (adx15 > 25.0)
+                    and strong_s
+                    and volsp
+                    and valid15
+                    and math.isfinite(r15)
+                    and (r15 < 40.0)
+                    and (r15 > 15.0)
+                )
+            elif cid == 9:
+                r_long = float(ent.get("rsi_long_max", 45.0))
+                r_short = float(ent.get("rsi_short_min", 100.0 - r_long))
+                fix_st = bool(ent.get("fix_short_supertrend", True))
+                nr = std24_15 * 2.3 if math.isfinite(std24_15) else np.nan
+                upper = (nw15 + nr) if (math.isfinite(nw15) and math.isfinite(nr)) else np.nan
+                lower = (nw15 - nr) if (math.isfinite(nw15) and math.isfinite(nr)) else np.nan
+                br_ok = math.isfinite(body_ratio15) and (body_ratio15 > 0.4)
+                cond_l = bool(
+                    math.isfinite(ema200_15)
+                    and (c > ema200_15)
+                    and math.isfinite(r15)
+                    and (r15 < r_long)
+                    and math.isfinite(lower)
+                    and (c < lower)
+                    and (st15 == 1)
+                    and br_ok
+                )
+                st_cond = (st15 == -1) if fix_st else (st15 == 1)
+                cond_s = bool(
+                    math.isfinite(ema200_15)
+                    and (c < ema200_15)
+                    and math.isfinite(r15)
+                    and (r15 > r_short)
+                    and math.isfinite(upper)
+                    and (c > upper)
+                    and st_cond
+                    and br_ok
+                )
+            elif cid == 10:
+                adxth = float(ent.get("adx", 22.0))
+                upper_w = h - max(c, o)
+                lower_w = min(c, o) - l
+                bull_pin = (lower_w > body15 * 1.5) and (c > o)
+                bear_pin = (upper_w > body15 * 1.5) and (c < o)
+                cond_l = bool(
+                    math.isfinite(ao15)
+                    and (ao15 > 0.0)
+                    and math.isfinite(sq15)
+                    and (sq15 > 0.0)
+                    and math.isfinite(z15)
+                    and (z15 < -1.5)
+                    and tu100_15
+                    and math.isfinite(adx15)
+                    and (adx15 > adxth)
+                    and bull_pin
+                )
+                cond_s = bool(
+                    math.isfinite(ao15)
+                    and (ao15 < 0.0)
+                    and math.isfinite(sq15)
+                    and (sq15 < 0.0)
+                    and math.isfinite(z15)
+                    and (z15 > 1.5)
+                    and td100_15
+                    and math.isfinite(adx15)
+                    and (adx15 > adxth)
+                    and bear_pin
+                )
+
+            edge_l = cond_l and not self.prev_cond_L[combo.combo_key]
+            edge_s = cond_s and not self.prev_cond_S[combo.combo_key]
+            self.prev_cond_L[combo.combo_key] = cond_l
+            self.prev_cond_S[combo.combo_key] = cond_s
+
+            if edge_l:
+                ok = bool(approved("L", smc15, ob15_buy, combo.layer2))
+                raw_candidates.append((combo, "L", open_ms, smc15, ob15_buy, ok))
+            if edge_s:
+                ok = bool(approved("S", smc15, ob15_sell, combo.layer2))
+                raw_candidates.append((combo, "S", open_ms, smc15, ob15_sell, ok))
+
+        # Step 1h aggregator
+        h1_closed, h1_open_ms, o1, h1, l1, c1, v1 = self.agg_1h.update(open_ms, o, h, l, c, v)
+        if h1_closed:
+            # 1h indicators step ONLY when the 1h candle closes (at :45 M15 close)
+            a21_1 = self.h1_atr21.step(h1, l1, c1)
+            a14_1 = self.h1_atr14.step(h1, l1, c1)
+            a20_1 = self.h1_atr20.step(h1, l1, c1)
+            r1 = self.h1_rsi14.step(c1)
+            rav1 = self.h1_rsi_sma14.step(r1)
+            m1 = self.h1_mfi14.step(h1, l1, c1, v1)
+            dip1, dim1, adx1 = self.h1_dmi14.step(h1, l1, c1)
+            volma1 = self.h1_vol_sma20.step(v1)
+            k11, d11 = self.h1_stoch11.step(h1, l1, c1)
+            k14, d14 = self.h1_stoch14.step(h1, l1, c1)
+            cci9 = self.h1_cci9.step(c1)
+
+            macd8 = self.h1_ema8.step(c1) - self.h1_ema21.step(c1)
+            sig8 = self.h1_macd8_sig9.step(macd8)
+            hist8 = macd8 - sig8
+
+            e10_1 = self.h1_ema10.step(c1)
+            e25_1 = self.h1_ema25.step(c1)
+            e42_1 = self.h1_ema42.step(c1)
+            tfast1 = self.h1_ema21.val if self.h1_ema21.total_count >= 21 else np.nan
+            tslow1 = e42_1
+
+            basis20_1 = self.h1_c_sma20.step(c1)
+            std20_1 = self.h1_c_std20.step(c1)
+            dev18_1 = 1.8 * std20_1 if math.isfinite(std20_1) else np.nan
+            bbup1 = math.isfinite(basis20_1) and math.isfinite(dev18_1) and (c1 > basis20_1 + dev18_1)
+            bbdn1 = math.isfinite(basis20_1) and math.isfinite(dev18_1) and (c1 < basis20_1 - dev18_1)
+
+            ats1, above1, below1 = self.h1_ats.step(c1, a14_1)
+            stdir1 = self.h1_st_custom.step(h1, l1, c1)
+            sar1 = self.h1_psar.step(h1, l1, c1)
+
+            bull_eng1 = (
+                math.isfinite(self.h1_prev_c)
+                and (c1 > o1)
+                and (self.h1_prev_c < self.h1_prev_o)
+                and (c1 > self.h1_prev_o)
+                and (o1 < self.h1_prev_c)
+            )
+            bear_eng1 = (
+                math.isfinite(self.h1_prev_c)
+                and (c1 < o1)
+                and (self.h1_prev_c > self.h1_prev_o)
+                and (c1 < self.h1_prev_o)
+                and (o1 > self.h1_prev_c)
+            )
+
+            if math.isfinite(self.h1_prev_c):
+                self.h1_obv += (c1 - self.h1_prev_c) * v1
+                self.h1_obv_seeded = True
+            cur_obv = self.h1_obv if self.h1_obv_seeded else np.nan
+            oup1 = math.isfinite(cur_obv) and math.isfinite(self.h1_prev_obv) and (cur_obv > self.h1_prev_obv)
+            odn1 = math.isfinite(cur_obv) and math.isfinite(self.h1_prev_obv) and (cur_obv < self.h1_prev_obv)
+            self.h1_prev_obv = cur_obv
+
+            bbu1 = (basis20_1 + 2.0 * std20_1) if (math.isfinite(basis20_1) and math.isfinite(std20_1)) else np.nan
+            bbl1 = (basis20_1 - 2.0 * std20_1) if (math.isfinite(basis20_1) and math.isfinite(std20_1)) else np.nan
+            ku1 = (basis20_1 + 1.7 * a20_1) if (math.isfinite(basis20_1) and math.isfinite(a20_1)) else np.nan
+            kl1 = (basis20_1 - 1.7 * a20_1) if (math.isfinite(basis20_1) and math.isfinite(a20_1)) else np.nan
+
+            breakout_b1 = (
+                math.isfinite(bbu1)
+                and math.isfinite(self.h1_prev_bbu)
+                and math.isfinite(self.h1_prev_c)
+                and (c1 > bbu1)
+                and (self.h1_prev_c <= self.h1_prev_bbu)
+                and math.isfinite(ku1)
+                and (c1 > ku1)
+            )
+            breakout_s1 = (
+                math.isfinite(bbl1)
+                and math.isfinite(self.h1_prev_bbl)
+                and math.isfinite(self.h1_prev_c)
+                and (c1 < bbl1)
+                and (self.h1_prev_c >= self.h1_prev_bbl)
+                and math.isfinite(kl1)
+                and (c1 < kl1)
+            )
+            self.h1_prev_bbu = bbu1
+            self.h1_prev_bbl = bbl1
+
+            # TIER additional 1h components
+            day_id = h1_open_ms // DAY_MS
+            if self.h1_cur_day != day_id:
+                self.h1_cur_day = day_id
+                self.h1_vwap_pv = 0.0
+                self.h1_vwap_vol = 0.0
+            tp1 = (h1 + l1 + c1) / 3.0
+            self.h1_vwap_pv += tp1 * v1
+            self.h1_vwap_vol += v1
+            vwap1 = (self.h1_vwap_pv / self.h1_vwap_vol) if self.h1_vwap_vol != 0.0 else np.nan
+
+            macd12 = self.h1_ema12.step(c1) - self.h1_ema26.step(c1)
+            sig12 = self.h1_macd12_sig9.step(macd12)
+            hist12 = macd12 - sig12
+            e9_1 = self.h1_ema9.step(c1)
+            sma8_1 = self.h1_c_sma8.step(c1)
+            sup1 = (sma8_1 + 2.0 * a20_1) if (math.isfinite(sma8_1) and math.isfinite(a20_1)) else np.nan
+            strong1 = math.isfinite(a20_1) and (abs(c1 - o1) > a20_1 * 0.8)
+            z1 = ((c1 - basis20_1) / std20_1) if (math.isfinite(std20_1) and std20_1 != 0.0) else np.nan
+            ao1 = self.h1_ema5.step(c1) - self.h1_ema34.step(c1)
+            sq1 = self.h1_ema20.step(c1) - self.h1_ema50.step(c1)
+
+            prev_max20 = max(self.h1_c_win20) if len(self.h1_c_win20) == 20 else np.nan
+            prev_min20 = min(self.h1_c_win20) if len(self.h1_c_win20) == 20 else np.nan
+            pcL1 = math.isfinite(prev_max20) and (c1 > prev_max20)
+            pcS1 = math.isfinite(prev_min20) and (c1 < prev_min20)
+            self.h1_c_win20.append(c1)
+            if len(self.h1_c_win20) > 20:
+                self.h1_c_win20.pop(0)
+
+            smc1 = self.h1_smc.step(o1, h1, l1, c1)
+            ob1_buy, ob1_sell = self.h1_ob.step(o1, h1, l1, c1)
+
+            volsp1 = math.isfinite(volma1) and (v1 > volma1 * 1.5)
+            adxr1 = math.isfinite(adx1) and math.isfinite(self.h1_prev_adx) and (adx1 > self.h1_prev_adx)
+            sb08_1 = (c1 > o1) and math.isfinite(a21_1) and ((c1 - o1) > a21_1 * 0.8)
+            ss08_1 = (c1 < o1) and math.isfinite(a21_1) and ((o1 - c1) > a21_1 * 0.8)
+            tu150_4h = math.isfinite(cur_ema4h_150) and (c1 > cur_ema4h_150)
+            td150_4h = math.isfinite(cur_ema4h_150) and (c1 < cur_ema4h_150)
+            cci_up = math.isfinite(cci9) and math.isfinite(self.h1_prev_cci9) and (cci9 > self.h1_prev_cci9)
+            cci_dn = math.isfinite(cci9) and math.isfinite(self.h1_prev_cci9) and (cci9 < self.h1_prev_cci9)
+            longc1 = math.isfinite(k11) and math.isfinite(d11) and (k11 > 30.0) and (k11 > d11) and (cci9 > 80.0) and cci_up
+            shortc1 = math.isfinite(k11) and math.isfinite(d11) and (k11 < 70.0) and (k11 < d11) and (cci9 > -80.0) and cci_dn
+            bt1 = math.isfinite(tfast1) and math.isfinite(tslow1) and (tfast1 > tslow1)
+            br1 = math.isfinite(tfast1) and math.isfinite(tslow1) and (tfast1 < tslow1)
+
+            for combo in self.combos:
+                if combo.native_timeframe != "1h":
+                    continue
+                cid = combo.combo_id
+                ent = combo.entry
+                if not combo.is_new6:
+                    cond_l = False
+                    cond_s = False
+                    if cid == 1:
+                        lth = float(ent.get("mfi_long", 50.0))
+                        sth = float(ent.get("mfi_short", 50.0))
+                        cond_l = bool(
+                            longc1
+                            and math.isfinite(r1)
+                            and (r1 > 55.0)
+                            and math.isfinite(hist8)
+                            and (hist8 > 0.0)
+                            and math.isfinite(m1)
+                            and (m1 > lth)
+                            and adxr1
+                            and sb08_1
+                            and tu150_4h
+                            and volsp1
+                        )
+                        cond_s = bool(
+                            shortc1
+                            and math.isfinite(r1)
+                            and (r1 < 45.0)
+                            and math.isfinite(hist8)
+                            and (hist8 < 0.0)
+                            and math.isfinite(m1)
+                            and (m1 < sth)
+                            and adxr1
+                            and ss08_1
+                            and td150_4h
+                            and volsp1
+                        )
+                    elif cid == 2:
+                        adxth = float(ent.get("adx", 20.0))
+                        cond_l = bool(
+                            math.isfinite(ats1)
+                            and (c1 > ats1)
+                            and above1
+                            and math.isfinite(e10_1)
+                            and math.isfinite(e25_1)
+                            and (e10_1 > e25_1)
+                            and math.isfinite(macd8)
+                            and math.isfinite(sig8)
+                            and (macd8 > sig8)
+                            and math.isfinite(adx1)
+                            and (adx1 > adxth)
+                            and bbup1
+                        )
+                        cond_s = bool(
+                            math.isfinite(ats1)
+                            and (c1 < ats1)
+                            and below1
+                            and math.isfinite(e10_1)
+                            and math.isfinite(e25_1)
+                            and (e10_1 < e25_1)
+                            and math.isfinite(macd8)
+                            and math.isfinite(sig8)
+                            and (macd8 < sig8)
+                            and math.isfinite(adx1)
+                            and (adx1 > adxth)
+                            and bbdn1
+                        )
+                    elif cid == 3:
+                        adxth = float(ent.get("adx", 34.0))
+                        cond_l = bool(
+                            (stdir1 == 1)
+                            and math.isfinite(adx1)
+                            and (adx1 > adxth)
+                            and math.isfinite(sar1)
+                            and (c1 > sar1)
+                            and bull_eng1
+                            and oup1
+                        )
+                        cond_s = bool(
+                            (stdir1 == -1)
+                            and math.isfinite(adx1)
+                            and (adx1 > adxth)
+                            and math.isfinite(sar1)
+                            and (c1 < sar1)
+                            and bear_eng1
+                            and odn1
+                        )
+                    elif cid == 4:
+                        adxth = float(ent.get("adx", 23.0))
+                        cond_l = bool(
+                            bt1
+                            and breakout_b1
+                            and math.isfinite(cur_ema6h_50)
+                            and (c1 > cur_ema6h_50)
+                            and (stdir1 == 1)
+                            and sb08_1
+                            and volsp1
+                            and math.isfinite(adx1)
+                            and (adx1 > adxth)
+                        )
+                        cond_s = bool(
+                            br1
+                            and breakout_s1
+                            and math.isfinite(cur_ema6h_50)
+                            and (c1 < cur_ema6h_50)
+                            and (stdir1 == -1)
+                            and ss08_1
+                            and volsp1
+                            and math.isfinite(adx1)
+                            and (adx1 > adxth)
+                        )
+                    elif cid == 6:
+                        bm = float(ent.get("body_atr", 1.4))
+                        lc6 = (
+                            math.isfinite(r1)
+                            and (r1 > 30.0)
+                            and math.isfinite(k11)
+                            and math.isfinite(d11)
+                            and (k11 > 30.0)
+                            and (k11 > d11)
+                            and (cci9 > 100.0)
+                            and cci_up
+                        )
+                        sc6 = (
+                            math.isfinite(r1)
+                            and (r1 < 70.0)
+                            and math.isfinite(k11)
+                            and math.isfinite(d11)
+                            and (k11 < 70.0)
+                            and (k11 < d11)
+                            and (cci9 > -100.0)
+                            and cci_dn
+                        )
+                        adxs = math.isfinite(adx1) and (adx1 > 20.0) and adxr1
+                        sb = (c1 > o1) and math.isfinite(a21_1) and ((c1 - o1) > a21_1 * bm)
+                        ss = (c1 < o1) and math.isfinite(a21_1) and ((o1 - c1) > a21_1 * bm)
+                        cond_l = bool(sb and breakout_b1 and lc6 and adxs)
+                        cond_s = bool(ss and breakout_s1 and sc6 and adxs)
+                    elif cid == 11:
+                        adxth = float(ent.get("adx", 30.0))
+                        t2 = float(ent.get("tier2_score", 7.0))
+                        t3 = float(ent.get("tier3_score", 5.0))
+                        vm = float(ent.get("volume_mult", 1.3))
+                        vs = math.isfinite(volma1) and (v1 > volma1 * vm)
+                        tdL = math.isfinite(dip1) and math.isfinite(dim1) and (dip1 > dim1) and (dip1 > 22.0)
+                        tdS = math.isfinite(dip1) and math.isfinite(dim1) and (dip1 < dim1) and (dim1 > 22.0)
+                        e50_up = (
+                            math.isfinite(cur_ema4h_50)
+                            and math.isfinite(self.prev_confirmed_ema4h_50_1h)
+                            and (cur_ema4h_50 > self.prev_confirmed_ema4h_50_1h)
+                        )
+                        e50_dn = (
+                            math.isfinite(cur_ema4h_50)
+                            and math.isfinite(self.prev_confirmed_ema4h_50_1h)
+                            and (cur_ema4h_50 < self.prev_confirmed_ema4h_50_1h)
+                        )
+                        trL = (
+                            math.isfinite(cur_ema4h_50)
+                            and math.isfinite(cur_ema4h_200)
+                            and (cur_ema4h_50 > cur_ema4h_200)
+                            and tdL
+                            and math.isfinite(vwap1)
+                            and (c1 > vwap1)
+                            and e50_up
+                        )
+                        trS = (
+                            math.isfinite(cur_ema4h_50)
+                            and math.isfinite(cur_ema4h_200)
+                            and (cur_ema4h_50 < cur_ema4h_200)
+                            and tdS
+                            and math.isfinite(vwap1)
+                            and (c1 < vwap1)
+                            and e50_dn
+                        )
+                        t1L = trL and vs and math.isfinite(adx1) and (adx1 > adxth)
+                        t1S = trS and vs and math.isfinite(adx1) and (adx1 > adxth)
+
+                        k14_x_up = (
+                            math.isfinite(k14)
+                            and math.isfinite(d14)
+                            and math.isfinite(self.h1_prev_k14)
+                            and math.isfinite(self.h1_prev_d14)
+                            and (k14 > d14)
+                            and (self.h1_prev_k14 <= self.h1_prev_d14)
+                        )
+                        k14_x_dn = (
+                            math.isfinite(k14)
+                            and math.isfinite(d14)
+                            and math.isfinite(self.h1_prev_k14)
+                            and math.isfinite(self.h1_prev_d14)
+                            and (k14 < d14)
+                            and (self.h1_prev_k14 >= self.h1_prev_d14)
+                        )
+                        a20_up = math.isfinite(a20_1) and math.isfinite(self.h1_prev_atr20) and (a20_1 > self.h1_prev_atr20)
+                        k14_up50 = math.isfinite(k14) and math.isfinite(self.h1_prev_k14) and (k14 > self.h1_prev_k14) and (k14 > 50.0)
+                        k14_dn50 = math.isfinite(k14) and math.isfinite(self.h1_prev_k14) and (k14 < self.h1_prev_k14) and (k14 < 50.0)
+
+                        s2L = (
+                            (2.0 if (math.isfinite(hist12) and hist12 > 0.0) else 0.0)
+                            + (2.0 if (math.isfinite(cur_ema4h_150) and math.isfinite(cur_ema4h_200) and cur_ema4h_150 > cur_ema4h_200) else 0.0)
+                            + (1.0 if (math.isfinite(cci9) and cci9 > 100.0) else 0.0)
+                            + (1.0 if (math.isfinite(r1) and r1 > 50.0) else 0.0)
+                            + (1.0 if (math.isfinite(sup1) and c1 > sup1) else 0.0)
+                            + (0.5 if k14_x_up else 0.0)
+                            + (1.0 if (math.isfinite(tfast1) and c1 > tfast1) else 0.0)
+                            + (1.0 if (strong1 and c1 > o1) else 0.0)
+                            + (1.0 if (math.isfinite(m1) and m1 > 55.0) else 0.0)
+                            + (1.0 if a20_up else 0.0)
+                            + (1.0 if (math.isfinite(e9_1) and math.isfinite(tfast1) and e9_1 > tfast1) else 0.0)
+                            + (1.0 if (cci_up and cci9 > 100.0) else 0.0)
+                            + (1.0 if k14_up50 else 0.0)
+                        )
+                        s2S = (
+                            (2.0 if (math.isfinite(hist12) and hist12 < 0.0) else 0.0)
+                            + (2.0 if (math.isfinite(cur_ema4h_150) and math.isfinite(cur_ema4h_200) and cur_ema4h_150 < cur_ema4h_200) else 0.0)
+                            + (1.0 if (math.isfinite(cci9) and cci9 < -100.0) else 0.0)
+                            + (1.0 if (math.isfinite(r1) and r1 < 50.0) else 0.0)
+                            + (1.0 if (math.isfinite(sup1) and c1 < sup1) else 0.0)
+                            + (0.5 if k14_x_dn else 0.0)
+                            + (1.0 if (math.isfinite(tfast1) and c1 < tfast1) else 0.0)
+                            + (1.0 if (strong1 and c1 < o1) else 0.0)
+                            + (1.0 if (math.isfinite(m1) and m1 < 45.0) else 0.0)
+                            + (1.0 if a20_up else 0.0)
+                            + (1.0 if (math.isfinite(e9_1) and math.isfinite(tfast1) and e9_1 < tfast1) else 0.0)
+                            + (1.0 if (cci_dn and cci9 < -100.0) else 0.0)
+                            + (1.0 if k14_dn50 else 0.0)
+                        )
+
+                        mrL = math.isfinite(m1) and math.isfinite(self.h1_prev_mfi) and (m1 > 60.0) and (m1 > self.h1_prev_mfi) and vs
+                        mrS = math.isfinite(m1) and math.isfinite(self.h1_prev_mfi) and (m1 < 40.0) and (m1 < self.h1_prev_mfi) and vs
+                        s3L = (
+                            (1.0 if (math.isfinite(z1) and z1 < -1.5) else 0.0)
+                            + (1.0 if (math.isfinite(ao1) and ao1 > 0.0) else 0.0)
+                            + (1.0 if (math.isfinite(sq1) and sq1 > 0.0) else 0.0)
+                            + (1.0 if (math.isfinite(r1) and math.isfinite(rav1) and r1 > rav1) else 0.0)
+                            + (1.0 if (math.isfinite(e9_1) and math.isfinite(tfast1) and e9_1 > tfast1) else 0.0)
+                            + (1.0 if (math.isfinite(hist12) and hist12 > 0.0) else 0.0)
+                            + (1.0 if (stdir1 == 1) else 0.0)
+                            + (1.0 if pcL1 else 0.0)
+                            + (1.0 if mrL else 0.0)
+                            + (1.0 if (math.isfinite(r1) and r1 > 50.0) else 0.0)
+                            + (1.0 if vs else 0.0)
+                        )
+                        s3S = (
+                            (1.0 if (math.isfinite(z1) and z1 > 1.5) else 0.0)
+                            + (1.0 if (math.isfinite(ao1) and ao1 < 0.0) else 0.0)
+                            + (1.0 if (math.isfinite(sq1) and sq1 < 0.0) else 0.0)
+                            + (1.0 if (math.isfinite(r1) and math.isfinite(rav1) and r1 < rav1) else 0.0)
+                            + (1.0 if (math.isfinite(e9_1) and math.isfinite(tfast1) and e9_1 < tfast1) else 0.0)
+                            + (1.0 if (math.isfinite(hist12) and hist12 < 0.0) else 0.0)
+                            + (1.0 if (stdir1 == -1) else 0.0)
+                            + (1.0 if pcS1 else 0.0)
+                            + (1.0 if mrS else 0.0)
+                            + (1.0 if (math.isfinite(r1) and r1 < 50.0) else 0.0)
+                            + (1.0 if vs else 0.0)
+                        )
+                        cond_l = bool(t1L and (s2L >= t2) and (s3L >= t3))
+                        cond_s = bool(t1S and (s2S >= t2) and (s3S >= t3))
+
+                    edge_l = cond_l and not self.prev_cond_L[combo.combo_key]
+                    edge_s = cond_s and not self.prev_cond_S[combo.combo_key]
+                    self.prev_cond_L[combo.combo_key] = cond_l
+                    self.prev_cond_S[combo.combo_key] = cond_s
+
+                    if edge_l:
+                        ok = bool(approved("L", smc1, ob1_buy, combo.layer2))
+                        raw_candidates.append((combo, "L", h1_open_ms, smc1, ob1_buy, ok))
+                    if edge_s:
+                        ok = bool(approved("S", smc1, ob1_sell, combo.layer2))
+                        raw_candidates.append((combo, "S", h1_open_ms, smc1, ob1_sell, ok))
+
+                else:
+                    # NEW6 1h combos
+                    ns = self.new6_states[combo.combo_key]
+                    raw_l = False
+                    raw_s = False
+                    if cid == 101:
+                        z_dm = ns["ind"].step(h1, l1)
+                        long_min = float(ent.get("long_min", 0.75))
+                        short_max = float(ent.get("short_max", 0.25))
+                        raw_l = math.isfinite(z_dm) and (z_dm > long_min)
+                        raw_s = math.isfinite(z_dm) and (z_dm < short_max)
+                    elif cid == 102:
+                        up_a, dn_a = ns["ind"].step(h1, l1)
+                        th = float(ent.get("threshold", 70.0))
+                        prev_up, prev_dn = ns["prev_up"], ns["prev_dn"]
+                        x_up = (
+                            math.isfinite(up_a)
+                            and math.isfinite(dn_a)
+                            and math.isfinite(prev_up)
+                            and math.isfinite(prev_dn)
+                            and (up_a > dn_a)
+                            and (prev_up <= prev_dn)
+                        )
+                        x_dn = (
+                            math.isfinite(up_a)
+                            and math.isfinite(dn_a)
+                            and math.isfinite(prev_up)
+                            and math.isfinite(prev_dn)
+                            and (dn_a > up_a)
+                            and (prev_dn <= prev_up)
+                        )
+                        raw_l = x_up and (up_a >= th)
+                        raw_s = x_dn and (dn_a >= th)
+                        ns["prev_up"], ns["prev_dn"] = up_a, dn_a
+                    elif cid == 103:
+                        z_cmo = ns["ind"].step(c1)
+                        th = float(ent.get("threshold", 40.0))
+                        prev_z = ns["prev_z"]
+                        raw_l = math.isfinite(z_cmo) and math.isfinite(prev_z) and (z_cmo > th) and (prev_z <= th)
+                        raw_s = math.isfinite(z_cmo) and math.isfinite(prev_z) and (z_cmo < -th) and (prev_z >= -th)
+                        ns["prev_z"] = z_cmo
+                    elif cid == 104:
+                        tenkan, kijun, span_a, span_b = ns["ind"].step(h1, l1)
+                        prev_t, prev_k = ns["prev_t"], ns["prev_k"]
+                        x_up = (
+                            math.isfinite(tenkan)
+                            and math.isfinite(kijun)
+                            and math.isfinite(prev_t)
+                            and math.isfinite(prev_k)
+                            and (tenkan > kijun)
+                            and (prev_t <= prev_k)
+                        )
+                        x_dn = (
+                            math.isfinite(tenkan)
+                            and math.isfinite(kijun)
+                            and math.isfinite(prev_t)
+                            and math.isfinite(prev_k)
+                            and (tenkan < kijun)
+                            and (prev_t >= prev_k)
+                        )
+                        if math.isfinite(span_a) and math.isfinite(span_b):
+                            top = max(span_a, span_b)
+                            bot = min(span_a, span_b)
+                            raw_l = x_up and (c1 > top) and (span_a > span_b)
+                            raw_s = x_dn and (c1 < bot) and (span_a < span_b)
+                        ns["prev_t"], ns["prev_k"] = tenkan, kijun
+                    elif cid == 105:
+                        kama, er, slope = ns["ind"].step(c1)
+                        er_min = float(ent.get("er_min", 0.4))
+                        raw_l = (
+                            math.isfinite(kama)
+                            and math.isfinite(slope)
+                            and math.isfinite(er)
+                            and (c1 > kama)
+                            and (slope > 0.0)
+                            and (er > er_min)
+                        )
+                        raw_s = (
+                            math.isfinite(kama)
+                            and math.isfinite(slope)
+                            and math.isfinite(er)
+                            and (c1 < kama)
+                            and (slope < 0.0)
+                            and (er > er_min)
+                        )
+                    elif cid == 106:
+                        vip, vim = ns["ind"].step(h1, l1, c1)
+                        ratio = float(ent.get("ratio", 1.2))
+                        prev_vip, prev_vim = ns["prev_vip"], ns["prev_vim"]
+                        x_up = (
+                            math.isfinite(vip)
+                            and math.isfinite(vim)
+                            and math.isfinite(prev_vip)
+                            and math.isfinite(prev_vim)
+                            and (vip > vim)
+                            and (prev_vip <= prev_vim)
+                        )
+                        x_dn = (
+                            math.isfinite(vip)
+                            and math.isfinite(vim)
+                            and math.isfinite(prev_vip)
+                            and math.isfinite(prev_vim)
+                            and (vim > vip)
+                            and (prev_vim <= prev_vip)
+                        )
+                        raw_l = x_up and (vip > vim * ratio)
+                        raw_s = x_dn and (vim > vip * ratio)
+                        ns["prev_vip"], ns["prev_vim"] = vip, vim
+
+                    if raw_l != raw_s:
+                        side_code = "L" if raw_l else "S"
+                        blocked = ob1_buy if raw_l else ob1_sell
+                        ok = bool(approved(side_code, smc1, blocked, combo.layer2))
+                        raw_candidates.append((combo, side_code, h1_open_ms, smc1, blocked, ok))
+
+            self.h1_prev_adx = adx1
+            self.h1_prev_cci9 = cci9
+            self.h1_prev_c = c1
+            self.h1_prev_o = o1
+            self.h1_prev_atr20 = a20_1
+            self.h1_prev_mfi = m1
+            self.h1_prev_k14 = k14
+            self.h1_prev_d14 = d14
+            self.prev_confirmed_ema4h_50_1h = cur_ema4h_50
+
+        # Step 4h and 6h aggregators at the END of the M15 bar so any 4h/6h bar that
+        # closes at this M15 close (`open_ms + 15m`) becomes available on the NEXT M15 bar.
+        h4_closed, _, _, _, _, c4, _ = self.agg_4h.update(open_ms, o, h, l, c, v)
+        if h4_closed:
+            self.confirmed_ema4h_50 = self.ema4h_50.step(c4)
+            self.confirmed_ema4h_100 = self.ema4h_100.step(c4)
+            self.confirmed_ema4h_150 = self.ema4h_150.step(c4)
+            self.confirmed_ema4h_200 = self.ema4h_200.step(c4)
+
+        h6_closed, _, _, _, _, c6, _ = self.agg_6h.update(open_ms, o, h, l, c, v)
+        if h6_closed:
+            self.confirmed_ema6h_50 = self.ema6h_50.step(c6)
+
+        events: list[SignalEvent] = []
+        close_ms = open_ms + M15_MS - 1
+        sym_clean = self.symbol.replace("-", "").replace("_", "")
+        warmup_ready = pos >= self.warmup_bars - 1
+
+        for combo, side_code, nat_open_ms, sd, blocked, ok in raw_candidates:
+            if only_approved and not ok:
+                continue
+            if only_warmup_ready and not warmup_ready:
+                continue
+            side_str = "BUY" if side_code == "L" else "SELL"
+            signal_id = f"SIG_{sym_clean}_{combo.combo_name}_{combo.native_timeframe}_{side_str}_{close_ms}"
+            events.append(
+                SignalEvent(
+                    signal_id=signal_id,
+                    combo_key=combo.combo_key,
+                    symbol=self.symbol,
+                    side=side_str,
+                    native_open_ms=nat_open_ms,
+                    signal_close_ms=close_ms,
+                    ref_price=float(c),
+                    tags={
+                        "smc_dir": int(sd),
+                        "ob_blocked": bool(blocked),
+                        "approved": bool(ok),
+                        "warmup_ready": bool(warmup_ready),
+                        "combo_id": int(combo.combo_id),
+                        "combo_name": combo.combo_name,
+                        "timeframe": combo.native_timeframe,
+                        "bar_position": int(pos),
+                        "bar_open_ms": int(open_ms),
+                        "provider": provider,
+                        "is_new6": bool(combo.is_new6),
+                    },
+                )
+            )
+        events.sort(key=lambda e: (e.signal_close_ms, int(e.tags["combo_id"]), e.side))
+        return events
+
+
+class Final20LiveState:
+    """Multi-symbol live incremental state container for Final20Strategy.on_bar_close()."""
+
+    def __init__(
+        self,
+        spec: StrategySpec,
+        only_approved: bool = True,
+        only_warmup_ready: bool = True,
+    ):
+        self.spec = spec
+        self.only_approved = only_approved
+        self.only_warmup_ready = only_warmup_ready
+        self.symbol_states: dict[str, SymbolLiveState] = {}
+
+    def get_symbol_state(self, symbol: str) -> SymbolLiveState:
+        sym_canonical = "BTC-USDT" if "BTC" in symbol.upper() else ("ETH-USDT" if "ETH" in symbol.upper() else symbol)
+        if sym_canonical not in self.symbol_states:
+            sym_combos = [c for c in self.spec.combos if c.symbol.upper() == sym_canonical.upper()]
+            self.symbol_states[sym_canonical] = SymbolLiveState(sym_canonical, sym_combos, self.spec.warmup_bars)
+        return self.symbol_states[sym_canonical]
+
+    def on_bar_close(
+        self,
+        bar: Any,
+        only_approved: bool | None = None,
+        only_warmup_ready: bool | None = None,
+    ) -> list[SignalEvent]:
+        if isinstance(bar, dict):
+            sym = str(bar.get("symbol", "BTC-USDT"))
+        elif hasattr(bar, "get"):
+            sym = str(bar.get("symbol", "BTC-USDT"))
+        else:
+            sym = str(getattr(bar, "symbol", "BTC-USDT"))
+
+        s_state = self.get_symbol_state(sym)
+        evs = s_state.step_bar_dict(
+            bar,
+            only_approved=self.only_approved if only_approved is None else only_approved,
+            only_warmup_ready=self.only_warmup_ready if only_warmup_ready is None else only_warmup_ready,
+        )
+        if sym != s_state.symbol:
+            evs = [
+                SignalEvent(
+                    signal_id=e.signal_id,
+                    combo_key=e.combo_key,
+                    symbol=sym,
+                    side=e.side,
+                    native_open_ms=e.native_open_ms,
+                    signal_close_ms=e.signal_close_ms,
+                    ref_price=e.ref_price,
+                    tags=e.tags,
+                )
+                for e in evs
+            ]
+        return evs
+

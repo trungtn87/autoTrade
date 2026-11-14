@@ -1,0 +1,8 @@
+{
+  "strategy_id": "20FINAL",
+  "version": "1",
+  "immutable": true,
+  "signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
+  "exit_spec_hash": "ce10e2b1c328201266965d2b1a4d991136941320ff9c2cdb338a471d7927254d",
+  "spec_hash": "1145d7f5494a9e9aaa250a48c214acdd8c87bf58869ff6c24861fbfe65033b81"
+}

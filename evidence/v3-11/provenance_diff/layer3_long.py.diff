@@ -1,0 +1,106 @@
+--- autotrade_v2/app/strategy/final14_research/layer3_long.py
++++ autotrade_v3/strategy_core/indicators/layer3_long.py
+@@ -1,25 +1,13 @@
+ from __future__ import annotations
+-import argparse, json, itertools
+-from pathlib import Path
++import itertools
+ import numpy as np
+ import pandas as pd
+ 
+ from .signals import ensure_dt, resample_ohlcv, align_confirmed
+ from .indicators import sma, ema, atr, rsi, mfi, cci, stochastic, crossover, crossunder, dmi, parabolic_sar, obv_variant, session_vwap, edge_event, pine_custom_supertrend_dir, pine_combo15_supertrend_dir
+-from .smc_structure import smc_direction
+-from .smc_ob import ob_context, OBConfig
+-from .two_trail_layer12 import run_one_trade, approved, WINDOWS, END
+ 
+ COMBOS=["C1","C2","C3","C4","C5","C6","C7","C8","C9","C10","TIER"]
+ NATIVE={"C1":"1h","C2":"1h","C3":"1h","C4":"1h","C5":"15m","C6":"1h","C7":"15m","C8":"15m","C9":"15m","C10":"15m","TIER":"1h"}
+-
+-def load(path):
+-    d=pd.read_pickle(path)
+-    if not isinstance(d.index,pd.DatetimeIndex):
+-        d.index=pd.to_datetime(d["open_time"],unit="ms",utc=True)
+-    elif d.index.tz is None: d.index=d.index.tz_localize("UTC")
+-    else: d.index=d.index.tz_convert("UTC")
+-    return d.sort_index()
+ 
+ def _nadaraya(close,length=24,smooth=3.0):
+     denom=0.0; num=pd.Series(0.0,index=close.index)
+@@ -242,76 +230,3 @@
+             L=t1L&(s2L>=t2)&(s3L>=t3); S=t1S&(s2S>=t2)&(s3S>=t3)
+             out.setdefault("TIER",[]).append((name,edge_event(L),edge_event(S)))
+     return out
+-
+-def load_lock(path):
+-    return json.loads(Path(path).read_text())
+-
+-def build_context(d, lock_sym, variants):
+-    d1=resample_ohlcv(d,"1h")
+-    smc15=smc_direction(d,50,False); smc1=smc_direction(d1,50,False)
+-    cfg=OBConfig(pivot_len=5,search_bars=12,max_age=80,danger_atr=0.5)
+-    ob15=ob_context(d,cfg); ob1=ob_context(d1,cfg)
+-    pos={t:i for i,t in enumerate(d.index)}
+-    events={}
+-    for combo, lst in variants.items():
+-        events[combo]={}
+-        for name,L,S in lst:
+-            ev=[]
+-            frame_index=L.index
+-            for side,ser in [("L",L),("S",S)]:
+-                for ot in ser.index[ser.fillna(False)]:
+-                    et=ot+pd.Timedelta("45min") if NATIVE[combo]=="1h" else ot
+-                    if et not in pos or et>=END: continue
+-                    if NATIVE[combo]=="1h":
+-                        sd=int(smc1.loc[ot]) if ot in smc1.index else 0
+-                        blocked=bool(ob1.loc[ot,"buy_blocked" if side=="L" else "sell_blocked"]) if ot in ob1.index else False
+-                    else:
+-                        sd=int(smc15.loc[ot]) if ot in smc15.index else 0
+-                        blocked=bool(ob15.loc[ot,"buy_blocked" if side=="L" else "sell_blocked"]) if ot in ob15.index else False
+-                    ev.append((pos[et],side,ot,sd,blocked))
+-            events[combo][name]=sorted(ev,key=lambda x:x[0])
+-    return events
+-
+-def simulate(d,events,start,cfg,l2variant):
+-    idx=d.index; a=int(idx.searchsorted(start)); b=int(idx.searchsorted(END)); H=d.high.to_numpy(float); L=d.low.to_numpy(float); C=d.close.to_numpy(float)
+-    ev=[e for e in events if a<=e[0]<b]
+-    sl=cfg["sl_pct"]/100; t1cb=cfg["t1_callback_pct"]/100; t2act=cfg["t2_activation_pct"]/100; t2cb=cfg["t2_callback_pct"]/100; protect=cfg["protect_pct"]/100
+-    p=0; net=0; pos=0; neg=0; wins=losses=trades=veto=0; eq=1000.; peak=1000.; dd=0
+-    while p<len(ev):
+-        ei,side,ot,sd,blocked=ev[p]
+-        if not approved(side,sd,blocked,l2variant):
+-            veto+=1;p+=1;continue
+-        xi,pnl,fees,reasons,done=run_one_trade(H,L,C,ei,b,side,sl,t1cb,t2act,t2cb,protect)
+-        if not done: break
+-        trades+=1; net+=pnl; eq+=pnl; peak=max(peak,eq); dd=max(dd,peak-eq)
+-        if pnl>0:wins+=1;pos+=pnl
+-        elif pnl<0:losses+=1;neg+=-pnl
+-        p+=1
+-        while p<len(ev) and ev[p][0]<xi:p+=1
+-    return {"trades":trades,"wins":wins,"losses":losses,"win_rate":wins/trades*100 if trades else np.nan,"profit_factor":pos/neg if neg else (np.inf if pos else np.nan),"net_pnl":net,"max_drawdown":dd,"vetoes":veto}
+-
+-def main():
+-    ap=argparse.ArgumentParser(); ap.add_argument("--btc",required=True);ap.add_argument("--eth",required=True);ap.add_argument("--lock",default="layer3_locked_run17.json");ap.add_argument("--out-dir",default="results/layer3_long")
+-    args=ap.parse_args(); outdir=Path(args.out_dir);outdir.mkdir(parents=True,exist_ok=True); locks=load_lock(args.lock); allrank=[]
+-    for sym,path in [("BTCUSDT",args.btc),("ETHUSDT",args.eth)]:
+-        d=load(path); pc=precompute(d); vars=entry_variants(pc); evs=build_context(d,locks[sym],vars)
+-        rows=[]
+-        for combo in COMBOS:
+-            cfg=locks[sym][combo]; l2=cfg["layer2_variant"]
+-            for vname in evs[combo]:
+-                for wn,start in WINDOWS.items():
+-                    rows.append({"symbol":sym,"combo":combo,"entry_variant":vname,"window":wn,"layer2_variant":l2,**simulate(d,evs[combo][vname],start,cfg,l2)})
+-        broad=pd.DataFrame(rows); broad.to_csv(outdir/f"{sym}_L3_broad.csv",index=False)
+-        ag=[]
+-        for (combo,vname),g in broad.groupby(["combo","entry_variant"]):
+-            by={r.window:r for r in g.itertuples()}; rec=[by["6M"].net_pnl,by["1Y"].net_pnl,by["3Y"].net_pnl]
+-            ag.append({"symbol":sym,"combo":combo,"entry_variant":vname,"all_recent_positive":all(x>0 for x in rec),"recent_positive":sum(x>0 for x in rec),
+-                       "pnl_6M":by["6M"].net_pnl,"pnl_1Y":by["1Y"].net_pnl,"pnl_3Y":by["3Y"].net_pnl,"pnl_FULL":by["FULL"].net_pnl,
+-                       "pf_3Y":by["3Y"].profit_factor,"dd_3Y":by["3Y"].max_drawdown,"trades_3Y":by["3Y"].trades})
+-        r=pd.DataFrame(ag).sort_values(["combo","all_recent_positive","recent_positive","pnl_3Y","pf_3Y","dd_3Y"],ascending=[True,False,False,False,False,True]); r["layer3_rank_within_combo"]=r.groupby("combo").cumcount()+1
+-        r.to_csv(outdir/f"{sym}_L3_ranked.csv",index=False); allrank.append(r)
+-        print("\n",sym,"L3 WINNERS",flush=True); print(r[r.layer3_rank_within_combo==1].to_string(index=False),flush=True)
+-    pd.concat(allrank,ignore_index=True).to_csv(outdir/"L3_RANKED_ALL.csv",index=False)
+-    (outdir/"run_meta.json").write_text(json.dumps({"source_run":17,"selection":"3Y primary; 1Y/6M confirmation; FULL stress","layer1_2_locked":args.lock},indent=2))
+-
+-if __name__=="__main__": main()

@@ -205,12 +205,16 @@ class ExperimentRunner:
             )
         )
 
+        sig_spec_hash = strategy.get_signal_spec_hash() if hasattr(strategy, "get_signal_spec_hash") else strategy.get_config_hash()
+        exit_spec_hash = strategy.get_exit_spec_hash() if hasattr(strategy, "get_exit_spec_hash") else strategy.get_config_hash()
+        full_spec_hash = strategy.get_spec_hash() if hasattr(strategy, "get_spec_hash") else strategy.get_config_hash()
+
         acct = analysis["accounting"]
         manifest = RunManifest(
             run_id=run_id,
             strategy_id=strategy.strategy_id,
             strategy_version=strategy.version,
-            config_hash=strategy.get_config_hash(),
+            config_hash=full_spec_hash,
             data_manifest_hash=data_hash,
             git_sha=code_sha,
             execution_mode=sim_result.mode,
@@ -236,6 +240,9 @@ class ExperimentRunner:
             duckdb_version=env_versions["duckdb_version"],
             pyarrow_version=env_versions["pyarrow_version"],
             dataset_hash=dataset_hash,
+            signal_spec_hash=sig_spec_hash,
+            exit_spec_hash=exit_spec_hash,
+            spec_hash=full_spec_hash,
             is_golden=is_golden,
         )
 
@@ -262,15 +269,12 @@ class ExperimentRunner:
             write_result=(not is_golden),
         )
 
-        if not is_golden:
-            self.run_manager.update_post_validation(
-                run_dir=run_dir,
-                manifest=manifest,
-                analysis=analysis,
-                val_report=val_report,
-            )
-        else:
-            manifest.validation_status = val_report.overall_status
+        self.run_manager.update_post_validation(
+            run_dir=run_dir,
+            manifest=manifest,
+            analysis=analysis,
+            val_report=val_report,
+        )
 
         return ExperimentResult(
             run_id=run_id,

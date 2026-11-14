@@ -1,0 +1,64 @@
+=== CLONE ===
+=== Strategy Cloned: EXP_SMOKE@1 ===
+- Parent:           20FINAL@1
+- Params File:      C:\Users\TCGAMI~1\AppData\Local\Temp\tmpup6iyjld\params\exp_smoke_v1\params.json
+- Diff File:        C:\Users\TCGAMI~1\AppData\Local\Temp\tmpup6iyjld\params\exp_smoke_v1\param_diff.json
+- Signal Spec Hash: fe592c07fdeaee9a20e21c7a1443ae1ac94ab2ec9a8c30d92dcb1dcea997b26e
+- Exit Spec Hash:   ce10e2b1c328201266965d2b1a4d991136941320ff9c2cdb338a471d7927254d
+- Spec Hash:        d08dc429a9bec6b05803e8815466e68d1375b19a016d82ba1e67a1701e0d76b1
+
+=== 3-MODE SMOKE BACKTEST (20FINAL@1) ===
+
+=======================================================
+Starting Backtest | Mode: ALL_SIGNALS | Strategy: 20FINAL@1
+Window: 2023-11-01 to 2026-11-01 | Symbols: ['BTC-USDT', 'ETH-USDT']
+=======================================================
+
+Run Complete: RUN_20261114_082009_20FINAL_ALL_SIGNALS_20231101_20261101
+Artifacts Saved: C:\Users\TCGAMI~1\AppData\Local\Temp\tmpup6iyjld\runs\RUN_20261114_082009_20FINAL_ALL_SIGNALS_20231101_20261101
+- Validation:     SYNTHETIC
+- Total Signals:  38
+- Accepted Trades: 38 (40 legs)
+- Skipped:        0 (concurrency)
+- Rejected:       0 (margin)
+- Net PnL:        $-13.92 (ROI: -1.39%)
+- Net Profit Factor:   0.48
+- Gross Profit Factor: 0.57
+- Win Rate:       18.4% (Trade), 17.5% (Leg)
+- Max Drawdown:   $20.84 (Closed-trade)
+
+=======================================================
+Starting Backtest | Mode: ONE_TRADE_PER_COMBO | Strategy: 20FINAL@1
+Window: 2023-11-01 to 2026-11-01 | Symbols: ['BTC-USDT', 'ETH-USDT']
+=======================================================
+
+Run Complete: RUN_20261114_082013_20FINAL_ONE_TRADE_PER_COMBO_20231101_20261101
+Artifacts Saved: C:\Users\TCGAMI~1\AppData\Local\Temp\tmpup6iyjld\runs\RUN_20261114_082013_20FINAL_ONE_TRADE_PER_COMBO_20231101_20261101
+- Validation:     SYNTHETIC
+- Total Signals:  38
+- Accepted Trades: 20 (21 legs)
+- Skipped:        18 (concurrency)
+- Rejected:       0 (margin)
+- Net PnL:        $1.88 (ROI: +0.19%)
+- Net Profit Factor:   1.17
+- Gross Profit Factor: 1.41
+- Win Rate:       35.0% (Trade), 33.3% (Leg)
+- Max Drawdown:   $5.05 (Closed-trade)
+
+=======================================================
+Starting Backtest | Mode: BINGX_PORTFOLIO | Strategy: 20FINAL@1
+Window: 2023-11-01 to 2026-11-01 | Symbols: ['BTC-USDT', 'ETH-USDT']
+=======================================================
+
+Run Complete: RUN_20261114_082018_20FINAL_BINGX_PORTFOLIO_20231101_20261101
+Artifacts Saved: C:\Users\TCGAMI~1\AppData\Local\Temp\tmpup6iyjld\runs\RUN_20261114_082018_20FINAL_BINGX_PORTFOLIO_20231101_20261101
+- Validation:     FAILED
+- Total Signals:  38
+- Accepted Trades: 19 (20 legs)
+- Skipped:        18 (concurrency)
+- Rejected:       0 (margin)
+- Net PnL:        $1.96 (ROI: +0.20%)
+- Net Profit Factor:   1.18
+- Gross Profit Factor: 1.41
+- Win Rate:       36.8% (Trade), 35.0% (Leg)
+- Max Drawdown:   $5.37 (Continuous M2M)
