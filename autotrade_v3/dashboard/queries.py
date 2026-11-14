@@ -15,7 +15,7 @@ import pandas as pd
 
 from autotrade_v3.analysis.research_analyzer import ResearchAnalyzer
 from autotrade_v3.data_layer import DataLayer
-from autotrade_v3.engine.candle_loader import resample_m1_to_timeframe
+from autotrade_v3.engine.candle_loader import load_m1_from_catalog, resample_m1_to_timeframe
 from autotrade_v3.runstore.diff import diff_runs
 from autotrade_v3.sim.costs import load_cost_profiles
 from autotrade_v3.strategy_core.registry import StrategyCoreRegistry, compute_param_diff, parse_strategy_ref
@@ -229,18 +229,19 @@ def get_dataset_provider_breakdown(
     con = connect_duckdb_readonly(cat_p)
     try:
         tables = {r[0] for r in con.execute("SHOW TABLES").fetchall()}
-        if "candles" not in tables:
+        table_name = "v3_m1" if "v3_m1" in tables else ("candles" if "candles" in tables else "")
+        if not table_name:
             return pd.DataFrame(columns=["symbol", "provider", "candles", "pct"])
-        cols = {r[1] for r in con.execute("PRAGMA table_info('candles')").fetchall()}
+        cols = {r[1] for r in con.execute(f"PRAGMA table_info('{table_name}')").fetchall()}
         if "provider" in cols:
             df = con.execute(
-                "SELECT symbol, COALESCE(provider, 'unknown') AS provider, COUNT(*) AS candles "
-                "FROM candles GROUP BY symbol, provider ORDER BY symbol, candles DESC"
+                f"SELECT symbol, COALESCE(provider, 'unknown') AS provider, COUNT(*) AS candles "
+                f"FROM {table_name} GROUP BY symbol, provider ORDER BY symbol, candles DESC"
             ).df()
         else:
             df = con.execute(
-                "SELECT symbol, 'unknown' AS provider, COUNT(*) AS candles "
-                "FROM candles GROUP BY symbol ORDER BY symbol"
+                f"SELECT symbol, 'unknown' AS provider, COUNT(*) AS candles "
+                f"FROM {table_name} GROUP BY symbol ORDER BY symbol"
             ).df()
     finally:
         con.close()
@@ -1131,29 +1132,31 @@ def get_signal_detail_and_chart(
         else None
     )
 
-    # Load M1 candles read-only around the signal window
+    # Load M1 candles read-only around the signal window (aligned to 15m buckets)
     m15_df = pd.DataFrame()
     m1_path_df = pd.DataFrame()
     trailing_series_df = pd.DataFrame()
     cat_p = Path(catalog_path)
     if cat_p.exists():
+        tf15_ms = 15 * 60_000
         pad_before_ms = 24 * 60 * 60_000  # 24h before signal for M15 context
         pad_after_ms = 2 * 60 * 60_000
-        q_start = min(sig_close_ms, entry_time_ms) - pad_before_ms
-        q_end = max(sig_close_ms, exit_time_ms) + pad_after_ms
-        con = connect_duckdb_readonly(cat_p)
-        try:
-            m1_raw = con.execute(
-                "SELECT timestamp_ms AS time_ms, open, high, low, close, volume "
-                "FROM candles WHERE symbol = ? AND timestamp_ms >= ? AND timestamp_ms <= ? "
-                "ORDER BY timestamp_ms ASC",
-                [symbol, int(q_start), int(q_end)],
-            ).df()
-        finally:
-            con.close()
+        q_start = ((min(sig_close_ms, entry_time_ms) - pad_before_ms) // tf15_ms) * tf15_ms
+        q_end = (((max(sig_close_ms, exit_time_ms) + pad_after_ms) // tf15_ms) + 1) * tf15_ms
+        m1_indexed = load_m1_from_catalog(
+            cat_p,
+            symbol,
+            pd.to_datetime(q_start, unit="ms", utc=True),
+            pd.to_datetime(q_end, unit="ms", utc=True),
+        )
+        if not m1_indexed.empty:
+            m15_indexed = resample_m1_to_timeframe(m1_indexed, 15)
+            m15_df = m15_indexed.reset_index()
+            m15_df["time_ms"] = (m15_df["open_ms"].astype("int64") // 1_000_000) if "open_ms" in m15_df.columns else (m15_indexed.index.astype("int64") // 1_000_000)
 
-        if not m1_raw.empty:
-            m15_df = resample_m1_to_timeframe(m1_raw, 15)
+            m1_raw = m1_indexed.reset_index()
+            idx_col = m1_raw.columns[0]
+            m1_raw["time_ms"] = m1_raw[idx_col].astype("int64") // 1_000_000
             m1_path_df = m1_raw[
                 (m1_raw["time_ms"] >= entry_time_ms - 5 * 60_000)
                 & (m1_raw["time_ms"] <= exit_time_ms + 5 * 60_000)

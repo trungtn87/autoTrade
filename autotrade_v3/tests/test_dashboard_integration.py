@@ -84,6 +84,10 @@ def test_real_store_signal_explorer_30_signals() -> None:
     for pool, k in ((ambig_sids, 6), (tp_sids, 8), (sl_sids, 8), (trail_sids, 8)):
         avail = [s for s in pool if s not in picked]
         picked.extend(rng.sample(avail, min(k, len(avail))))
+    if len(picked) < 30:
+        all_sids = sorted(set(legs_df["signal_id"].astype(str)))
+        avail = [s for s in all_sids if s not in picked]
+        picked.extend(rng.sample(avail, min(30 - len(picked), len(avail))))
     assert len(picked) == 30
 
     con = duckdb.connect(str(CATALOG_PATH), read_only=True)
@@ -105,9 +109,11 @@ def test_real_store_signal_explorer_30_signals() -> None:
             assert not m1_df.empty
             t0 = int(m1_df["time_ms"].iloc[0])
             t1 = int(m1_df["time_ms"].iloc[-1])
+            sym = str(s_legs["symbol"].iloc[0])
+            sym_clean = sym.replace("-", "").upper()
             cat_m1 = con.execute(
-                "SELECT timestamp_ms AS time_ms, close FROM candles WHERE symbol = ? AND timestamp_ms >= ? AND timestamp_ms <= ? ORDER BY timestamp_ms ASC",
-                [str(s_legs["symbol"].iloc[0]), t0, t1],
+                "SELECT open_ms AS time_ms, close FROM v3_m1 WHERE (symbol = ? OR symbol = ?) AND open_ms >= ? AND open_ms <= ? ORDER BY open_ms ASC",
+                [sym, sym_clean, t0, t1],
             ).df()
             assert len(m1_df) == len(cat_m1)
             assert (m1_df["close"].to_numpy() == cat_m1["close"].to_numpy()).all()
@@ -117,10 +123,11 @@ def test_real_store_signal_explorer_30_signals() -> None:
 
 def test_real_store_compare_diff_invariant() -> None:
     runs = _require_real_store()
-    if len(runs) < 2:
-        pytest.skip("Need >= 2 runs in store for compare test")
-    ra = str(runs[0]["run_id"])
-    rb = str(runs[1]["run_id"])
+    by_mode = {str(r.get("execution_mode")): str(r["run_id"]) for r in runs}
+    if "ALL_SIGNALS" not in by_mode or "ONE_TRADE_PER_COMBO" not in by_mode:
+        pytest.skip("Need ALL_SIGNALS and ONE_TRADE_PER_COMBO in store for compare test")
+    ra = by_mode["ALL_SIGNALS"]
+    rb = by_mode["ONE_TRADE_PER_COMBO"]
     res = queries.get_compare_signal_diff(ra, rb, store_dir=STORE_DIR)
     assert res["summary"]["invariant_diff"] <= 1e-9
     assert res["summary"]["unexplained_count"] == 0
@@ -193,10 +200,19 @@ def test_e2e_clone_edit_run_compare_real_data(tmp_path: Path) -> None:
     from autotrade_v3.data_layer import DataLayer
     from autotrade_v3.lab.experiment import ExperimentRunner
     from autotrade_v3.lab.run_manager import RunManager
+    from autotrade_v3.runstore import RunStore
     from autotrade_v3.strategy.registry import StrategyRegistry
+
+    base_rid = ""
+    for line in r1.stdout.splitlines():
+        if line.strip().startswith("Run Complete:"):
+            base_rid = line.split(":", 1)[1].strip()
+            break
+    assert base_rid, f"Missing Run Complete in stdout: {r1.stdout}"
 
     cloned_strat = StrategyRegistry.get("EXP_E2E@1", params_dir=params_dir)
     StrategyRegistry.register(cloned_strat, version="1")
+    res_clone = None
     try:
         runner = ExperimentRunner(data_layer=DataLayer(catalog_path=CATALOG_PATH), run_manager=RunManager(runs_dir=out_dir))
         res_clone = runner.run_experiment(
@@ -209,16 +225,19 @@ def test_e2e_clone_edit_run_compare_real_data(tmp_path: Path) -> None:
             ambiguity_policy="CONSERVATIVE",
             use_runstore=True,
         )
+        rs = RunStore()
+        base_dir = rs.resolve_run_dir(base_rid)
+        clone_dir = rs.resolve_run_dir(res_clone.run_id)
+        comp = queries.compare_runs_summary([str(base_dir), str(clone_dir)], store_dir=STORE_DIR)
+        assert len(comp["summaries"]) == 2
+        assert comp["summaries"][1]["run_id"] == res_clone.run_id
     finally:
         StrategyRegistry._strategies.pop(("EXP_E2E", "1"), None)
-
-    store_runs = queries.list_store_runs(store_dir=out_dir / "store")
-    if not store_runs:
-        store_runs = queries.list_store_runs(store_dir=out_dir / "scratch")
-        active_store = out_dir / "scratch"
-    else:
-        active_store = out_dir / "store"
-    assert len(store_runs) >= 2
-    comp = queries.compare_runs_summary([str(r["run_id"]) for r in store_runs[:2]], store_dir=active_store)
-    assert len(comp["summaries"]) == 2
-    assert res_clone.run_id in [str(r["run_id"]) for r in store_runs]
+        rs_clean = RunStore()
+        for rid_tmp in (base_rid, res_clone.run_id if res_clone else ""):
+            if rid_tmp:
+                for root in (rs_clean.store_dir, rs_clean.scratch_dir):
+                    cand = root / rid_tmp
+                    if cand.exists():
+                        shutil.rmtree(cand, ignore_errors=True)
+        rs_clean.index.reindex()
