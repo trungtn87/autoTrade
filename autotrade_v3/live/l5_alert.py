@@ -1,8 +1,8 @@
 """L5 ALERT: brand-new Discord notifier with exactly three webhooks.
 
 Routing (Owner decision, Issue #108):
-  L2 signal BTC  -> DISCORD_WEBHOOK_BTC      L2 signal ETH  -> DISCORD_WEBHOOK_ETH
-  L3 success BTC -> DISCORD_WEBHOOK_BTC      L3 success ETH -> DISCORD_WEBHOOK_ETH
+  L2 signal-only BTC/ETH -> symbol webhook (only with no live executor)
+  L3 BingX-confirmed BTC/ETH order -> symbol webhook (single live trade message)
   any error from L1..L5 -> DISCORD_WEBHOOK_ERROR
 
 No outbox, no batching, no cooldown, no dedupe, no recovery alerts. Each event
@@ -17,6 +17,7 @@ import queue
 import threading
 import time
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Any, Callable
 
 import requests
@@ -65,35 +66,64 @@ def default_sender(url: str, content: str) -> tuple[bool, str]:
 
 
 def vn_clock(ms: int | None) -> str:
-    """V2 style clock: HH:MM:SS DD/MM/YYYY in Vietnam time."""
+    """HH:MM:SS · DD/MM/YYYY in Vietnam time."""
     stamp = int(ms) if ms else int(time.time() * 1000)
-    return datetime.fromtimestamp(stamp / 1000, tz=VN).strftime("%H:%M:%S %d/%m/%Y")
+    return datetime.fromtimestamp(stamp / 1000, tz=VN).strftime("%H:%M:%S · %d/%m/%Y")
+
+
+def _fmt_price(value: Any) -> str:
+    """Round display-only prices to one decimal; never modify order payloads."""
+    try:
+        number = Decimal(str(value))
+        if not number.is_finite():
+            return "?"
+        return f"{number.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP):.1f}"
+    except (InvalidOperation, ValueError, TypeError):
+        return "?"
+
+
+def _symbol_label(symbol: Any) -> str:
+    """Short display label, not an exchange symbol rewrite."""
+    return str(symbol or "?").upper().split("-")[0]
+
+
+def _confirmed_stop_price(row: dict, kind: str) -> str:
+    """Price actually confirmed for the protection leg, not the strategy estimate.
+
+    Prefer BingX GET, then its POST acknowledgement, then the exact submitted
+    stopPrice verified by L3. Never use the theoretical tp_price/sl_price fields.
+    """
+    leg = (row.get("protection") or {}).get(kind) or {}
+    if leg.get("status") != "confirmed":
+        return "?"
+    evidence = leg.get("evidence") or {}
+    confirmed = ((evidence.get("confirm") or {}).get("order") or {})
+    for order in (confirmed, evidence.get("ack") or {}, evidence.get("params") or {}):
+        raw = order.get("stopPrice")
+        try:
+            number = Decimal(str(raw))
+        except (InvalidOperation, TypeError, ValueError):
+            continue
+        if number.is_finite() and number > 0:
+            return _fmt_price(number)
+    return "?"
 
 
 def signal_message(sig: dict) -> str:
-    """Short strategy-signal note (not an order confirmation)."""
+    """Signal-only mode. A real trading run never emits this provisional note."""
     return "\n".join([
-        f"📡 Tín hiệu {sig['symbol']} {sig['side']} · Combo {sig['combo']}",
-        f"Entry: {_fmt(sig['entry'])} · TP: {_fmt(sig['tp'])} · SL: {_fmt(sig['sl'])}",
-        f"🕒 Nến đóng (VN): {vn_clock(sig.get('close_time_ms')) if sig.get('close_time_ms') else '?'}",
+        f"📡 **{_symbol_label(sig['symbol'])} {sig['side']} · {sig['combo']} | TÍN HIỆU**",
+        f"Entry {_fmt_price(sig.get('entry'))} · TP {_fmt_price(sig.get('tp'))} · SL {_fmt_price(sig.get('sl'))}",
+        f"🕒 {vn_clock(sig.get('close_time_ms')) if sig.get('close_time_ms') else '?'}",
     ])
 
 
 def success_message(r: dict) -> str:
-    """Order confirmation in the old V2 layout; order IDs stay in the database."""
+    """One compact message from actual BingX fill and confirmed stop orders."""
     return "\n".join([
-        "✅ Đặt lệnh",
-        f"{r['symbol']} {r['side']}",
-        "",
-        f"📊 Combo {r['combo']}",
-        f"Entry: {_fmt(r.get('avg_price'))}",
-        "",
-        f"TP : {_fmt(r.get('tp_price'))}",
-        f"SL : {_fmt(r.get('sl_price'))}",
-        "",
-        f"🕒 Giờ xác nhận lệnh (VN): {vn_clock(r.get('confirmed_at_ms'))}",
-        "",
-        "✅ Đặt lệnh thành công",
+        f"✅ **{_symbol_label(r['symbol'])} {r['side']} · {r['combo']} | ĐẶT LỆNH THÀNH CÔNG**",
+        f"Entry **{_fmt_price(r.get('avg_price'))}** · TP **{_confirmed_stop_price(r, 'tp')}** · SL **{_confirmed_stop_price(r, 'sl')}**",
+        f"🕒 {vn_clock(r.get('confirmed_at_ms'))}",
     ])
 
 
@@ -101,27 +131,24 @@ LEG_LABELS = {"sl": "SL", "tp": "TP", "trailing": "Trailing"}
 
 
 def closed_message(r: dict) -> str:
-    """Combo closed: which exits filled, and what leftover protection was cleaned (or would be, in shadow)."""
-    fills = " · ".join(f"{LEG_LABELS.get(f['kind'], f['kind'])} {_fmt(f['qty'])} @ {_fmt(f['price'])}" for f in r["filled"])
+    """Compact, price-rounded close summary; quantities retain their precision."""
     left = r.get("leftover") or {}
     names = ", ".join(LEG_LABELS.get(k, k) for k in left.get("legs") or [])
     if left.get("mode") == "shadow" and names:
-        cleanup = f"🧹 Còn lệnh dư: {names} (chế độ shadow, chưa hủy)"
+        cleanup = f"🧹 Còn lệnh dư: {names} (shadow, chưa hủy)"
     elif names:
         cleanup = f"🧹 Đã dọn lệnh dư: {names}"
     else:
         cleanup = "🧹 Không còn lệnh dư"
-    return "\n".join([
-        "🏁 Đóng lệnh",
-        f"{r['symbol']} {r['side']}",
-        "",
-        f"📊 Combo {r['combo']}",
-        f"Entry: {_fmt(r.get('avg_price'))} · Khối lượng: {_fmt(r.get('entry_qty'))}",
-        f"Đã khớp: {fills}",
-        cleanup,
-        "",
-        f"🕒 Giờ xác nhận (VN): {vn_clock(r.get('closed_at_ms'))}",
-    ])
+    lines = [
+        f"🏁 **{_symbol_label(r['symbol'])} {r['side']} · {r['combo']} | ĐÃ ĐÓNG**",
+        f"Entry **{_fmt_price(r.get('avg_price'))}** · KL **{_fmt(r.get('entry_qty'))}**",
+    ]
+    for fill in r.get("filled") or []:
+        name = LEG_LABELS.get(fill["kind"], fill["kind"])
+        lines.append(f"{name}: **{_fmt(fill.get('qty'))} @ {_fmt_price(fill.get('price'))}**")
+    lines.append(f"{cleanup} · 🕒 {vn_clock(r.get('closed_at_ms'))}")
+    return "\n".join(lines)
 
 
 def error_message(rec: dict, log_id: int | None) -> str:
