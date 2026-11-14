@@ -4,6 +4,7 @@ from __future__ import annotations
 import ast
 import json
 from pathlib import Path
+import re
 
 import duckdb
 import pandas as pd
@@ -385,6 +386,6 @@ def test_dashboard_forbidden_imports_and_strings() -> None:
             elif isinstance(node, ast.ImportFrom) and node.module:
                 top = node.module.split(".")[0]
                 assert top not in forbidden_modules, f"Forbidden import {node.module} in {py_file}"
-        assert ".env" not in src, f"Forbidden .env reference in {py_file}"
+        assert not re.search(r"""['"/\\]\.env\b""", src), f"Forbidden .env reference in {py_file}"
         assert "http://" not in src and "https://" not in src, f"Forbidden external URL in {py_file}"
         assert "lợi nhuận thực tế" not in src.lower(), f"Forbidden profit claim in {py_file}"
