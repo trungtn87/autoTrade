@@ -1,0 +1,30 @@
+Extracted 20FINAL parameters to: D:\AutoTrade\autotrade_v3\strategy_core\strategies\final20\params\20final_v1.json
+# BẢNG ĐỐI CHIẾU THAM SỐ 20 COMBO (`20final_v1.json` vs V2 `final14_config.py`)
+
+| # | Combo Key | Symbol | ID | Name | TF (V2 / V3) | Entry Variant (V2 == V3) | Layer 2 (V2 == V3) | TP Pct (V2 == V3) | SL Pct (V2 == V3) | Split Legs | Trailing (Act/CB) | Match |
+|---:|:---|:---|---:|:---|:---:|:---|:---|---:|---:|:---:|:---:|:---:|
+| 1 | `BTC-USDT/C1` | BTC-USDT | 1 | C1 | 1h / 1h | `MFI_L50_S50` | `SMC_STRICT` | 0.020000 | 0.00800000 | True | 0.005/0.005 | MATCH |
+| 2 | `BTC-USDT/C2` | BTC-USDT | 2 | C2 | 1h / 1h | `ADX_20` | `SMC_VETO_OB` | 0.012000 | 0.00800000 | True | 0.005/0.005 | MATCH |
+| 3 | `BTC-USDT/C4` | BTC-USDT | 4 | C4 | 1h / 1h | `ADX_23` | `SMC_VETO` | 0.018000 | 0.00900000 | True | 0.005/0.005 | MATCH |
+| 4 | `BTC-USDT/C6` | BTC-USDT | 6 | C6 | 1h / 1h | `BODY_1.4` | `SMC_VETO_OB` | 0.020000 | 0.00666667 | True | 0.005/0.005 | MATCH |
+| 5 | `BTC-USDT/C7` | BTC-USDT | 7 | C7 | 15m / 15m | `BODY1.6_VOL2.0` | `OFF` | 0.020000 | 0.00800000 | True | 0.005/0.005 | MATCH |
+| 6 | `BTC-USDT/C9` | BTC-USDT | 9 | C9 | 15m / 15m | `RSI45_FIXST` | `SMC_VETO` | 0.010000 | 0.00400000 | True | 0.005/0.005 | MATCH |
+| 7 | `BTC-USDT/C10` | BTC-USDT | 10 | C10 | 15m / 15m | `ADX_22` | `SMC_VETO` | 0.010000 | 0.00800000 | True | 0.005/0.005 | MATCH |
+| 8 | `BTC-USDT/TIER` | BTC-USDT | 11 | TIER | 1h / 1h | `ADX30_T27_T35_V1.3` | `OFF` | 0.018000 | 0.00900000 | True | 0.005/0.005 | MATCH |
+| 9 | `BTC-USDT/C11` | BTC-USDT | 101 | C11 | 1h / 1h | `trend_n60_0.25_0.75` | `SMC_STRICT_OB` | 0.018000 | 0.00900000 | False | 0.005/0.005 | MATCH |
+| 10 | `BTC-USDT/C14` | BTC-USDT | 104 | C14 | 1h / 1h | `tkcross_12_30_60` | `OB` | 0.020000 | 0.00666667 | False | 0.005/0.005 | MATCH |
+| 11 | `BTC-USDT/C16` | BTC-USDT | 106 | C16 | 1h / 1h | `cross_n14_r1.2` | `OB` | 0.011000 | 0.00900000 | False | 0.005/0.005 | MATCH |
+| 12 | `ETH-USDT/C1` | ETH-USDT | 1 | C1 | 1h / 1h | `MFI_L50_S50` | `SMC_VETO` | 0.020000 | 0.00666667 | True | 0.005/0.005 | MATCH |
+| 13 | `ETH-USDT/C3` | ETH-USDT | 3 | C3 | 1h / 1h | `ADX_34` | `SMC_STRICT` | 0.018000 | 0.00600000 | True | 0.005/0.005 | MATCH |
+| 14 | `ETH-USDT/C4` | ETH-USDT | 4 | C4 | 1h / 1h | `ADX_23` | `SMC_VETO` | 0.020000 | 0.00800000 | True | 0.005/0.005 | MATCH |
+| 15 | `ETH-USDT/C6` | ETH-USDT | 6 | C6 | 1h / 1h | `BODY_1.8` | `SMC_VETO` | 0.020000 | 0.00666667 | True | 0.005/0.005 | MATCH |
+| 16 | `ETH-USDT/C7` | ETH-USDT | 7 | C7 | 15m / 15m | `BODY1.3_VOL1.5` | `OB` | 0.018000 | 0.00900000 | True | 0.005/0.005 | MATCH |
+| 17 | `ETH-USDT/C10` | ETH-USDT | 10 | C10 | 15m / 15m | `ADX_28` | `SMC_STRICT` | 0.018000 | 0.00900000 | True | 0.005/0.005 | MATCH |
+| 18 | `ETH-USDT/C12` | ETH-USDT | 102 | C12 | 1h / 1h | `cross_n40_t70` | `SMC_VETO_OB` | 0.018000 | 0.00900000 | False | 0.005/0.005 | MATCH |
+| 19 | `ETH-USDT/C13` | ETH-USDT | 103 | C13 | 1h / 1h | `momcross_n40_t40` | `OFF` | 0.020000 | 0.00800000 | False | 0.005/0.005 | MATCH |
+| 20 | `ETH-USDT/C15` | ETH-USDT | 105 | C15 | 1h / 1h | `state_e40_s40_t0.4` | `OB` | 0.020000 | 0.00800000 | False | 0.005/0.005 | MATCH |
+
+- **Tổng số combo đối chiếu:** 20 / 20
+- **Kết quả đối chiếu từng trường:** `MATCH_ALL_20_COMBOS`
+- **Ghi chú Trailing:** `trailing_act_pct=0.005` và `trailing_cb_pct=0.005` lấy theo giả định V3 hiện tại và giá trị mặc định trong `autotrade_v2/app/config.py` (dòng 53-54); cấu hình biến môi trường V2 đang chạy thật chưa đối chiếu.
+

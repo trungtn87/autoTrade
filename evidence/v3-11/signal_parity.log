@@ -1,0 +1,30 @@
+=== V3-11 STEP B6: 3-YEAR BATCH SIGNAL PARITY LOG ===
+Reference 1 (Approved + Warmup Ready): runs/golden/v3-08/ALL_SIGNALS/signals.parquet (5984 signals)
+Reference 2 (All Raw Signals):         runs/3year_replay/signal_events.csv (6752 signals)
+Strategy Core Raw Signals Generated:   6752
+Strategy Core Approved Signals:        5984
+Diverging Signal Count:                0
+
+Per-Combo Breakdown:
+Combo Key            Raw(Ref)  Raw(Core)  Gold(Ref) Gold(Core)   Diff
+----------------------------------------------------------------------
+BTC-USDT/C1               318        318        245        245      0
+BTC-USDT/C2               102        102         84         84      0
+BTC-USDT/C4               284        284        278        278      0
+BTC-USDT/C6               127        127        114        114      0
+BTC-USDT/C7               229        229        227        227      0
+BTC-USDT/C9                96         96         76         76      0
+BTC-USDT/C10               58         58         46         46      0
+BTC-USDT/TIER             194        194        193        193      0
+BTC-USDT/C11             1101       1101        828        828      0
+BTC-USDT/C14              370        370        316        316      0
+BTC-USDT/C16              206        206        168        168      0
+ETH-USDT/C1               281        281        272        272      0
+ETH-USDT/C3               126        126         95         95      0
+ETH-USDT/C4               277        277        268        268      0
+ETH-USDT/C6                82         82         75         75      0
+ETH-USDT/C7               296        296        288        288      0
+ETH-USDT/C10               39         39         13         13      0
+ETH-USDT/C12              574        574        455        455      0
+ETH-USDT/C13              305        305        297        297      0
+ETH-USDT/C15             1687       1687       1646       1646      0

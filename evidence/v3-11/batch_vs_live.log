@@ -1,0 +1,20 @@
+=== V3-11 STEP B7: 3-YEAR BATCH (generate) VS LIVE (on_bar_close) EQUIVALENCE LOG ===
+Scope: Full 3-year M15 dataset (2023-11-01 to 2026-11-01 + 3,400 warmup bars = 105,216 M15 bars per symbol)
+
+Symbol: BTC-USDT
+  M15 Bars Processed:          105,216
+  Batch generate() Duration:   20.840s
+  Live on_bar_close() Duration:13.842s
+  Raw Events (Batch / Live):   3,085 / 3,085 (Diffs: 0)
+  Approved Eval Events:        2,575 / 2,575 (Diffs: 0)
+  Exact Object Equality:       True
+
+Symbol: ETH-USDT
+  M15 Bars Processed:          105,216
+  Batch generate() Duration:   19.467s
+  Live on_bar_close() Duration:14.877s
+  Raw Events (Batch / Live):   3,667 / 3,667 (Diffs: 0)
+  Approved Eval Events:        3,409 / 3,409 (Diffs: 0)
+  Exact Object Equality:       True
+
+Total Live Replay Duration (Both Symbols, 210,432 bars): 28.719s

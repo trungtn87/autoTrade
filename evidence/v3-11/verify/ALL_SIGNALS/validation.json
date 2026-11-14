@@ -1,0 +1,554 @@
+{
+  "run_id": "ALL_SIGNALS",
+  "overall_status": "VERIFIED",
+  "execution_mode": "ALL_SIGNALS",
+  "is_real_data": true,
+  "code_dirty": false,
+  "gates": {
+    "A1": {
+      "gate_id": "A1",
+      "name": "Dataset hash",
+      "status": "PASS",
+      "rows_checked": 74,
+      "rows_total": 74,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 1.021,
+      "reason": "",
+      "details": {
+        "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+        "dataset_hash_measured": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+        "data_root": "D:\\AutoTrade"
+      }
+    },
+    "A2": {
+      "gate_id": "A2",
+      "name": "M1 integrity",
+      "status": "PASS",
+      "rows_checked": 3156480,
+      "rows_total": 3156480,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 5.651,
+      "reason": "",
+      "details": {
+        "per_symbol": {
+          "BTCUSDT": {
+            "rows": 1578240,
+            "expected_rows_from_manifest_range": 1578240,
+            "manifest_total_candles": 1578240,
+            "missing": 0,
+            "duplicates": 0,
+            "misaligned": 0,
+            "nonfinite": 0,
+            "nonpositive_price": 0,
+            "ohlc_inconsistent": 0,
+            "negative_volume": 0
+          },
+          "ETHUSDT": {
+            "rows": 1578240,
+            "expected_rows_from_manifest_range": 1578240,
+            "manifest_total_candles": 1578240,
+            "missing": 0,
+            "duplicates": 0,
+            "misaligned": 0,
+            "nonfinite": 0,
+            "nonpositive_price": 0,
+            "ohlc_inconsistent": 0,
+            "negative_volume": 0
+          }
+        },
+        "scan_seconds": 5.649
+      }
+    },
+    "B1": {
+      "gate_id": "B1",
+      "name": "Frozen signal parity",
+      "status": "PASS",
+      "rows_checked": 5984,
+      "rows_total": 5984,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 1.297,
+      "reason": "",
+      "details": {
+        "strategy_ref": "20FINAL@1",
+        "reference_file": "D:\\AutoTrade\\runs\\golden\\v3-08\\ALL_SIGNALS\\signals.parquet",
+        "lock_verified": true,
+        "per_combo": {
+          "BTC-USDT_C1": {
+            "run_count": 245,
+            "ref_count": 245,
+            "run_content_hash": "852db9a752b12e6a043102ed0fe14103bb802e05ebd72185fd53b48a97638e9a",
+            "ref_content_hash": "852db9a752b12e6a043102ed0fe14103bb802e05ebd72185fd53b48a97638e9a",
+            "match": true
+          },
+          "BTC-USDT_C2": {
+            "run_count": 84,
+            "ref_count": 84,
+            "run_content_hash": "664f28ccc5f5bee9b84570e6eb509c56309b6e8a2bbb9a70e842a3b2a1fcb153",
+            "ref_content_hash": "664f28ccc5f5bee9b84570e6eb509c56309b6e8a2bbb9a70e842a3b2a1fcb153",
+            "match": true
+          },
+          "BTC-USDT_C4": {
+            "run_count": 278,
+            "ref_count": 278,
+            "run_content_hash": "5169dc3e42f639e43f720c619b0a3d63fd138bb4311f31685ddfca83441fca99",
+            "ref_content_hash": "5169dc3e42f639e43f720c619b0a3d63fd138bb4311f31685ddfca83441fca99",
+            "match": true
+          },
+          "BTC-USDT_C6": {
+            "run_count": 114,
+            "ref_count": 114,
+            "run_content_hash": "4a24944daff6749df8f581adb2ac2ef0893d86279c7cbec2ca9ce2fda6119f39",
+            "ref_content_hash": "4a24944daff6749df8f581adb2ac2ef0893d86279c7cbec2ca9ce2fda6119f39",
+            "match": true
+          },
+          "BTC-USDT_C7": {
+            "run_count": 227,
+            "ref_count": 227,
+            "run_content_hash": "3c5b30c0cd75c9147724c2c96a2cc0e5e2c5185647d38063ee2c9c5721f86899",
+            "ref_content_hash": "3c5b30c0cd75c9147724c2c96a2cc0e5e2c5185647d38063ee2c9c5721f86899",
+            "match": true
+          },
+          "BTC-USDT_C9": {
+            "run_count": 76,
+            "ref_count": 76,
+            "run_content_hash": "7d066ff41beb39f51e9ad4ce8b93fd06a5cae8d2dc6e9f2ea333c205f900b966",
+            "ref_content_hash": "7d066ff41beb39f51e9ad4ce8b93fd06a5cae8d2dc6e9f2ea333c205f900b966",
+            "match": true
+          },
+          "BTC-USDT_C10": {
+            "run_count": 46,
+            "ref_count": 46,
+            "run_content_hash": "9ac7f1c81d8548a39edcf5a4bc6ce0d30cc65165b92082b4066700b8fe66feab",
+            "ref_content_hash": "9ac7f1c81d8548a39edcf5a4bc6ce0d30cc65165b92082b4066700b8fe66feab",
+            "match": true
+          },
+          "BTC-USDT_C11": {
+            "run_count": 193,
+            "ref_count": 193,
+            "run_content_hash": "44e122fb6e1d0789c6362b8b849d15355c27fbd801b480a15f4e62981d979645",
+            "ref_content_hash": "44e122fb6e1d0789c6362b8b849d15355c27fbd801b480a15f4e62981d979645",
+            "match": true
+          },
+          "BTC-USDT_C101": {
+            "run_count": 828,
+            "ref_count": 828,
+            "run_content_hash": "3d56119ac342782c92880a04bd1cf88a87213f291dddfe2f966e011e34a9baf2",
+            "ref_content_hash": "3d56119ac342782c92880a04bd1cf88a87213f291dddfe2f966e011e34a9baf2",
+            "match": true
+          },
+          "BTC-USDT_C104": {
+            "run_count": 316,
+            "ref_count": 316,
+            "run_content_hash": "ccffad0c88dd234002cc57e4d9d8cd878daada534450e0480c3e03e36cecfbca",
+            "ref_content_hash": "ccffad0c88dd234002cc57e4d9d8cd878daada534450e0480c3e03e36cecfbca",
+            "match": true
+          },
+          "BTC-USDT_C106": {
+            "run_count": 168,
+            "ref_count": 168,
+            "run_content_hash": "d3295ce5e5517f622a1302741acc0e0b9e6e27708312b7b22eb63f1e8ab54fbc",
+            "ref_content_hash": "d3295ce5e5517f622a1302741acc0e0b9e6e27708312b7b22eb63f1e8ab54fbc",
+            "match": true
+          },
+          "ETH-USDT_C1": {
+            "run_count": 272,
+            "ref_count": 272,
+            "run_content_hash": "198862e240fdcdae62f97d2606e40865c47e955c95a062fd6f9a41eec22a430c",
+            "ref_content_hash": "198862e240fdcdae62f97d2606e40865c47e955c95a062fd6f9a41eec22a430c",
+            "match": true
+          },
+          "ETH-USDT_C3": {
+            "run_count": 95,
+            "ref_count": 95,
+            "run_content_hash": "04ade5a9a2cc7cba4ebdb3acef5805da823011439f00bed1fe7375af4f49ef93",
+            "ref_content_hash": "04ade5a9a2cc7cba4ebdb3acef5805da823011439f00bed1fe7375af4f49ef93",
+            "match": true
+          },
+          "ETH-USDT_C4": {
+            "run_count": 268,
+            "ref_count": 268,
+            "run_content_hash": "f7b9c3ab1945380ade7bcd015c6b24364bdfad77ba2a84b983336a886eb3498e",
+            "ref_content_hash": "f7b9c3ab1945380ade7bcd015c6b24364bdfad77ba2a84b983336a886eb3498e",
+            "match": true
+          },
+          "ETH-USDT_C6": {
+            "run_count": 75,
+            "ref_count": 75,
+            "run_content_hash": "8727da5cdf9b2c008dc46c6c18f08df6c804a8793cd317c4640c725f9b132058",
+            "ref_content_hash": "8727da5cdf9b2c008dc46c6c18f08df6c804a8793cd317c4640c725f9b132058",
+            "match": true
+          },
+          "ETH-USDT_C7": {
+            "run_count": 288,
+            "ref_count": 288,
+            "run_content_hash": "b7a5621ae36f7668772e1559ffc4efbcc878e4de7946ea6459faaae63bf84c88",
+            "ref_content_hash": "b7a5621ae36f7668772e1559ffc4efbcc878e4de7946ea6459faaae63bf84c88",
+            "match": true
+          },
+          "ETH-USDT_C10": {
+            "run_count": 13,
+            "ref_count": 13,
+            "run_content_hash": "6c4de879ab6f67fc5cd296c741274f4e2fa02786ae4476f21188132ea63ef1c8",
+            "ref_content_hash": "6c4de879ab6f67fc5cd296c741274f4e2fa02786ae4476f21188132ea63ef1c8",
+            "match": true
+          },
+          "ETH-USDT_C102": {
+            "run_count": 455,
+            "ref_count": 455,
+            "run_content_hash": "49c259f482dd7eb4f238738b370bd28bde3cbdafca38f24fafcf280bff15a9db",
+            "ref_content_hash": "49c259f482dd7eb4f238738b370bd28bde3cbdafca38f24fafcf280bff15a9db",
+            "match": true
+          },
+          "ETH-USDT_C103": {
+            "run_count": 297,
+            "ref_count": 297,
+            "run_content_hash": "6924fb5efa3d7bfc4f8ad175a8229173bbc0446635e420cf9b73dcf1373ed41c",
+            "ref_content_hash": "6924fb5efa3d7bfc4f8ad175a8229173bbc0446635e420cf9b73dcf1373ed41c",
+            "match": true
+          },
+          "ETH-USDT_C105": {
+            "run_count": 1646,
+            "ref_count": 1646,
+            "run_content_hash": "a914a46438f32cace4e88cf4280ffb518129090c3e8104c8333f84af81f2c0b0",
+            "ref_content_hash": "a914a46438f32cace4e88cf4280ffb518129090c3e8104c8333f84af81f2c0b0",
+            "match": true
+          }
+        },
+        "total_signals": 5984
+      }
+    },
+    "B2": {
+      "gate_id": "B2",
+      "name": "No-lookahead validation",
+      "status": "PASS",
+      "rows_checked": 20,
+      "rows_total": 20,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 45.128,
+      "reason": "",
+      "details": {
+        "seed": 20261110,
+        "n_cutoffs": 20,
+        "duration_s": 45.1,
+        "cutoffs_tested": [
+          {
+            "cutoff_ms": 1705919399999,
+            "cutoff_dt": "2024-01-22 10:29:59",
+            "expected_count": 218,
+            "replayed_count": 218,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1709045999999,
+            "cutoff_dt": "2024-02-27 14:59:59",
+            "expected_count": 489,
+            "replayed_count": 489,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1714337999999,
+            "cutoff_dt": "2024-04-28 20:59:59",
+            "expected_count": 832,
+            "replayed_count": 832,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1716065999999,
+            "cutoff_dt": "2024-05-18 20:59:59",
+            "expected_count": 934,
+            "replayed_count": 934,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1720173599999,
+            "cutoff_dt": "2024-07-05 09:59:59",
+            "expected_count": 1271,
+            "replayed_count": 1271,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1726829999999,
+            "cutoff_dt": "2024-09-20 10:59:59",
+            "expected_count": 1708,
+            "replayed_count": 1708,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1728932399999,
+            "cutoff_dt": "2024-10-14 18:59:59",
+            "expected_count": 1830,
+            "replayed_count": 1830,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1735914599999,
+            "cutoff_dt": "2025-01-03 14:29:59",
+            "expected_count": 2247,
+            "replayed_count": 2247,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1740506399999,
+            "cutoff_dt": "2025-02-25 17:59:59",
+            "expected_count": 2553,
+            "replayed_count": 2553,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1746701999999,
+            "cutoff_dt": "2025-05-08 10:59:59",
+            "expected_count": 2894,
+            "replayed_count": 2894,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1751839199999,
+            "cutoff_dt": "2025-07-06 21:59:59",
+            "expected_count": 3236,
+            "replayed_count": 3236,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1754564399999,
+            "cutoff_dt": "2025-08-07 10:59:59",
+            "expected_count": 3468,
+            "replayed_count": 3468,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1757596499999,
+            "cutoff_dt": "2025-09-11 13:14:59",
+            "expected_count": 3672,
+            "replayed_count": 3672,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1765707299999,
+            "cutoff_dt": "2025-12-14 10:14:59",
+            "expected_count": 4133,
+            "replayed_count": 4133,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1769943599999,
+            "cutoff_dt": "2026-02-01 10:59:59",
+            "expected_count": 4473,
+            "replayed_count": 4473,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1770811199999,
+            "cutoff_dt": "2026-02-11 11:59:59",
+            "expected_count": 4562,
+            "replayed_count": 4562,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1776607199999,
+            "cutoff_dt": "2026-04-19 13:59:59",
+            "expected_count": 4914,
+            "replayed_count": 4914,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1782309599999,
+            "cutoff_dt": "2026-06-24 13:59:59",
+            "expected_count": 5265,
+            "replayed_count": 5265,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1784224799999,
+            "cutoff_dt": "2026-07-16 17:59:59",
+            "expected_count": 5375,
+            "replayed_count": 5375,
+            "content_matched": true,
+            "pass": true
+          },
+          {
+            "cutoff_ms": 1789779599999,
+            "cutoff_dt": "2026-09-19 00:59:59",
+            "expected_count": 5744,
+            "replayed_count": 5744,
+            "content_matched": true,
+            "pass": true
+          }
+        ],
+        "exit_code": 0,
+        "sampling_policy": "uniform_buckets_random_jitter",
+        "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+      }
+    },
+    "B3": {
+      "gate_id": "B3",
+      "name": "Batch-Live equivalence",
+      "status": "PASS",
+      "rows_checked": 5984,
+      "rows_total": 5984,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 0.014,
+      "reason": "",
+      "details": {
+        "strategy_ref": "20FINAL@1",
+        "signal_spec_hash": "fe592c07fdeaee9a20e21c7a1443ae1ac94ab2ec9a8c30d92dcb1dcea997b26e",
+        "unclosed_bar_rejected": true,
+        "per_symbol": {
+          "BTC-USDT": {
+            "bars_processed": 105216,
+            "batch_signals": 2575,
+            "live_signals": 2575,
+            "only_in_batch": 0,
+            "only_in_live": 0,
+            "field_mismatches": 0
+          },
+          "ETH-USDT": {
+            "bars_processed": 105216,
+            "batch_signals": 3409,
+            "live_signals": 3409,
+            "only_in_batch": 0,
+            "only_in_live": 0,
+            "field_mismatches": 0
+          }
+        },
+        "duration_s": 0.0
+      }
+    },
+    "C1": {
+      "gate_id": "C1",
+      "name": "Entry causality",
+      "status": "PASS",
+      "rows_checked": 8258,
+      "rows_total": 8258,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 0.165,
+      "reason": "",
+      "details": {
+        "mode": "ALL_SIGNALS",
+        "price_check": "open+slippage"
+      }
+    },
+    "C2": {
+      "gate_id": "C2",
+      "name": "ExitPolicy propagation",
+      "status": "PASS",
+      "rows_checked": 8258,
+      "rows_total": 8258,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 3.597,
+      "reason": "",
+      "details": {
+        "policies_checked": 20
+      }
+    },
+    "C3": {
+      "gate_id": "C3",
+      "name": "Exit replay",
+      "status": "PASS",
+      "rows_checked": 8258,
+      "rows_total": 8258,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 0.459,
+      "reason": "",
+      "details": {
+        "mode": "ALL_SIGNALS",
+        "legs_replayed": 8258,
+        "mismatch_rows": 0
+      }
+    },
+    "C4": {
+      "gate_id": "C4",
+      "name": "Accounting",
+      "status": "PASS",
+      "rows_checked": 8258,
+      "rows_total": 8258,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 0.086,
+      "reason": "",
+      "details": {
+        "notes": [],
+        "mode": "ALL_SIGNALS"
+      }
+    },
+    "C5": {
+      "gate_id": "C5",
+      "name": "Signal conservation",
+      "status": "PASS",
+      "rows_checked": 5984,
+      "rows_total": 5984,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 0.031,
+      "reason": "",
+      "details": {
+        "statuses": {
+          "ACCEPTED": 5984,
+          "SKIPPED": 0,
+          "REJECTED": 0
+        }
+      }
+    },
+    "D1": {
+      "gate_id": "D1",
+      "name": "Artifact integrity",
+      "status": "PASS",
+      "rows_checked": 7,
+      "rows_total": 7,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 1.486,
+      "reason": "",
+      "details": {
+        "undelivered_large_artifacts": []
+      }
+    },
+    "D2": {
+      "gate_id": "D2",
+      "name": "Reported numbers",
+      "status": "PASS",
+      "rows_checked": 1605,
+      "rows_total": 1605,
+      "violation_count": 0,
+      "violations": [],
+      "duration_s": 0.462,
+      "reason": "",
+      "details": {
+        "analysis_leaves_total": 1398,
+        "analysis_leaves_checked": 1398,
+        "report_numbers_total": 207,
+        "report_numbers_checked": 207,
+        "scope": "all numeric leaves of analysis.json (except the 'validation' block and prose notes) and every number in report.md, recomputed from trades.parquet"
+      }
+    }
+  },
+  "failure_reasons": [],
+  "total_duration_s": 59.4,
+  "seed": 20261110,
+  "n_cutoffs": 20
+}
