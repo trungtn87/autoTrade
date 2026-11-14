@@ -50,6 +50,7 @@ class LegSpec:
     max_bars: int | None = None
     gap_on_entry: bool = False
     force_final: bool = False
+    ambiguity_policy: str = "LEGACY"
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,18 @@ def apply_slippage(price: float, is_buy: bool, is_entry: bool, rate: float) -> f
     return price * (1.0 + rate) if pays_more else price * (1.0 - rate)
 
 
+def apply_cost_fill(
+    price: float,
+    is_buy: bool,
+    is_entry: bool,
+    half_spread_bps: float = 0.0,
+    slippage_bps: float = 0.0,
+) -> float:
+    """Independent adverse fill-price calculation from half_spread_bps + slippage_bps."""
+    rate = (float(half_spread_bps) + float(slippage_bps)) / 10000.0
+    return apply_slippage(price, is_buy, is_entry, rate)
+
+
 def _first_true(mask: np.ndarray) -> int:
     if not mask.size:
         return -1
@@ -87,7 +100,8 @@ def _first_true(mask: np.ndarray) -> int:
 def replay_leg(o: np.ndarray, h: np.ndarray, l: np.ndarray, c: np.ndarray, spec: LegSpec) -> ExitResult:  # noqa: E741
     n = len(o)
     last = n - 1
-    eval_last = last - 1 if spec.force_final else last
+    pol = spec.ambiguity_policy.upper().strip()
+    eval_last = last - 1 if (spec.force_final and pol == "LEGACY") else last
     if spec.entry_idx > eval_last:
         return ExitResult(last, FORCE, float(c[last]))
     cap = None
@@ -95,7 +109,13 @@ def replay_leg(o: np.ndarray, h: np.ndarray, l: np.ndarray, c: np.ndarray, spec:
         cap = spec.entry_idx + spec.max_bars
         if cap > eval_last:
             cap = None
-    if spec.kind == "FIXED":
+    if pol != "LEGACY":
+        res = (
+            _replay_fixed_policy(o, h, l, c, spec, eval_last, cap, pol)
+            if spec.kind == "FIXED"
+            else _replay_trail_policy(o, h, l, c, spec, eval_last, cap, pol)
+        )
+    elif spec.kind == "FIXED":
         res = _replay_fixed(o, h, l, spec, eval_last, cap)
     else:
         res = _replay_trail(o, h, l, spec, eval_last, cap)
@@ -223,4 +243,113 @@ def _replay_trail(o, h, l, spec: LegSpec, eval_last: int, cap: int | None) -> Ex
             return ExitResult(g, TRAIL, float(stop_arr[k]), amb_trail=True)
         peak = float(peak_arr[-1])
         stop = float(stop_arr[-1])
+    return None
+
+
+def _fav_first(buy: bool, bar_o: float, bar_c: float) -> bool:
+    bull_or_doji = bar_c >= bar_o
+    return (not bull_or_doji) if buy else bull_or_doji
+
+
+def _replay_fixed_policy(o, h, l, c, spec: LegSpec, eval_last: int, cap: int | None, pol: str) -> ExitResult | None:  # noqa: E741
+    tp, sl, _ = levels(spec)
+    buy = spec.is_buy
+    for idx in range(spec.entry_idx, eval_last + 1):
+        if cap is not None and idx >= cap:
+            return ExitResult(idx, MAX_BARS, float(o[idx]))
+        if idx > spec.entry_idx or spec.gap_on_entry:
+            op = float(o[idx])
+            if (buy and op <= sl) or (not buy and op >= sl):
+                return ExitResult(idx, SL, op)
+            if (buy and op >= tp) or (not buy and op <= tp):
+                return ExitResult(idx, TP, op)
+        hi, lo = float(h[idx]), float(l[idx])
+        hit_tp = (hi >= tp) if buy else (lo <= tp)
+        hit_sl = (lo <= sl) if buy else (hi >= sl)
+        if hit_tp and hit_sl:
+            if pol == "OPTIMISTIC" or (pol == "OHLC_PATH" and _fav_first(buy, float(o[idx]), float(c[idx]))):
+                return ExitResult(idx, TP, tp, amb_tpsl=True)
+            return ExitResult(idx, AMBIGUOUS, sl, amb_tpsl=True)
+        if hit_sl:
+            return ExitResult(idx, SL, sl)
+        if hit_tp:
+            return ExitResult(idx, TP, tp)
+    return None
+
+
+def _replay_trail_policy(o, h, l, c, spec: LegSpec, eval_last: int, cap: int | None, pol: str) -> ExitResult | None:  # noqa: E741
+    _, sl, act = levels(spec)
+    buy = spec.is_buy
+    cb = spec.cb_pct
+    active = False
+    peak = spec.entry_px
+    stop = sl
+    for idx in range(spec.entry_idx, eval_last + 1):
+        if cap is not None and idx >= cap:
+            return ExitResult(idx, MAX_BARS, float(o[idx]))
+        eff_stop = stop if active else sl
+        if idx > spec.entry_idx or spec.gap_on_entry:
+            op = float(o[idx])
+            if (buy and op <= eff_stop) or (not buy and op >= eff_stop):
+                return ExitResult(idx, TRAIL if active else SL, op)
+        hi, lo = float(h[idx]), float(l[idx])
+        fav_ex = hi if buy else lo
+        adv_ex = lo if buy else hi
+        if not active:
+            hit_sl = (adv_ex <= sl) if buy else (adv_ex >= sl)
+            hit_act = (fav_ex >= act) if buy else (fav_ex <= act)
+            if hit_sl and hit_act:
+                new_stop = max(sl, fav_ex * (1.0 - cb)) if buy else min(sl, fav_ex * (1.0 + cb))
+                if pol == "OPTIMISTIC":
+                    active = True
+                    peak = fav_ex
+                    stop = new_stop
+                    continue
+                if pol == "OHLC_PATH" and _fav_first(buy, float(o[idx]), float(c[idx])):
+                    return ExitResult(idx, TRAIL, new_stop, amb_tpsl=True)
+                return ExitResult(idx, AMBIGUOUS, sl, amb_tpsl=True)
+            if hit_act:
+                active = True
+                peak = fav_ex
+                stop = max(sl, peak * (1.0 - cb)) if buy else min(sl, peak * (1.0 + cb))
+                hit_cb = (adv_ex <= stop) if buy else (adv_ex >= stop)
+                if hit_cb:
+                    if pol == "OPTIMISTIC":
+                        continue
+                    if pol == "OHLC_PATH" and not _fav_first(buy, float(o[idx]), float(c[idx])):
+                        continue
+                    return ExitResult(idx, TRAIL, stop, amb_trail=True)
+            elif hit_sl:
+                return ExitResult(idx, SL, sl)
+        else:
+            new_peak = (fav_ex > peak) if buy else (fav_ex < peak)
+            if new_peak:
+                cand_stop = max(stop, fav_ex * (1.0 - cb)) if buy else min(stop, fav_ex * (1.0 + cb))
+                hit_cand = (adv_ex <= cand_stop) if buy else (adv_ex >= cand_stop)
+                if hit_cand:
+                    hit_old = (adv_ex <= stop) if buy else (adv_ex >= stop)
+                    if pol == "CONSERVATIVE":
+                        if hit_old:
+                            return ExitResult(idx, TRAIL, stop, amb_trail=True)
+                        return ExitResult(idx, TRAIL, cand_stop, amb_trail=True)
+                    if pol == "OPTIMISTIC":
+                        if hit_old:
+                            return ExitResult(idx, TRAIL, cand_stop, amb_trail=True)
+                        peak = fav_ex
+                        stop = cand_stop
+                        continue
+                    # OHLC_PATH
+                    if _fav_first(buy, float(o[idx]), float(c[idx])):
+                        return ExitResult(idx, TRAIL, cand_stop, amb_trail=True)
+                    if hit_old:
+                        return ExitResult(idx, TRAIL, stop, amb_trail=True)
+                    peak = fav_ex
+                    stop = cand_stop
+                    continue
+                peak = fav_ex
+                stop = cand_stop
+            else:
+                hit_old = (adv_ex <= stop) if buy else (adv_ex >= stop)
+                if hit_old:
+                    return ExitResult(idx, TRAIL, stop)
     return None

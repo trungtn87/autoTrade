@@ -1,7 +1,10 @@
 """Execution gates C1-C5, computed from the saved ledger and the M1 data only."""
 from __future__ import annotations
 
+import hashlib
+import json
 import math
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -16,7 +19,7 @@ from autotrade_v3.validation.context import (
     canon_symbol,
 )
 from autotrade_v3.validation.hashing import policy_hash
-from autotrade_v3.validation.replay import LegSpec, apply_slippage, levels, replay_leg
+from autotrade_v3.validation.replay import LegSpec, apply_cost_fill, apply_slippage, levels, replay_leg
 from autotrade_v3.validation.types import (
     GateResult,
     ViolationCollector,
@@ -116,6 +119,75 @@ def _entry_arrays(trades: pd.DataFrame, signals: pd.DataFrame, ctx: VerifyContex
         open_px[good] = ser.o[k[ok]]
         bar_t[good] = ser.t[k[ok]]
     return {"sc": sc, "idx": idx, "open": open_px, "bar_t": bar_t}
+
+
+_EXIT_TO_ORDER_TYPE = {
+    "TP": "tp",
+    "SL": "stop",
+    "SL_INTRABAR_AMBIGUOUS": "stop",
+    "TRAIL": "trailing_stop",
+    "MAX_BARS_HELD": "entry_market",
+    "FORCE_CLOSE": "entry_market",
+}
+
+
+def _load_cost_spec(ctx: VerifyContext, manifest: dict[str, Any]) -> dict[str, Any]:
+    """Read cost parameters from cost_profiles.json (without importing sim) or manifest fallback."""
+    prof_name = manifest.get("cost_profile")
+    prof_hash = manifest.get("cost_profile_hash")
+    fallback_slip_bps = float(manifest.get("slippage_rate", 0.0)) * 10000.0
+    fallback = {
+        "profile_name": prof_name,
+        "hash_mismatch": False,
+        "half_spread_bps": 0.0,
+        "slippage_bps": {
+            "entry_market": fallback_slip_bps,
+            "tp": fallback_slip_bps,
+            "stop": fallback_slip_bps,
+            "trailing_stop": fallback_slip_bps,
+        },
+        "fee_taker": float(manifest.get("fee_rate_taker", 0.0)),
+        "fee_maker": 0.0,
+        "maker_order_types": set(),
+    }
+    if not prof_name:
+        return fallback
+    p_file = Path(ctx.repo_root) / "autotrade_v3" / "sim" / "cost_profiles.json"
+    if not p_file.exists():
+        return fallback
+    raw = json.loads(p_file.read_text(encoding="utf-8"))
+    obj = raw.get(str(prof_name))
+    if obj is None:
+        return fallback
+    canonical = {
+        "name": str(obj.get("name", prof_name)),
+        "status": str(obj.get("status", "UNCONFIRMED")),
+        "source": str(obj.get("source", "")),
+        "values": dict(obj.get("values") or {}),
+    }
+    actual_hash = hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    hash_mismatch = bool(prof_hash and prof_hash != actual_hash)
+    vals = canonical["values"]
+    cfg = dict(vals.get("default") or vals)
+    slip_map = dict(cfg.get("slippage_bps") or {})
+    return {
+        "profile_name": prof_name,
+        "hash_mismatch": hash_mismatch,
+        "expected_hash": actual_hash,
+        "manifest_hash": prof_hash,
+        "half_spread_bps": float(cfg.get("half_spread_bps", 0.0)),
+        "slippage_bps": {
+            "entry_market": float(slip_map.get("entry_market", fallback_slip_bps)),
+            "tp": float(slip_map.get("tp", fallback_slip_bps)),
+            "stop": float(slip_map.get("stop", fallback_slip_bps)),
+            "trailing_stop": float(slip_map.get("trailing_stop", fallback_slip_bps)),
+        },
+        "fee_taker": float(cfg.get("fee_taker", fallback["fee_taker"])),
+        "fee_maker": float(cfg.get("fee_maker", 0.0)),
+        "maker_order_types": {str(x).lower() for x in (cfg.get("maker_order_types") or ())},
+    }
 
 
 # ------------------------------------------------------------------------------------------
@@ -261,8 +333,11 @@ def gate_c2(ctx: VerifyContext) -> GateResult:
     sig_policy = signals.drop_duplicates("signal_id").set_index("signal_id")
     viol = ViolationCollector()
     portfolio = ctx.mode == "BINGX_PORTFOLIO"
+    cost_spec = _load_cost_spec(ctx, manifest)
+    half_sp = cost_spec["half_spread_bps"]
+    slip_map = cost_spec["slippage_bps"]
     cols = {c: trades[c].to_numpy() for c in trades.columns if c in LEDGER_COLS or c in (
-        "tp_pct", "sl_pct", "trailing_act_pct", "trailing_cb_pct", "max_bars_held", "exit_policy_hash")}
+        "tp_pct", "sl_pct", "trailing_act_pct", "trailing_cb_pct", "max_bars_held", "exit_policy_hash", "entry_px_fill")}
     for i in range(n):
         lid, sid = cols["leg_id"][i], cols["signal_id"][i]
         p = pol[(str(cols["symbol"][i]), int(cols["combo_id"][i]))]
@@ -288,15 +363,18 @@ def gate_c2(ctx: VerifyContext) -> GateResult:
         elif abs(float(cols["notional"][i]) - base_notional * expected[lt]) > 1e-9 * max(1.0, base_notional):
             ex("LEG_NOTIONAL", expected=base_notional * expected[lt], actual=float(cols["notional"][i]))
         # recomputed levels vs the exit actually recorded
-        entry = float(cols["entry_price"][i]) if not portfolio else float(cols["notional"][i]) / float(cols["qty"][i])
+        if "entry_px_fill" in cols and float(cols["entry_px_fill"][i]) > 0:
+            entry = float(cols["entry_px_fill"][i])
+        else:
+            entry = float(cols["entry_price"][i]) if not portfolio else float(cols["notional"][i]) / float(cols["qty"][i])
         tol = abs(entry) * (8e-4 if portfolio else 1e-9) + 2e-4
         buy = cols["side"][i] == "BUY"
         spec = LegSpec(buy, "FIXED", 0, entry, p["tp_pct"], p["sl_pct"], p["trailing_act_pct"], p["trailing_cb_pct"])
         tp, sl, act = levels(spec)
         reason, xp = str(cols["exit_reason"][i]), float(cols["exit_price"][i])
-        slip = float(manifest.get("slippage_rate", 0.0))
-        def xs(price: float) -> float:
-            return apply_slippage(price, bool(buy), False, slip)
+        ot = _EXIT_TO_ORDER_TYPE.get(reason, "entry_market")
+        def xs(price: float, order_t: str = ot) -> float:
+            return apply_cost_fill(price, bool(buy), False, half_sp, slip_map.get(order_t, 0.0))
         if reason == "TP" and ((buy and xp < xs(tp) - tol) or (not buy and xp > xs(tp) + tol)):
             ex("TP_PRICE", exit_price=xp, tp_level=xs(tp))
         if reason in ("SL", "SL_INTRABAR_AMBIGUOUS") and ((buy and xp > xs(sl) + tol) or (not buy and xp < xs(sl) - tol)):
@@ -354,7 +432,10 @@ def gate_c3(ctx: VerifyContext) -> GateResult:
     pol = _strategy_policies(ctx, manifest, trades)
     if isinstance(pol, str):
         return inconclusive("C3", name, pol, total=n)
-    slip = float(manifest.get("slippage_rate", 0.0))
+    cost_spec = _load_cost_spec(ctx, manifest)
+    half_sp = cost_spec["half_spread_bps"]
+    slip_map = cost_spec["slippage_bps"]
+    amb_policy = str(manifest.get("ambiguity_policy", "LEGACY")).upper().strip()
     portfolio = ctx.mode == "BINGX_PORTFOLIO"
     ent = _entry_arrays(trades, signals, ctx, manifest)
     viol = ViolationCollector()
@@ -380,14 +461,16 @@ def gate_c3(ctx: VerifyContext) -> GateResult:
         ser = _series(ctx, str(sym[i]), manifest)
         p = pol[(str(sym[i]), int(cid[i]))]
         buy = side[i] == "BUY"
-        fill = apply_slippage(float(ser.o[ex_idx]), bool(buy), True, slip)
+        fill = apply_cost_fill(float(ser.o[ex_idx]), bool(buy), True, half_sp, slip_map["entry_market"])
         kind = "TRAIL" if ltype[i] == "TRAIL_HALF" else "FIXED"
         spec = LegSpec(bool(buy), kind, ex_idx, fill, p["tp_pct"], p["sl_pct"], p["trailing_act_pct"],
-                       p["trailing_cb_pct"], p["max_bars_held"], gap_on_entry=portfolio, force_final=portfolio)
+                       p["trailing_cb_pct"], p["max_bars_held"], gap_on_entry=portfolio,
+                       force_final=portfolio, ambiguity_policy=amb_policy)
         r = replay_leg(ser.o, ser.h, ser.l, ser.c, spec)
         stats["replayed"] += 1
         exp_t = int(ser.t[r.idx])
-        exp_px = apply_slippage(r.raw_price, bool(buy), False, slip)
+        ot = _EXIT_TO_ORDER_TYPE.get(r.reason, "entry_market")
+        exp_px = apply_cost_fill(r.raw_price, bool(buy), False, half_sp, slip_map.get(ot, 0.0))
         problems = []
         if exp_t != int(x_t[i]):
             problems.append("EXIT_TIME")
@@ -397,10 +480,11 @@ def gate_c3(ctx: VerifyContext) -> GateResult:
             problems.append("EXIT_PRICE")
         if held is not None and r.idx - ex_idx != int(held[i]):
             problems.append("BARS_HELD")
-        if f_amb is not None and r.amb_tpsl != bool(f_amb[i]):
-            problems.append("AMBIGUOUS_FLAG")
-        if f_trl is not None and r.amb_trail != bool(f_trl[i]):
-            problems.append("TRAILING_AMBIGUOUS_FLAG")
+        if amb_policy == "LEGACY":
+            if f_amb is not None and r.amb_tpsl != bool(f_amb[i]):
+                problems.append("AMBIGUOUS_FLAG")
+            if f_trl is not None and r.amb_trail != bool(f_trl[i]):
+                problems.append("TRAILING_AMBIGUOUS_FLAG")
         if problems:
             rec = {
                 "leg_id": lid[i], "signal_id": sid[i], "symbol": sym[i], "combo_id": int(cid[i]),
@@ -431,7 +515,17 @@ def gate_c4(ctx: VerifyContext) -> GateResult:
         return inconclusive("C4", name, f"required inputs unavailable: {sorted(run.errors)}")
     n = len(trades)
     viol = ViolationCollector()
-    fee = float(manifest.get("fee_rate_taker", 0.0))
+    cost_spec = _load_cost_spec(ctx, manifest)
+    if cost_spec.get("hash_mismatch"):
+        viol.add({
+            "kind": "COST_PROFILE_HASH_MISMATCH",
+            "cost_profile": cost_spec.get("profile_name"),
+            "manifest_hash": cost_spec.get("manifest_hash"),
+            "expected_hash": cost_spec.get("expected_hash"),
+        })
+    fee_taker = float(cost_spec["fee_taker"])
+    fee_maker = float(cost_spec["fee_maker"])
+    maker_ots = set(cost_spec["maker_order_types"])
     initial = float(manifest.get("initial_equity", 0.0))
     portfolio = ctx.mode == "BINGX_PORTFOLIO"
     notes: list[str] = []
@@ -448,12 +542,22 @@ def gate_c4(ctx: VerifyContext) -> GateResult:
         qty = qty_led if portfolio else notional / e
         dp = np.where(buy, x - e, e - x)
         gross = dp * qty
-        fees = notional * fee + qty * x * fee
-        net = gross - fees
+        entry_rate = fee_maker if "entry_market" in maker_ots else fee_taker
+        if "exit_reason" in trades.columns and maker_ots:
+            reasons = trades["exit_reason"].astype(str).to_numpy()
+            exit_rates = np.array([
+                fee_maker if _EXIT_TO_ORDER_TYPE.get(r, "entry_market") in maker_ots else fee_taker
+                for r in reasons
+            ], dtype=float)
+        else:
+            exit_rates = np.full(n, fee_taker, dtype=float)
+        fees = notional * entry_rate + qty * x * exit_rates
+        fund_col = trades["funding_cost"].to_numpy(dtype=float) if "funding_cost" in trades.columns else np.zeros(n)
+        net = gross - fees - fund_col
         ret = net / notional
         slack_q = 5.1e-7 * np.abs(dp) if portfolio else 0.0
         tol_g = 2e-6 + 6e-5 * qty + slack_q
-        tol_f = 2e-6 + 6e-5 * qty * fee + (5.1e-7 * x * fee if portfolio else 0.0)
+        tol_f = 2e-6 + 6e-5 * qty * fee_taker + (5.1e-7 * x * fee_taker if portfolio else 0.0)
         lid = trades["leg_id"].to_numpy()
         for name_, calc, led, tol in (
             ("gross_pnl", gross, trades["gross_pnl"].to_numpy(dtype=float), tol_g),
@@ -469,11 +573,33 @@ def gate_c4(ctx: VerifyContext) -> GateResult:
         led_net = trades["net_pnl"].to_numpy(dtype=float)
         led_gross = trades["gross_pnl"].to_numpy(dtype=float)
         led_fee = trades["fee_total"].to_numpy(dtype=float)
-        bad = np.nonzero(np.abs(led_gross - led_fee - led_net) > 3e-6)[0]
+        bad = np.nonzero(np.abs(led_gross - led_fee - fund_col - led_net) > 3e-6)[0]
         if len(bad):
             viol.add_many(len(bad), [{"leg_id": lid[i], "kind": "NET_NE_GROSS_MINUS_FEE"} for i in bad[:20]])
 
-        # leg totals vs execution events (modes A/B)
+        # V3-13 itemized cost invariant check (when cost columns exist and are populated)
+        cost_cols = {"gross_pnl_raw", "fee_entry", "fee_exit", "spread_cost", "slippage_cost", "funding_cost"}
+        if cost_cols <= set(trades.columns):
+            target_net = trades["pnl_own_entry"].to_numpy(dtype=float) if "pnl_own_entry" in trades.columns else led_net
+            if not portfolio or "pnl_own_entry" in trades.columns:
+                raw_recomp = (
+                    trades["gross_pnl_raw"].to_numpy(dtype=float)
+                    - trades["fee_entry"].to_numpy(dtype=float)
+                    - trades["fee_exit"].to_numpy(dtype=float)
+                    - trades["spread_cost"].to_numpy(dtype=float)
+                    - trades["slippage_cost"].to_numpy(dtype=float)
+                    - trades["funding_cost"].to_numpy(dtype=float)
+                )
+                bad_inv = np.nonzero(np.abs(target_net - raw_recomp) > 1e-9)[0]
+                if len(bad_inv):
+                    viol.add_many(len(bad_inv), [{"leg_id": lid[i], "kind": "NET_COST_INVARIANT"} for i in bad_inv[:20]])
+            bad_fe = np.nonzero(
+                np.abs(trades["fee_entry"].to_numpy(dtype=float) + trades["fee_exit"].to_numpy(dtype=float) - led_fee) > 1e-9
+            )[0]
+            if len(bad_fe):
+                viol.add_many(len(bad_fe), [{"leg_id": lid[i], "kind": "FEE_SUM_MISMATCH"} for i in bad_fe[:20]])
+
+        # leg totals vs execution events
         ev = run.events
         if ev is not None and len(ev):
             eg = ev.copy()
@@ -486,11 +612,16 @@ def gate_c4(ctx: VerifyContext) -> GateResult:
                 viol.add({"leg_id": leg, "kind": "ORPHAN_EVENT"})
             common = tl.index.intersection(ex_ev.index).intersection(en_ev.index)
             t_c, x_c, e_c = tl.loc[common], ex_ev.loc[common], en_ev.loc[common]
+            exp_entry_px = (
+                t_c["entry_px_fill"].where(t_c["entry_px_fill"].astype(float) > 0, t_c["entry_price"])
+                if "entry_px_fill" in t_c.columns
+                else t_c["entry_price"]
+            )
             checks = (
                 ("EVENT_REALIZED_PNL", (x_c["realized_pnl"].astype(float) - t_c["net_pnl"]).abs() > 3e-6),
                 ("EVENT_FEES", ((x_c["fee"].astype(float) + e_c["fee"].astype(float)) - t_c["fee_total"]).abs() > 3e-6),
                 ("EVENT_EXIT_PRICE", (x_c["price"].astype(float) - t_c["exit_price"]).abs() > 1e-4),
-                ("EVENT_ENTRY_PRICE", (e_c["price"].astype(float) - t_c["entry_price"]).abs() > 1e-4),
+                ("EVENT_ENTRY_PRICE", (e_c["price"].astype(float) - exp_entry_px.astype(float)).abs() > 1e-4),
                 ("EVENT_EXIT_TIME", x_c["timestamp_ms"].astype("int64") != t_c["exit_time_ms"].astype("int64")),
                 ("EVENT_ENTRY_TIME", e_c["timestamp_ms"].astype("int64") != t_c["entry_time_ms"].astype("int64")),
                 ("EVENT_EXIT_REASON", x_c["exit_reason"].astype(str) != t_c["exit_reason"].astype(str)),
