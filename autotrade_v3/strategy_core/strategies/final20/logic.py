@@ -1886,7 +1886,8 @@ class SymbolLiveState:
         elif hasattr(bar, "get"):
             get_fn = bar.get
         else:
-            get_fn = lambda k, default=None: getattr(bar, k, default)
+            def get_fn(k: str, default: Any = None) -> Any:
+                return getattr(bar, k, default)
 
         is_closed = get_fn("is_closed", True)
         if not is_closed:

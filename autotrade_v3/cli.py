@@ -70,6 +70,25 @@ def cmd_strategies(args: argparse.Namespace) -> None:
         print(f"  Spec Hash:           {s.get('spec_hash', s['config_hash'])}")
 
 
+def cmd_strategy_clone(args: argparse.Namespace) -> None:
+    """Clone an existing strategy specification into a new versioned research strategy."""
+    from autotrade_v3.strategy_core.registry import clone_strategy_params
+
+    params_dir = Path(args.params_dir) if getattr(args, "params_dir", None) else None
+    res = clone_strategy_params(
+        from_ref=args.from_ref,
+        to_ref=args.to_ref,
+        params_dir=params_dir,
+    )
+    print(f"=== Strategy Cloned: {res['strategy_id']}@{res['version']} ===")
+    print(f"- Parent:           {res['parent']}")
+    print(f"- Params File:      {res['params_path']}")
+    print(f"- Diff File:        {res['diff_path']}")
+    print(f"- Signal Spec Hash: {res['hashes']['signal_spec_hash']}")
+    print(f"- Exit Spec Hash:   {res['hashes']['exit_spec_hash']}")
+    print(f"- Spec Hash:        {res['hashes']['spec_hash']}")
+
+
 def cmd_modes(args: argparse.Namespace) -> None:
     """List available execution modes."""
     print("=== AutoTrade V3 Execution Modes ===")
@@ -315,6 +334,15 @@ def build_parser() -> argparse.ArgumentParser:
     # Strategies
     p_st = subparsers.add_parser("strategies", help="List registered strategies")
     p_st.set_defaults(func=cmd_strategies)
+
+    # Strategy management (clone)
+    p_strat = subparsers.add_parser("strategy", help="Manage versioned strategies (e.g. clone)")
+    strat_sub = p_strat.add_subparsers(dest="strategy_command", required=True)
+    p_clone = strat_sub.add_parser("clone", help="Clone an existing strategy specification")
+    p_clone.add_argument("--from", dest="from_ref", required=True, help="Source strategy ref (e.g. 20FINAL@1)")
+    p_clone.add_argument("--to", dest="to_ref", required=True, help="Target strategy ref (e.g. EXP_01@1)")
+    p_clone.add_argument("--params-dir", default=None, help="Optional parameter root directory")
+    p_clone.set_defaults(func=cmd_strategy_clone)
 
     # Modes
     p_md = subparsers.add_parser("modes", help="List execution simulation modes")

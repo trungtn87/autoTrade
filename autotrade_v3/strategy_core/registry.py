@@ -43,6 +43,138 @@ def parse_strategy_ref(
     return sid, ver
 
 
+def compute_param_diff(
+    source_params: dict[str, Any],
+    target_params: dict[str, Any],
+) -> dict[str, Any]:
+    """Compute a deterministic parameter diff between source and target strategy parameter dicts."""
+    src_combos = {str(c["combo_key"]): c for c in source_params.get("combos", [])}
+    tgt_combos = {str(c["combo_key"]): c for c in target_params.get("combos", [])}
+
+    added_combos = sorted(set(tgt_combos.keys()) - set(src_combos.keys()))
+    removed_combos = sorted(set(src_combos.keys()) - set(tgt_combos.keys()))
+    modified_combos: dict[str, dict[str, Any]] = {}
+
+    for k in sorted(set(src_combos.keys()) & set(tgt_combos.keys())):
+        sc = src_combos[k]
+        tc = tgt_combos[k]
+        if sc != tc:
+            field_changes = {}
+            for fk in sorted(set(sc.keys()) | set(tc.keys())):
+                if sc.get(fk) != tc.get(fk):
+                    field_changes[fk] = {"from": sc.get(fk), "to": tc.get(fk)}
+            modified_combos[k] = field_changes
+
+    top_changes = {}
+    for fk in ("warmup_bars", "timeframes"):
+        if source_params.get(fk) != target_params.get(fk):
+            top_changes[fk] = {"from": source_params.get(fk), "to": target_params.get(fk)}
+
+    return {
+        "from_strategy": f"{source_params.get('strategy_id')}@{source_params.get('version')}",
+        "to_strategy": f"{target_params.get('strategy_id')}@{target_params.get('version')}",
+        "top_level_changes": top_changes,
+        "added_combos": [tgt_combos[k] for k in added_combos],
+        "removed_combos": removed_combos,
+        "modified_combos": modified_combos,
+    }
+
+
+def clone_strategy_params(
+    from_ref: str,
+    to_ref: str,
+    params_dir: Path | None = None,
+    combo_overrides: dict[str, dict[str, Any]] | None = None,
+    add_combos: list[dict[str, Any]] | None = None,
+    remove_combos: list[str] | None = None,
+) -> dict[str, Any]:
+    """Clone an existing strategy parameter specification into a new versioned directory.
+
+    Never modifies the baseline `20final_v1.json` or `20final_v1.lock`.
+    Creates `<params_dir>/<to_id_lower>_v<to_ver>/params.json` and `param_diff.json`.
+    """
+    src_id, src_ver = parse_strategy_ref(from_ref)
+    dst_id, dst_ver = parse_strategy_ref(to_ref)
+
+    if (dst_id, dst_ver) == ("20FINAL", "1"):
+        raise ValueError("Cannot clone into immutable baseline 20FINAL@1")
+
+    p_dir = Path(params_dir) if params_dir is not None else PARAMS_DIR
+
+    # Locate source params file
+    if (src_id, src_ver) == ("20FINAL", "1"):
+        src_path = p_dir / "20final_v1.json"
+        if not src_path.exists():
+            src_path = DEFAULT_PARAMS_PATH
+    else:
+        src_slug = f"{src_id.lower()}_v{src_ver}"
+        src_path = p_dir / src_slug / "params.json"
+        if not src_path.exists():
+            src_path = p_dir / f"{src_slug}.json"
+    if not src_path.exists():
+        raise FileNotFoundError(f"Source strategy parameters not found for {src_id}@{src_ver}: {src_path}")
+
+    src_data = json.loads(normalize_lf(src_path.read_text(encoding="utf-8")))
+    dst_data = copy.deepcopy(src_data)
+    dst_data["strategy_id"] = dst_id
+    dst_data["version"] = dst_ver
+    dst_data["parent"] = f"{src_id}@{src_ver}"
+
+    combos_list: list[dict[str, Any]] = dst_data.get("combos", [])
+    if remove_combos:
+        rm_set = set(remove_combos)
+        combos_list = [c for c in combos_list if c["combo_key"] not in rm_set]
+
+    if combo_overrides:
+        for c in combos_list:
+            ck = c["combo_key"]
+            if ck in combo_overrides:
+                ov = combo_overrides[ck]
+                for k, v in ov.items():
+                    if k in ("entry", "exit_policy") and isinstance(v, dict) and isinstance(c.get(k), dict):
+                        c[k].update(v)
+                    else:
+                        c[k] = v
+
+    if add_combos:
+        existing_keys = {c["combo_key"] for c in combos_list}
+        for ac in add_combos:
+            if ac["combo_key"] in existing_keys:
+                raise ValueError(f"Duplicate combo_key when adding combo: {ac['combo_key']}")
+            combos_list.append(copy.deepcopy(ac))
+            existing_keys.add(ac["combo_key"])
+
+    dst_data["combos"] = combos_list
+
+    diff_obj = compute_param_diff(src_data, dst_data)
+    dst_data["param_diff"] = {
+        "added_combos": [c["combo_key"] for c in diff_obj["added_combos"]],
+        "removed_combos": diff_obj["removed_combos"],
+        "modified_combos": diff_obj["modified_combos"],
+        "top_level_changes": diff_obj["top_level_changes"],
+    }
+
+    dst_slug = f"{dst_id.lower()}_v{dst_ver}"
+    out_dir = p_dir / dst_slug
+    out_dir.mkdir(parents=True, exist_ok=True)
+    params_out = out_dir / "params.json"
+    diff_out = out_dir / "param_diff.json"
+
+    params_out.write_text(normalize_lf(json.dumps(dst_data, indent=2) + "\n"), encoding="utf-8", newline="\n")
+    diff_out.write_text(normalize_lf(json.dumps(diff_obj, indent=2) + "\n"), encoding="utf-8", newline="\n")
+
+    hashes = compute_all_hashes(dst_data)
+    return {
+        "strategy_id": dst_id,
+        "version": dst_ver,
+        "parent": f"{src_id}@{src_ver}",
+        "params_path": str(params_out),
+        "diff_path": str(diff_out),
+        "hashes": hashes,
+        "diff": diff_obj,
+    }
+
+
 class StrategyCoreRegistry:
     """Registry indexing strategies by (strategy_id, version)."""
 
@@ -80,16 +212,20 @@ class StrategyCoreRegistry:
         if key in cls._factories:
             return cls._factories[key]()
 
-        # Check params directory for cloned or versioned strategy specs
         p_dir = Path(params_dir) if params_dir is not None else PARAMS_DIR
         if key == ("20FINAL", "1"):
+            p_path = p_dir / "20final_v1.json"
+            if not p_path.exists():
+                p_path = DEFAULT_PARAMS_PATH
+            l_path = p_dir / "20final_v1.lock"
+            if not l_path.exists():
+                l_path = DEFAULT_LOCK_PATH
             return Final20Strategy(
-                params_path=p_dir / "20final_v1.json",
-                lock_path=p_dir / "20final_v1.lock",
+                params_path=p_path,
+                lock_path=l_path,
                 enforce_lock=True,
             )
 
-        # Look for cloned parameter file under p_dir/<sid_lower>_v<ver>/params.json or <sid_lower>_v<ver>.json
         slug = f"{sid.lower()}_v{ver}"
         candidates = [
             p_dir / slug / "params.json",
@@ -107,6 +243,26 @@ class StrategyCoreRegistry:
             f"Strategy '{sid}@{ver}' not found in StrategyCoreRegistry. "
             f"Registered: {cls.list_keys(params_dir=p_dir)}"
         )
+
+    @classmethod
+    def clone(
+        cls,
+        from_ref: str,
+        to_ref: str,
+        params_dir: Path | None = None,
+        combo_overrides: dict[str, dict[str, Any]] | None = None,
+        add_combos: list[dict[str, Any]] | None = None,
+        remove_combos: list[str] | None = None,
+    ) -> Strategy:
+        res = clone_strategy_params(
+            from_ref=from_ref,
+            to_ref=to_ref,
+            params_dir=params_dir,
+            combo_overrides=combo_overrides,
+            add_combos=add_combos,
+            remove_combos=remove_combos,
+        )
+        return cls.get(res["strategy_id"], res["version"], params_dir=params_dir)
 
     @classmethod
     def list_keys(cls, params_dir: Path | None = None) -> list[str]:
