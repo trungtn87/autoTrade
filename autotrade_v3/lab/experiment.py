@@ -151,10 +151,23 @@ class ExperimentRunner:
             only_warmup_ready=True,
         )
 
-        # Filter signals whose earliest execution falls within evaluation window
+        # Filter signals whose earliest execution falls within evaluation window.
+        # In smoke_test mode, synthetic M1 spans 75,000 bars regardless of `end`,
+        # so bound by each symbol's generated M1 horizon to avoid trailing UNFILLABLE signals.
+        max_m1_by_sym: dict[str, int] = {}
+        if smoke_test:
+            for sym, df_m1 in candles_m1_eval.items():
+                if not df_m1.empty:
+                    max_m1_by_sym[sym] = int(datetime_index_to_ms(df_m1.index)[-1])
+
         eval_signals = [
             s for s in all_signals
-            if s.signal_close_ms + 1 >= start_ms and s.signal_close_ms + 1 < end_ms
+            if s.signal_close_ms + 1 >= start_ms
+            and s.signal_close_ms + 1 < (
+                min(end_ms, max_m1_by_sym[s.symbol] + 1)
+                if smoke_test and s.symbol in max_m1_by_sym
+                else end_ms
+            )
         ]
         eval_signals.sort(key=lambda s: (s.signal_close_ms, s.combo_id, s.side))
 
