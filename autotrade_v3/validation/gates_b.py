@@ -141,19 +141,27 @@ def gate_b1(ctx: VerifyContext) -> GateResult:
         / "20final_v1.lock"
     )
     lock_verified = False
-    if (sid_canon, ver_canon) == ("20FINAL", "1") and lock_file.exists():
-        try:
-            lock_data = json.loads(normalize_lf(lock_file.read_text(encoding="utf-8")))
-            run_sig_hash = manifest.get("signal_spec_hash")
-            if run_sig_hash and run_sig_hash != lock_data.get("signal_spec_hash"):
-                viol.add({
-                    "kind": "SIGNAL_SPEC_HASH_MISMATCH",
-                    "expected": lock_data.get("signal_spec_hash"),
-                    "actual": run_sig_hash,
-                })
-            lock_verified = True
-        except Exception as e:
-            viol.add({"kind": "LOCK_READ_ERROR", "error": str(e)})
+    if (sid_canon, ver_canon) == ("20FINAL", "1"):
+        if not lock_file.exists():
+            viol.add({"kind": "LOCK_FILE_MISSING", "path": str(lock_file)})
+        else:
+            try:
+                lock_data = json.loads(normalize_lf(lock_file.read_text(encoding="utf-8")))
+                run_sig_hash = manifest.get("signal_spec_hash")
+                if run_sig_hash:
+                    if run_sig_hash != lock_data.get("signal_spec_hash"):
+                        viol.add({
+                            "kind": "SIGNAL_SPEC_HASH_MISMATCH",
+                            "expected": lock_data.get("signal_spec_hash"),
+                            "actual": run_sig_hash,
+                        })
+                    else:
+                        lock_verified = True
+                else:
+                    # Legacy manifests (e.g. V3-08 golden) predate signal_spec_hash; never mark lock_verified=True
+                    lock_verified = False
+            except Exception as e:
+                viol.add({"kind": "LOCK_READ_ERROR", "error": str(e)})
 
     ref_ids = set(ref_sigs["signal_id"].astype(str))
     run_ids = set(run_sigs["signal_id"].astype(str))
@@ -555,7 +563,7 @@ def gate_b3(ctx: VerifyContext) -> GateResult:
         cached_checked, _, cached_viols, cached_details = _B3_CACHE[cache_key]
         for v in cached_viols:
             viol.add(v)
-        live_eval_ids = set(cached_details.get("live_eval_signal_ids", []))
+        live_eval_records = list(cached_details.get("live_eval_records", []))
         per_symbol_stats = cached_details.get("per_symbol", {})
     else:
         from autotrade_v3.data_layer import DataLayer
@@ -564,7 +572,7 @@ def gate_b3(ctx: VerifyContext) -> GateResult:
             data_dir=ctx.data_root / "data" / "m1_raw",
         )
         per_symbol_stats = {}
-        live_eval_ids = set()
+        live_eval_records: list[dict[str, Any]] = []
         replay_viols: list[dict[str, Any]] = []
 
         for sym in symbols:
@@ -644,7 +652,14 @@ def gate_b3(ctx: VerifyContext) -> GateResult:
 
             for e in live_evs:
                 if start_ms <= e.signal_close_ms + 1 < end_ms:
-                    live_eval_ids.add(e.signal_id)
+                    live_eval_records.append({
+                        "signal_id": str(e.signal_id),
+                        "symbol": str(e.symbol),
+                        "combo_id": int(e.tags["combo_id"]),
+                        "side": str(e.side),
+                        "signal_close_ms": int(e.signal_close_ms),
+                        "ref_price": float(e.ref_price),
+                    })
 
             per_symbol_stats[sym] = {
                 "bars_processed": len(df),
@@ -663,15 +678,49 @@ def gate_b3(ctx: VerifyContext) -> GateResult:
             total,
             replay_viols,
             {
-                "live_eval_signal_ids": sorted(live_eval_ids),
+                "live_eval_records": live_eval_records,
                 "per_symbol": per_symbol_stats,
             },
         )
 
-    # 3. Verify run's signals.parquet against live_eval_ids
-    run_ids = set(run_sigs["signal_id"].astype(str))
-    missing_from_run = sorted(live_eval_ids - run_ids)
-    extra_in_run = sorted(run_ids - live_eval_ids)
+    # 3. Verify run's signals.parquet against live_eval_records (field-level + multiplicity)
+    from collections import Counter
+
+    live_by_sid: dict[str, dict[str, Any]] = {}
+    live_sid_counts: Counter[str] = Counter()
+    for rec in live_eval_records:
+        sid = rec["signal_id"]
+        live_sid_counts[sid] += 1
+        live_by_sid[sid] = rec
+
+    run_sid_counts: Counter[str] = Counter()
+    run_field_mismatches: list[str] = []
+    for _, row in run_sigs.iterrows():
+        sid = str(row["signal_id"])
+        run_sid_counts[sid] += 1
+        if sid in live_by_sid:
+            exp = live_by_sid[sid]
+            r_sym = str(row["symbol"])
+            r_cid = int(row["combo_id"])
+            r_side = str(row["side"])
+            r_close = int(row["signal_close_ms"])
+            r_price = float(row["entry_price"])
+            if (
+                r_sym != exp["symbol"]
+                or r_cid != exp["combo_id"]
+                or r_side != exp["side"]
+                or r_close != exp["signal_close_ms"]
+                or abs(r_price - exp["ref_price"]) > 1e-8
+            ):
+                run_field_mismatches.append(sid)
+
+    missing_from_run = sorted(set(live_sid_counts.keys()) - set(run_sid_counts.keys()))
+    extra_in_run = sorted(set(run_sid_counts.keys()) - set(live_sid_counts.keys()))
+    multiplicity_mismatches = sorted(
+        sid for sid in (set(live_sid_counts.keys()) & set(run_sid_counts.keys()))
+        if run_sid_counts[sid] != live_sid_counts[sid]
+    )
+
     if missing_from_run:
         viol.add({
             "kind": "RUN_SIGNALS_MISSING_FROM_LIVE",
@@ -683,6 +732,21 @@ def gate_b3(ctx: VerifyContext) -> GateResult:
             "kind": "RUN_SIGNALS_EXTRA_VS_LIVE",
             "count": len(extra_in_run),
             "sample": extra_in_run[:10],
+        })
+    if multiplicity_mismatches:
+        viol.add({
+            "kind": "DUPLICATE_SIGNAL_IN_RUN",
+            "count": len(multiplicity_mismatches),
+            "sample": [
+                {"signal_id": sid, "run_count": run_sid_counts[sid], "live_count": live_sid_counts[sid]}
+                for sid in multiplicity_mismatches[:10]
+            ],
+        })
+    if run_field_mismatches:
+        viol.add({
+            "kind": "RUN_SIGNAL_FIELD_MISMATCH",
+            "count": len(run_field_mismatches),
+            "sample": sorted(set(run_field_mismatches))[:10],
         })
 
     duration = time.perf_counter() - t0

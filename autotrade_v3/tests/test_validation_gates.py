@@ -15,6 +15,10 @@ from autotrade_v3.validation.context import VerifyContext
 from autotrade_v3.validation import gates_a, gates_b, gates_c, gates_d
 
 
+def _has_real_m1_data() -> bool:
+    return Path("catalog/research.duckdb").exists() and Path("data/m1_raw").exists() and any(Path("data/m1_raw").rglob("*.parquet"))
+
+
 class TestValidationGatesV310(unittest.TestCase):
     """Verify validation gates unit behavior on small fixtures."""
 
@@ -49,6 +53,10 @@ class TestValidationGatesV310(unittest.TestCase):
         self.assertFalse(report.is_real_data)
         self.assertIn("GATE_A_DATA", report.gates)
 
+    @unittest.skipUnless(
+        _has_real_m1_data(),
+        "Real M1 dataset (catalog/research.duckdb & data/m1_raw/*.parquet) not present in CI; skipping Gate B3 real-data check per Invariant N8",
+    )
     def test_gate_b3_batch_live_equivalence(self):
         """Gate B3 verifies batch generate() vs incremental on_bar_close() equivalence in V3-11."""
         ctx = VerifyContext(Path("runs/golden/v3-08/ALL_SIGNALS"), Path("."), Path("."))

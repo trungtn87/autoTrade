@@ -37,6 +37,14 @@ CORE_ROOT = REPO_ROOT / "autotrade_v3" / "strategy_core"
 ALLOWED_TOP_IMPORTS = set(sys.stdlib_module_names) | {"numpy", "pandas", "__future__"}
 
 
+def _has_real_m1_data() -> bool:
+    return (
+        (REPO_ROOT / "catalog" / "research.duckdb").exists()
+        and (REPO_ROOT / "data" / "m1_raw").exists()
+        and any((REPO_ROOT / "data" / "m1_raw").rglob("*.parquet"))
+    )
+
+
 class TestStrategyCoreV311(unittest.TestCase):
     """V3-11 Unit, Integration, and Adversarial Mutation Tests."""
 
@@ -134,8 +142,24 @@ class TestStrategyCoreV311(unittest.TestCase):
             self.assertEqual(h_mut["exit_spec_hash"], base_hashes["exit_spec_hash"])
             self.assertNotEqual(h_mut["spec_hash"], base_hashes["spec_hash"])
 
+            # 5. Adding an unrelated plugin under strategies/other_plugin/ must NOT change 20FINAL@1 hash
+            plugin_dir = tmp_core / "strategies" / "other_plugin"
+            plugin_dir.mkdir(parents=True, exist_ok=True)
+            (plugin_dir / "__init__.py").write_text("", encoding="utf-8")
+            (plugin_dir / "logic.py").write_text("X = 1\n", encoding="utf-8")
+            h_plugin = compute_all_hashes(raw_params, core_root=tmp_core)
+            self.assertEqual(h_plugin, h_mut, "Adding an unrelated sibling plugin must not alter 20FINAL@1 hash")
+
+        # 6. Changing is_new6 changes signal_spec_hash and spec_hash, but NOT exit_spec_hash
+        p_new6 = copy.deepcopy(raw_params)
+        p_new6["combos"][0]["is_new6"] = not bool(p_new6["combos"][0].get("is_new6", False))
+        h_new6 = compute_all_hashes(p_new6, core_root=CORE_ROOT)
+        self.assertNotEqual(h_new6["signal_spec_hash"], base_hashes["signal_spec_hash"])
+        self.assertEqual(h_new6["exit_spec_hash"], base_hashes["exit_spec_hash"])
+        self.assertNotEqual(h_new6["spec_hash"], base_hashes["spec_hash"])
+
     def test_03_baseline_lock_enforcement_m2(self):
-        """Section 6 & M2: Modifying 20final_v1.json in a temporary copy causes loading 20FINAL@1 to fail."""
+        """Section 6 & M2: Modifying 20final_v1.json or missing lock file causes loading 20FINAL@1 to fail (fail-closed)."""
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
             tmp_params = tmp_dir / "20final_v1.json"
@@ -146,6 +170,23 @@ class TestStrategyCoreV311(unittest.TestCase):
             # Valid baseline loads cleanly
             strat_ok = Final20Strategy(params_path=tmp_params, lock_path=tmp_lock, enforce_lock=True)
             self.assertEqual(strat_ok.spec().strategy_id, "20FINAL")
+
+            # Missing lock file must fail-closed
+            missing_lock = tmp_dir / "nonexistent.lock"
+            with self.assertRaises(BaselineLockError):
+                Final20Strategy(params_path=tmp_params, lock_path=missing_lock, enforce_lock=True)
+
+            # Gate B1 must NOT set lock_verified=True when manifest lacks signal_spec_hash
+            fake_run = tmp_dir / "legacy_run"
+            fake_run.mkdir(parents=True, exist_ok=True)
+            gold_dir = REPO_ROOT / "runs" / "golden" / "v3-08" / "ALL_SIGNALS"
+            shutil.copy2(gold_dir / "signals.parquet", fake_run / "signals.parquet")
+            manifest = json.loads((gold_dir / "run_manifest.json").read_text(encoding="utf-8"))
+            manifest.pop("signal_spec_hash", None)
+            (fake_run / "run_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            ctx_no_hash = VerifyContext(fake_run, REPO_ROOT, REPO_ROOT, reference_signals=gold_dir / "signals.parquet")
+            res_no_hash = gates_b.gate_b1(ctx_no_hash)
+            self.assertFalse(res_no_hash.details.get("lock_verified"))
 
             # Mutate 1 parameter in temporary 20final_v1.json
             data = json.loads(tmp_params.read_text(encoding="utf-8"))
@@ -359,14 +400,54 @@ class TestStrategyCoreV311(unittest.TestCase):
             diff_ids = sorted(orig_ids ^ mut_ids)
             self.assertGreater(len(diff_ids), 0, "M3: Indicator pivot mutation must cause signal_id divergence")
 
-        # M4: Make on_bar_close accept an unclosed candle OR diverge from generate() -> Gate B3 must FAIL
+        # M5: Inject forbidden import into a temporary copy of strategy_core -> AST boundary test catches it
+        with tempfile.TemporaryDirectory() as tmp:
+            bad_py = Path(tmp) / "bad_module.py"
+            bad_py.write_text("from autotrade_v2.app.strategy import final14_config\n", encoding="utf-8")
+            tree = ast.parse(bad_py.read_text(encoding="utf-8"))
+            caught = False
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] not in ALLOWED_TOP_IMPORTS:
+                    caught = True
+            self.assertTrue(caught, "M5: AST boundary scanner must catch autotrade_v2 import")
+
+    @unittest.skipUnless(
+        _has_real_m1_data(),
+        "Real M1 dataset (catalog/research.duckdb & data/m1_raw/*.parquet) not present in CI; skipping Gate B3 M4a test per Invariant N8",
+    )
+    def test_06b_mutation_m4a_unclosed_bar_accepted_fails_b3(self):
+        """Section 9 M4a: Making on_bar_close accept an unclosed candle (is_closed=False) causes Gate B3 to FAIL."""
+        from unittest.mock import patch
+
         gates_b.clear_replay_cache()
         orig_on_bar_close = Final20Strategy.on_bar_close
 
         def unclosed_accepting_on_bar_close(self_strat: Any, state: Any, bar: Any, **kwargs: Any) -> list[SignalEvent]:
-            # Mutate bar to pretend is_closed=True even when Gate B3 probes with is_closed=False
             if isinstance(bar, dict) and bar.get("is_closed") is False:
                 return []
+            return orig_on_bar_close(self_strat, state, bar, **kwargs)
+
+        with patch.object(Final20Strategy, "on_bar_close", unclosed_accepting_on_bar_close):
+            gates_b.clear_replay_cache()
+            ctx_m4a = VerifyContext(REPO_ROOT / "runs" / "golden" / "v3-08" / "ALL_SIGNALS", REPO_ROOT, REPO_ROOT)
+            res_b3 = gates_b.gate_b3(ctx_m4a)
+            self.assertEqual(res_b3.status, "FAIL", "M4a: Gate B3 must FAIL when on_bar_close accepts unclosed candle")
+            viol_kinds = {v.get("kind") for v in res_b3.violations}
+            self.assertIn("UNCLOSED_BAR_ACCEPTED", viol_kinds)
+        gates_b.clear_replay_cache()
+
+    @unittest.skipUnless(
+        _has_real_m1_data(),
+        "Real M1 dataset (catalog/research.duckdb & data/m1_raw/*.parquet) not present in CI; skipping Gate B3 M4b test per Invariant N8",
+    )
+    def test_06c_mutation_m4b_batch_live_divergence_fails_b3(self):
+        """Section 9 M4b: Making on_bar_close diverge from batch generate() causes Gate B3 to FAIL."""
+        from unittest.mock import patch
+
+        gates_b.clear_replay_cache()
+        orig_on_bar_close = Final20Strategy.on_bar_close
+
+        def diverging_on_bar_close(self_strat: Any, state: Any, bar: Any, **kwargs: Any) -> list[SignalEvent]:
             evs = orig_on_bar_close(self_strat, state, bar, **kwargs)
             if evs:
                 e0 = evs[0]
@@ -383,25 +464,124 @@ class TestStrategyCoreV311(unittest.TestCase):
                 return [mut_ev] + evs[1:]
             return evs
 
-        with patch.object(Final20Strategy, "on_bar_close", unclosed_accepting_on_bar_close):
+        with patch.object(Final20Strategy, "on_bar_close", diverging_on_bar_close):
             gates_b.clear_replay_cache()
-            ctx_m4 = VerifyContext(REPO_ROOT / "runs" / "golden" / "v3-08" / "ALL_SIGNALS", REPO_ROOT, REPO_ROOT)
-            res_b3 = gates_b.gate_b3(ctx_m4)
-            self.assertEqual(res_b3.status, "FAIL", "M4: Gate B3 must FAIL when on_bar_close accepts unclosed candle or diverges from batch")
+            ctx_m4b = VerifyContext(REPO_ROOT / "runs" / "golden" / "v3-08" / "ALL_SIGNALS", REPO_ROOT, REPO_ROOT)
+            res_b3 = gates_b.gate_b3(ctx_m4b)
+            self.assertEqual(res_b3.status, "FAIL", "M4b: Gate B3 must FAIL when on_bar_close diverges from generate()")
             viol_kinds = {v.get("kind") for v in res_b3.violations}
-            self.assertIn("UNCLOSED_BAR_ACCEPTED", viol_kinds)
+            self.assertIn("ONLY_IN_LIVE", viol_kinds)
         gates_b.clear_replay_cache()
 
-        # M5: Inject forbidden import into a temporary copy of strategy_core -> AST boundary test catches it
+    def test_07_clone_existing_and_self_rejected_and_alias_and_live_state_preserved(self):
+        """Verify review fixes: clone overwrite/self-clone rejection, single-DF alias normalization, live state flags, and B3 record checks."""
+        base_strat = StrategyCoreRegistry.get("20FINAL", "1")
+
+        # 1. Self-clone & overwrite clone rejection (Mục 4)
         with tempfile.TemporaryDirectory() as tmp:
-            bad_py = Path(tmp) / "bad_module.py"
-            bad_py.write_text("from autotrade_v2.app.strategy import final14_config\n", encoding="utf-8")
-            tree = ast.parse(bad_py.read_text(encoding="utf-8"))
-            caught = False
-            for node in ast.walk(tree):
-                if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] not in ALLOWED_TOP_IMPORTS:
-                    caught = True
-            self.assertTrue(caught, "M5: AST boundary scanner must catch autotrade_v2 import")
+            tmp_pdir = Path(tmp)
+            shutil.copy2(DEFAULT_PARAMS_PATH, tmp_pdir / "20final_v1.json")
+            shutil.copy2(DEFAULT_LOCK_PATH, tmp_pdir / "20final_v1.lock")
+
+            with self.assertRaises(ValueError):
+                clone_strategy_params("20FINAL@1", "20FINAL@1", params_dir=tmp_pdir)
+
+            clone_strategy_params("20FINAL@1", "EXISTING@1", params_dir=tmp_pdir)
+            with self.assertRaises(FileExistsError):
+                clone_strategy_params("20FINAL@1", "EXISTING@1", params_dir=tmp_pdir)
+            with self.assertRaises(ValueError):
+                clone_strategy_params("EXISTING@1", "EXISTING@1", params_dir=tmp_pdir)
+
+        # 2. Single-DataFrame symbol alias normalization (Mục 8)
+        evs_canon = base_strat.generate(
+            self.synth_m15["BTC-USDT"],
+            symbols=["BTC-USDT"],
+            only_approved=False,
+            only_warmup_ready=False,
+        )
+        evs_alias = base_strat.generate(
+            self.synth_m15["BTC-USDT"],
+            symbols=["BTCUSDT"],
+            only_approved=False,
+            only_warmup_ready=False,
+        )
+        self.assertGreater(len(evs_canon), 0)
+        self.assertEqual(len(evs_alias), len(evs_canon))
+        self.assertTrue(all(e.symbol == "BTCUSDT" for e in evs_alias))
+
+        # 3. on_bar_close preserves live_state.only_approved/only_warmup_ready unless explicitly overridden (Mục 7)
+        live_state = base_strat.init_live_state(only_approved=False, only_warmup_ready=False)
+        df_btc = self.synth_m15["BTC-USDT"]
+        t_arr = df_btc.index.asi8 // 1_000_000
+        collected_default = []
+        for i in range(len(df_btc)):
+            bar_d = {
+                "symbol": "BTC-USDT",
+                "open_ms": int(t_arr[i]),
+                "open": float(df_btc["open"].iloc[i]),
+                "high": float(df_btc["high"].iloc[i]),
+                "low": float(df_btc["low"].iloc[i]),
+                "close": float(df_btc["close"].iloc[i]),
+                "volume": float(df_btc["volume"].iloc[i]),
+                "provider": str(df_btc["provider"].iloc[i]) if "provider" in df_btc.columns else "SYNTHETIC",
+                "is_closed": True,
+            }
+            collected_default.extend(base_strat.on_bar_close(live_state, bar_d))
+        self.assertEqual(collected_default, evs_canon)
+
+        # 4. B3 detects duplicate signal_id and field mismatch in signals.parquet even when signal_id set matches (Mục 5)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_dir = Path(tmp)
+            fake_run = tmp_dir / "b3_dup_run"
+            fake_run.mkdir(parents=True, exist_ok=True)
+            gold_dir = REPO_ROOT / "runs" / "golden" / "v3-08" / "ALL_SIGNALS"
+            shutil.copy2(gold_dir / "run_manifest.json", fake_run / "run_manifest.json")
+            shutil.copy2(REPO_ROOT / "runs" / "golden" / "v3-08" / "dataset_manifest.json", fake_run / "dataset_manifest.json")
+
+            sigs_df = pd.read_parquet(gold_dir / "signals.parquet")
+            # Duplicate first row and alter entry_price on row 1
+            dup_df = pd.concat([sigs_df.iloc[[0]], sigs_df], ignore_index=True)
+            dup_df.loc[1, "entry_price"] = float(dup_df.loc[1, "entry_price"]) + 100.0
+            dup_df.to_parquet(fake_run / "signals.parquet", index=False)
+
+            gates_b.clear_replay_cache()
+            # Pre-populate _B3_CACHE with exact golden records so this unit test runs fast without 3-year M1
+            spec = base_strat.spec()
+            m = json.loads((gold_dir / "run_manifest.json").read_text(encoding="utf-8"))
+            dm = json.loads((fake_run / "dataset_manifest.json").read_text(encoding="utf-8"))
+            cache_key = (
+                spec.strategy_id,
+                spec.version,
+                spec.signal_spec_hash,
+                str(m.get("dataset_hash") or dm.get("dataset_hash") or ""),
+                tuple(sorted(m.get("symbols", ["BTC-USDT", "ETH-USDT"]))),
+                m["time_window"]["start"],
+                m["time_window"]["end"],
+            )
+            fake_records = [
+                {
+                    "signal_id": str(r["signal_id"]),
+                    "symbol": str(r["symbol"]),
+                    "combo_id": int(r["combo_id"]),
+                    "side": str(r["side"]),
+                    "signal_close_ms": int(r["signal_close_ms"]),
+                    "ref_price": float(r["entry_price"]),
+                }
+                for _, r in sigs_df.iterrows()
+            ]
+            gates_b._B3_CACHE[cache_key] = (
+                len(sigs_df),
+                len(sigs_df),
+                [],
+                {"live_eval_records": fake_records, "per_symbol": {}},
+            )
+            ctx_dup = VerifyContext(fake_run, REPO_ROOT, REPO_ROOT)
+            res_dup = gates_b.gate_b3(ctx_dup)
+            gates_b.clear_replay_cache()
+            self.assertEqual(res_dup.status, "FAIL")
+            kinds = {v.get("kind") for v in res_dup.violations}
+            self.assertIn("DUPLICATE_SIGNAL_IN_RUN", kinds)
+            self.assertIn("RUN_SIGNAL_FIELD_MISMATCH", kinds)
 
 
 if __name__ == "__main__":

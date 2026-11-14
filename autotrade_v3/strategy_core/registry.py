@@ -98,8 +98,22 @@ def clone_strategy_params(
 
     if (dst_id, dst_ver) == ("20FINAL", "1"):
         raise ValueError("Cannot clone into immutable baseline 20FINAL@1")
+    if (dst_id, dst_ver) == (src_id, src_ver):
+        raise ValueError(f"Cannot clone strategy onto itself: {dst_id}@{dst_ver}")
 
     p_dir = Path(params_dir) if params_dir is not None else PARAMS_DIR
+    dst_slug = f"{dst_id.lower()}_v{dst_ver}"
+    out_dir = p_dir / dst_slug
+    existing_candidates = [
+        out_dir / "params.json",
+        p_dir / f"{dst_slug}.json",
+        p_dir / f"{dst_id}_v{dst_ver}.json",
+    ]
+    if out_dir.exists() or any(c.exists() for c in existing_candidates):
+        raise FileExistsError(
+            f"Target strategy '{dst_id}@{dst_ver}' already exists under {p_dir}; "
+            "refusing to overwrite existing strategy parameters."
+        )
 
     # Locate source params file
     if (src_id, src_ver) == ("20FINAL", "1"):
@@ -154,9 +168,7 @@ def clone_strategy_params(
         "top_level_changes": diff_obj["top_level_changes"],
     }
 
-    dst_slug = f"{dst_id.lower()}_v{dst_ver}"
-    out_dir = p_dir / dst_slug
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=False)
     params_out = out_dir / "params.json"
     diff_out = out_dir / "param_diff.json"
 

@@ -33,13 +33,43 @@ def canonical_json_sha256(obj: Any) -> str:
     return hashlib.sha256(canonical_json_bytes(obj)).hexdigest()
 
 
-def collect_strategy_core_source_hashes(core_root: Path | None = None) -> dict[str, str]:
-    """Hash every .py file in strategy_core/ after LF normalization, sorted by relative path."""
+def collect_strategy_core_source_hashes(
+    core_root: Path | None = None,
+    strategy_subdir: str | None = "strategies/final20",
+) -> dict[str, str]:
+    """Hash core shared .py files + indicators/ + the specific strategy's own .py files (LF-normalized).
+
+    Does NOT hash unrelated sibling strategy plugins under strategies/<other>/ so adding a new
+    independent plugin strategy does not alter 20FINAL@1's signal_spec_hash.
+    """
     root = Path(core_root).resolve() if core_root is not None else STRATEGY_CORE_ROOT
-    py_files = sorted(
-        (p for p in root.rglob("*.py") if "__pycache__" not in p.parts),
-        key=lambda p: p.relative_to(root).as_posix(),
-    )
+
+    selected_files: list[Path] = []
+    # 1. Shared core modules at strategy_core root
+    for pf in root.glob("*.py"):
+        if "__pycache__" not in pf.parts:
+            selected_files.append(pf)
+
+    # 2. Shared indicator library
+    ind_dir = root / "indicators"
+    if ind_dir.exists():
+        for pf in ind_dir.rglob("*.py"):
+            if "__pycache__" not in pf.parts:
+                selected_files.append(pf)
+
+    # 3. Strategies package init + target strategy subdir
+    strat_init = root / "strategies" / "__init__.py"
+    if strat_init.exists():
+        selected_files.append(strat_init)
+
+    if strategy_subdir:
+        strat_dir = root / strategy_subdir
+        if strat_dir.exists():
+            for pf in strat_dir.rglob("*.py"):
+                if "__pycache__" not in pf.parts:
+                    selected_files.append(pf)
+
+    py_files = sorted(set(selected_files), key=lambda p: p.relative_to(root).as_posix())
     out: dict[str, str] = {}
     for pf in py_files:
         rel = pf.relative_to(root).as_posix()
@@ -51,9 +81,11 @@ def collect_strategy_core_source_hashes(core_root: Path | None = None) -> dict[s
 def compute_signal_spec_hash(
     params_data: dict[str, Any],
     core_root: Path | None = None,
+    strategy_subdir: str | None = "strategies/final20",
 ) -> str:
     """Compute signal_spec_hash from strategy_core .py sources and signal-affecting parameters."""
-    source_hashes = collect_strategy_core_source_hashes(core_root=core_root)
+    eff_subdir = str(params_data.get("strategy_subdir", strategy_subdir)) if strategy_subdir is not None else None
+    source_hashes = collect_strategy_core_source_hashes(core_root=core_root, strategy_subdir=eff_subdir)
     warmup = int(params_data.get("warmup_bars", 3400))
 
     raw_combos = params_data.get("combos", [])
@@ -64,12 +96,14 @@ def compute_signal_spec_hash(
 
     signal_combos = []
     for c in sorted_combos:
+        cid = int(c["combo_id"])
         signal_combos.append({
             "combo_key": str(c["combo_key"]),
             "symbol": str(c["symbol"]),
-            "combo_id": int(c["combo_id"]),
+            "combo_id": cid,
             "combo_name": str(c.get("combo_name", "")),
             "native_timeframe": str(c["native_timeframe"]),
+            "is_new6": bool(c.get("is_new6", cid >= 101)),
             "entry_variant": str(c["entry_variant"]),
             "entry": c["entry"],
             "layer2": str(c["layer2"]),

@@ -58,10 +58,11 @@ def get_git_state(repo_dir: Path = REPO_ROOT) -> tuple[str, bool, str]:
     try:
         status_out = subprocess.check_output(
             ["git", "status", "--porcelain"], cwd=repo_dir, text=True, stderr=subprocess.DEVNULL
-        ).strip()
+        ).rstrip("\r\n")
         filtered = [
             line for line in status_out.splitlines()
-            if not line[3:].startswith("runs/") and not line[3:].startswith("runs\\")
+            if line.strip()
+            and not line[3:].startswith("runs/") and not line[3:].startswith("runs\\")
             and not line[3:].startswith("evidence/") and not line[3:].startswith("evidence\\")
         ]
         code_dirty = len(filtered) > 0
