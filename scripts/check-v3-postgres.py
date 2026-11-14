@@ -74,19 +74,19 @@ with TemporaryDirectory(prefix="v3-pg-") as tmp:
         log_id = store.insert_control_log({"layer": "L3", "step": "sl_place", "message": "x https://discord.com/api/webhooks/1/2",
                                            "details": {"token": "t"}, "event_id": "E1"})
         store.set_discord_status(log_id, "sent")
-        with psycopg.connect(uri) as con, con.cursor() as cur:
-            cur.execute("insert into autotrade_analytics.bingx_orders values"
-                        " ('333','BTC-USDT','SELL','LONG','TAKE_PROFIT_MARKET','FILLED',102000,0.0005,1763000000000,'{\"profit\":\"1\"}')")
-            cur.execute("insert into autotrade_analytics.bingx_fills values ('t1','333','BTC-USDT',0.0005,102000,1.0,-0.03,1)")
-            con.commit()
         execs = store.executions_for_sync(now - timedelta(days=7))
         assert len(execs) == 1 and execs[0]["entry_order_id"] == "111"
-        orders, fills = store.archive_rows(["111", "333"])
-        assert len(orders) == 1 and len(fills) == 1
         from autotrade_v3.live.l4_control import ControlLog, project_results
-        counts = project_results(store, ControlLog(store))
+
+        class History:   # BingX order-history GET (MOCK); V3 never reads the V2 archive
+            def get_order_history(self, symbol, start_ms, end_ms, required_ids=None):
+                return [{"orderId": "111", "symbol": symbol, "status": "FILLED", "commission": "-0.05"},
+                        {"orderId": "333", "symbol": symbol, "status": "FILLED", "executedQty": "0.0005",
+                         "avgPrice": "102000", "updateTime": 1763000000000, "profit": "1", "commission": "-0.03"}]
+        client = History()
+        counts = project_results(store, ControlLog(store), client)
         assert counts == {"executions": 1, "results": 1, "finances": 1}, counts
-        project_results(store, ControlLog(store))   # upserts are idempotent
+        project_results(store, ControlLog(store), client)   # upserts are idempotent
         with psycopg.connect(uri) as con:
             ex = con.execute("select stage, l4_evidence, raw_entry::text from autotrade_v3.execution_orders").fetchone()
             assert ex[0] == "protected" and len(ex[1]) == 2 and "secret" not in ex[2] and "zzz" not in str(ex[1])
