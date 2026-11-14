@@ -214,6 +214,7 @@ class ResearchAnalyzer:
                     "gross_pnl_unrounded": 0.0,
                     "fees_unrounded": 0.0,
                     "net_pnl_unrounded": 0.0,
+                    "pnl_own_entry_unrounded": 0.0,
                 }
             combo_stats[ckey]["legs"] += 1
             combo_stats[ckey]["trades_set"].add(t.trade_id)
@@ -222,6 +223,7 @@ class ResearchAnalyzer:
             combo_stats[ckey]["gross_pnl_unrounded"] += t.gross_pnl
             combo_stats[ckey]["fees_unrounded"] += t.fee_total
             combo_stats[ckey]["net_pnl_unrounded"] += t.net_pnl
+            combo_stats[ckey]["pnl_own_entry_unrounded"] += getattr(t, "pnl_own_entry", t.net_pnl)
 
         combos_list = []
         for ckey in sorted(combo_stats.keys()):
@@ -237,6 +239,8 @@ class ResearchAnalyzer:
             c["gross_pnl"] = round(c["gross_pnl_unrounded"], 4)
             c["fees"] = round(c["fees_unrounded"], 4)
             c["net_pnl"] = round(c["net_pnl_unrounded"], 4)
+            c["pnl_own_entry"] = round(c["pnl_own_entry_unrounded"], 4)
+            c["pnl_attribution_basis"] = "pnl_own_entry" if mode == "BINGX_PORTFOLIO" else "net_pnl"
             c["net_pf_trade"] = c_pf["net_pf_trade"]
             c["net_pf_trade_unrounded"] = c_pf["net_pf_trade_unrounded"]
             c["net_pf_leg"] = c_pf["net_pf_leg"]
@@ -534,7 +538,22 @@ class ResearchAnalyzer:
             "ambiguity": {
                 "intrabar_tp_sl_ambiguous_count": tp_sl_ambiguous_count,
                 "intrabar_trailing_ambiguous_count": trailing_ambiguous_count,
-                "resolution_policy": "CONSERVATIVE (SL prioritized on intrabar TP/SL tie; callback prioritized on trailing tie)",
+                "resolution_policy": sim_result.summary_dict.get("ambiguity_policy", "LEGACY"),
+                "by_type": {
+                    atype: sum(1 for t in trades if getattr(t, "ambiguity_type", "NONE") == atype)
+                    for atype in ("TP_AND_SL", "SL_AND_TRAIL_ACT", "TRAIL_ACT_AND_CB", "TRAIL_PEAK_AND_STOP")
+                },
+            },
+            "execution_costs": {
+                "cost_profile": sim_result.summary_dict.get("cost_profile", ""),
+                "cost_profile_hash": sim_result.summary_dict.get("cost_profile_hash", ""),
+                "gross_pnl_raw": round(float(sum(getattr(t, "gross_pnl_raw", t.gross_pnl) for t in trades)), 4),
+                "fee_entry": round(float(sum(getattr(t, "fee_entry", 0.0) for t in trades)), 4),
+                "fee_exit": round(float(sum(getattr(t, "fee_exit", 0.0) for t in trades)), 4),
+                "spread_cost": round(float(sum(getattr(t, "spread_cost", 0.0) for t in trades)), 4),
+                "slippage_cost": round(float(sum(getattr(t, "slippage_cost", 0.0) for t in trades)), 4),
+                "funding_cost": round(float(sum(getattr(t, "funding_cost", 0.0) for t in trades)), 4),
+                "net_pnl": round(net_pnl_u, 4),
             },
             "symbols": symbol_stats,
             "combos": combos_list,

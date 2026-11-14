@@ -73,8 +73,22 @@ class ExperimentRunner:
         fee_rate_taker: float = 0.0005,
         smoke_test: bool = False,
         is_golden: bool = False,
+        cost_profile: str | None = None,
+        ambiguity_policy: str = "CONSERVATIVE",
     ) -> ExperimentResult:
         """Execute a full research experiment and persist artifacts."""
+        from autotrade_v3.sim.ambiguity import normalize_ambiguity_policy
+        from autotrade_v3.sim.costs import CostModel
+
+        resolved_policy = normalize_ambiguity_policy(ambiguity_policy)
+        if not smoke_test and not cost_profile:
+            raise ValueError("--cost-profile is required for real-data runs (no implicit default).")
+        resolved_profile_name = cost_profile or "IDEAL"
+        cost_model = CostModel.from_profile_name(
+            resolved_profile_name,
+            is_real_data=(not smoke_test),
+        )
+
         target_symbols = symbols or ["BTC-USDT", "ETH-USDT"]
         strategy = StrategyRegistry.get(strategy_id)
         start_ms = to_utc_ms(start)
@@ -177,8 +191,14 @@ class ExperimentRunner:
             notional_per_trade=notional_per_trade,
             slippage_rate=slippage_rate,
             taker_fee_rate=fee_rate_taker,
+            cost_profile=cost_model.profile.name,
+            cost_model=cost_model,
         )
-        simulator = ExecutionSimulator(risk_config=risk_cfg)
+        simulator = ExecutionSimulator(
+            risk_config=risk_cfg,
+            cost_model=cost_model,
+            ambiguity_policy=resolved_policy,
+        )
         sim_result = simulator.simulate_research_mode(
             mode=mode,
             signals=eval_signals,
@@ -256,6 +276,11 @@ class ExperimentRunner:
             signal_spec_hash=sig_spec_hash,
             exit_spec_hash=exit_spec_hash,
             spec_hash=full_spec_hash,
+            cost_profile=cost_model.profile.name,
+            cost_profile_hash=cost_model.profile.profile_hash,
+            ambiguity_policy=resolved_policy,
+            simulation_limits=sim_result.summary_dict.get("simulation_limits"),
+            liquidation_status=str(sim_result.summary_dict.get("status", "OK")),
             is_golden=is_golden,
         )
 

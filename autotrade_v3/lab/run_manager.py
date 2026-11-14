@@ -133,6 +133,11 @@ class RunManifest:
     signal_spec_hash: str = ""
     exit_spec_hash: str = ""
     spec_hash: str = ""
+    cost_profile: str = ""
+    cost_profile_hash: str = ""
+    ambiguity_policy: str = ""
+    simulation_limits: dict[str, str] | None = None
+    liquidation_status: str = "OK"
     is_golden: bool = False
     created_at_utc: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -467,6 +472,8 @@ class RunManager:
             "",
             f"- **Execution Mode:** `{manifest.execution_mode}`",
             f"- **Strategy:** `{manifest.strategy_id}` (v{manifest.strategy_version})",
+            f"- **Cost Profile:** `{manifest.cost_profile or 'MISSING'}` (hash: `{(manifest.cost_profile_hash or 'N/A')[:16]}...`)",
+            f"- **Ambiguity Policy:** `{manifest.ambiguity_policy or 'LEGACY'}`",
             f"- **Time Window:** `{manifest.time_window['start']}` to `{manifest.time_window['end']}`",
             f"- **Symbols:** {', '.join(manifest.symbols)}",
             f"- **Git SHA:** `{manifest.git_sha}`",
@@ -482,6 +489,12 @@ class RunManager:
         for g_key, g_res in gates_dict.items():
             lines.append(f"| **{g_res.get('gate', g_key)}** | `{g_res.get('status', 'UNKNOWN')}` | {g_res.get('summary', '')} |")
 
+        ec = analysis.get("execution_costs", {})
+        net_pnl_line = (
+            f"- **Net PnL ({manifest.cost_profile}):** **${pnl.get('net_pnl_unrounded', pnl.get('net_pnl', 0.0)):,.2f}**"
+            if manifest.cost_profile
+            else "- **Net PnL:** WITHHELD (missing cost_profile)"
+        )
         lines.extend([
             "",
             "## 1. Accounting & Signals",
@@ -494,9 +507,11 @@ class RunManager:
             "",
             "## 2. Performance & PnL",
             "",
-            f"- **Gross PnL:** ${pnl.get('gross_pnl_unrounded', pnl.get('gross_pnl', 0.0)):,.2f}",
-            f"- **Total Fees (Taker 0.05%):** ${pnl.get('total_fees_unrounded', pnl.get('total_fees', 0.0)):,.2f}",
-            f"- **Net PnL:** **${pnl.get('net_pnl_unrounded', pnl.get('net_pnl', 0.0)):,.2f}**",
+            f"- **Gross PnL (Fill):** ${pnl.get('gross_pnl_unrounded', pnl.get('gross_pnl', 0.0)):,.2f}",
+            f"- **Gross PnL (Raw/Trigger):** ${ec.get('gross_pnl_raw', pnl.get('gross_pnl', 0.0)):,.2f}",
+            f"- **Entry Fee:** ${ec.get('fee_entry', 0.0):,.4f} | **Exit Fee:** ${ec.get('fee_exit', 0.0):,.4f} (Total: ${pnl.get('total_fees_unrounded', pnl.get('total_fees', 0.0)):,.4f})",
+            f"- **Spread Cost:** ${ec.get('spread_cost', 0.0):,.4f} | **Slippage Cost:** ${ec.get('slippage_cost', 0.0):,.4f} | **Funding Cost:** ${ec.get('funding_cost', 0.0):,.4f}",
+            net_pnl_line,
             f"- **ROI ({pnl.get('roi_denominator_name', 'Capital')}):** **{pnl.get('roi_pct_unrounded', pnl.get('roi_pct', 0.0)):+.2f}%**",
             f"- **Note on ROI:** {pnl.get('roi_note', '')}",
             f"- **Net Profit Factor (Default):** {pnl.get('net_profit_factor', pnl.get('profit_factor', 'N/A'))}",
@@ -551,15 +566,26 @@ class RunManager:
                 )
 
         if combos_list:
+            is_mc = manifest.execution_mode == "BINGX_PORTFOLIO"
+            pnl_col_hdr = "Net PnL (own_entry)" if is_mc else "Net PnL"
             lines.extend([
                 "",
                 "## 7. Performance by Combo",
                 "",
-                "| Combo Key | Symbol | ID | Name | Timeframe | Entries | Legs | Net PnL | Win Rate | Net PF (Leg) | Net PF (Trade) |",
+            ])
+            if is_mc:
+                lines.append("> Note: Mode C per-combo PnL attribution uses `pnl_own_entry` (individual leg entry price), not merged VWAP.")
+                lines.append("")
+            lines.extend([
+                f"| Combo Key | Symbol | ID | Name | Timeframe | Entries | Legs | {pnl_col_hdr} | Win Rate | Net PF (Leg) | Net PF (Trade) |",
                 "|:---|:---|---:|:---|:---|---:|---:|---:|---:|---:|---:|",
             ])
             for c in combos_list:
-                c_net = c.get('net_pnl_unrounded', c.get('net_pnl', 0.0))
+                c_net = (
+                    c.get('pnl_own_entry_unrounded', c.get('pnl_own_entry', c.get('net_pnl', 0.0)))
+                    if is_mc
+                    else c.get('net_pnl_unrounded', c.get('net_pnl', 0.0))
+                )
                 lines.append(
                     f"| **{c.get('combo_key', '')}** | {c.get('symbol', '')} | {c.get('combo_id', 0)} | {c.get('combo_name', '')} | {c.get('timeframe', '')} | {c.get('entries', 0):,} | {c.get('legs', 0):,} | ${c_net:,.2f} | {c.get('win_rate_pct', 0.0):.1f}% | {c.get('net_pf_leg', 'N/A')} | {c.get('net_pf_trade', 'N/A')} |"
                 )

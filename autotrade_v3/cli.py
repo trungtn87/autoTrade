@@ -135,6 +135,8 @@ def cmd_backtest(args: argparse.Namespace) -> None:
             slippage_rate=args.slippage,
             smoke_test=args.smoke_test,
             is_golden=is_golden,
+            cost_profile=args.cost_profile,
+            ambiguity_policy=args.ambiguity_policy,
         )
 
         pnl = res.analysis["pnl"]
@@ -318,6 +320,148 @@ def cmd_report(args: argparse.Namespace) -> None:
         print(json.dumps(r["analysis"], indent=2, default=str))
 
 
+def run_uncertainty_analysis(
+    *,
+    strategy_id: str,
+    mode: str,
+    symbols: list[str],
+    start: str,
+    end: str,
+    cost_profile: str,
+    initial_equity: float = 1000.0,
+    notional_per_trade: float = 100.0,
+    catalog_path: str = "catalog/research.duckdb",
+    smoke_test: bool = False,
+) -> dict[str, Any]:
+    """Run full simulation under CONSERVATIVE and OPTIMISTIC and compute uncertainty interval."""
+    import pandas as pd
+    from autotrade_v3.engine.candle_loader import datetime_index_to_ms, generate_synthetic_m1, resample_m1_to_timeframe
+    from autotrade_v3.engine.risk_manager import RiskConfig
+    from autotrade_v3.sim.costs import CostModel
+    from autotrade_v3.sim.engine import UnifiedSimulator
+
+    cm = CostModel.from_profile_name(cost_profile, is_real_data=(not smoke_test))
+    strategy = StrategyRegistry.get(strategy_id)
+    start_ms = int(pd.Timestamp(start, tz="UTC").timestamp() * 1000)
+    end_ms = int(pd.Timestamp(end, tz="UTC").timestamp() * 1000)
+
+    dl = DataLayer(catalog_path=catalog_path)
+    candles_m1_eval: dict[str, pd.DataFrame] = {}
+    strategy_input: dict[str, pd.DataFrame] = {}
+    for sym in symbols:
+        if smoke_test:
+            base_px = 65000.0 if "BTC" in sym else 3500.0
+            df_m1 = generate_synthetic_m1(sym, start=start, periods=75000, base_price=base_px, seed=42)
+            t_ms = datetime_index_to_ms(df_m1.index)
+            candles_m1_eval[sym] = df_m1.loc[(t_ms >= start_ms) & (t_ms < end_ms)]
+            strategy_input[sym] = resample_m1_to_timeframe(df_m1, timeframe_min=15)
+        else:
+            df_m1 = dl.query_m1(sym, start, end, include_warmup=True)
+            t_ms = datetime_index_to_ms(df_m1.index)
+            candles_m1_eval[sym] = df_m1.loc[(t_ms >= start_ms) & (t_ms < end_ms)]
+            strategy_input[sym] = dl.query_timeframe(sym, "15m", start, end, include_warmup=True)
+
+    all_signals = strategy.generate_signals(
+        data=strategy_input, symbols=symbols, only_approved=True, only_warmup_ready=True
+    )
+    max_m1_by_sym = (
+        {s: int(datetime_index_to_ms(df.index)[-1]) for s, df in candles_m1_eval.items() if not df.empty}
+        if smoke_test
+        else {}
+    )
+    eval_signals = [
+        s for s in all_signals
+        if s.signal_close_ms + 1 >= start_ms
+        and s.signal_close_ms + 1 < (
+            min(end_ms, max_m1_by_sym[s.symbol] + 1)
+            if smoke_test and s.symbol in max_m1_by_sym
+            else end_ms
+        )
+    ]
+    eval_signals.sort(key=lambda s: (s.signal_close_ms, s.combo_id, s.side))
+
+    risk_cfg = RiskConfig(
+        initial_equity=initial_equity,
+        notional_per_trade=notional_per_trade,
+        cost_profile=cm.profile.name,
+        cost_model=cm,
+    )
+    res_con = UnifiedSimulator(risk_config=risk_cfg, cost_model=cm, ambiguity_policy="CONSERVATIVE").run(
+        mode=mode, signals=eval_signals, candle_dict=candles_m1_eval
+    )
+    res_opt = UnifiedSimulator(risk_config=risk_cfg, cost_model=cm, ambiguity_policy="OPTIMISTIC").run(
+        mode=mode, signals=eval_signals, candle_dict=candles_m1_eval
+    )
+
+    def _sig_summary(res) -> dict[str, tuple[str, float, tuple[tuple[str, str, int], ...]]]:
+        by_sig_legs: dict[str, list[Any]] = {}
+        for t in res.trades:
+            by_sig_legs.setdefault(t.signal_id, []).append(t)
+        out: dict[str, tuple[str, float, tuple[tuple[str, str, int], ...]]] = {}
+        for d in res.signal_decisions:
+            legs = sorted(by_sig_legs.get(d.signal_id, []), key=lambda x: x.leg_id)
+            net_s = round(sum(x.net_pnl for x in legs), 10)
+            sig_tup = tuple((x.leg_id, x.exit_reason, int(x.exit_time_ms)) for x in legs)
+            out[d.signal_id] = (d.status, net_s, sig_tup)
+        return out
+
+    map_con = _sig_summary(res_con)
+    map_opt = _sig_summary(res_opt)
+    changed_signals = sorted(
+        sid for sid in set(map_con) | set(map_opt)
+        if map_con.get(sid) != map_opt.get(sid)
+    )
+
+    amb_types = ("TP_AND_SL", "SL_AND_TRAIL_ACT", "TRAIL_ACT_AND_CB", "TRAIL_PEAK_AND_STOP")
+    amb_counts_con = {k: sum(1 for t in res_con.trades if t.ambiguity_type == k) for k in amb_types}
+    amb_counts_opt = {k: sum(1 for t in res_opt.trades if t.ambiguity_type == k) for k in amb_types}
+    net_con = float(sum(t.net_pnl for t in res_con.trades))
+    net_opt = float(sum(t.net_pnl for t in res_opt.trades))
+
+    return {
+        "mode": res_con.mode,
+        "strategy_id": strategy_id,
+        "cost_profile": cm.profile.name,
+        "cost_profile_hash": cm.profile.profile_hash,
+        "ambiguous_legs_conservative": amb_counts_con,
+        "ambiguous_legs_optimistic": amb_counts_opt,
+        "net_pnl_conservative": net_con,
+        "net_pnl_optimistic": net_opt,
+        "net_pnl_delta": net_opt - net_con,
+        "changed_signal_count": len(changed_signals),
+        "changed_signal_ids": changed_signals,
+    }
+
+
+def cmd_uncertainty(args: argparse.Namespace) -> None:
+    """Compute CONSERVATIVE vs OPTIMISTIC ambiguity uncertainty interval."""
+    if not args.smoke_test and not args.cost_profile:
+        print("ERROR: --cost-profile is required on real data (no implicit default).", file=sys.stderr)
+        sys.exit(1)
+    profile = args.cost_profile or "IDEAL"
+    symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
+    out = run_uncertainty_analysis(
+        strategy_id=args.strategy,
+        mode=args.mode,
+        symbols=symbols,
+        start=args.start,
+        end=args.end,
+        cost_profile=profile,
+        initial_equity=args.initial_equity,
+        notional_per_trade=args.notional,
+        catalog_path=args.catalog,
+        smoke_test=args.smoke_test,
+    )
+    print(json.dumps({k: v for k, v in out.items() if k != "changed_signal_ids"}, indent=2))
+    print(f"Changed signal_ids: {out['changed_signal_count']}")
+    if args.out_json:
+        Path(args.out_json).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out_json).write_text(json.dumps(out, indent=2), encoding="utf-8")
+    if args.out_signals:
+        Path(args.out_signals).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.out_signals).write_text("\n".join(out["changed_signal_ids"]) + "\n", encoding="utf-8")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="autotrade_v3",
@@ -362,7 +506,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_bt.add_argument("--out-dir", default="runs/lab", help="Directory to store run artifacts")
     p_bt.add_argument("--smoke-test", action="store_true", help="Use synthetic fixture for fast verification")
     p_bt.add_argument("--golden", action="store_true", help="Enforce golden baseline run: require clean git working tree")
+    p_bt.add_argument("--cost-profile", default=None, help="Cost profile name (required for real data, e.g. IDEAL, BASE, STRESS)")
+    p_bt.add_argument("--ambiguity-policy", default="CONSERVATIVE", choices=["LEGACY", "CONSERVATIVE", "OPTIMISTIC", "OHLC_PATH"], help="Intrabar ambiguity resolution policy")
     p_bt.set_defaults(func=cmd_backtest)
+
+    # Uncertainty interval (CONSERVATIVE vs OPTIMISTIC)
+    p_unc = subparsers.add_parser("uncertainty", help="Run CONSERVATIVE vs OPTIMISTIC ambiguity interval")
+    p_unc.add_argument("--strategy", default="20FINAL_BASELINE", help="Strategy ID")
+    p_unc.add_argument("--mode", default="ALL_SIGNALS", choices=["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"], help="Execution mode")
+    p_unc.add_argument("--symbols", default="BTC-USDT,ETH-USDT", help="Comma-separated symbols")
+    p_unc.add_argument("--start", default="2023-11-01", help="Start date (UTC)")
+    p_unc.add_argument("--end", default="2026-11-01", help="End date (UTC)")
+    p_unc.add_argument("--initial-equity", type=float, default=1000.0, help="Initial account equity")
+    p_unc.add_argument("--notional", type=float, default=100.0, help="Notional position size per trade ($)")
+    p_unc.add_argument("--catalog", default="catalog/research.duckdb", help="DuckDB catalog path")
+    p_unc.add_argument("--cost-profile", default=None, help="Cost profile name (required for real data)")
+    p_unc.add_argument("--smoke-test", action="store_true", help="Use synthetic fixture")
+    p_unc.add_argument("--out-json", default=None, help="Optional JSON output path")
+    p_unc.add_argument("--out-signals", default=None, help="Optional path for changed signal_id list")
+    p_unc.set_defaults(func=cmd_uncertainty)
 
     # Runs
     p_rn = subparsers.add_parser("runs", help="List historical research runs")
