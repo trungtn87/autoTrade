@@ -16,8 +16,8 @@ Hard rules (Owner decisions, 2026-11-14):
     DELETE reply is never assumed to have succeeded;
   * triggers: after each Entry attempt, and after the hourly :07 sync. Nothing else.
 
-Mode ``V3_LEFTOVER_CLEANUP_MODE``: ``off`` | ``shadow`` (default: decide and record
-what WOULD be cancelled, send no DELETE) | ``live``.
+Mode ``V3_LEFTOVER_CLEANUP_MODE``: ``live`` (default, Owner decision 2026-11-14) |
+``shadow`` (decide and record what WOULD be cancelled, send no DELETE) | ``off``.
 L4 stays read-only; this module is part of L3 and is the only V3 code that cancels.
 """
 from __future__ import annotations
@@ -85,9 +85,9 @@ class LeftoverCleaner:
         self.store = store
         self.reader = reader
         self.control = control
-        self.mode = (mode or getattr(settings, "leftover_cleanup_mode", "shadow") or "shadow").lower()
+        self.mode = (mode or getattr(settings, "leftover_cleanup_mode", "live") or "live").lower()
         if self.mode not in MODES:
-            self.mode = "shadow"
+            self.mode = "live"
         self._busy = busy or (lambda: False)
         self._busy_wait_sec = busy_wait_sec
         self._now_ms = now_ms or (lambda: int(time.time() * 1000))

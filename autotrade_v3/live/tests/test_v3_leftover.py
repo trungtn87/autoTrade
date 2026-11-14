@@ -240,3 +240,11 @@ def test_hourly_sync_hands_over_to_cleanup_after_projection():
 def test_float_rounded_ids_are_normalised_to_exact_integers():
     assert norm_id(2121453213688893440.0) == "2121453213688893440"
     assert norm_id("0") == "" and norm_id("abc") == "" and norm_id(None) == ""
+
+
+def test_default_mode_is_live_and_unknown_value_falls_back_to_live(monkeypatch):
+    from autotrade_v3.live.config import V3Settings
+    monkeypatch.delenv("V3_LEFTOVER_CLEANUP_MODE", raising=False)
+    assert V3Settings().leftover_cleanup_mode == "live"
+    _, store, client, sender, control, executor, cleaner, _ = setup(mode="bogus")
+    assert cleaner.mode == "live"
