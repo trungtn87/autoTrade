@@ -1,10 +1,11 @@
 """Experiment orchestration for AutoTrade V3 Offline Research Lab."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, fields
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import time
 from typing import Any, Literal
 import pandas as pd
 
@@ -38,6 +39,10 @@ class ExperimentResult:
     sim_result: SimulationResult
     analysis: dict[str, Any]
     validation_report: ValidationReport | None = None
+    signal_gen_calls: int = 0
+    signal_source: str = "COMPUTED"
+    cache_warning: str = ""
+    reproducible_hit: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -75,6 +80,12 @@ class ExperimentRunner:
         is_golden: bool = False,
         cost_profile: str | None = None,
         ambiguity_policy: str = "CONSERVATIVE",
+        use_signal_cache: bool = True,
+        signal_cache: Any | None = None,
+        filters: list[Any] | None = None,
+        filter_context: Any | None = None,
+        use_runstore: bool = False,
+        run_store: Any | None = None,
     ) -> ExperimentResult:
         """Execute a full research experiment and persist artifacts."""
         from autotrade_v3.sim.ambiguity import normalize_ambiguity_policy
@@ -157,13 +168,80 @@ class ExperimentRunner:
                 # Resample full M1 to M15 (strictly no-lookahead) for strategy input
                 strategy_input_data[sym] = self.data_layer.query_timeframe(sym, "15m", start, end, include_warmup=True)
 
-        # 2. Generate Signals via Strategy Engine
-        all_signals = strategy.generate_signals(
-            data=strategy_input_data,
-            symbols=target_symbols,
-            only_approved=True,
-            only_warmup_ready=True,
+        from autotrade_v3.filters import FilterContext, apply_filters, filters_manifest_spec
+        from autotrade_v3.runstore import (
+            RunStore,
+            SignalCache,
+            compute_signal_cache_key,
+            compute_sim_config_hash,
+            rebind_exit_policies,
         )
+        from autotrade_v3.sim.engine import Signal as SimSignal
+
+        sig_spec_hash = strategy.get_signal_spec_hash() if hasattr(strategy, "get_signal_spec_hash") else strategy.get_config_hash()
+        exit_spec_hash = strategy.get_exit_spec_hash() if hasattr(strategy, "get_exit_spec_hash") else strategy.get_config_hash()
+        full_spec_hash = strategy.get_spec_hash() if hasattr(strategy, "get_spec_hash") else strategy.get_config_hash()
+
+        # 2. Generate or Load Signals via SignalCache
+        cache_enabled = bool(use_signal_cache and ((not smoke_test) or signal_cache is not None))
+        active_cache = signal_cache or (SignalCache() if cache_enabled else None)
+        signal_cache_key = ""
+        signal_source = "COMPUTED"
+        cache_warning = ""
+        signal_gen_calls = 0
+        signal_compute_time_s = 0.0
+        all_signals: list[Any] = []
+
+        if active_cache is not None:
+            signal_cache_key = compute_signal_cache_key(
+                dataset_hash=dataset_hash,
+                signal_spec_hash=sig_spec_hash,
+                symbols=target_symbols,
+                start=start,
+                end=end,
+                include_warmup=True,
+            )
+            t_c0 = time.perf_counter()
+            c_res = active_cache.load(signal_cache_key)
+            if c_res.warning:
+                cache_warning = c_res.warning
+            if c_res.hit and c_res.signals_df is not None:
+                sig_fields = {f.name for f in fields(SimSignal)}
+                loaded = [
+                    SimSignal(**{k: v for k, v in row.items() if k in sig_fields})
+                    for row in c_res.signals_df.to_dict("records")
+                ]
+                all_signals = rebind_exit_policies(loaded, strategy)
+                signal_source = "CACHE"
+                signal_compute_time_s = time.perf_counter() - t_c0
+
+        if signal_source != "CACHE":
+            t_g0 = time.perf_counter()
+            signal_gen_calls += 1
+            all_signals = strategy.generate_signals(
+                data=strategy_input_data,
+                symbols=target_symbols,
+                only_approved=True,
+                only_warmup_ready=True,
+            )
+            signal_compute_time_s = time.perf_counter() - t_g0
+            if active_cache is not None and signal_cache_key:
+                sig_df = pd.DataFrame([asdict(s) for s in all_signals]) if all_signals else pd.DataFrame(
+                    columns=[f.name for f in fields(SimSignal)]
+                )
+                active_cache.save(
+                    signal_cache_key,
+                    sig_df,
+                    code_sha=code_sha,
+                    compute_time_s=signal_compute_time_s,
+                    key_inputs={
+                        "dataset_hash": dataset_hash,
+                        "signal_spec_hash": sig_spec_hash,
+                        "symbols": sorted(target_symbols),
+                        "start": start,
+                        "end": end,
+                    },
+                )
 
         # Filter signals whose earliest execution falls within evaluation window.
         # In smoke_test mode, synthetic M1 spans 75,000 bars regardless of `end`,
@@ -185,6 +263,13 @@ class ExperimentRunner:
         ]
         eval_signals.sort(key=lambda s: (s.signal_close_ms, s.combo_id, s.side))
 
+        # 2b. Apply external filters (post-cache, pre-simulator)
+        active_filters = list(filters or [])
+        f_ctx = filter_context or FilterContext()
+        f_res = apply_filters(eval_signals, active_filters, f_ctx)
+        sim_signals = f_res.kept_signals
+        pre_filtered_decisions = f_res.filtered_decisions
+
         # 3. Simulate Execution
         risk_cfg = RiskConfig(
             initial_equity=initial_equity,
@@ -201,8 +286,9 @@ class ExperimentRunner:
         )
         sim_result = simulator.simulate_research_mode(
             mode=mode,
-            signals=eval_signals,
+            signals=sim_signals,
             candle_dict=candles_m1_eval,
+            pre_filtered_decisions=pre_filtered_decisions,
         )
 
         # 4. Analyze Results
@@ -227,20 +313,34 @@ class ExperimentRunner:
         analysis["validation"] = val_report.to_dict()
 
         # 6. Build Manifest & Save Run
-        run_id = (
-            sim_result.mode
-            if is_golden
-            else self.run_manager.generate_run_id(
+        filters_spec = filters_manifest_spec(active_filters)
+        sim_cfg_hash = compute_sim_config_hash(
+            initial_equity=initial_equity,
+            notional_per_trade=notional_per_trade,
+            final14_exit_mode="50TP_50TRAIL",
+        )
+        if is_golden:
+            run_id = sim_result.mode
+        elif use_runstore:
+            run_id = RunStore.build_run_id(
+                dataset_hash=dataset_hash,
+                spec_hash=full_spec_hash,
+                mode=sim_result.mode,
+                time_window={"start": start, "end": end},
+                symbols=target_symbols,
+                sim_config_hash=sim_cfg_hash,
+                cost_profile_hash=cost_model.profile.profile_hash,
+                ambiguity_policy=resolved_policy,
+                filters=filters_spec,
+                code_sha=code_sha,
+            )
+        else:
+            run_id = self.run_manager.generate_run_id(
                 strategy_id=strategy.strategy_id,
                 mode=sim_result.mode,
                 window_start=start,
                 window_end=end,
             )
-        )
-
-        sig_spec_hash = strategy.get_signal_spec_hash() if hasattr(strategy, "get_signal_spec_hash") else strategy.get_config_hash()
-        exit_spec_hash = strategy.get_exit_spec_hash() if hasattr(strategy, "get_exit_spec_hash") else strategy.get_config_hash()
-        full_spec_hash = strategy.get_spec_hash() if hasattr(strategy, "get_spec_hash") else strategy.get_config_hash()
 
         acct = analysis["accounting"]
         manifest = RunManifest(
@@ -257,13 +357,13 @@ class ExperimentRunner:
             slippage_rate=slippage_rate,
             initial_equity=initial_equity,
             notional_per_trade=notional_per_trade,
-            total_signals=acct["total_signals"],
+            total_signals=len(eval_signals),
             accepted_entries=acct["accepted_entries"],
             total_legs=acct["total_legs"],
             skipped_signals_count=acct["skipped_by_concurrency"],
             rejected_signals_count=acct["rejected_by_margin"],
             ambiguity_stats=sim_result.ambiguity_stats,
-            validation_status=val_report.overall_status,
+            validation_status="PARTIALLY_VERIFIED" if f_res.used_unverified_annotations and val_report.overall_status == "VERIFIED" else val_report.overall_status,
             code_sha=code_sha,
             code_dirty=code_dirty,
             diff_sha256=diff_sha256,
@@ -282,14 +382,62 @@ class ExperimentRunner:
             simulation_limits=sim_result.summary_dict.get("simulation_limits"),
             liquidation_status=str(sim_result.summary_dict.get("status", "OK")),
             is_golden=is_golden,
+            signal_source=signal_source,
+            signal_cache_key=signal_cache_key,
+            signal_compute_time_s=round(signal_compute_time_s, 6),
+            sim_config_hash=sim_cfg_hash,
+            filters=filters_spec,
+            filtered_signals_count=len(pre_filtered_decisions),
+            as_of_unverified=bool(f_res.used_unverified_annotations),
+            dropped_future_annotations=int(f_res.dropped_future_annotations),
         )
 
-        run_dir = self.run_manager.save_run(
-            manifest=manifest,
-            sim_result=sim_result,
-            analysis=analysis,
-            signals=eval_signals,
-        )
+        reproducible_hit = False
+        if use_runstore and not is_golden:
+            active_store = run_store or RunStore()
+            if eval_signals:
+                sig_dicts_out = []
+                for s in eval_signals:
+                    sd = asdict(s)
+                    if "exit_policy" in sd:
+                        sd["exit_policy"] = str(sd["exit_policy"]) if sd["exit_policy"] is not None else ""
+                    sd["signal_close_dt"] = str(s.signal_close_dt)
+                    sig_dicts_out.append(sd)
+                sig_df_out = pd.DataFrame(sig_dicts_out)
+            else:
+                sig_df_out = pd.DataFrame()
+            dec_df_out = pd.DataFrame([asdict(d) for d in getattr(sim_result, "signal_decisions", [])])
+            legs_df_out = pd.DataFrame([asdict(t) for t in sim_result.trades]) if sim_result.trades else pd.DataFrame(
+                columns=["signal_id", "leg_id", "trade_id", "symbol", "exit_time_ms", "net_pnl"]
+            )
+            events_df_out = (
+                pd.DataFrame([asdict(e) for e in sim_result.events])
+                if sim_result.events
+                else pd.DataFrame(columns=["signal_id", "event_id", "event_type"])
+            )
+            md_report = self.run_manager._render_markdown_report(manifest, analysis)
+            save_res = active_store.save_run(
+                run_id=run_id,
+                manifest=manifest.to_dict(),
+                signals_df=sig_df_out,
+                decisions_df=dec_df_out,
+                legs_df=legs_df_out,
+                events_df=events_df_out,
+                snapshots_df=sim_result.snapshots,
+                analysis=analysis,
+                validation=val_report.to_dict(),
+                report_md=md_report,
+                code_dirty=code_dirty,
+            )
+            run_dir = save_res.run_dir
+            reproducible_hit = save_res.reproducible_hit
+        else:
+            run_dir = self.run_manager.save_run(
+                manifest=manifest,
+                sim_result=sim_result,
+                analysis=analysis,
+                signals=eval_signals,
+            )
 
         # 7. Post-save 12 Independent Validation Gates audit on persisted artifacts
         val_report = ValidationGates.audit_run(
@@ -304,15 +452,19 @@ class ExperimentRunner:
             smoke_test=smoke_test,
             data_layer=self.data_layer,
             artifacts_dir=run_dir,
-            write_result=(not is_golden),
+            write_result=(not is_golden and not reproducible_hit),
         )
 
-        self.run_manager.update_post_validation(
-            run_dir=run_dir,
-            manifest=manifest,
-            analysis=analysis,
-            val_report=val_report,
-        )
+        if use_runstore and not is_golden:
+            if not reproducible_hit:
+                active_store.update_validation(run_dir, val_report.to_dict(), analysis=analysis, manifest=manifest.to_dict())
+        else:
+            self.run_manager.update_post_validation(
+                run_dir=run_dir,
+                manifest=manifest,
+                analysis=analysis,
+                val_report=val_report,
+            )
 
         return ExperimentResult(
             run_id=run_id,
@@ -321,4 +473,8 @@ class ExperimentRunner:
             sim_result=sim_result,
             analysis=analysis,
             validation_report=val_report,
+            signal_gen_calls=signal_gen_calls,
+            signal_source=signal_source,
+            cache_warning=cache_warning,
+            reproducible_hit=reproducible_hit,
         )

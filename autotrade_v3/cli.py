@@ -119,10 +119,19 @@ def cmd_backtest(args: argparse.Namespace) -> None:
     modes_to_run = [args.mode] if args.mode.upper() != "ALL" else ["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"]
 
     for m in modes_to_run:
-        print(f"\n=======================================================")
+        print("\n=======================================================")
         print(f"Starting Backtest | Mode: {m} | Strategy: {args.strategy}")
         print(f"Window: {args.start} to {args.end} | Symbols: {symbols}")
-        print(f"=======================================================")
+        print("=======================================================")
+
+        filters = []
+        filter_context = None
+        if getattr(args, "annotation_source", None):
+            from autotrade_v3.external.annotations import AnnotationStore
+            from autotrade_v3.filters import AnnotationGuardFilter, FilterContext
+
+            filters = [AnnotationGuardFilter(source=args.annotation_source)]
+            filter_context = FilterContext(annotation_store=AnnotationStore())
 
         res = runner.run_experiment(
             strategy_id=args.strategy,
@@ -137,6 +146,10 @@ def cmd_backtest(args: argparse.Namespace) -> None:
             is_golden=is_golden,
             cost_profile=args.cost_profile,
             ambiguity_policy=args.ambiguity_policy,
+            use_signal_cache=(not getattr(args, "no_cache", False)),
+            filters=filters or None,
+            filter_context=filter_context,
+            use_runstore=(not is_golden),
         )
 
         pnl = res.analysis["pnl"]
@@ -462,6 +475,94 @@ def cmd_uncertainty(args: argparse.Namespace) -> None:
         Path(args.out_signals).write_text("\n".join(out["changed_signal_ids"]) + "\n", encoding="utf-8")
 
 
+def cmd_store_list(args: argparse.Namespace) -> None:
+    from autotrade_v3.runstore import RunStore
+
+    store = RunStore(store_dir=args.store_dir)
+    rows = store.index.list_runs(limit=args.limit)
+    if not rows:
+        print("No runs in RunStore.")
+        return
+    for r in rows:
+        print(
+            f"{r['run_id']} | {r['execution_mode']} | {r['cost_profile'] or 'N/A'} | "
+            f"{r['ambiguity_policy']} | net={r['net_pnl']:.4f} | {r['validation_status']}"
+        )
+
+
+def cmd_store_show(args: argparse.Namespace) -> None:
+    from autotrade_v3.runstore import RunStore
+
+    store = RunStore(store_dir=args.store_dir)
+    rdir = store.resolve_run_dir(args.run_id)
+    manifest = json.loads((rdir / "run_manifest.json").read_text(encoding="utf-8"))
+    print(json.dumps(manifest, indent=2))
+
+
+def cmd_store_reindex(args: argparse.Namespace) -> None:
+    from autotrade_v3.runstore import RunStore
+
+    store = RunStore(store_dir=args.store_dir)
+    n = store.index.reindex()
+    print(f"Reindexed {n} runs into {store.index.db_path}")
+
+
+def cmd_diff(args: argparse.Namespace) -> None:
+    from autotrade_v3.runstore import DiffInvariantError, RunStore, diff_runs
+
+    store = RunStore(store_dir=args.store_dir)
+    dir_a = store.resolve_run_dir(args.run_a)
+    dir_b = store.resolve_run_dir(args.run_b)
+    try:
+        res = diff_runs(dir_a, dir_b, out_dir=args.out)
+    except DiffInvariantError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(2)
+
+    s = res.summary
+    print(f"Diff {s['run_a']} -> {s['run_b']} | Total Signals: {s['total_signals']}")
+    print(f"Net(A)={s['net_a']:.4f}  Net(B)={s['net_b']:.4f}  Delta={s['expected_delta_net']:.4f}  InvariantDiff={s['invariant_diff']:.3e}")
+    for cat, stats in s["by_category"].items():
+        if stats["count"] > 0 or cat == "UNEXPLAINED":
+            print(f"  {cat:<12} count={stats['count']:>6}  delta_net={stats['delta_net']:>+12.4f}")
+    if s["unexplained_count"] > 0:
+        print(f"WARNING: UNEXPLAINED rows = {s['unexplained_count']}")
+
+
+def cmd_cache_stats(args: argparse.Namespace) -> None:
+    from autotrade_v3.runstore import SignalCache
+
+    cache = SignalCache(cache_dir=args.cache_dir)
+    print(json.dumps(cache.stats(), indent=2))
+
+
+def cmd_annotations_import(args: argparse.Namespace) -> None:
+    from autotrade_v3.external.annotations import AnnotationStore
+
+    store = AnnotationStore(db_path=args.db_path)
+    res = store.import_file(
+        args.file,
+        source=args.source,
+        as_of_verified=(not args.unverified),
+    )
+    print(json.dumps(res, indent=2))
+
+
+def cmd_import_ledger(args: argparse.Namespace) -> None:
+    from autotrade_v3.external.ledger_import import import_external_ledger
+    from autotrade_v3.runstore import RunStore
+
+    store = RunStore(store_dir=args.store_dir)
+    res = import_external_ledger(
+        args.file,
+        args.mapping,
+        store=store,
+        initial_equity=args.initial_equity,
+        run_label=args.label,
+    )
+    print(json.dumps({"run_id": res.run_id, "run_dir": str(res.run_dir), "reproducible_hit": res.reproducible_hit}, indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="autotrade_v3",
@@ -508,6 +609,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_bt.add_argument("--golden", action="store_true", help="Enforce golden baseline run: require clean git working tree")
     p_bt.add_argument("--cost-profile", default=None, help="Cost profile name (required for real data, e.g. IDEAL, BASE, STRESS)")
     p_bt.add_argument("--ambiguity-policy", default="CONSERVATIVE", choices=["LEGACY", "CONSERVATIVE", "OPTIMISTIC", "OHLC_PATH"], help="Intrabar ambiguity resolution policy")
+    p_bt.add_argument("--no-cache", action="store_true", help="Disable signal cache and force recomputation")
+    p_bt.add_argument("--annotation-source", default=None, help="Optional annotation source name for AnnotationGuardFilter")
     p_bt.set_defaults(func=cmd_backtest)
 
     # Uncertainty interval (CONSERVATIVE vs OPTIMISTIC)
@@ -552,6 +655,57 @@ def build_parser() -> argparse.ArgumentParser:
     p_vf.add_argument("--output-dir", default=None, help="Directory to write validation.json (avoids writing into run_dir)")
     p_vf.add_argument("--no-write", action="store_true", help="Read-only mode: do not write validation.json anywhere")
     p_vf.set_defaults(func=cmd_verify)
+
+    # Store (V3-14 RunStore)
+    p_store = subparsers.add_parser("store", help="Manage RunStore (list, show, reindex)")
+    store_sub = p_store.add_subparsers(dest="store_command", required=True)
+    p_sl = store_sub.add_parser("list", help="List runs in RunStore")
+    p_sl.add_argument("--store-dir", default="runs/lab/store", help="RunStore directory")
+    p_sl.add_argument("--limit", type=int, default=None, help="Optional row limit")
+    p_sl.set_defaults(func=cmd_store_list)
+
+    p_ss = store_sub.add_parser("show", help="Show run_manifest.json for a run")
+    p_ss.add_argument("run_id", help="Run ID or directory path")
+    p_ss.add_argument("--store-dir", default="runs/lab/store", help="RunStore directory")
+    p_ss.set_defaults(func=cmd_store_show)
+
+    p_sr = store_sub.add_parser("reindex", help="Rebuild index.duckdb from store directories")
+    p_sr.add_argument("--store-dir", default="runs/lab/store", help="RunStore directory")
+    p_sr.set_defaults(func=cmd_store_reindex)
+
+    # Diff (V3-14 per-signal diff)
+    p_df = subparsers.add_parser("diff", help="Compare two runs per signal_id")
+    p_df.add_argument("run_a", help="Run A ID or directory")
+    p_df.add_argument("run_b", help="Run B ID or directory")
+    p_df.add_argument("--store-dir", default="runs/lab/store", help="RunStore directory")
+    p_df.add_argument("--out", default=None, help="Output directory for diff.parquet and diff_summary.json")
+    p_df.set_defaults(func=cmd_diff)
+
+    # Cache (V3-14 SignalCache)
+    p_ca = subparsers.add_parser("cache", help="Inspect SignalCache")
+    ca_sub = p_ca.add_subparsers(dest="cache_command", required=True)
+    p_cs = ca_sub.add_parser("stats", help="Show SignalCache statistics")
+    p_cs.add_argument("--cache-dir", default="runs/lab/cache/signals", help="SignalCache directory")
+    p_cs.set_defaults(func=cmd_cache_stats)
+
+    # Annotations (V3-14 offline annotation store)
+    p_an = subparsers.add_parser("annotations", help="Manage offline annotations")
+    an_sub = p_an.add_subparsers(dest="annotations_command", required=True)
+    p_ai = an_sub.add_parser("import", help="Import local JSON/CSV annotations")
+    p_ai.add_argument("file", help="Local JSON or CSV annotation file")
+    p_ai.add_argument("--source", default=None, help="Annotation source name")
+    p_ai.add_argument("--unverified", action="store_true", help="Mark imported rows AS_OF_UNVERIFIED")
+    p_ai.add_argument("--db-path", default="runs/lab/annotations/annotations.duckdb", help="Annotation DuckDB path")
+    p_ai.set_defaults(func=cmd_annotations_import)
+
+    # External ledger import
+    p_il = subparsers.add_parser("import-ledger", help="Import an external backtest ledger into RunStore")
+    p_il.add_argument("file", help="External ledger CSV or Parquet file")
+    p_il.add_argument("--mapping", required=True, help="JSON column mapping file (canonical -> source)")
+    p_il.add_argument("--store-dir", default="runs/lab/store", help="RunStore directory")
+    p_il.add_argument("--initial-equity", type=float, default=1000.0, help="Initial equity reference")
+    p_il.add_argument("--label", default="external", help="Strategy/source label")
+    p_il.set_defaults(func=cmd_import_ledger)
 
     return parser
 

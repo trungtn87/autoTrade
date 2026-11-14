@@ -10,9 +10,21 @@ import numpy as np
 import pandas as pd
 
 
+def _json_default(obj: Any) -> Any:
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    return str(obj)
+
+
 def canonical_json(obj: Any) -> str:
     """Serialize *obj* to deterministic canonical JSON."""
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=_json_default)
 
 
 def sha256_text(text: str) -> str:
@@ -51,13 +63,18 @@ def df_content_hash(df: pd.DataFrame, key_cols: Sequence[str] | None = None) -> 
     else:
         keys = cols[:1]
     sort_by = list(keys) + [c for c in cols if c not in keys]
+    for c in cols:
+        if d[c].dtype == object:
+            d[c] = d[c].map(
+                lambda v: canonical_json(v) if isinstance(v, (dict, list, tuple, np.ndarray)) else v
+            )
     d = d.sort_values(by=sort_by, na_position="first").reset_index(drop=True)
 
     lines = [",".join(cols)]
     for row in d.itertuples(index=False):
         fields: list[str] = []
         for v in row:
-            if pd.isna(v):
+            if v is None or (isinstance(v, float) and np.isnan(v)) or (not isinstance(v, (str, bytes)) and pd.isna(v) is True):
                 fields.append("")
             elif isinstance(v, (float, np.floating)):
                 fields.append(f"{float(v):.17g}")
@@ -68,7 +85,7 @@ def df_content_hash(df: pd.DataFrame, key_cols: Sequence[str] | None = None) -> 
             else:
                 fields.append(str(v))
         lines.append(",".join(fields))
-    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+    return hashlib.sha256(("\n".join(lines) + "\n").encode("utf-8")).hexdigest()
 
 
 def artifact_hashes(path: str | Path) -> dict[str, Any]:
@@ -80,10 +97,6 @@ def artifact_hashes(path: str | Path) -> dict[str, Any]:
         df = pd.read_parquet(p)
         chash = df_content_hash(df)
         rows: int | None = int(len(df))
-    elif p.suffix == ".json":
-        obj = json.loads(p.read_text(encoding="utf-8"))
-        chash = sha256_text(canonical_json(obj))
-        rows = len(obj) if isinstance(obj, list) else None
     else:
         chash = sha
         rows = None

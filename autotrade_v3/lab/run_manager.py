@@ -139,6 +139,15 @@ class RunManifest:
     simulation_limits: dict[str, str] | None = None
     liquidation_status: str = "OK"
     is_golden: bool = False
+    signal_source: str = "COMPUTED"
+    signal_cache_key: str = ""
+    signal_compute_time_s: float = 0.0
+    sim_config_hash: str = ""
+    filters: list[dict[str, str]] | None = None
+    filtered_signals_count: int = 0
+    as_of_unverified: bool = False
+    dropped_future_annotations: int = 0
+    source: str = "V3"
     created_at_utc: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> dict[str, Any]:

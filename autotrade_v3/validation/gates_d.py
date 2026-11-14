@@ -19,6 +19,15 @@ from autotrade_v3.validation.hashing import artifact_content_hash
 from autotrade_v3.validation.types import GateResult, ViolationCollector, failed, finalize, inconclusive
 
 CORE_ARTIFACTS = ("run_manifest.json", "analysis.json", "signals.parquet", "trades.parquet")
+STORE_CORE_ARTIFACTS = (
+    "run_manifest.json",
+    "analysis.json",
+    "signals.parquet",
+    "signal_decisions.parquet",
+    "legs.parquet",
+    "events.parquet",
+    "equity.parquet",
+)
 
 CANONICAL_20_COMBOS = {
     "BTC-USDT/C1", "BTC-USDT/C2", "BTC-USDT/C4", "BTC-USDT/C6", "BTC-USDT/C7",
@@ -36,7 +45,8 @@ def gate_d1(ctx: VerifyContext) -> GateResult:
         return failed("D1", name, "ARTIFACTS.json " + ctx.run.errors.get("ARTIFACTS.json", "missing"))
     arts: dict[str, Any] = dict(idx.get("artifacts", {}))
     viol = ViolationCollector()
-    for core in CORE_ARTIFACTS:
+    expected_core = STORE_CORE_ARTIFACTS if ("legs.parquet" in arts or (ctx.run_dir / "legs.parquet").exists()) else CORE_ARTIFACTS
+    for core in expected_core:
         if core not in arts:
             viol.add({"artifact": core, "kind": "NOT_LISTED_IN_ARTIFACTS_JSON"})
     total = len(arts)

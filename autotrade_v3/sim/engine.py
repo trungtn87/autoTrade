@@ -210,8 +210,8 @@ class UnifiedSimulator:
             merged = list(res.signal_decisions) + list(pre_filtered_decisions)
             merged.sort(key=lambda d: (d.signal_close_ms, d.combo_id, d.side, d.signal_id))
             res.signal_decisions = merged
-            res.extra_summary = dict(res.extra_summary or {})
-            res.extra_summary["filtered_signals_count"] = len(pre_filtered_decisions)
+            res.summary_dict = dict(res.summary_dict or {})
+            res.summary_dict["filtered_signals_count"] = len(pre_filtered_decisions)
         return res
 
     def _find_entry_idx(

@@ -232,8 +232,14 @@ class ExecutionSimulator:
         mode: Literal["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"] | str,
         signals: list[Signal],
         candle_dict: dict[str, pd.DataFrame],
+        pre_filtered_decisions: list[Any] | None = None,
     ) -> SimulationResult:
-        res = self._unified().run(mode=mode, signals=signals, candle_dict=candle_dict)
+        res = self._unified().run(
+            mode=mode,
+            signals=signals,
+            candle_dict=candle_dict,
+            pre_filtered_decisions=pre_filtered_decisions,
+        )
         self.execution_events = list(res.events)
         self.last_skipped_signals = list(res.skipped_signals)
         self.last_rejected_signals = list(res.rejected_signals)

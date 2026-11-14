@@ -161,25 +161,49 @@ class RunBundle:
 
     @property
     def trades(self) -> pd.DataFrame | None:
+        if (self.run_dir / "trades.parquet").exists():
+            return self._parquet("trades.parquet")
+        if (self.run_dir / "legs.parquet").exists():
+            return self._parquet("legs.parquet")
         return self._parquet("trades.parquet")
 
     @property
     def events(self) -> pd.DataFrame | None:
+        if (self.run_dir / "execution_events.parquet").exists():
+            return self._parquet("execution_events.parquet")
+        if (self.run_dir / "events.parquet").exists():
+            return self._parquet("events.parquet")
         return self._parquet("execution_events.parquet")
 
     @property
     def skipped(self) -> pd.DataFrame | None:
+        if (self.run_dir / "skipped_signals.parquet").exists():
+            return self._parquet("skipped_signals.parquet")
+        dec = self.signal_decisions
+        if dec is not None and "status" in dec.columns:
+            sub = dec[dec["status"].astype(str) == "SKIPPED"].copy()
+            return sub if len(sub) else pd.DataFrame(columns=["signal_id", "reason"])
         return self._parquet("skipped_signals.parquet")
 
     @property
     def rejected(self) -> pd.DataFrame | None:
+        if (self.run_dir / "rejected_signals.parquet").exists():
+            return self._parquet("rejected_signals.parquet")
+        dec = self.signal_decisions
+        if dec is not None and "status" in dec.columns:
+            sub = dec[dec["status"].astype(str) == "REJECTED"].copy()
+            return sub if len(sub) else pd.DataFrame(columns=["signal_id", "reason"])
         return self._parquet("rejected_signals.parquet")
 
     @property
     def snapshots(self) -> pd.DataFrame | None:
-        if not (self.run_dir / "snapshots.parquet").exists():
-            return None
-        return self._parquet("snapshots.parquet")
+        if (self.run_dir / "snapshots.parquet").exists():
+            return self._parquet("snapshots.parquet")
+        if (self.run_dir / "equity.parquet").exists():
+            eq = self._parquet("equity.parquet")
+            if eq is not None and "equity_kind" in eq.columns and (eq["equity_kind"].astype(str) == "M1_MTM").any():
+                return eq
+        return None
 
     @property
     def report_text(self) -> str | None:

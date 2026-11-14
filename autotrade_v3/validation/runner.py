@@ -63,6 +63,7 @@ def evaluate_overall_status(
     gate_results: dict[str, GateResult],
     is_synthetic: bool,
     code_dirty: bool,
+    as_of_unverified: bool = False,
 ) -> tuple[str, list[str]]:
     """Determine overall status per Section 4.4 and check completeness of all mandatory gates."""
     failures = []
@@ -97,8 +98,9 @@ def evaluate_overall_status(
     if code_dirty:
         return "UNVERIFIED_DIRTY", ["Working tree dirty at run execution time"]
 
-    if has_inconclusive:
-        return "PARTIALLY_VERIFIED", []
+    if has_inconclusive or as_of_unverified:
+        reasons = ["AS_OF_UNVERIFIED annotation used"] if as_of_unverified else []
+        return "PARTIALLY_VERIFIED", reasons
 
     # All 12 mandatory gates PASS, clean tree, real market data
     return "VERIFIED", []
@@ -172,10 +174,12 @@ def run_validation(
 
     total_duration = time.perf_counter() - t_start
 
+    as_of_unverified = bool((ctx.run.manifest or {}).get("as_of_unverified", False))
     overall_status, failure_reasons = evaluate_overall_status(
         gate_results=gate_results,
         is_synthetic=is_synthetic,
         code_dirty=code_dirty,
+        as_of_unverified=as_of_unverified,
     )
 
     report = ValidationReport(

@@ -22,6 +22,18 @@ def sha256_file(path: str | Path) -> str:
     return h.hexdigest()
 
 
+def _json_default(obj: Any) -> Any:
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    return str(obj)
+
+
 def content_hash(df: pd.DataFrame, key_cols: Sequence[str] | None = None) -> str:
     """Canonical content hash: sorted columns, deterministic row order, 17-digit floats."""
     if df.empty:
@@ -46,13 +58,20 @@ def content_hash(df: pd.DataFrame, key_cols: Sequence[str] | None = None) -> str
     else:
         keys = cols[:1]
     sort_by = list(keys) + [c for c in cols if c not in keys]
+    for c in cols:
+        if d[c].dtype == object:
+            d[c] = d[c].map(
+                lambda v: json.dumps(v, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=_json_default)
+                if isinstance(v, (dict, list, tuple, np.ndarray))
+                else v
+            )
     d = d.sort_values(by=sort_by, na_position="first").reset_index(drop=True)
 
     lines = [",".join(cols)]
     for row in d.itertuples(index=False):
         fields: list[str] = []
         for v in row:
-            if pd.isna(v):
+            if v is None or (isinstance(v, float) and np.isnan(v)) or (not isinstance(v, (str, bytes)) and pd.isna(v) is True):
                 fields.append("")
             elif isinstance(v, (float, np.floating)):
                 fields.append(f"{float(v):.17g}")

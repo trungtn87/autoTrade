@@ -145,8 +145,12 @@ def rebind_exit_policies(signals: list[Any], strategy: Any) -> list[Any]:
     """Rebind exit_policy fields on cached signals to match the active strategy's exit policy."""
     rebound: list[Any] = []
     for sig in signals:
-        policy = strategy.get_exit_policy(sig.symbol, sig.combo_id)
-        tp_pct = float(getattr(policy, "tp1_pct", sig.tp_pct))
+        policy = strategy.get_exit_policy(sig.symbol, sig.combo_id) if hasattr(strategy, "get_exit_policy") else None
+        if policy is None:
+            cur_ep = sig.exit_policy if hasattr(sig.exit_policy, "split_legs") else None
+            rebound.append(replace(sig, exit_policy=cur_ep))
+            continue
+        tp_pct = float(getattr(policy, "tp_pct", getattr(policy, "tp1_pct", sig.tp_pct)))
         sl_pct = float(getattr(policy, "sl_pct", sig.sl_pct))
         entry_px = float(sig.entry_price)
         if str(sig.side).upper() in ("BUY", "LONG"):
@@ -155,7 +159,6 @@ def rebind_exit_policies(signals: list[Any], strategy: Any) -> list[Any]:
         else:
             tp_px = entry_px * (1.0 - tp_pct)
             sl_px = entry_px * (1.0 + sl_pct)
-        policy_json = json.dumps(policy.to_dict(), sort_keys=True) if hasattr(policy, "to_dict") else sig.exit_policy
         policy_hash = policy.policy_hash() if hasattr(policy, "policy_hash") else sig.exit_policy_hash
         rebound.append(
             replace(
@@ -164,7 +167,7 @@ def rebind_exit_policies(signals: list[Any], strategy: Any) -> list[Any]:
                 sl_pct=sl_pct,
                 tp_price=tp_px,
                 sl_price=sl_px,
-                exit_policy=policy_json,
+                exit_policy=policy if hasattr(policy, "split_legs") else None,
                 exit_policy_hash=policy_hash,
             )
         )
