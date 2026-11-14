@@ -547,14 +547,55 @@ def gate_c5(ctx: VerifyContext) -> GateResult:
         if dd:
             viol.add_many(len(dd), [{"signal_id": x, "kind": f"{kind}_TWICE"} for x in dd[:20]])
     skip_set, rej_set = set(skip_ids), set(rej_ids)
-    status_count = {"ACCEPTED": 0, "SKIPPED": 0, "REJECTED": 0}
-    for sid in sorted(sig_set):
-        states = [s for s, hit in (("ACCEPTED", sid in leg_ids), ("SKIPPED", sid in skip_set),
-                                   ("REJECTED", sid in rej_set)) if hit]
-        if len(states) != 1:
-            viol.add({"signal_id": sid, "kind": "STATE_COUNT", "states": states})
+
+    decisions = run.signal_decisions
+    artifacts_dict = (run.artifacts or {}).get("artifacts", {})
+    has_dec_file = (run.run_dir / "signal_decisions.parquet").exists()
+    expects_dec = ("signal_decisions.parquet" in artifacts_dict) or has_dec_file
+
+    status_count = {"ACCEPTED": 0, "SKIPPED": 0, "REJECTED": 0, "FILTERED": 0, "UNFILLABLE": 0}
+    if expects_dec:
+        if decisions is None:
+            viol.add({"kind": "MISSING_SIGNAL_DECISIONS_FILE"})
         else:
-            status_count[states[0]] += 1
+            dec_ids = decisions["signal_id"].astype(str) if len(decisions) else pd.Series([], dtype=str)
+            dec_dup = dec_ids[dec_ids.duplicated()].unique().tolist()
+            if dec_dup:
+                viol.add_many(len(dec_dup), [{"signal_id": x, "kind": "DUPLICATE_SIGNAL_DECISION"} for x in dec_dup[:20]])
+            dec_map = (
+                dict(zip(dec_ids, decisions["status"].astype(str)))
+                if len(decisions) and "status" in decisions.columns
+                else {}
+            )
+            dec_set = set(dec_ids)
+            for sid in sorted(sig_set - dec_set):
+                viol.add({"signal_id": sid, "kind": "MISSING_SIGNAL_DECISION"})
+            for sid in sorted(dec_set - sig_set):
+                viol.add({"signal_id": sid, "kind": "UNKNOWN_SIGNAL_DECISION"})
+            for sid in sorted(sig_set & dec_set):
+                st = dec_map.get(sid, "")
+                if st not in status_count:
+                    viol.add({"signal_id": sid, "kind": "INVALID_DECISION_STATUS", "status": st})
+                else:
+                    status_count[st] += 1
+                    has_leg = sid in leg_ids
+                    if st == "ACCEPTED" and not has_leg:
+                        viol.add({"signal_id": sid, "kind": "ACCEPTED_WITHOUT_LEG"})
+                    elif st != "ACCEPTED" and has_leg:
+                        viol.add({"signal_id": sid, "kind": "NON_ACCEPTED_WITH_LEG", "status": st})
+                    if st == "SKIPPED" and sid not in skip_set:
+                        viol.add({"signal_id": sid, "kind": "SKIPPED_MISSING_FROM_SKIPPED_TABLE"})
+                    if st == "REJECTED" and sid not in rej_set:
+                        viol.add({"signal_id": sid, "kind": "REJECTED_MISSING_FROM_REJECTED_TABLE"})
+    else:
+        for sid in sorted(sig_set):
+            states = [s for s, hit in (("ACCEPTED", sid in leg_ids), ("SKIPPED", sid in skip_set),
+                                       ("REJECTED", sid in rej_set)) if hit]
+            if len(states) != 1:
+                viol.add({"signal_id": sid, "kind": "STATE_COUNT", "states": states})
+            else:
+                status_count[states[0]] += 1
+
     for sid in sorted(leg_ids - sig_set):
         viol.add({"signal_id": sid, "kind": "LEG_WITH_UNKNOWN_SIGNAL"})
     for sid in sorted(skip_set - sig_set):

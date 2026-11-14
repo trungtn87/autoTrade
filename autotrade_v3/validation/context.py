@@ -156,6 +156,10 @@ class RunBundle:
         return self._parquet("signals.parquet")
 
     @property
+    def signal_decisions(self) -> pd.DataFrame | None:
+        return self._parquet("signal_decisions.parquet")
+
+    @property
     def trades(self) -> pd.DataFrame | None:
         return self._parquet("trades.parquet")
 

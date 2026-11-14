@@ -258,6 +258,48 @@ class RunManager:
             ])
         df_rejected.to_parquet(run_dir / "rejected_signals.parquet", index=False)
 
+        # 7b. Save Signal Decisions (one row per signal_id)
+        decisions = getattr(sim_result, "signal_decisions", []) or []
+        if decisions:
+            dec_rows = [d.to_dict() if hasattr(d, "to_dict") else dict(d) for d in decisions]
+            df_decisions = pd.DataFrame(dec_rows)
+        else:
+            # Derive from signals + skipped + rejected for callers constructing SimulationResult manually
+            skip_map = {str(s.get("signal_id", "")): s for s in sim_result.skipped_signals}
+            rej_map = {str(r.get("signal_id", "")): r for r in sim_result.rejected_signals}
+            leg_sig_ids = {str(getattr(t, "signal_id", "")) for t in sim_result.trades}
+            derived = []
+            for s in signals:
+                sid = str(getattr(s, "signal_id", ""))
+                if sid in skip_map:
+                    status, reason = "SKIPPED", str(skip_map[sid].get("reason", "SKIPPED_BY_CONCURRENCY"))
+                    blocking = str(skip_map[sid].get("blocking_trade_id", ""))
+                elif sid in rej_map:
+                    status, reason = "REJECTED", str(rej_map[sid].get("reason", "INSUFFICIENT_MARGIN"))
+                    blocking = ""
+                elif sid in leg_sig_ids:
+                    status, reason, blocking = "ACCEPTED", "ACCEPTED", ""
+                else:
+                    status, reason, blocking = "UNFILLABLE", "NO_M1_BAR_AFTER_SIGNAL", ""
+                derived.append({
+                    "signal_id": sid,
+                    "symbol": s.symbol,
+                    "combo_id": s.combo_id,
+                    "combo_name": s.combo_name,
+                    "timeframe": s.timeframe,
+                    "side": s.side,
+                    "signal_close_ms": s.signal_close_ms,
+                    "signal_close_dt": str(s.signal_close_dt),
+                    "status": status,
+                    "reason": reason,
+                    "blocking_trade_id": blocking,
+                })
+            df_decisions = pd.DataFrame(derived) if derived else pd.DataFrame(columns=[
+                "signal_id", "symbol", "combo_id", "combo_name", "timeframe", "side",
+                "signal_close_ms", "signal_close_dt", "status", "reason", "blocking_trade_id",
+            ])
+        df_decisions.to_parquet(run_dir / "signal_decisions.parquet", index=False)
+
         # 8. Save Equity Snapshots if present
         snapshots_meta = None
         if not sim_result.snapshots.empty:
@@ -287,6 +329,7 @@ class RunManager:
             "run_manifest.json",
             "analysis.json",
             "signals.parquet",
+            "signal_decisions.parquet",
             "trades.parquet",
             "execution_events.parquet",
             "skipped_signals.parquet",
@@ -367,6 +410,7 @@ class RunManager:
             "run_manifest.json",
             "analysis.json",
             "signals.parquet",
+            "signal_decisions.parquet",
             "trades.parquet",
             "execution_events.parquet",
             "skipped_signals.parquet",

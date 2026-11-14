@@ -94,9 +94,12 @@ class SimulationResult:
     snapshots: pd.DataFrame
     ambiguity_stats: dict[str, int]
     summary_dict: dict[str, Any] = field(default_factory=dict)
+    signal_decisions: list[Any] = field(default_factory=list)
 
     @property
     def total_signals_count(self) -> int:
+        if self.signal_decisions:
+            return len(self.signal_decisions)
         return len(self.accepted_signals) + len(self.skipped_signals) + len(self.rejected_signals)
 
     @property
@@ -1464,119 +1467,21 @@ class ExecutionSimulator:
         signals: list[Signal],
         candle_dict: dict[str, pd.DataFrame],
     ) -> SimulationResult:
-        """Run standardized simulation for one of the three research modes.
+        """Run standardized simulation for one of the three research modes via UnifiedSimulator."""
+        from autotrade_v3.sim.engine import UnifiedSimulator
 
-        MODE A (ALL_SIGNALS):
-            - No concurrency skipping.
-            - Every valid approved signal enters an independent trade.
-            - No margin limitations applied.
-        MODE B (ONE_TRADE_PER_COMBO):
-            - At most one open trade per combo at any given time.
-            - Overlapping signals for the same combo are skipped (SKIPPED_BY_CONCURRENCY).
-            - No margin limitations applied.
-        MODE C (BINGX_PORTFOLIO):
-            - Hedge-mode merged positions by symbol and side with VWAP.
-            - Strict margin enforcement (INSUFFICIENT_MARGIN).
-            - Continuous M2M equity snapshots and drawdown.
-        """
-        mode_clean = mode.upper().strip()
-        if mode_clean in ("A", "MODE_A", "ALL_SIGNALS"):
-            canonical_mode = "ALL_SIGNALS"
-        elif mode_clean in ("B", "MODE_B", "ONE_TRADE_PER_COMBO", "VIRTUAL_ISOLATED"):
-            canonical_mode = "ONE_TRADE_PER_COMBO"
-        elif mode_clean in ("C", "MODE_C", "BINGX_PORTFOLIO", "PORTFOLIO", "EXCHANGE_HEDGE_MERGED"):
-            canonical_mode = "BINGX_PORTFOLIO"
-        else:
-            raise ValueError(f"Unknown research simulation mode: {mode}. Expected ALL_SIGNALS, ONE_TRADE_PER_COMBO, or BINGX_PORTFOLIO")
-
-        self.execution_events = []
-
-        if canonical_mode in ("ALL_SIGNALS", "ONE_TRADE_PER_COMBO"):
-            allow_concurrency = (canonical_mode == "ALL_SIGNALS")
-            all_trades: list[TradeRecord] = []
-            all_skipped: list[dict[str, Any]] = []
-
-            for sym, df_sym in candle_dict.items():
-                sym_sigs = [s for s in signals if s.symbol == sym]
-                trades = self.simulate_virtual_trades(
-                    signals=sym_sigs,
-                    df_bars=df_sym,
-                    allow_concurrency=allow_concurrency,
-                    clear_skipped=True,
-                )
-                all_trades.extend(trades)
-                all_skipped.extend(self.last_skipped_signals)
-
-            all_trades.sort(key=lambda t: (t.exit_time_ms, t.trade_id, t.leg_id))
-            events = self.get_execution_events()
-
-            # Ambiguity stats
-            tp_sl_amb = sum(1 for t in all_trades if t.intrabar_ambiguous)
-            trail_amb = sum(1 for t in all_trades if getattr(t, "intrabar_trailing_ambiguous", False))
-
-            accepted_trade_ids = {t.trade_id for t in all_trades}
-            # For virtual modes, accepted signals map to distinct trades
-            accepted_sigs = [s for s in signals if not any(
-                sk["symbol"] == s.symbol and sk["combo_id"] == s.combo_id and sk["signal_close_ms"] == s.signal_close_ms
-                for sk in all_skipped
-            )]
-
-            return SimulationResult(
-                mode=canonical_mode,
-                trades=all_trades,
-                events=events,
-                accepted_signals=accepted_sigs,
-                skipped_signals=all_skipped,
-                rejected_signals=[],
-                snapshots=pd.DataFrame(),
-                ambiguity_stats={
-                    "intrabar_tp_sl_ambiguous_count": tp_sl_amb,
-                    "intrabar_trailing_ambiguous_count": trail_amb,
-                },
-                summary_dict={
-                    "total_signals": len(signals),
-                    "accepted_entries": len({t.trade_id for t in all_trades}),
-                    "total_legs": len(all_trades),
-                    "skipped_signals": len(all_skipped),
-                    "rejected_signals": 0,
-                },
-            )
-
-        else:
-            # MODE C: BINGX_PORTFOLIO
-            closed_trades, df_snaps, rejected_sigs, m2m_summary = self.simulate_portfolio_independent(
-                signals=signals,
-                candle_dict=candle_dict,
-            )
-            closed_trades.sort(key=lambda t: (t.exit_time_ms, t.trade_id, t.leg_id))
-            events = self.get_execution_events()
-
-            skipped_sigs = list(self.last_skipped_signals)
-            accepted_sigs = [
-                s for s in signals
-                if not any(sk["symbol"] == s.symbol and sk["combo_id"] == s.combo_id and sk["signal_close_ms"] == s.signal_close_ms for sk in skipped_sigs)
-                and not any(rj["symbol"] == s.symbol and rj["combo_id"] == s.combo_id and rj["timestamp_ms"] == s.signal_close_ms + 1 for rj in rejected_sigs)
-            ]
-
-            return SimulationResult(
-                mode="BINGX_PORTFOLIO",
-                trades=closed_trades,
-                events=events,
-                accepted_signals=accepted_sigs,
-                skipped_signals=skipped_sigs,
-                rejected_signals=rejected_sigs,
-                snapshots=df_snaps,
-                ambiguity_stats={
-                    "intrabar_tp_sl_ambiguous_count": m2m_summary.get("intrabar_tp_sl_ambiguous_count", 0),
-                    "intrabar_trailing_ambiguous_count": m2m_summary.get("intrabar_trailing_ambiguous_count", 0),
-                },
-                summary_dict={
-                    "total_signals": len(signals),
-                    "accepted_entries": len({t.trade_id for t in closed_trades}),
-                    "total_legs": len(closed_trades),
-                    "skipped_signals": len(skipped_sigs),
-                    "rejected_signals": len(rejected_sigs),
-                    **m2m_summary,
-                },
-            )
+        unified = UnifiedSimulator(
+            risk_config=self.risk,
+            final14_exit_mode=self.final14_exit_mode,
+            trailing_act_pct=self.trailing_act_pct,
+            trailing_cb_pct=self.trailing_cb_pct,
+            allow_legacy_entry_fallback=True,
+            strict_mode_b_same_bar=False,
+            force_close_before_exit_on_final_bar_mode_c=True,
+        )
+        res = unified.run(mode=mode, signals=signals, candle_dict=candle_dict)
+        self.execution_events = list(res.events)
+        self.last_skipped_signals = list(res.skipped_signals)
+        self.last_rejected_signals = list(res.rejected_signals)
+        return res
 
