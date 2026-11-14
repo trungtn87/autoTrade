@@ -159,12 +159,15 @@ def recompute_analysis(
     snapshots: pd.DataFrame | None,
     subwindows: list[dict[str, Any]],
     is_v309: bool = True,
+    include_v313: bool | None = None,
 ) -> dict[str, Any]:
     """Independent re-derivation of the analysis structure from the ledger."""
     mode = str(manifest.get("execution_mode", ""))
     initial = float(manifest.get("initial_equity", 0.0))
     t = trades.copy()
     legs = len(t)
+    if include_v313 is None:
+        include_v313 = "fee_entry" in t.columns
     n_signals = 0 if signals_df is None else len(signals_df)
 
     gross_u = float(t["gross_pnl"].sum()) if legs else 0.0
@@ -300,8 +303,8 @@ def recompute_analysis(
                 "net_profit_factor": c_pfs["net_pf_leg"],
                 "gross_profit_factor": c_pfs["gross_pf_leg"],
             }
-            if "fee_entry" in t.columns:
-                c_own = float(g["pnl_own_entry"].sum()) if "pnl_own_entry" in g.columns else c_net
+            if include_v313:
+                c_own = float(g["pnl_own_entry"].sum()) if "pnl_own_entry" in g.columns else 0.0
                 c_dict["pnl_own_entry_unrounded"] = c_own
                 c_dict["pnl_own_entry"] = round(c_own, 4)
                 c_dict["pnl_attribution_basis"] = "pnl_own_entry" if mode == "BINGX_PORTFOLIO" else "net_pnl"
@@ -477,11 +480,11 @@ def recompute_analysis(
             **(
                 {
                     "by_type": {
-                        atype: int((t["ambiguity_type"].fillna("") == atype).sum())
+                        atype: int((t["ambiguity_type"].fillna("") == atype).sum()) if "ambiguity_type" in t.columns else 0
                         for atype in ("TP_AND_SL", "SL_AND_TRAIL_ACT", "TRAIL_ACT_AND_CB", "TRAIL_PEAK_AND_STOP")
                     }
                 }
-                if "ambiguity_type" in t.columns
+                if include_v313
                 else {}
             ),
         },
@@ -495,16 +498,16 @@ def recompute_analysis(
                 "execution_costs": {
                     "cost_profile": str(manifest.get("cost_profile", "")),
                     "cost_profile_hash": str(manifest.get("cost_profile_hash", "")),
-                    "gross_pnl_raw": round(float(t["gross_pnl_raw"].sum()), 4) if "gross_pnl_raw" in t.columns and legs else 0.0,
-                    "fee_entry": round(float(t["fee_entry"].sum()), 4) if legs else 0.0,
-                    "fee_exit": round(float(t["fee_exit"].sum()), 4) if "fee_exit" in t.columns and legs else 0.0,
-                    "spread_cost": round(float(t["spread_cost"].sum()), 4) if "spread_cost" in t.columns and legs else 0.0,
-                    "slippage_cost": round(float(t["slippage_cost"].sum()), 4) if "slippage_cost" in t.columns and legs else 0.0,
-                    "funding_cost": round(float(t["funding_cost"].sum()), 4) if "funding_cost" in t.columns and legs else 0.0,
-                    "net_pnl": round(net_u, 4),
+                    "gross_pnl_raw": float(t["gross_pnl_raw"].sum()) if "gross_pnl_raw" in t.columns and legs else 0.0,
+                    "fee_entry": float(t["fee_entry"].sum()) if "fee_entry" in t.columns and legs else 0.0,
+                    "fee_exit": float(t["fee_exit"].sum()) if "fee_exit" in t.columns and legs else 0.0,
+                    "spread_cost": float(t["spread_cost"].sum()) if "spread_cost" in t.columns and legs else 0.0,
+                    "slippage_cost": float(t["slippage_cost"].sum()) if "slippage_cost" in t.columns and legs else 0.0,
+                    "funding_cost": float(t["funding_cost"].sum()) if "funding_cost" in t.columns and legs else 0.0,
+                    "net_pnl": net_u,
                 }
             }
-            if "fee_entry" in t.columns
+            if include_v313
             else {}
         ),
     }
@@ -1000,7 +1003,11 @@ def gate_d2(ctx: VerifyContext) -> GateResult:
         })
 
     is_v309 = "reconciliation" in analysis or ("pnl" in analysis and "net_pf_trade" in analysis["pnl"])
-    exp = recompute_analysis(trades, manifest, run.signals, run.skipped, run.rejected, run.snapshots, subs, is_v309=is_v309)
+    include_v313 = "fee_entry" in trades.columns or "execution_costs" in analysis
+    exp = recompute_analysis(
+        trades, manifest, run.signals, run.skipped, run.rejected, run.snapshots, subs,
+        is_v309=is_v309, include_v313=include_v313,
+    )
 
     viol = ViolationCollector()
     counter = [0, 0]  # [leaves_total, leaves_checked]
