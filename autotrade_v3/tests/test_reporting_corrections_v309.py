@@ -951,73 +951,37 @@ class TestReportingAndPFCorrections:
         assert to_utc_ms(ts_aware) == expected_ms
 
     def test_simulate_trailing_leg_max_bars_held_zero(self):
-        """P3-2 unit test: _simulate_trailing_leg does not raise UnboundLocalError when max_bars_held=0."""
-        from autotrade_v3.engine.candle_loader import datetime_index_to_ms, generate_synthetic_m1
-        from autotrade_v3.engine.execution_simulator import (
-            ExecutionSimulator,
-            ExitPolicy,
-            RiskConfig,
-            Signal,
-        )
+        """P3-2 unit test: trailing leg does not raise UnboundLocalError when max_bars_held=0."""
+        from autotrade_v3.engine.candle_loader import generate_synthetic_m1
+        from autotrade_v3.sim.leg import simulate_leg
+        from autotrade_v3.sim.types import ExitRules, LegSpec
 
         df_m1 = generate_synthetic_m1("BTC-USDT", start="2024-01-01", periods=100)
-        sim = ExecutionSimulator(risk_config=RiskConfig())
-
-        sig = Signal(
-            symbol="BTC-USDT",
-            combo_id=1,
-            combo_name="C1",
-            timeframe="15m",
-            side="BUY",
-            signal_close_ms=int(df_m1.index[0].timestamp() * 1000),
-            signal_close_dt=df_m1.index[0],
-            bar_position=0,
-            bar_open_ms=int(df_m1.index[0].timestamp() * 1000),
-            entry_price=float(df_m1.iloc[1]["open"]),
-            tp_pct=0.01,
-            sl_pct=0.01,
-            tp_price=float(df_m1.iloc[1]["open"]) * 1.01,
-            sl_price=float(df_m1.iloc[1]["open"]) * 0.99,
-            approved=True,
-            warmup_ready=True,
-            smc_dir=1,
-            ob_blocked=False,
-            provider="SYNTHETIC",
-            is_new6=False,
-            signal_id="SIG_TEST_0",
-        )
-
-        policy = ExitPolicy(
-            tp_pct=0.01,
-            sl_pct=0.01,
-            trailing_act_pct=0.005,
-            trailing_cb_pct=0.005,
-            max_bars_held=0,  # Forces immediate exit on entry bar
-        )
 
         # Must execute cleanly without UnboundLocalError for trailing_ambiguous
-        trade = sim._simulate_trailing_leg(
-            trade_id="TR_TEST_0",
-            leg_id="TR_TEST_0_L2",
-            leg_type="TRAIL_HALF",
-            sig=sig,
+        outcome = simulate_leg(
+            bars_m1=df_m1,
             entry_idx=1,
             entry_price=float(df_m1.iloc[1]["open"]),
-            leg_notional=50.0,
-            is_buy=True,
-            sl_price=float(df_m1.iloc[1]["open"]) * 0.99,
-            opens=df_m1["open"].to_numpy(dtype=float),
-            highs=df_m1["high"].to_numpy(dtype=float),
-            lows=df_m1["low"].to_numpy(dtype=float),
-            closes=df_m1["close"].to_numpy(dtype=float),
-            n_bars=len(df_m1),
-            t_ms_array=datetime_index_to_ms(df_m1.index),
-            df_bars=df_m1,
-            policy=policy,
+            side="BUY",
+            leg_spec=LegSpec(
+                leg_id="SIG_TEST_0#L2",
+                trade_id="SIG_TEST_0",
+                leg_type="TRAIL_HALF",
+                notional=50.0,
+                is_trailing=True,
+            ),
+            exit_rules=ExitRules(
+                tp_pct=0.01,
+                sl_pct=0.01,
+                trailing_act_pct=0.005,
+                trailing_cb_pct=0.005,
+                max_bars_held=0,  # Forces immediate exit on entry bar
+            ),
         )
 
-        assert trade.exit_reason == "MAX_BARS_HELD"
-        assert trade.intrabar_trailing_ambiguous is False
+        assert outcome.exit_reason == "MAX_BARS_HELD"
+        assert outcome.intrabar_trailing_ambiguous is False
 
     def test_ci_golden_integrity_gate_42_passes_and_mutation_fails(self, tmp_path):
         """Verify CI Golden Integrity Gate: 42/42 files pass checksum, and mutating one fails."""
