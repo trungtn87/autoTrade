@@ -148,14 +148,11 @@ class UnifiedSimulator:
         final14_exit_mode: Literal["50TP_50TRAIL", "100_HARD"] = "50TP_50TRAIL",
         trailing_act_pct: float = 0.005,
         trailing_cb_pct: float = 0.005,
-        *,
-        force_close_before_exit_on_final_bar_mode_c: bool = True,
     ) -> None:
         self.risk = risk_config or RiskConfig()
         self.final14_exit_mode = final14_exit_mode
         self.trailing_act_pct = trailing_act_pct
         self.trailing_cb_pct = trailing_cb_pct
-        self.force_close_before_exit_on_final_bar_mode_c = force_close_before_exit_on_final_bar_mode_c
 
     def run(
         self,
@@ -541,7 +538,6 @@ class UnifiedSimulator:
                         side=sig.side,
                         leg_spec=leg_spec,
                         exit_rules=exit_rules,
-                        force_close_before_exit_on_final_bar=self.force_close_before_exit_on_final_bar_mode_c,
                     )
                     portfolio_policy.record_open_leg(sig.symbol, sig.combo_id, leg_spec.leg_id, trade_id)
 

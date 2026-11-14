@@ -39,7 +39,6 @@ def _simulate_fixed_leg(
     is_buy: bool,
     leg_spec: LegSpec,
     exit_rules: ExitRules,
-    force_close_before_exit_on_final_bar: bool,
 ) -> LegOutcome:
     tp_price = entry_price * (1.0 + exit_rules.tp_pct) if is_buy else entry_price * (1.0 - exit_rules.tp_pct)
     sl_price = entry_price * (1.0 - exit_rules.sl_pct) if is_buy else entry_price * (1.0 + exit_rules.sl_pct)
@@ -56,12 +55,6 @@ def _simulate_fixed_leg(
     exit_bar_idx = n_bars - 1
 
     for i in range(entry_idx, n_bars):
-        if force_close_before_exit_on_final_bar and i == n_bars - 1:
-            exit_bar_idx = i
-            exit_price = float(closes[i])
-            exit_reason = "FORCE_CLOSE"
-            break
-
         if exit_rules.max_bars_held is not None and (i - entry_idx) >= exit_rules.max_bars_held:
             exit_price = float(opens[i]) if opens is not None else float(closes[i])
             exit_reason = "MAX_BARS_HELD"
@@ -146,7 +139,6 @@ def _simulate_trailing_leg(
     is_buy: bool,
     leg_spec: LegSpec,
     exit_rules: ExitRules,
-    force_close_before_exit_on_final_bar: bool,
 ) -> LegOutcome:
     sl_price = entry_price * (1.0 - exit_rules.sl_pct) if is_buy else entry_price * (1.0 + exit_rules.sl_pct)
     act_price = (
@@ -173,12 +165,6 @@ def _simulate_trailing_leg(
     trailing_ambiguous = False
 
     for i in range(entry_idx, n_bars):
-        if force_close_before_exit_on_final_bar and i == n_bars - 1:
-            exit_bar_idx = i
-            exit_price = float(closes[i])
-            exit_reason = "FORCE_CLOSE"
-            break
-
         if exit_rules.max_bars_held is not None and (i - entry_idx) >= exit_rules.max_bars_held:
             exit_price = float(opens[i]) if opens is not None else float(closes[i])
             exit_reason = "MAX_BARS_HELD"
@@ -309,8 +295,6 @@ def simulate_leg(
     side: str,
     leg_spec: LegSpec,
     exit_rules: ExitRules,
-    *,
-    force_close_before_exit_on_final_bar: bool = False,
 ) -> LegOutcome:
     """Simulate a single leg over M1 bars starting at ``entry_idx``.
 
@@ -331,7 +315,6 @@ def simulate_leg(
             is_buy=is_buy,
             leg_spec=leg_spec,
             exit_rules=exit_rules,
-            force_close_before_exit_on_final_bar=force_close_before_exit_on_final_bar,
         )
     return _simulate_fixed_leg(
         arrays=arrays,
@@ -340,5 +323,4 @@ def simulate_leg(
         is_buy=is_buy,
         leg_spec=leg_spec,
         exit_rules=exit_rules,
-        force_close_before_exit_on_final_bar=force_close_before_exit_on_final_bar,
     )
