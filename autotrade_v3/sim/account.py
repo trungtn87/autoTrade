@@ -161,5 +161,79 @@ class AccountLedger:
                 "drawdown_pct": round(dd_pct, 2),
             })
 
+    def check_maintenance_margin(
+        self,
+        *,
+        bar_idx: int,
+        highs_by_symbol: dict[str, np.ndarray],
+        lows_by_symbol: dict[str, np.ndarray],
+        mmr_by_symbol: dict[str, float],
+    ) -> tuple[bool, float, float]:
+        """Check worst-case intrabar adverse equity against maintenance margin.
+
+        Uses bar low for open BUY positions and bar high for open SELL positions.
+        Returns (triggered, adverse_equity, total_maintenance_margin).
+        """
+        if not mmr_by_symbol:
+            return False, self.final_equity, 0.0
+        adverse_unrealized = 0.0
+        total_mm = 0.0
+        has_open = False
+        for pos in self.positions.values():
+            if pos.qty <= 1e-9:
+                continue
+            has_open = True
+            mmr = mmr_by_symbol.get(pos.symbol, mmr_by_symbol.get("default", 0.0))
+            if pos.side == "BUY":
+                adv_px = float(lows_by_symbol[pos.symbol][bar_idx])
+                adverse_unrealized += (adv_px - pos.avg_price) * pos.qty
+            else:
+                adv_px = float(highs_by_symbol[pos.symbol][bar_idx])
+                adverse_unrealized += (pos.avg_price - adv_px) * pos.qty
+            total_mm += pos.qty * adv_px * float(mmr)
+        if not has_open or total_mm <= 0.0:
+            return False, self.balance + adverse_unrealized, total_mm
+        adverse_equity = self.balance + adverse_unrealized
+        return adverse_equity < total_mm, adverse_equity, total_mm
+
     def snapshots_df(self) -> pd.DataFrame:
         return pd.DataFrame(self.snapshots)
+
+
+def verify_mode_c_accounting_invariant(
+    trades: list[Any],
+    *,
+    initial_equity: float,
+    final_equity: float,
+    tol: float = 1e-9,
+) -> dict[str, Any]:
+    """Verify Mode C two-column PnL invariant per (symbol, side) and final equity identity."""
+    by_sym_side: dict[tuple[str, str], dict[str, float]] = {}
+    for t in trades:
+        key = (str(t.symbol), str(t.side))
+        bucket = by_sym_side.setdefault(key, {"own": 0.0, "vwap": 0.0})
+        own = float(getattr(t, "pnl_own_entry", t.net_pnl))
+        vwap = float(getattr(t, "pnl_vwap", t.net_pnl))
+        bucket["own"] += own
+        bucket["vwap"] += vwap
+
+    max_group_diff = 0.0
+    mismatched_groups: list[dict[str, Any]] = []
+    for (sym, side), vals in sorted(by_sym_side.items()):
+        diff = abs(vals["own"] - vals["vwap"])
+        if diff > max_group_diff:
+            max_group_diff = diff
+        if diff > tol:
+            mismatched_groups.append({"symbol": sym, "side": side, "own": vals["own"], "vwap": vals["vwap"], "diff": diff})
+
+    sum_vwap = sum(v["vwap"] for v in by_sym_side.values())
+    expected_final_eq = initial_equity + sum_vwap
+    equity_diff = abs(final_equity - expected_final_eq)
+    return {
+        "passed": len(mismatched_groups) == 0 and equity_diff <= max(1e-4, tol * max(1, len(trades))),
+        "max_group_diff": max_group_diff,
+        "mismatched_groups": mismatched_groups,
+        "expected_final_equity": expected_final_eq,
+        "actual_final_equity": final_equity,
+        "equity_diff": equity_diff,
+    }

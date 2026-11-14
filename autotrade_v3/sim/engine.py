@@ -9,13 +9,24 @@ import pandas as pd
 from autotrade_v3.engine.execution_simulator import ExecutionEvent, SimulationResult, TradeRecord
 from autotrade_v3.engine.risk_manager import RiskConfig
 from autotrade_v3.engine.signal_engine import Signal
-from autotrade_v3.sim.account import AccountLedger
+from autotrade_v3.sim.account import AccountLedger, verify_mode_c_accounting_invariant
 from autotrade_v3.sim.admission import AllSignals, OneTradePerCombo, Portfolio
 from autotrade_v3.sim.ambiguity import AmbiguityPolicy, normalize_ambiguity_policy
 from autotrade_v3.sim.costs import CostModel
 from autotrade_v3.sim.leg import extract_m1_arrays, simulate_leg
 from autotrade_v3.sim.types import Event, ExitRules, LegOutcome, LegSpec, M1BarArrays, SignalDecision
 from autotrade_v3.strategy.base import ExitPolicy
+
+MODE_C_SIMULATION_LIMITS: dict[str, str] = {
+    "intrabar_price_order": "OHLC M1 bars do not encode tick-level ordering inside a 1-minute bar.",
+    "orderbook_depth_and_real_slippage": "No L2 orderbook depth; slippage is modeled via static profile bps.",
+    "exchange_mark_and_liquidation_price": "Uses M1 OHLC prices rather than exchange index/mark price or liquidation engine.",
+    "funding_rate": "NOT_MODELED unless a historical funding table or rate is explicitly supplied.",
+    "contract_lot_and_tick_rounding": "Continuous quantity and price without exchange stepSize/tickSize rounding.",
+    "order_placement_latency": "Zero network or matching latency assumed at M1 open.",
+    "exchange_rejected_protective_orders": "Assumes TP/SL/trailing protective orders are never rejected by the exchange.",
+    "partial_fills": "Assumes 100% fill of leg notional at the modeled fill price.",
+}
 
 
 @dataclass
@@ -422,6 +433,8 @@ class UnifiedSimulator:
                         gross_pnl_raw=cb.gross_pnl_raw,
                         ambiguity_type=outcome.ambiguity_type,
                         ambiguity_policy=outcome.ambiguity_policy,
+                        pnl_own_entry=cb.net_pnl,
+                        pnl_vwap=cb.net_pnl,
                     )
                 )
 
@@ -523,6 +536,7 @@ class UnifiedSimulator:
         seq = 0
         intrabar_tp_sl_count = 0
         intrabar_trail_count = 0
+        liq_warning: dict[str, Any] | None = None
 
         for bar_idx in range(n_bars):
             ts = int(t_ms_array[bar_idx])
@@ -760,8 +774,36 @@ class UnifiedSimulator:
                                 gross_pnl_raw=cb.gross_pnl_raw,
                                 ambiguity_type=outcome.ambiguity_type,
                                 ambiguity_policy=outcome.ambiguity_policy,
+                                pnl_own_entry=cb.net_pnl,
+                                pnl_vwap=net_pnl,
                             )
                         )
+
+            if self.risk.mmr_by_symbol:
+                highs_by_sym = {sym: arr.highs for sym, arr in arrays_by_sym.items()}
+                lows_by_sym = {sym: arr.lows for sym, arr in arrays_by_sym.items()}
+                trig, adv_eq, mm_req = account.check_maintenance_margin(
+                    bar_idx=bar_idx,
+                    highs_by_symbol=highs_by_sym,
+                    lows_by_symbol=lows_by_sym,
+                    mmr_by_symbol=self.risk.mmr_by_symbol,
+                )
+                if trig:
+                    account.mark_to_market(
+                        bar_idx=bar_idx,
+                        ts_ms=ts,
+                        ts_dt=arrays_by_sym[first_sym].index[bar_idx],
+                        n_bars=n_bars,
+                        sample_interval_m1=sample_snapshot_interval_m1,
+                    )
+                    liq_warning = {
+                        "status": "LIQUIDATION_WARNING",
+                        "liquidation_warning_time_ms": ts,
+                        "liquidation_warning_dt": str(arrays_by_sym[first_sym].index[bar_idx]),
+                        "liquidation_warning_equity": round(adv_eq, 6),
+                        "liquidation_warning_mm": round(mm_req, 6),
+                    }
+                    break
 
             account.mark_to_market(
                 bar_idx=bar_idx,
@@ -772,7 +814,13 @@ class UnifiedSimulator:
             )
 
         closed_trades.sort(key=lambda t: (t.exit_time_ms, t.trade_id, t.leg_id))
+        acct_inv = verify_mode_c_accounting_invariant(
+            closed_trades,
+            initial_equity=self.risk.initial_equity,
+            final_equity=account.final_equity,
+        )
         m2m_summary = {
+            "status": liq_warning["status"] if liq_warning else "OK",
             "initial_equity": self.risk.initial_equity,
             "final_equity": round(account.final_equity, 4),
             "peak_equity": round(account.peak_equity, 4),
@@ -780,7 +828,11 @@ class UnifiedSimulator:
             "m2m_max_drawdown_pct": round(account.max_m2m_dd_pct, 2),
             "intrabar_tp_sl_ambiguous_count": intrabar_tp_sl_count,
             "intrabar_trailing_ambiguous_count": intrabar_trail_count,
+            "simulation_limits": dict(MODE_C_SIMULATION_LIMITS),
+            "accounting_invariant": acct_inv,
         }
+        if liq_warning:
+            m2m_summary.update(liq_warning)
         return self._build_result(
             mode="BINGX_PORTFOLIO",
             trades=closed_trades,

@@ -83,6 +83,8 @@ class TradeRecord:
     gross_pnl_raw: float = 0.0
     ambiguity_type: str = "NONE"
     ambiguity_policy: str = "LEGACY"
+    pnl_own_entry: float = 0.0
+    pnl_vwap: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)

@@ -17,6 +17,14 @@ class RiskConfig:
     fee_mode: Literal["taker", "maker"] = "taker"
     cost_profile: str = "IDEAL"
     cost_model: Any = None
+    mmr_by_symbol: dict[str, float] | None = None
+
+    def get_mmr(self, symbol: str) -> float | None:
+        if not self.mmr_by_symbol:
+            return None
+        if symbol in self.mmr_by_symbol:
+            return float(self.mmr_by_symbol[symbol])
+        return float(self.mmr_by_symbol.get("default")) if "default" in self.mmr_by_symbol else None
 
     def get_leverage(self, symbol: str) -> float:
         sym = symbol.upper()
