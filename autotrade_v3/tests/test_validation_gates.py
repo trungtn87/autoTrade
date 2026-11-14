@@ -15,8 +15,15 @@ from autotrade_v3.validation.context import VerifyContext
 from autotrade_v3.validation import gates_a, gates_b, gates_c, gates_d
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
 def _has_real_m1_data() -> bool:
-    return Path("catalog/research.duckdb").exists() and Path("data/m1_raw").exists() and any(Path("data/m1_raw").rglob("*.parquet"))
+    return (
+        (REPO_ROOT / "catalog" / "research.duckdb").exists()
+        and (REPO_ROOT / "data" / "m1_raw").exists()
+        and any((REPO_ROOT / "data" / "m1_raw").rglob("*.parquet"))
+    )
 
 
 class TestValidationGatesV310(unittest.TestCase):

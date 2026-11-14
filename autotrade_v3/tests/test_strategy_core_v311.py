@@ -474,7 +474,7 @@ class TestStrategyCoreV311(unittest.TestCase):
         gates_b.clear_replay_cache()
 
     def test_07_clone_existing_and_self_rejected_and_alias_and_live_state_preserved(self):
-        """Verify review fixes: clone overwrite/self-clone rejection, single-DF alias normalization, live state flags, and B3 record checks."""
+        """Verify review fixes: clone overwrite/self-clone rejection, single-DF alias normalization, and live state flags."""
         base_strat = StrategyCoreRegistry.get("20FINAL", "1")
 
         # 1. Self-clone & overwrite clone rejection (Mục 4)
@@ -529,7 +529,10 @@ class TestStrategyCoreV311(unittest.TestCase):
             collected_default.extend(base_strat.on_bar_close(live_state, bar_d))
         self.assertEqual(collected_default, evs_canon)
 
-        # 4. B3 detects duplicate signal_id and field mismatch in signals.parquet even when signal_id set matches (Mục 5)
+    @unittest.skipUnless(_has_real_m1_data(), "Real M1 data (data/m1_raw & catalog/research.duckdb) not present in CI")
+    def test_08_gate_b3_record_mismatch_and_duplicate_detection(self):
+        """Verify review fix #5: Gate B3 detects duplicate signal_id and field mismatch in signals.parquet even when signal_id set matches."""
+        base_strat = StrategyCoreRegistry.get("20FINAL", "1")
         with tempfile.TemporaryDirectory() as tmp:
             tmp_dir = Path(tmp)
             fake_run = tmp_dir / "b3_dup_run"
