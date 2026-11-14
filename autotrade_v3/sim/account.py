@@ -90,6 +90,7 @@ class AccountLedger:
         exec_exit_price: float,
         entry_fee: float,
         exit_fee: float,
+        funding_cost: float = 0.0,
     ) -> tuple[float, float, float, float]:
         """Close a leg against the merged position's VWAP and return (effective_entry, gross_pnl, total_fee, net_pnl)."""
         pos = self.positions[(symbol, side)]
@@ -100,8 +101,8 @@ class AccountLedger:
             gross_pnl = (effective_entry - exec_exit_price) * leg_qty
 
         total_fee = entry_fee + exit_fee
-        net_pnl = gross_pnl - total_fee
-        self.balance += gross_pnl - exit_fee
+        net_pnl = gross_pnl - total_fee - funding_cost
+        self.balance += gross_pnl - exit_fee - funding_cost
 
         pos.qty = max(0.0, pos.qty - leg_qty)
         pos.used_margin = max(0.0, pos.used_margin - leg_margin)

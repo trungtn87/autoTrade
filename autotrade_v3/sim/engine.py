@@ -11,6 +11,7 @@ from autotrade_v3.engine.risk_manager import RiskConfig
 from autotrade_v3.engine.signal_engine import Signal
 from autotrade_v3.sim.account import AccountLedger
 from autotrade_v3.sim.admission import AllSignals, OneTradePerCombo, Portfolio
+from autotrade_v3.sim.costs import CostModel
 from autotrade_v3.sim.leg import extract_m1_arrays, simulate_leg
 from autotrade_v3.sim.types import Event, ExitRules, LegOutcome, LegSpec, M1BarArrays, SignalDecision
 from autotrade_v3.strategy.base import ExitPolicy
@@ -26,6 +27,7 @@ class _PendingPortfolioLeg:
     leg_margin: float
     leg_entry_fee: float
     entry_price: float
+    entry_px_raw: float
     outcome: LegOutcome
     exit_rules: ExitRules
     provider: str
@@ -148,11 +150,25 @@ class UnifiedSimulator:
         final14_exit_mode: Literal["50TP_50TRAIL", "100_HARD"] = "50TP_50TRAIL",
         trailing_act_pct: float = 0.005,
         trailing_cb_pct: float = 0.005,
+        cost_model: CostModel | None = None,
     ) -> None:
         self.risk = risk_config or RiskConfig()
         self.final14_exit_mode = final14_exit_mode
         self.trailing_act_pct = trailing_act_pct
         self.trailing_cb_pct = trailing_cb_pct
+        if cost_model is not None:
+            self.cost_model = cost_model
+        elif getattr(self.risk, "cost_model", None) is not None:
+            self.cost_model = self.risk.cost_model
+        elif self.risk.slippage_rate == 0.0 and self.risk.taker_fee_rate == 0.0005 and self.risk.cost_profile.upper() == "IDEAL":
+            self.cost_model = CostModel.from_profile_name("IDEAL", is_real_data=False)
+        else:
+            self.cost_model = CostModel.from_uniform_params(
+                name=self.risk.cost_profile or "CUSTOM",
+                fee_taker=self.risk.taker_fee_rate,
+                fee_maker=self.risk.maker_fee_rate,
+                slippage_bps=self.risk.slippage_rate * 10000.0,
+            )
 
     def run(
         self,
@@ -247,13 +263,18 @@ class UnifiedSimulator:
             accepted_sigs.append(sig)
             trade_id = sig_id
             raw_entry_px = float(arr.opens[entry_idx]) if arr.opens is not None else sig.entry_price
-            entry_price = self.risk.apply_slippage(raw_entry_px, sig.side, is_entry=True)
+            entry_price = self.cost_model.fill_price(
+                raw_entry_px,
+                symbol=sig.symbol,
+                side=sig.side,
+                is_entry=True,
+                order_type="entry_market",
+            )
             exit_policy = _resolve_exit_policy(
                 sig, self.final14_exit_mode, self.trailing_act_pct, self.trailing_cb_pct
             )
             leg_specs = _build_leg_specs(trade_id, self.risk.notional_per_trade, exit_policy)
             exit_rules = _build_exit_rules(exit_policy)
-            is_buy = sig.side == "BUY"
 
             max_exit_idx = entry_idx
             for leg_spec in leg_specs:
@@ -268,19 +289,27 @@ class UnifiedSimulator:
                 if outcome.exit_bar_idx > max_exit_idx:
                     max_exit_idx = outcome.exit_bar_idx
 
-                leg_qty = leg_spec.notional / entry_price
+                exit_time_ms = int(arr.t_ms[outcome.exit_bar_idx])
                 leg_margin = self.risk.calc_margin(sig.symbol, leg_spec.notional)
-                entry_fee = self.risk.calc_fee(leg_spec.notional, is_taker=True)
-                exec_exit_px = self.risk.apply_slippage(outcome.exit_price, sig.side, is_entry=False)
-                exit_notional = leg_qty * exec_exit_px
-                exit_fee = self.risk.calc_fee(exit_notional, is_taker=True)
-                fee_total = entry_fee + exit_fee
-                gross_pnl = (
-                    (exec_exit_px - entry_price) * leg_qty
-                    if is_buy
-                    else (entry_price - exec_exit_px) * leg_qty
+                cb = self.cost_model.evaluate_leg(
+                    symbol=sig.symbol,
+                    side=sig.side,
+                    notional=leg_spec.notional,
+                    entry_px_raw=raw_entry_px,
+                    exit_px_trigger=outcome.exit_price,
+                    exit_reason=outcome.exit_reason,
+                    entry_time_ms=entry_time_ms,
+                    exit_time_ms=exit_time_ms,
+                    entry_px_fill_override=entry_price,
                 )
-                net_pnl = gross_pnl - fee_total
+                leg_qty = cb.qty
+                entry_fee = cb.fee_entry
+                exec_exit_px = cb.exit_px_fill
+                exit_notional = leg_qty * exec_exit_px
+                exit_fee = cb.fee_exit
+                fee_total = cb.fee_total
+                gross_pnl = cb.gross_pnl_fill
+                net_pnl = cb.net_pnl
                 return_pct = net_pnl / leg_spec.notional
 
                 entry_dt = arr.index[entry_idx]
@@ -377,6 +406,16 @@ class UnifiedSimulator:
                         trailing_act_pct=exit_rules.trailing_act_pct,
                         trailing_cb_pct=exit_rules.trailing_cb_pct,
                         max_bars_held=exit_rules.max_bars_held,
+                        entry_px_raw=cb.entry_px_raw,
+                        entry_px_fill=cb.entry_px_fill,
+                        exit_px_trigger=cb.exit_px_trigger,
+                        exit_px_fill=cb.exit_px_fill,
+                        fee_entry=cb.fee_entry,
+                        fee_exit=cb.fee_exit,
+                        spread_cost=cb.spread_cost,
+                        slippage_cost=cb.slippage_cost,
+                        funding_cost=cb.funding_cost,
+                        gross_pnl_raw=cb.gross_pnl_raw,
                     )
                 )
 
@@ -506,8 +545,14 @@ class UnifiedSimulator:
                 accepted_sigs.append(sig)
                 arr = arrays_by_sym[sig.symbol]
                 raw_open_px = float(opens_by_sym[sig.symbol][bar_idx])
-                entry_px = self.risk.apply_slippage(raw_open_px, sig.side, is_entry=True)
-                entry_fee = self.risk.calc_fee(notional, is_taker=True)
+                entry_px = self.cost_model.fill_price(
+                    raw_open_px,
+                    symbol=sig.symbol,
+                    side=sig.side,
+                    is_entry=True,
+                    order_type="entry_market",
+                )
+                entry_fee = notional * self.cost_model.params_for(sig.symbol).fee_rate_for("entry_market")
                 account.open_position(
                     symbol=sig.symbol,
                     side=sig.side,
@@ -578,6 +623,7 @@ class UnifiedSimulator:
                         leg_margin=leg_margin,
                         leg_entry_fee=leg_entry_fee,
                         entry_price=entry_px,
+                        entry_px_raw=raw_open_px,
                         outcome=outcome,
                         exit_rules=exit_rules,
                         provider=provider,
@@ -598,9 +644,20 @@ class UnifiedSimulator:
 
                         sig = pending.sig
                         arr = arrays_by_sym[sig.symbol]
-                        exec_exit_px = self.risk.apply_slippage(outcome.exit_price, sig.side, is_entry=False)
+                        cb = self.cost_model.evaluate_leg(
+                            symbol=sig.symbol,
+                            side=sig.side,
+                            notional=pending.leg_spec.notional,
+                            entry_px_raw=pending.entry_px_raw,
+                            exit_px_trigger=outcome.exit_price,
+                            exit_reason=outcome.exit_reason,
+                            entry_time_ms=int(arr.t_ms[outcome.entry_idx]),
+                            exit_time_ms=ts,
+                            entry_px_fill_override=pending.entry_price,
+                        )
+                        exec_exit_px = cb.exit_px_fill
                         exit_notional = pending.leg_qty * exec_exit_px
-                        exit_fee = self.risk.calc_fee(exit_notional, is_taker=True)
+                        exit_fee = cb.fee_exit
 
                         effective_entry, gross_pnl, total_fee, net_pnl = account.close_leg(
                             symbol=sig.symbol,
@@ -609,8 +666,9 @@ class UnifiedSimulator:
                             leg_margin=pending.leg_margin,
                             leg_entry_price=pending.entry_price,
                             exec_exit_price=exec_exit_px,
-                            entry_fee=pending.leg_entry_fee,
+                            entry_fee=cb.fee_entry,
                             exit_fee=exit_fee,
+                            funding_cost=cb.funding_cost,
                         )
                         portfolio_policy.record_close_leg(
                             sig.symbol, sig.combo_id, pending.leg_spec.leg_id
@@ -683,6 +741,16 @@ class UnifiedSimulator:
                                 trailing_act_pct=pending.exit_rules.trailing_act_pct,
                                 trailing_cb_pct=pending.exit_rules.trailing_cb_pct,
                                 max_bars_held=pending.exit_rules.max_bars_held,
+                                entry_px_raw=cb.entry_px_raw,
+                                entry_px_fill=cb.entry_px_fill,
+                                exit_px_trigger=cb.exit_px_trigger,
+                                exit_px_fill=cb.exit_px_fill,
+                                fee_entry=cb.fee_entry,
+                                fee_exit=cb.fee_exit,
+                                spread_cost=cb.spread_cost,
+                                slippage_cost=cb.slippage_cost,
+                                funding_cost=cb.funding_cost,
+                                gross_pnl_raw=cb.gross_pnl_raw,
                             )
                         )
 
@@ -771,6 +839,8 @@ class UnifiedSimulator:
             "rejected_signals": len(rejected_signals),
             "skipped_signals_count": len(skipped_signals),
             "rejected_signals_count": len(rejected_signals),
+            "cost_profile": self.cost_model.profile.name,
+            "cost_profile_hash": self.cost_model.profile.profile_hash,
             **extra_summary,
         }
         return SimulationResult(

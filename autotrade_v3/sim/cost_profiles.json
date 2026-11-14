@@ -1,0 +1,56 @@
+{
+  "IDEAL": {
+    "name": "IDEAL",
+    "status": "CONFIRMED",
+    "source": "Golden V3-08/V3-12 baseline (0.05% taker fee, zero spread/slippage/funding)",
+    "values": {
+      "default": {
+        "fee_taker": 0.0005,
+        "fee_maker": 0.0,
+        "maker_order_types": [],
+        "half_spread_bps": 0.0,
+        "slippage_bps": {
+          "entry_market": 0.0,
+          "tp": 0.0,
+          "stop": 0.0,
+          "trailing_stop": 0.0
+        },
+        "funding": "NOT_MODELED",
+        "funding_bps_per_8h": null
+      }
+    }
+  },
+  "BASE": {
+    "name": "BASE",
+    "status": "UNCONFIRMED",
+    "source": "",
+    "values": {}
+  },
+  "STRESS": {
+    "name": "STRESS",
+    "status": "UNCONFIRMED",
+    "source": "",
+    "values": {}
+  },
+  "TEST_ONLY": {
+    "name": "TEST_ONLY",
+    "status": "TEST_ONLY",
+    "source": "Synthetic unit and integration tests only; rejected on real M1 data",
+    "values": {
+      "default": {
+        "fee_taker": 0.0005,
+        "fee_maker": 0.0002,
+        "maker_order_types": ["tp"],
+        "half_spread_bps": 1.5,
+        "slippage_bps": {
+          "entry_market": 2.0,
+          "tp": 0.5,
+          "stop": 4.0,
+          "trailing_stop": 3.0
+        },
+        "funding": "NOT_MODELED",
+        "funding_bps_per_8h": null
+      }
+    }
+  }
+}

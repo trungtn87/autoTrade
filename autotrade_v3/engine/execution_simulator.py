@@ -71,6 +71,16 @@ class TradeRecord:
     trailing_act_pct: float = 0.0
     trailing_cb_pct: float = 0.0
     max_bars_held: int | None = None
+    entry_px_raw: float = 0.0
+    entry_px_fill: float = 0.0
+    exit_px_trigger: float = 0.0
+    exit_px_fill: float = 0.0
+    fee_entry: float = 0.0
+    fee_exit: float = 0.0
+    spread_cost: float = 0.0
+    slippage_cost: float = 0.0
+    funding_cost: float = 0.0
+    gross_pnl_raw: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -118,11 +128,13 @@ class ExecutionSimulator:
         final14_exit_mode: Literal["50TP_50TRAIL", "100_HARD"] = "50TP_50TRAIL",
         trailing_act_pct: float = 0.005,
         trailing_cb_pct: float = 0.005,
+        cost_model: Any = None,
     ):
         self.risk = risk_config or RiskConfig()
         self.final14_exit_mode = final14_exit_mode
         self.trailing_act_pct = trailing_act_pct
         self.trailing_cb_pct = trailing_cb_pct
+        self.cost_model = cost_model if cost_model is not None else getattr(self.risk, "cost_model", None)
         self.execution_events: list[ExecutionEvent] = []
         self.last_skipped_signals: list[dict[str, Any]] = []
         self.last_rejected_signals: list[dict[str, Any]] = []
@@ -152,6 +164,7 @@ class ExecutionSimulator:
             final14_exit_mode=self.final14_exit_mode,
             trailing_act_pct=self.trailing_act_pct,
             trailing_cb_pct=self.trailing_cb_pct,
+            cost_model=self.cost_model,
         )
 
     def simulate_virtual_trades(

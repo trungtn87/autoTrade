@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 
 @dataclass(frozen=True)
@@ -15,6 +15,8 @@ class RiskConfig:
     maker_fee_rate: float = 0.0002  # 0.02% maker fee per side
     slippage_rate: float = 0.0      # Configurable slippage fraction
     fee_mode: Literal["taker", "maker"] = "taker"
+    cost_profile: str = "IDEAL"
+    cost_model: Any = None
 
     def get_leverage(self, symbol: str) -> float:
         sym = symbol.upper()
