@@ -1,0 +1,73 @@
+﻿=== GIT REV-PARSE HEAD ===
+1df1a4f5a925b83de9dda4d30e2355ae3b465866
+
+=== GIT LOG (feat/v3-14-run-store..HEAD) ===
+1df1a4f docs(v3-15): add evidence report, logs, junit xml, and screenshots
+011ea68 fix(v3-15): query v3_m1 via load_m1_from_catalog and finalize integration checks
+242ea8c test(v3-15): add integration, mutation, offline tests, docs, and evidence collector
+16d8799 chore(v3-15): add offline streamlit config, run_dashboard.bat, requirements, and AppTest suite
+654b69e feat(v3-15): add Research Log page and dashboard app entrypoint
+ea3164b feat(v3-15): add New Run dashboard page
+b18e145 feat(v3-15): add Strategies dashboard page
+8d63c14 feat(v3-15): add Datasets dashboard page
+08c9013 feat(v3-15): add Compare dashboard page
+4c48efa feat(v3-15): add Signal Explorer dashboard page
+f96f0f9 feat(v3-15): add Run Detail dashboard page
+c780531 feat(v3-15): add whitelisted dashboard actions and CLI ops
+09fb099 feat(v3-15): add read-only dashboard queries, notes store, and unit tests
+
+=== GIT DIFF STAT (feat/v3-14-run-store..HEAD -- autotrade_v2) ===
+
+=== GIT DIFF STAT (feat/v3-14-run-store..HEAD) ===
+ .streamlit/config.toml                             |   14 +
+ autotrade_v3/dashboard/__init__.py                 |    2 +
+ autotrade_v3/dashboard/_cli_ops.py                 |  158 +++
+ autotrade_v3/dashboard/actions.py                  |  466 +++++++
+ autotrade_v3/dashboard/app.py                      |   31 +
+ autotrade_v3/dashboard/notes.py                    |   85 ++
+ autotrade_v3/dashboard/pages/p01_datasets.py       |   55 +
+ autotrade_v3/dashboard/pages/p02_strategies.py     |   96 ++
+ autotrade_v3/dashboard/pages/p03_new_run.py        |  100 ++
+ autotrade_v3/dashboard/pages/p04_run_detail.py     |  160 +++
+ .../dashboard/pages/p05_signal_explorer.py         |  161 +++
+ autotrade_v3/dashboard/pages/p06_compare.py        |   82 ++
+ autotrade_v3/dashboard/pages/p07_research_log.py   |   86 ++
+ autotrade_v3/dashboard/queries.py                  | 1360 ++++++++++++++++++++
+ autotrade_v3/dashboard/ui_shared.py                |   45 +
+ autotrade_v3/requirements-dashboard.txt            |    3 +
+ autotrade_v3/tests/test_dashboard_apptest.py       |   69 +
+ autotrade_v3/tests/test_dashboard_integration.py   |  243 ++++
+ autotrade_v3/tests/test_dashboard_mutations.py     |  132 ++
+ autotrade_v3/tests/test_dashboard_offline.py       |   65 +
+ .../tests/test_dashboard_queries_and_actions.py    |  391 ++++++
+ docs/autotrade-v3/15-dashboard.md                  |   26 +
+ evidence/v3-15/EVIDENCE_REPORT.md                  |  147 +++
+ evidence/v3-15/apptest.xml                         |    1 +
+ evidence/v3-15/capture_screens.py                  |   88 ++
+ evidence/v3-15/collect_evidence.py                 |  301 +++++
+ evidence/v3-15/data_tests/compare.log              |   62 +
+ evidence/v3-15/data_tests/datasets.log             |   33 +
+ evidence/v3-15/data_tests/new_run.log              |   53 +
+ evidence/v3-15/data_tests/research_log.log         |   84 ++
+ evidence/v3-15/data_tests/run_detail.log           |    4 +
+ evidence/v3-15/data_tests/signal_explorer.log      |   31 +
+ evidence/v3-15/data_tests/strategies.log           |   14 +
+ evidence/v3-15/junit/all.xml                       |    1 +
+ evidence/v3-15/offline.log                         |   17 +
+ evidence/v3-15/pytest_all.log                      |  Bin 0 -> 96816 bytes
+ .../screens/01_datasets_R_86b3e8b4c96cd4b6.png     |  Bin 0 -> 7460 bytes
+ .../screens/02_strategies_R_86b3e8b4c96cd4b6.png   |  Bin 0 -> 108703 bytes
+ .../screens/03_new_run_R_86b3e8b4c96cd4b6.png      |  Bin 0 -> 31432 bytes
+ .../screens/04_run_detail_R_86b3e8b4c96cd4b6.png   |  Bin 0 -> 26868 bytes
+ .../05_signal_explorer_R_86b3e8b4c96cd4b6.png      |  Bin 0 -> 28927 bytes
+ .../screens/06_compare_R_86b3e8b4c96cd4b6.png      |  Bin 0 -> 32945 bytes
+ .../screens/07_research_log_R_86b3e8b4c96cd4b6.png |  Bin 0 -> 82212 bytes
+ evidence/v3-15/signal_explorer_30.csv              |   31 +
+ evidence/v3-15/store_hash_before_after.txt         |   34 +
+ evidence/v3-15/ui_map.md                           |   35 +
+ run_dashboard.bat                                  |    9 +
+ 47 files changed, 4775 insertions(+)
+
+=== GIT STATUS --PORCELAIN ===
+?? runs/lab/cache/
+?? runs/lab/store/
