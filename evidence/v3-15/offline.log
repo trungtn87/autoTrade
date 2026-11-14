@@ -1,0 +1,17 @@
+=== B9 / AC6 OFFLINE SOCKET-BLOCKING VERIFICATION ===
+page=p01_datasets.py exceptions=0
+page=p02_strategies.py exceptions=0
+page=p03_new_run.py exceptions=0
+page=p04_run_detail.py exceptions=0
+page=p05_signal_explorer.py exceptions=0
+page=p06_compare.py exceptions=0
+page=p07_research_log.py exceptions=0
+streamlit_server_127.0.0.1:8599 http_status=200
+socket_attempts_count=7
+  socket.connect(('127.0.0.1', 50687))
+  socket.connect(('127.0.0.1', 50689))
+  socket.connect(('127.0.0.1', 50691))
+  socket.connect(('127.0.0.1', 50695))
+  socket.connect(('127.0.0.1', 50703))
+  socket.connect(('127.0.0.1', 50705))
+  socket.connect(('127.0.0.1', 50709))

@@ -1,0 +1,62 @@
+=== SCREEN 6: COMPARE DATA TEST (R_bb110ea243c8f593 vs R_d828f33604204021) ===
+{
+  "run_a": "R_bb110ea243c8f593",
+  "run_b": "R_d828f33604204021",
+  "total_signals": 5984,
+  "net_a": 410.70067524980027,
+  "net_b": 282.1934840361231,
+  "expected_delta_net": -128.50719121367717,
+  "actual_delta_net": -128.50719121367717,
+  "invariant_diff": 0.0,
+  "unexplained_count": 0,
+  "by_category": {
+    "IDENTICAL": {
+      "count": 4149,
+      "net_a": 282.1934840361231,
+      "net_b": 282.1934840361231,
+      "delta_net": 0.0
+    },
+    "DATA": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "SIGNAL": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "ENTRY": {
+      "count": 1835,
+      "net_a": 128.50719121367717,
+      "net_b": 0.0,
+      "delta_net": -128.50719121367717
+    },
+    "AMBIGUITY": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "EXIT_LOGIC": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "COST": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    },
+    "UNEXPLAINED": {
+      "count": 0,
+      "net_a": 0.0,
+      "net_b": 0.0,
+      "delta_net": 0.0
+    }
+  }
+}

@@ -1,0 +1,33 @@
+=== SCREEN 1: DATASETS DATA TEST ===
+{
+  "datasets": [
+    {
+      "name": "3Y_BTC_ETH_M1_HYBRID_PARQUET",
+      "start_utc": "2023-11-01 00:00:00",
+      "end_utc": "2026-11-01 00:00:00",
+      "symbols": [
+        "BTC-USDT",
+        "ETH-USDT"
+      ],
+      "total_candles": 3156480,
+      "symbol_candle_counts": {
+        "BTC-USDT": 1578240,
+        "ETH-USDT": 1578240
+      },
+      "partition_count": 74,
+      "dataset_hash": "a18fc2e1bf5985945fee6609847cce753cd319da74415dc23d4f4bae231487be",
+      "status": "VERIFIED_PASS",
+      "is_valid": true,
+      "gate_a1_status": "NOT_RUN",
+      "gate_a2_status": "NOT_RUN",
+      "gate_a_source": "catalog\\v3_m1_qa.json"
+    }
+  ],
+  "has_data": true
+}
+--- Provider Breakdown ---
+ symbol provider  candles   pct
+BTCUSDT  BINANCE  1576800 99.91
+BTCUSDT    BINGX     1440  0.09
+ETHUSDT  BINANCE  1576800 99.91
+ETHUSDT    BINGX     1440  0.09

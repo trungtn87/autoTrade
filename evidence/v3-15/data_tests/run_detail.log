@@ -1,0 +1,4 @@
+=== SCREEN 4: RUN DETAIL DATA TEST (queries.py vs recompute_metrics.py) ===
+run_id=R_86b3e8b4c96cd4b6 mode=BINGX_PORTFOLIO status=PARTIALLY_VERIFIED | queries_net=282.193484 indep_net=282.193484 diff_net=0.000e+00 | diff_gross=0.000e+00 diff_fees=0.000e+00 | entries=4149==4149 legs=6265==6265
+run_id=R_d828f33604204021 mode=ONE_TRADE_PER_COMBO status=PARTIALLY_VERIFIED | queries_net=282.193484 indep_net=282.193484 diff_net=0.000e+00 | diff_gross=0.000e+00 diff_fees=0.000e+00 | entries=4149==4149 legs=6265==6265
+run_id=R_bb110ea243c8f593 mode=ALL_SIGNALS status=PARTIALLY_VERIFIED | queries_net=410.700675 indep_net=410.700675 diff_net=0.000e+00 | diff_gross=0.000e+00 diff_fees=0.000e+00 | entries=5984==5984 legs=8258==8258

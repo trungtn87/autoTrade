@@ -12,6 +12,8 @@ import sys
 import time
 import urllib.request
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import duckdb
 import pandas as pd
 from streamlit.testing.v1 import AppTest
@@ -24,7 +26,7 @@ DATA_TESTS_DIR = EVIDENCE_DIR / "data_tests"
 SCREENS_DIR = EVIDENCE_DIR / "screens"
 STORE_DIR = Path("runs/lab/store")
 CATALOG_PATH = Path("catalog/research.duckdb")
-PAGES_DIR = Path("autotrade_v3/dashboard/pages")
+PAGES_DIR = (Path(__file__).resolve().parents[2] / "autotrade_v3/dashboard/pages").resolve()
 
 
 def _sha256_file(p: Path) -> str:
@@ -113,6 +115,12 @@ def write_data_tests(runs: list[dict]) -> None:
         for s in rng.sample(avail, min(k, len(avail))):
             picked.append((tag, s))
             seen.add(s)
+    if len(picked) < 30:
+        all_sids = sorted(set(legs_df["signal_id"].astype(str)))
+        avail = [s for s in all_sids if s not in seen]
+        for s in rng.sample(avail, min(30 - len(picked), len(avail))):
+            picked.append(("OTHER", s))
+            seen.add(s)
 
     se_lines = [f"=== SCREEN 5: SIGNAL EXPLORER 30 SIGNALS (run_id={rid}, seed=20261114) ==="]
     csv_rows: list[dict] = []
@@ -129,9 +137,11 @@ def write_data_tests(runs: list[dict]) -> None:
             exp_tp = leg_entry * (1.0 + tp_pct) if side == "LONG" else leg_entry * (1.0 - tp_pct)
             exp_sl = leg_entry * (1.0 - sl_pct) if side == "LONG" else leg_entry * (1.0 + sl_pct)
             m1_df = det["m1_path_df"]
+            sym = str(s_legs["symbol"].iloc[0])
+            sym_clean = sym.replace("-", "").upper()
             cat_m1 = con.execute(
-                "SELECT close FROM candles WHERE symbol = ? AND timestamp_ms >= ? AND timestamp_ms <= ? ORDER BY timestamp_ms ASC",
-                [str(s_legs["symbol"].iloc[0]), int(m1_df["time_ms"].iloc[0]), int(m1_df["time_ms"].iloc[-1])],
+                "SELECT close FROM v3_m1 WHERE (symbol = ? OR symbol = ?) AND open_ms >= ? AND open_ms <= ? ORDER BY open_ms ASC",
+                [sym, sym_clean, int(m1_df["time_ms"].iloc[0]), int(m1_df["time_ms"].iloc[-1])],
             ).df()
             m1_match = len(m1_df) == len(cat_m1) and bool((m1_df["close"].to_numpy() == cat_m1["close"].to_numpy()).all())
             entry_diff = abs(lv["entry_price"] - leg_entry)
@@ -169,11 +179,13 @@ def write_data_tests(runs: list[dict]) -> None:
         writer.writeheader()
         writer.writerows(csv_rows)
 
-    # 6. Compare
-    rids = [str(r["run_id"]) for r in runs[:2]]
-    diff_res = queries.get_compare_signal_diff(rids[0], rids[1], store_dir=STORE_DIR)
+    # 6. Compare (ALL_SIGNALS vs ONE_TRADE_PER_COMBO)
+    by_mode = {str(r["execution_mode"]): str(r["run_id"]) for r in runs}
+    ra = by_mode.get("ALL_SIGNALS", str(runs[0]["run_id"]))
+    rb = by_mode.get("ONE_TRADE_PER_COMBO", str(runs[1]["run_id"]))
+    diff_res = queries.get_compare_signal_diff(ra, rb, store_dir=STORE_DIR)
     (DATA_TESTS_DIR / "compare.log").write_text(
-        f"=== SCREEN 6: COMPARE DATA TEST ({rids[0]} vs {rids[1]}) ===\n"
+        f"=== SCREEN 6: COMPARE DATA TEST ({ra} vs {rb}) ===\n"
         + json.dumps(diff_res["summary"], indent=2)
         + "\n",
         encoding="utf-8",

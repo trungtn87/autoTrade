@@ -1,0 +1,53 @@
+=== SCREEN 3: NEW RUN OPTIONS DATA TEST ===
+{
+  "strategies": [
+    "20FINAL@1"
+  ],
+  "modes": [
+    "ALL_SIGNALS",
+    "ONE_TRADE_PER_COMBO",
+    "BINGX_PORTFOLIO"
+  ],
+  "ambiguity_policies": [
+    "CONSERVATIVE",
+    "OPTIMISTIC",
+    "OHLC_PATH",
+    "LEGACY"
+  ],
+  "symbols": [
+    "BTC-USDT",
+    "ETH-USDT"
+  ],
+  "cost_profiles": [
+    {
+      "name": "IDEAL",
+      "status": "CONFIRMED",
+      "source": "Golden V3-08/V3-12 baseline (0.05% taker fee, zero spread/slippage/funding)",
+      "profile_hash": "c670e9dc806a8b0477846bebd36486bad7ecf3917f21096febda5c913563bf5b",
+      "selectable_for_real_data": true
+    },
+    {
+      "name": "BASE",
+      "status": "UNCONFIRMED",
+      "source": "",
+      "profile_hash": "ac514a946ed407d297a51d63d59671f96f294e44be759a75de8d0c7cbffbea24",
+      "selectable_for_real_data": false
+    },
+    {
+      "name": "STRESS",
+      "status": "UNCONFIRMED",
+      "source": "",
+      "profile_hash": "55b026a5fd079dbc1df457951e74a79363c331af263c2303aa750de6dd554ef6",
+      "selectable_for_real_data": false
+    },
+    {
+      "name": "TEST_ONLY",
+      "status": "TEST_ONLY",
+      "source": "Synthetic unit and integration tests only; rejected on real M1 data",
+      "profile_hash": "bb99433666dbf41e57b93246682ac61f05f9d2e3c7e94352ae721d08858a6aaf",
+      "selectable_for_real_data": false
+    }
+  ],
+  "annotation_sources": [],
+  "catalog_exists": true
+}
