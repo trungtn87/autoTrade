@@ -1,0 +1,344 @@
+"""Pure M1 leg execution engine — single source of truth for exit rules."""
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+from autotrade_v3.engine.candle_loader import datetime_index_to_ms
+from autotrade_v3.sim.types import ExitRules, LegOutcome, LegSpec, M1BarArrays
+
+
+def extract_m1_arrays(bars_m1: pd.DataFrame) -> M1BarArrays:
+    """Extract contiguous numpy arrays from an M1 DataFrame once per symbol."""
+    t_ms = datetime_index_to_ms(bars_m1.index)
+    opens = bars_m1["open"].to_numpy(dtype=float) if "open" in bars_m1 else None
+    highs = bars_m1["high"].to_numpy(dtype=float)
+    lows = bars_m1["low"].to_numpy(dtype=float)
+    closes = bars_m1["close"].to_numpy(dtype=float)
+    providers = (
+        bars_m1["provider"].to_numpy()
+        if "provider" in bars_m1
+        else np.array(["BINANCE"] * len(bars_m1))
+    )
+    return M1BarArrays(
+        t_ms=t_ms,
+        opens=opens,
+        highs=highs,
+        lows=lows,
+        closes=closes,
+        index=bars_m1.index,
+        providers=providers,
+        n_bars=len(bars_m1),
+    )
+
+
+def _simulate_fixed_leg(
+    arrays: M1BarArrays,
+    entry_idx: int,
+    entry_price: float,
+    is_buy: bool,
+    leg_spec: LegSpec,
+    exit_rules: ExitRules,
+    force_close_before_exit_on_final_bar: bool,
+) -> LegOutcome:
+    tp_price = entry_price * (1.0 + exit_rules.tp_pct) if is_buy else entry_price * (1.0 - exit_rules.tp_pct)
+    sl_price = entry_price * (1.0 - exit_rules.sl_pct) if is_buy else entry_price * (1.0 + exit_rules.sl_pct)
+
+    opens = arrays.opens
+    highs = arrays.highs
+    lows = arrays.lows
+    closes = arrays.closes
+    n_bars = arrays.n_bars
+
+    ambiguous = False
+    exit_price = 0.0
+    exit_reason = ""
+    exit_bar_idx = n_bars - 1
+
+    for i in range(entry_idx, n_bars):
+        if force_close_before_exit_on_final_bar and i == n_bars - 1:
+            exit_bar_idx = i
+            exit_price = float(closes[i])
+            exit_reason = "FORCE_CLOSE"
+            break
+
+        if exit_rules.max_bars_held is not None and (i - entry_idx) >= exit_rules.max_bars_held:
+            exit_price = float(opens[i]) if opens is not None else float(closes[i])
+            exit_reason = "MAX_BARS_HELD"
+            exit_bar_idx = i
+            break
+
+        if i > entry_idx and opens is not None:
+            op = float(opens[i])
+            if is_buy:
+                if op <= sl_price:
+                    exit_price = op
+                    exit_reason = "SL"
+                    exit_bar_idx = i
+                    break
+                elif op >= tp_price:
+                    exit_price = op
+                    exit_reason = "TP"
+                    exit_bar_idx = i
+                    break
+            else:
+                if op >= sl_price:
+                    exit_price = op
+                    exit_reason = "SL"
+                    exit_bar_idx = i
+                    break
+                elif op <= tp_price:
+                    exit_price = op
+                    exit_reason = "TP"
+                    exit_bar_idx = i
+                    break
+
+        h = float(highs[i])
+        l = float(lows[i])
+
+        if is_buy:
+            hit_tp = h >= tp_price
+            hit_sl = l <= sl_price
+        else:
+            hit_tp = l <= tp_price
+            hit_sl = h >= sl_price
+
+        if hit_tp and hit_sl:
+            ambiguous = True
+            exit_price = sl_price
+            exit_reason = "SL_INTRABAR_AMBIGUOUS"
+            exit_bar_idx = i
+            break
+        elif hit_sl:
+            exit_price = sl_price
+            exit_reason = "SL"
+            exit_bar_idx = i
+            break
+        elif hit_tp:
+            exit_price = tp_price
+            exit_reason = "TP"
+            exit_bar_idx = i
+            break
+    else:
+        exit_bar_idx = n_bars - 1
+        exit_price = float(closes[exit_bar_idx])
+        exit_reason = "FORCE_CLOSE"
+
+    return LegOutcome(
+        leg_id=leg_spec.leg_id,
+        trade_id=leg_spec.trade_id,
+        leg_type=leg_spec.leg_type,
+        entry_idx=entry_idx,
+        exit_bar_idx=exit_bar_idx,
+        entry_price=entry_price,
+        exit_price=exit_price,
+        exit_reason=exit_reason,
+        bars_held=exit_bar_idx - entry_idx,
+        intrabar_ambiguous=ambiguous,
+        intrabar_trailing_ambiguous=False,
+    )
+
+
+def _simulate_trailing_leg(
+    arrays: M1BarArrays,
+    entry_idx: int,
+    entry_price: float,
+    is_buy: bool,
+    leg_spec: LegSpec,
+    exit_rules: ExitRules,
+    force_close_before_exit_on_final_bar: bool,
+) -> LegOutcome:
+    sl_price = entry_price * (1.0 - exit_rules.sl_pct) if is_buy else entry_price * (1.0 + exit_rules.sl_pct)
+    act_price = (
+        entry_price * (1.0 + exit_rules.trailing_act_pct)
+        if is_buy
+        else entry_price * (1.0 - exit_rules.trailing_act_pct)
+    )
+    cb_pct = exit_rules.trailing_cb_pct
+
+    opens = arrays.opens
+    highs = arrays.highs
+    lows = arrays.lows
+    closes = arrays.closes
+    n_bars = arrays.n_bars
+
+    trail_active = False
+    trail_stop = sl_price
+    peak_price = entry_price
+
+    exit_bar_idx = n_bars - 1
+    exit_price = 0.0
+    exit_reason = ""
+    ambiguous = False
+    trailing_ambiguous = False
+
+    for i in range(entry_idx, n_bars):
+        if force_close_before_exit_on_final_bar and i == n_bars - 1:
+            exit_bar_idx = i
+            exit_price = float(closes[i])
+            exit_reason = "FORCE_CLOSE"
+            break
+
+        if exit_rules.max_bars_held is not None and (i - entry_idx) >= exit_rules.max_bars_held:
+            exit_price = float(opens[i]) if opens is not None else float(closes[i])
+            exit_reason = "MAX_BARS_HELD"
+            exit_bar_idx = i
+            break
+
+        effective_stop = trail_stop if trail_active else sl_price
+
+        if i > entry_idx and opens is not None:
+            op = float(opens[i])
+            if is_buy and op <= effective_stop:
+                exit_price = op
+                exit_reason = "TRAIL" if trail_active else "SL"
+                exit_bar_idx = i
+                break
+            elif not is_buy and op >= effective_stop:
+                exit_price = op
+                exit_reason = "TRAIL" if trail_active else "SL"
+                exit_bar_idx = i
+                break
+
+        h = float(highs[i])
+        l = float(lows[i])
+        trailing_ambiguous = False
+
+        if is_buy:
+            if not trail_active:
+                if l <= sl_price and h >= act_price:
+                    ambiguous = True
+                    exit_price = sl_price
+                    exit_reason = "SL_INTRABAR_AMBIGUOUS"
+                    exit_bar_idx = i
+                    break
+                elif h >= act_price:
+                    trail_active = True
+                    peak_price = h
+                    trail_stop = max(sl_price, peak_price * (1.0 - cb_pct))
+                    if l <= trail_stop:
+                        trailing_ambiguous = True
+                        exit_price = trail_stop
+                        exit_reason = "TRAIL"
+                        exit_bar_idx = i
+                        break
+                elif l <= sl_price:
+                    exit_price = sl_price
+                    exit_reason = "SL"
+                    exit_bar_idx = i
+                    break
+            else:
+                if l <= trail_stop:
+                    exit_price = trail_stop
+                    exit_reason = "TRAIL"
+                    exit_bar_idx = i
+                    break
+                elif h > peak_price:
+                    peak_price = h
+                    new_stop = max(trail_stop, peak_price * (1.0 - cb_pct))
+                    trail_stop = new_stop
+                    if l <= new_stop:
+                        trailing_ambiguous = True
+                        exit_price = new_stop
+                        exit_reason = "TRAIL"
+                        exit_bar_idx = i
+                        break
+        else:
+            if not trail_active:
+                if h >= sl_price and l <= act_price:
+                    ambiguous = True
+                    exit_price = sl_price
+                    exit_reason = "SL_INTRABAR_AMBIGUOUS"
+                    exit_bar_idx = i
+                    break
+                elif l <= act_price:
+                    trail_active = True
+                    peak_price = l
+                    trail_stop = min(sl_price, peak_price * (1.0 + cb_pct))
+                    if h >= trail_stop:
+                        trailing_ambiguous = True
+                        exit_price = trail_stop
+                        exit_reason = "TRAIL"
+                        exit_bar_idx = i
+                        break
+                elif h >= sl_price:
+                    exit_price = sl_price
+                    exit_reason = "SL"
+                    exit_bar_idx = i
+                    break
+            else:
+                if h >= trail_stop:
+                    exit_price = trail_stop
+                    exit_reason = "TRAIL"
+                    exit_bar_idx = i
+                    break
+                elif l < peak_price:
+                    peak_price = l
+                    new_stop = min(trail_stop, peak_price * (1.0 + cb_pct))
+                    trail_stop = new_stop
+                    if h >= new_stop:
+                        trailing_ambiguous = True
+                        exit_price = new_stop
+                        exit_reason = "TRAIL"
+                        exit_bar_idx = i
+                        break
+    else:
+        exit_bar_idx = n_bars - 1
+        exit_price = float(closes[exit_bar_idx])
+        exit_reason = "FORCE_CLOSE"
+
+    return LegOutcome(
+        leg_id=leg_spec.leg_id,
+        trade_id=leg_spec.trade_id,
+        leg_type=leg_spec.leg_type,
+        entry_idx=entry_idx,
+        exit_bar_idx=exit_bar_idx,
+        entry_price=entry_price,
+        exit_price=exit_price,
+        exit_reason=exit_reason,
+        bars_held=exit_bar_idx - entry_idx,
+        intrabar_ambiguous=ambiguous,
+        intrabar_trailing_ambiguous=trailing_ambiguous,
+    )
+
+
+def simulate_leg(
+    bars_m1: pd.DataFrame | M1BarArrays,
+    entry_idx: int,
+    entry_price: float,
+    side: str,
+    leg_spec: LegSpec,
+    exit_rules: ExitRules,
+    *,
+    force_close_before_exit_on_final_bar: bool = False,
+) -> LegOutcome:
+    """Simulate a single leg over M1 bars starting at ``entry_idx``.
+
+    Pure function: contains the sole implementation of M1 exit rules
+    (fixed TP/SL, trailing activation/peak/callback, gap open, intrabar
+    SL-first ambiguity, MAX_BARS_HELD, and FORCE_CLOSE).
+    """
+    arrays = bars_m1 if isinstance(bars_m1, M1BarArrays) else extract_m1_arrays(bars_m1)
+    if entry_idx < 0 or entry_idx >= arrays.n_bars:
+        raise IndexError(f"entry_idx {entry_idx} out of range for {arrays.n_bars} M1 bars")
+
+    is_buy = side.upper() == "BUY"
+    if leg_spec.is_trailing:
+        return _simulate_trailing_leg(
+            arrays=arrays,
+            entry_idx=entry_idx,
+            entry_price=entry_price,
+            is_buy=is_buy,
+            leg_spec=leg_spec,
+            exit_rules=exit_rules,
+            force_close_before_exit_on_final_bar=force_close_before_exit_on_final_bar,
+        )
+    return _simulate_fixed_leg(
+        arrays=arrays,
+        entry_idx=entry_idx,
+        entry_price=entry_price,
+        is_buy=is_buy,
+        leg_spec=leg_spec,
+        exit_rules=exit_rules,
+        force_close_before_exit_on_final_bar=force_close_before_exit_on_final_bar,
+    )
