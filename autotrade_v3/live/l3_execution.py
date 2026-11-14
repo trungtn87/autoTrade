@@ -98,7 +98,7 @@ class L3Executor:
         self._pending_claims: dict[str, dict] = {}
         self._lock = threading.Lock()
         self.results: list[dict] = []
-        self.on_settled = None   # optional callback after an Entry attempt finished; never blocks or gates trading
+        self.on_settled = None   # optional hook (wired to the L4 leftover cleanup) after an Entry attempt; never blocks or gates trading
 
     # ------------------------------------------------------------------
     def submit(self, sig: V3Signal) -> threading.Thread:

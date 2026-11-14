@@ -1,4 +1,4 @@
-"""L3 LEFTOVER: cancel the protection orders a combo no longer needs, and ONLY those.
+"""L4 LEFTOVER: cancel the protection orders a combo no longer needs, and ONLY those.
 
 A combo is closed when the sum of the fills of its OWN exit orders equals its own
 Entry fill (exact decimal). Only then are the protection legs (SL/TP/trailing)
@@ -18,7 +18,9 @@ Hard rules (Owner decisions, 2026-11-14):
 
 Mode ``V3_LEFTOVER_CLEANUP_MODE``: ``live`` (default, Owner decision 2026-11-14) |
 ``shadow`` (decide and record what WOULD be cancelled, send no DELETE) | ``off``.
-L4 stays read-only; this module is part of L3 and is the only V3 code that cancels.
+Owner decision (2026-11-14): all leftover handling (reads, decision, cancel, log) lives in L4.
+L3 only sends orders; this module is the only V3 code that cancels. Future fixes and
+extensions of this behaviour go here.
 """
 from __future__ import annotations
 
@@ -34,7 +36,7 @@ from .l4_control import ACTIVE, FILLED, NOT_FOUND, TERMINAL_UNFILLED, UNKNOWN
 from .sanitize import clean, clean_text
 from .transport import BingXApiError
 
-log = logging.getLogger("autotrade_v3.leftover")
+log = logging.getLogger("autotrade_v3.l4.leftover")
 
 TYPES = {"sl": "STOP_MARKET", "tp": "TAKE_PROFIT_MARKET", "trailing": "TRAILING_STOP_MARKET"}
 LEG_COLUMNS = (("sl", "sl_order_id"), ("tp", "tp_order_id"), ("trailing", "trailing_order_id"))
@@ -112,7 +114,7 @@ class LeftoverCleaner:
         except Exception as exc:
             with self._guard:
                 self._running = False
-            self.control.report("L3", "leftover_start", f"Không khởi động được dọn lệnh thừa: {exc}")
+            self.control.report("L4", "leftover_start", f"Không khởi động được dọn lệnh thừa: {exc}")
 
     def _loop(self, reason: str) -> None:
         try:
@@ -129,7 +131,7 @@ class LeftoverCleaner:
             with self._guard:
                 self._running = False
             log.exception("V3_LEFTOVER_LOOP_FAILED")
-            self.control.report("L3", "leftover_loop", f"Dọn lệnh thừa gặp lỗi nội bộ: {type(exc).__name__}: {exc}")
+            self.control.report("L4", "leftover_loop", f"Dọn lệnh thừa gặp lỗi nội bộ: {type(exc).__name__}: {exc}")
 
     def _wait_idle(self) -> None:
         """Let every in-flight Entry/protection finish first: its SL/TP POSTs go before our GETs."""
@@ -151,7 +153,7 @@ class LeftoverCleaner:
                 since = datetime.fromtimestamp(self._now_ms() / 1000 - LOOKBACK_DAYS * 86400, tz=timezone.utc)
                 rows = self.store.executions_for_cleanup(since)
             except Exception as exc:
-                self.control.report("L3", "leftover_candidates", f"Không đọc được danh sách lệnh cần dọn: {exc}")
+                self.control.report("L4", "leftover_candidates", f"Không đọc được danh sách lệnh cần dọn: {exc}")
                 summary["state"] = "failed"
                 self.last = summary
                 return summary
@@ -163,7 +165,7 @@ class LeftoverCleaner:
                 try:
                     open_rows = self.client.get_open_orders(symbol)
                 except Exception as exc:
-                    self.control.report("L3", "leftover_open_orders",
+                    self.control.report("L4", "leftover_open_orders",
                                         f"GET openOrders {symbol} thất bại; không dọn gì: {type(exc).__name__}: {clean_text(exc, 300)}",
                                         symbol=symbol, error_code=getattr(exc, "code", None))
                     continue
@@ -177,7 +179,7 @@ class LeftoverCleaner:
                         summary["executions"][ex["event_id"]] = self._handle(ex, open_by_id)
                     except Exception as exc:
                         log.exception("V3_LEFTOVER_EXEC_FAILED event_id=%s", ex.get("event_id"))
-                        self.control.report("L3", "leftover_exec", f"Lỗi nội bộ khi dọn lệnh {ex.get('event_id')}: "
+                        self.control.report("L4", "leftover_exec", f"Lỗi nội bộ khi dọn lệnh {ex.get('event_id')}: "
                                             f"{type(exc).__name__}: {exc}", symbol=ex.get("symbol"), event_id=ex.get("event_id"))
                         summary["executions"][ex["event_id"]] = "internal_error"
             summary["state"] = "completed"
@@ -284,11 +286,11 @@ class LeftoverCleaner:
         try:
             self.client.cancel_order(symbol, order_id=leg_id)
         except BingXApiError as exc:
-            self.control.report("L3", "leftover_cancel", f"BingX trả lỗi khi hủy {kind.upper()} {leg_id}: mã {exc.code} — {exc.message}."
+            self.control.report("L4", "leftover_cancel", f"BingX trả lỗi khi hủy {kind.upper()} {leg_id}: mã {exc.code} — {exc.message}."
                                 " Sẽ GET lại để biết đã khớp, đã hủy hay còn mở.", symbol=symbol, event_id=ex.get("event_id"),
                                 order_id=leg_id, error_code=exc.code)
         except Exception as exc:
-            self.control.report("L3", "leftover_cancel", f"Phản hồi hủy {kind.upper()} {leg_id} bị mất: {type(exc).__name__}. "
+            self.control.report("L4", "leftover_cancel", f"Phản hồi hủy {kind.upper()} {leg_id} bị mất: {type(exc).__name__}. "
                                 "Không giả định đã hủy; kiểm tra bằng GET.", symbol=symbol, event_id=ex.get("event_id"),
                                 order_id=leg_id)
         ev = self.reader.confirm_order(symbol, order_id=leg_id)
@@ -299,10 +301,10 @@ class LeftoverCleaner:
             return True
         if ev.status == FILLED:
             state["legs"][leg_id] = {"status": "TERMINAL", "executed": str(ev.executed_qty_raw), "source": "filled_during_cancel"}
-            self.control.report("L3", "leftover_cancel", f"Chân {kind.upper()} {leg_id} đã KHỚP trong lúc hủy; cần đối soát khối lượng",
+            self.control.report("L4", "leftover_cancel", f"Chân {kind.upper()} {leg_id} đã KHỚP trong lúc hủy; cần đối soát khối lượng",
                                 symbol=symbol, event_id=ex.get("event_id"), order_id=leg_id, error_code="LEFTOVER_FILLED_DURING_CANCEL")
             return False
-        self.control.report("L3", "leftover_cancel", f"Chưa xác nhận được hủy {kind.upper()} {leg_id}: BingX GET trả {ev.status}"
+        self.control.report("L4", "leftover_cancel", f"Chưa xác nhận được hủy {kind.upper()} {leg_id}: BingX GET trả {ev.status}"
                             f"{' — ' + ev.error if ev.error else ''}", symbol=symbol, event_id=ex.get("event_id"), order_id=leg_id,
                             error_code=ev.error_code)
         return False
@@ -431,7 +433,7 @@ class LeftoverCleaner:
         try:
             self.store.update_execution(ex["event_id"], {"raw_protection": raw})
         except Exception as exc:
-            self.control.report("L3", "leftover_persist", f"Không ghi được trạng thái dọn lệnh: {exc}",
+            self.control.report("L4", "leftover_persist", f"Không ghi được trạng thái dọn lệnh: {exc}",
                                 symbol=ex.get("symbol"), event_id=ex.get("event_id"))
 
     def _warn_once(self, ex, state, key: str, message: str, *, order_id=None, quiet: bool = False) -> None:
@@ -441,14 +443,14 @@ class LeftoverCleaner:
         if quiet:
             self._note(ex, "leftover_observation", message, order_id=order_id)
         else:
-            self.control.report("L3", "leftover_cleanup", message, symbol=ex.get("symbol"), event_id=ex.get("event_id"),
+            self.control.report("L4", "leftover_cleanup", message, symbol=ex.get("symbol"), event_id=ex.get("event_id"),
                                 order_id=order_id, error_code=key.split(":")[0])
 
     def _note(self, ex, step: str, message: str, *, order_id=None, details=None) -> None:
         """A control_logs row WITHOUT an ERROR alert: information, not a fault."""
         log.warning("V3_LEFTOVER step=%s event_id=%s order_id=%s %s", step, ex.get("event_id"), order_id, message)
         try:
-            self.store.insert_control_log({"layer": "L3", "step": step, "message": clean_text(message), "symbol": ex.get("symbol"),
+            self.store.insert_control_log({"layer": "L4", "step": step, "message": clean_text(message), "symbol": ex.get("symbol"),
                                            "event_id": ex.get("event_id"), "order_id": str(order_id) if order_id else None,
                                            "error_code": None, "details": clean(details or {}), "discord_status": "skipped"})
         except Exception as exc:
