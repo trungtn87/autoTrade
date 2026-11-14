@@ -83,13 +83,10 @@ def _effective_validation_status(
     manifest: dict[str, Any],
     validation: dict[str, Any] | None,
 ) -> tuple[str, bool]:
-    """Return (validation_status, is_synthetic) strictly from validation.json/manifest."""
+    """Return (validation_status, is_synthetic) using validation.json as the single source of truth."""
     is_synthetic = bool(manifest.get("smoke_test", False) or manifest.get("synthetic", False))
-    raw_status = ""
     if validation is not None and validation.get("overall_status"):
         raw_status = str(validation["overall_status"])
-    elif manifest.get("validation_status"):
-        raw_status = str(manifest["validation_status"])
     else:
         raw_status = "UNVERIFIED"
 
@@ -524,7 +521,7 @@ def list_store_runs(store_dir: str | Path = DEFAULT_STORE_DIR) -> list[dict[str,
                         "strategy_version": str(m.get("strategy_version", "")),
                         "cost_profile": str(m.get("cost_profile", "")),
                         "ambiguity_policy": str(m.get("ambiguity_policy", "")),
-                        "validation_status": str(m.get("validation_status", "UNVERIFIED")),
+                        "validation_status": "UNVERIFIED",
                         "source": str(m.get("source", "V3")),
                         "dataset_hash": str(m.get("dataset_hash", "")),
                         "spec_hash": str(m.get("spec_hash", "")),

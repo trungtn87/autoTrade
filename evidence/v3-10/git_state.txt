@@ -1,0 +1,32 @@
+﻿# V3-10 Git State (bo sung hau kiem ngay 2026-11-15)
+branch: feat/v3-10-validation-gates
+head_sha: 011d081ac84668211cd48ed497781904ce8eefd2
+base_sha: 0e9ee21ec249820b403021caa8e446ae6b01000c
+
+=== GIT LOG ===
+011d081 fix(v3-10): resolve final review findings on PR #101
+9bdf127 test(validation): handle missing M1 environment in CI per Invariant N8
+ba4b5bf fix(v3-10): resolve all final review blockers and restore golden evidence
+2b107eb fix(v3-10): resolve P1/P2 review findings and align with V3-09
+2c5b76c Merge origin/main into feat/v3-10-validation-gates (preserving V3-09 changes)
+c9f62d7 test(validation): add tests, mutations suite, and evidence artifacts for V3-10
+f54de61 refactor(lab): replace legacy gates with independent 12-gate runner and remove REAL_DATA_PASS
+e129b92 feat(validation): implement validation runner and CLI verify command
+97c7cf8 feat(validation): implement independent exit replay engine for Gate C3
+a082509 feat(validation): implement Gate C (C1, C2, C4, C5)
+b8d0676 feat(validation): implement Gate B (B1, B2, B3)
+dee1291 feat(validation): implement validation framework, Gate A (A1, A2) and Gate D (D1, D2)
+
+=== PROTECTED DIFF (autotrade_v2) ===
+
+=== GIT STATUS (current worktree) ===
+ M autotrade_v3/dashboard/queries.py
+ M autotrade_v3/runstore/index.py
+ M autotrade_v3/tests/test_reporting_corrections_v309.py
+ M autotrade_v3/tools/scan_hardcoded_metrics.py
+ M autotrade_v3/validation/gates_c.py
+?? evidence/v3-10/git_state.txt
+?? runs/lab/cache/
+?? runs/lab/dashboard_actions.log
+?? runs/lab/dataset_verify_last.json
+?? runs/lab/store/

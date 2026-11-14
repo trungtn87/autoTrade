@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -797,13 +798,15 @@ class TestReportingAndPFCorrections:
 
         scanner_tool = REPO_ROOT / "autotrade_v3" / "tools" / "scan_hardcoded_metrics.py"
 
+        scanner_env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+
         # Case 1: total_legs = 6265
         c1 = tmp_path / "mutant_legs.py"
         c1.write_text("def render():\n    total_legs = 6265\n    return total_legs\n", encoding="utf-8")
         v1 = scan_for_hardcoded_metrics([c1])
         assert len(v1) >= 1
         assert any(v.rule_name == "HARDCODED_METRIC_ASSIGNMENT" and "total_legs" in v.description for v in v1)
-        r1 = subprocess.run([sys.executable, str(scanner_tool), str(c1)], capture_output=True, text=True)
+        r1 = subprocess.run([sys.executable, str(scanner_tool), str(c1)], capture_output=True, text=True, encoding="utf-8", errors="replace", env=scanner_env)
         assert r1.returncode != 0
         assert "HARDCODED_METRIC_ASSIGNMENT" in r1.stdout
 
@@ -813,7 +816,7 @@ class TestReportingAndPFCorrections:
         v2 = scan_for_hardcoded_metrics([c2])
         assert len(v2) >= 1
         assert any(v.rule_name == "HARDCODED_METRIC_ASSIGNMENT" and "net_pnl" in v.description for v in v2)
-        r2 = subprocess.run([sys.executable, str(scanner_tool), str(c2)], capture_output=True, text=True)
+        r2 = subprocess.run([sys.executable, str(scanner_tool), str(c2)], capture_output=True, text=True, encoding="utf-8", errors="replace", env=scanner_env)
         assert r2.returncode != 0
         assert "net_pnl" in r2.stdout
 
@@ -823,7 +826,7 @@ class TestReportingAndPFCorrections:
         v3 = scan_for_hardcoded_metrics([c3])
         assert len(v3) >= 1
         assert any(v.rule_name == "HARDCODED_METRIC_STRING" for v in v3)
-        r3 = subprocess.run([sys.executable, str(scanner_tool), str(c3)], capture_output=True, text=True)
+        r3 = subprocess.run([sys.executable, str(scanner_tool), str(c3)], capture_output=True, text=True, encoding="utf-8", errors="replace", env=scanner_env)
         assert r3.returncode != 0
         assert "HARDCODED_METRIC_STRING" in r3.stdout
 
@@ -833,7 +836,7 @@ class TestReportingAndPFCorrections:
         v4 = scan_for_hardcoded_metrics([c4])
         assert len(v4) >= 1
         assert any(v.rule_name == "HARDCODED_METRIC_ASSIGNMENT" and "total_signals" in v.description for v in v4)
-        r4 = subprocess.run([sys.executable, str(scanner_tool), str(c4)], capture_output=True, text=True)
+        r4 = subprocess.run([sys.executable, str(scanner_tool), str(c4)], capture_output=True, text=True, encoding="utf-8", errors="replace", env=scanner_env)
         assert r4.returncode != 0
         assert "total_signals" in r4.stdout
 
@@ -850,7 +853,7 @@ class TestReportingAndPFCorrections:
         v5 = scan_for_hardcoded_metrics([c5])
         assert len(v5) >= 1
         assert any(v.rule_name == "STATIC_MARKDOWN_TABLE" for v in v5)
-        r5 = subprocess.run([sys.executable, str(scanner_tool), str(c5)], capture_output=True, text=True)
+        r5 = subprocess.run([sys.executable, str(scanner_tool), str(c5)], capture_output=True, text=True, encoding="utf-8", errors="replace", env=scanner_env)
         assert r5.returncode != 0
         assert "STATIC_MARKDOWN_TABLE" in r5.stdout
 
@@ -860,7 +863,7 @@ class TestReportingAndPFCorrections:
         v6 = scan_for_hardcoded_metrics([c6])
         assert len(v6) >= 1
         assert any(v.rule_name == "HARDCODED_TEST_PASS_CLAIM" for v in v6)
-        r6 = subprocess.run([sys.executable, str(scanner_tool), str(c6)], capture_output=True, text=True)
+        r6 = subprocess.run([sys.executable, str(scanner_tool), str(c6)], capture_output=True, text=True, encoding="utf-8", errors="replace", env=scanner_env)
         assert r6.returncode != 0
         assert "HARDCODED_TEST_PASS_CLAIM" in r6.stdout
 
@@ -870,7 +873,7 @@ class TestReportingAndPFCorrections:
         v7 = scan_for_hardcoded_metrics([c7])
         assert len(v7) >= 1
         assert any(v.rule_name == "HARDCODED_PERCENTAGE_CLAIM" for v in v7)
-        r7 = subprocess.run([sys.executable, str(scanner_tool), str(c7)], capture_output=True, text=True)
+        r7 = subprocess.run([sys.executable, str(scanner_tool), str(c7)], capture_output=True, text=True, encoding="utf-8", errors="replace", env=scanner_env)
         assert r7.returncode != 0
         assert "HARDCODED_PERCENTAGE_CLAIM" in r7.stdout
 
@@ -889,7 +892,7 @@ class TestReportingAndPFCorrections:
         )
         v_clean = scan_for_hardcoded_metrics([clean_cfg])
         assert len(v_clean) == 0, f"Valid strategy parameters must not be flagged: {v_clean}"
-        r_clean = subprocess.run([sys.executable, str(scanner_tool), str(clean_cfg)], capture_output=True, text=True)
+        r_clean = subprocess.run([sys.executable, str(scanner_tool), str(clean_cfg)], capture_output=True, text=True, encoding="utf-8", errors="replace", env=scanner_env)
         assert r_clean.returncode == 0
 
         # Legacy case: File with legacy classification header is exempted from default scan

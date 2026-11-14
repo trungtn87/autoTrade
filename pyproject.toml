@@ -28,3 +28,12 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "autotrade_v3/tests/*" = ["F821"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = false
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["pandas", "pandas.*", "pyarrow", "pyarrow.*", "plotly", "plotly.*"]
+ignore_missing_imports = true

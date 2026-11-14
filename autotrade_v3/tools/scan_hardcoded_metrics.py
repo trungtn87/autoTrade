@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 import sys
+from typing import Sequence
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -181,7 +182,7 @@ def scan_file(file_path: Path, scan_legacy: bool = False) -> list[HardcodeViolat
 
 
 def scan_for_hardcoded_metrics(
-    paths: list[str | Path] | None = None,
+    paths: Sequence[str | Path] | None = None,
     scan_legacy: bool = False,
 ) -> list[HardcodeViolation]:
     """Scan given paths (files or directories) for hardcoded trading metrics."""
@@ -201,6 +202,9 @@ def scan_for_hardcoded_metrics(
 
 
 def main(argv: list[str] | None = None) -> int:
+    for s in (sys.stdout, sys.stderr):
+        if hasattr(s, "reconfigure"):
+            s.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(
         description="Scan active AutoTrade V3 reporting code for hardcoded backtest metrics (AC5/Invariant N5)"
     )

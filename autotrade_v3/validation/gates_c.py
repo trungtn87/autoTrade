@@ -136,7 +136,7 @@ def _load_cost_spec(ctx: VerifyContext, manifest: dict[str, Any]) -> dict[str, A
     prof_name = manifest.get("cost_profile")
     prof_hash = manifest.get("cost_profile_hash")
     fallback_slip_bps = float(manifest.get("slippage_rate", 0.0)) * 10000.0
-    fallback = {
+    fallback: dict[str, Any] = {
         "profile_name": prof_name,
         "hash_mismatch": False,
         "half_spread_bps": 0.0,
@@ -169,9 +169,10 @@ def _load_cost_spec(ctx: VerifyContext, manifest: dict[str, Any]) -> dict[str, A
         json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
     hash_mismatch = bool(prof_hash and prof_hash != actual_hash)
-    vals = canonical["values"]
+    vals: dict[str, Any] = dict(canonical["values"])  # type: ignore[arg-type]
     cfg = dict(vals.get("default") or vals)
     slip_map = dict(cfg.get("slippage_bps") or {})
+    _fee_taker_val = cfg.get("fee_taker")
     return {
         "profile_name": prof_name,
         "hash_mismatch": hash_mismatch,
@@ -184,7 +185,7 @@ def _load_cost_spec(ctx: VerifyContext, manifest: dict[str, Any]) -> dict[str, A
             "stop": float(slip_map.get("stop", fallback_slip_bps)),
             "trailing_stop": float(slip_map.get("trailing_stop", fallback_slip_bps)),
         },
-        "fee_taker": float(cfg.get("fee_taker", fallback["fee_taker"])),
+        "fee_taker": float(_fee_taker_val if _fee_taker_val is not None else fallback["fee_taker"]),
         "fee_maker": float(cfg.get("fee_maker", 0.0)),
         "maker_order_types": {str(x).lower() for x in (cfg.get("maker_order_types") or ())},
     }
@@ -395,7 +396,7 @@ def gate_c2(ctx: VerifyContext) -> GateResult:
             if sp is not None:
                 for key in POLICY_KEYS:
                     a, b = sp.get(key), p[key]
-                    same = (list(a) == list(b)) if isinstance(b, (tuple, list)) else (
+                    same = (list(a or ()) == list(b)) if isinstance(b, (tuple, list)) else (
                         _none_or_eq(a, b) if not isinstance(b, bool) else a == b)
                     if not same:
                         ex("POLICY_SIGNAL_COPY", field=key, signal=str(a), strategy=str(b))
@@ -529,6 +530,7 @@ def gate_c4(ctx: VerifyContext) -> GateResult:
     initial = float(manifest.get("initial_equity", 0.0))
     portfolio = ctx.mode == "BINGX_PORTFOLIO"
     notes: list[str] = []
+    c4_subchecks: dict[str, str] = {}
     if n:
         need = {"leg_id", "entry_price", "exit_price", "qty", "notional", "gross_pnl", "fee_total", "net_pnl", "side", "return_pct"}
         if not need <= set(trades.columns):
@@ -577,22 +579,94 @@ def gate_c4(ctx: VerifyContext) -> GateResult:
         if len(bad):
             viol.add_many(len(bad), [{"leg_id": lid[i], "kind": "NET_NE_GROSS_MINUS_FEE"} for i in bad[:20]])
 
-        # V3-13 itemized cost invariant check (when cost columns exist and are populated)
+        # V3-13 itemized cost invariant & Mode C dual-basis checks
         cost_cols = {"gross_pnl_raw", "fee_entry", "fee_exit", "spread_cost", "slippage_cost", "funding_cost"}
         if cost_cols <= set(trades.columns):
-            target_net = trades["pnl_own_entry"].to_numpy(dtype=float) if "pnl_own_entry" in trades.columns else led_net
-            if not portfolio or "pnl_own_entry" in trades.columns:
-                raw_recomp = (
-                    trades["gross_pnl_raw"].to_numpy(dtype=float)
-                    - trades["fee_entry"].to_numpy(dtype=float)
-                    - trades["fee_exit"].to_numpy(dtype=float)
-                    - trades["spread_cost"].to_numpy(dtype=float)
-                    - trades["slippage_cost"].to_numpy(dtype=float)
-                    - trades["funding_cost"].to_numpy(dtype=float)
-                )
+            raw_recomp = (
+                trades["gross_pnl_raw"].to_numpy(dtype=float)
+                - trades["fee_entry"].to_numpy(dtype=float)
+                - trades["fee_exit"].to_numpy(dtype=float)
+                - trades["spread_cost"].to_numpy(dtype=float)
+                - trades["slippage_cost"].to_numpy(dtype=float)
+                - trades["funding_cost"].to_numpy(dtype=float)
+            )
+            if portfolio:
+                if "pnl_own_entry" not in trades.columns:
+                    viol.add({"kind": "MISSING_PNL_OWN_ENTRY", "detail": "Mode C requires pnl_own_entry"})
+                    c4_subchecks["NET_COST_INVARIANT_OWN"] = "FAIL"
+                else:
+                    own_arr = trades["pnl_own_entry"].to_numpy(dtype=float)
+                    bad_inv = np.nonzero(np.abs(own_arr - raw_recomp) > 1e-9)[0]
+                    if len(bad_inv):
+                        viol.add_many(len(bad_inv), [{"leg_id": lid[i], "kind": "NET_COST_INVARIANT_OWN"} for i in bad_inv[:20]])
+                        c4_subchecks["NET_COST_INVARIANT_OWN"] = "FAIL"
+                    else:
+                        c4_subchecks["NET_COST_INVARIANT_OWN"] = "PASS"
+
+                if "pnl_vwap" not in trades.columns:
+                    viol.add({"kind": "MISSING_PNL_VWAP", "detail": "Mode C requires pnl_vwap"})
+                    c4_subchecks["NET_IS_VWAP_BASIS"] = "FAIL"
+                else:
+                    vwap_arr = trades["pnl_vwap"].to_numpy(dtype=float)
+                    bad_vwap = np.nonzero(np.abs(led_net - vwap_arr) > 1e-9)[0]
+                    if len(bad_vwap):
+                        viol.add_many(len(bad_vwap), [{"leg_id": lid[i], "kind": "NET_IS_VWAP_BASIS"} for i in bad_vwap[:20]])
+                        c4_subchecks["NET_IS_VWAP_BASIS"] = "FAIL"
+                    else:
+                        c4_subchecks["NET_IS_VWAP_BASIS"] = "PASS"
+
+                if "pnl_own_entry" in trades.columns and "pnl_vwap" in trades.columns:
+                    basis_shift = trades["pnl_vwap"].to_numpy(dtype=float) - trades["pnl_own_entry"].to_numpy(dtype=float)
+                    bs_ok = True
+                    run_bs = float(np.sum(basis_shift))
+                    if abs(run_bs) > 1e-6:
+                        viol.add({"kind": "BASIS_SHIFT_CONSERVATION", "scope": "run", "basis_shift_sum": run_bs})
+                        bs_ok = False
+                    bs_df = trades[["symbol", "side", "entry_time_ms", "exit_time_ms"]].copy()
+                    bs_df["_basis_shift"] = basis_shift
+                    for sym, sym_sum in bs_df.groupby("symbol")["_basis_shift"].sum().items():
+                        if abs(float(sym_sum)) > 1e-6:
+                            viol.add({"kind": "BASIS_SHIFT_CONSERVATION", "scope": f"symbol:{sym}", "basis_shift_sum": float(sym_sum)})
+                            bs_ok = False
+                    for (sym, side), grp in bs_df.groupby(["symbol", "side"]):
+                        g = grp.sort_values(["entry_time_ms", "exit_time_ms"])
+                        cur_end = -1
+                        cur_sum = 0.0
+                        for row_en, row_ex, row_bs in zip(
+                            g["entry_time_ms"].astype("int64"),
+                            g["exit_time_ms"].astype("int64"),
+                            g["_basis_shift"].astype(float),
+                        ):
+                            if cur_end < 0 or row_en <= cur_end:
+                                cur_end = max(cur_end, row_ex)
+                                cur_sum += row_bs
+                            else:
+                                if abs(cur_sum) > 1e-6:
+                                    viol.add({"kind": "BASIS_SHIFT_CONSERVATION", "scope": f"position:{sym}:{side}", "basis_shift_sum": cur_sum})
+                                    bs_ok = False
+                                cur_end = row_ex
+                                cur_sum = row_bs
+                        if cur_end >= 0 and abs(cur_sum) > 1e-6:
+                            viol.add({"kind": "BASIS_SHIFT_CONSERVATION", "scope": f"position:{sym}:{side}", "basis_shift_sum": cur_sum})
+                            bs_ok = False
+                    c4_subchecks["BASIS_SHIFT_CONSERVATION"] = "PASS" if bs_ok else "FAIL"
+                else:
+                    c4_subchecks["BASIS_SHIFT_CONSERVATION"] = "FAIL"
+            else:
+                target_net = trades["pnl_own_entry"].to_numpy(dtype=float) if "pnl_own_entry" in trades.columns else led_net
                 bad_inv = np.nonzero(np.abs(target_net - raw_recomp) > 1e-9)[0]
+                if "pnl_own_entry" in trades.columns:
+                    bad_net = np.nonzero(np.abs(led_net - raw_recomp) > 1e-9)[0]
+                    if len(bad_net):
+                        viol.add_many(len(bad_net), [{"leg_id": lid[i], "kind": "NET_COST_INVARIANT"} for i in bad_net[:20]])
                 if len(bad_inv):
-                    viol.add_many(len(bad_inv), [{"leg_id": lid[i], "kind": "NET_COST_INVARIANT"} for i in bad_inv[:20]])
+                    viol.add_many(len(bad_inv), [{"leg_id": lid[i], "kind": "NET_COST_INVARIANT_OWN"} for i in bad_inv[:20]])
+                    c4_subchecks["NET_COST_INVARIANT_OWN"] = "FAIL"
+                else:
+                    c4_subchecks["NET_COST_INVARIANT_OWN"] = "PASS"
+                c4_subchecks["NET_IS_VWAP_BASIS"] = "N/A"
+                c4_subchecks["BASIS_SHIFT_CONSERVATION"] = "N/A"
+
             bad_fe = np.nonzero(
                 np.abs(trades["fee_entry"].to_numpy(dtype=float) + trades["fee_exit"].to_numpy(dtype=float) - led_fee) > 1e-9
             )[0]
@@ -649,7 +723,7 @@ def gate_c4(ctx: VerifyContext) -> GateResult:
         tol = 1e-4 + 2e-7 * n
         if abs(final_eq - want) > tol:
             viol.add({"kind": "FINAL_EQUITY", "snapshot_equity": final_eq, "initial_plus_sum_net": want})
-    return finalize("C4", name, n, n, viol, reason="", details={"notes": notes, "mode": ctx.mode})
+    return finalize("C4", name, n, n, viol, reason="", details={"notes": notes, "mode": ctx.mode, "c4_subchecks": c4_subchecks})
 
 
 # ------------------------------------------------------------------------------------------

@@ -40,6 +40,9 @@ def _extract_row(run_dir: Path) -> tuple[Any, ...] | None:
     m = json.loads(manifest_p.read_text(encoding="utf-8"))
     analysis_p = run_dir / "analysis.json"
     a = json.loads(analysis_p.read_text(encoding="utf-8")) if analysis_p.exists() else {}
+    val_p = run_dir / "validation.json"
+    v = json.loads(val_p.read_text(encoding="utf-8")) if val_p.exists() else {}
+    val_status = str(v.get("overall_status") or "UNVERIFIED")
     pnl = a.get("pnl", {})
     return (
         str(m.get("run_id", run_dir.name)),
@@ -49,7 +52,7 @@ def _extract_row(run_dir: Path) -> tuple[Any, ...] | None:
         str(m.get("strategy_version", "")),
         str(m.get("cost_profile", "")),
         str(m.get("ambiguity_policy", "")),
-        str(m.get("validation_status", "")),
+        val_status,
         str(m.get("source", "V3")),
         str(m.get("signal_source", "")),
         str(m.get("dataset_hash", "")),
