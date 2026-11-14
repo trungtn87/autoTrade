@@ -1,0 +1,115 @@
+=== BRANCH ===
+feat/v3-13-costs-ambiguity
+=== HEAD ===
+25b76931bbdb092c4ede7d9cf09ab5dfa2cea0a6
+=== BASE ===
+ad74e292d9b781e4cc60503fd05e2cafab3208c4
+=== LOG ===
+25b7693 fix(v3-13): preserve V3-08 report/D2 backward compatibility
+d8f849d feat(v3-13): update D2 validation for V3-13 fields and add golden v3-13 + evidence
+03ec6b1 feat(v3-13): add CLI --cost-profile/--ambiguity-policy, uncertainty cmd, and report breakdown
+3af2928 feat(v3-13): add Mode C two-column PnL, accounting invariant, mmr warning, and simulation_limits
+2d4b1b5 feat(v3-13): update C2/C3/C4 and independent replay for costs and ambiguity policies
+d9b6556 feat(v3-13): add 4 intrabar ambiguity policies and unit tests
+8c54055 chore(v3-13): parity checkpoint IDEAL+LEGACY vs golden v3-12 and B3 sensitivity reproduction
+a4b7555 feat(v3-13): add CostModel, cost_profiles.json, and itemized cost columns
+=== PROTECTED_DIFF ===
+(empty)
+=== FULL_DIFF_STAT ===
+autotrade_v3/analysis/research_analyzer.py         |    21 +-
+ autotrade_v3/cli.py                                |   162 +
+ autotrade_v3/engine/execution_simulator.py         |    20 +
+ autotrade_v3/engine/risk_manager.py                |    12 +-
+ autotrade_v3/lab/experiment.py                     |    27 +-
+ autotrade_v3/lab/run_manager.py                    |    47 +-
+ autotrade_v3/sim/account.py                        |    79 +-
+ autotrade_v3/sim/ambiguity.py                      |   281 +
+ autotrade_v3/sim/cost_profiles.json                |    56 +
+ autotrade_v3/sim/costs.py                          |   359 +
+ autotrade_v3/sim/engine.py                         |   170 +-
+ autotrade_v3/sim/leg.py                            |   225 +-
+ autotrade_v3/sim/types.py                          |     2 +
+ autotrade_v3/tests/test_sim_ambiguity.py           |   186 +
+ autotrade_v3/tests/test_sim_costs.py               |   164 +
+ autotrade_v3/tests/test_sim_mode_c_accounting.py   |   127 +
+ autotrade_v3/tests/test_sim_v313_integration.py    |    75 +
+ autotrade_v3/validation/gates_c.py                 |   173 +-
+ autotrade_v3/validation/gates_d.py                 |    65 +-
+ autotrade_v3/validation/replay.py                  |   133 +-
+ docs/autotrade-v3/13-cost-calibration-method.md    |    44 +
+ docs/autotrade-v3/13-intrabar-policy.md            |    18 +
+ .../v3-13/conservative_vs_legacy/ALL_SIGNALS.csv   |     1 +
+ .../conservative_vs_legacy/BINGX_PORTFOLIO.csv     |     1 +
+ .../conservative_vs_legacy/ONE_TRADE_PER_COMBO.csv |     1 +
+ evidence/v3-13/margin_scenarios.log                |     3 +
+ evidence/v3-13/mode_c_accounting.log               |    13 +
+ evidence/v3-13/mutation_tests.log                  |     7 +
+ evidence/v3-13/parity_ideal_legacy/ALL_SIGNALS.txt |    10 +
+ .../v3-13/parity_ideal_legacy/BINGX_PORTFOLIO.txt  |    10 +
+ .../parity_ideal_legacy/ONE_TRADE_PER_COMBO.txt    |    10 +
+ evidence/v3-13/sensitivity/s0.log                  |     6 +
+ evidence/v3-13/sensitivity/s1.log                  |     6 +
+ evidence/v3-13/sensitivity/s3.log                  |     6 +
+ evidence/v3-13/sensitivity/s5.log                  |     6 +
+ evidence/v3-13/sensitivity_reproduction.md         |    12 +
+ evidence/v3-13/summary_metrics.json                |   107 +
+ evidence/v3-13/uncertainty/ALL_SIGNALS.json        |   517 +
+ .../v3-13/uncertainty/ALL_SIGNALS_signal_ids.txt   |   493 +
+ evidence/v3-13/uncertainty/BINGX_PORTFOLIO.json    |   523 +
+ .../uncertainty/BINGX_PORTFOLIO_signal_ids.txt     |   499 +
+ .../v3-13/uncertainty/ONE_TRADE_PER_COMBO.json     |   491 +
+ .../uncertainty/ONE_TRADE_PER_COMBO_signal_ids.txt |   467 +
+ evidence/v3-13/verify/ALL_SIGNALS/validation.json  |   556 +
+ .../v3-13/verify/BINGX_PORTFOLIO/validation.json   |   556 +
+ .../verify/ONE_TRADE_PER_COMBO/validation.json     |   556 +
+ runs/golden/v3-13/ALL_SIGNALS/ARTIFACTS.json       |    62 +
+ runs/golden/v3-13/ALL_SIGNALS/analysis.json        |  1941 ++
+ runs/golden/v3-13/ALL_SIGNALS/execution_events.csv | 16517 ++++++++++++++
+ .../v3-13/ALL_SIGNALS/execution_events.parquet     |   Bin 0 -> 929670 bytes
+ .../golden/v3-13/ALL_SIGNALS/rejected_signals.json |     1 +
+ .../v3-13/ALL_SIGNALS/rejected_signals.parquet     |   Bin 0 -> 5692 bytes
+ runs/golden/v3-13/ALL_SIGNALS/report.md            |   104 +
+ runs/golden/v3-13/ALL_SIGNALS/run_manifest.json    |    50 +
+ .../v3-13/ALL_SIGNALS/signal_decisions.parquet     |   Bin 0 -> 210072 bytes
+ runs/golden/v3-13/ALL_SIGNALS/signals.csv          |  5985 +++++
+ runs/golden/v3-13/ALL_SIGNALS/signals.parquet      |   Bin 0 -> 364669 bytes
+ runs/golden/v3-13/ALL_SIGNALS/skipped_signals.json |     1 +
+ .../v3-13/ALL_SIGNALS/skipped_signals.parquet      |   Bin 0 -> 4411 bytes
+ runs/golden/v3-13/ALL_SIGNALS/trades.csv           |  8259 +++++++
+ runs/golden/v3-13/ALL_SIGNALS/trades.parquet       |   Bin 0 -> 1048787 bytes
+ runs/golden/v3-13/ALL_SIGNALS/validation.json      |   556 +
+ runs/golden/v3-13/BINGX_PORTFOLIO/ARTIFACTS.json   |    70 +
+ runs/golden/v3-13/BINGX_PORTFOLIO/analysis.json    |  1941 ++
+ .../v3-13/BINGX_PORTFOLIO/execution_events.csv     | 12531 +++++++++++
+ .../v3-13/BINGX_PORTFOLIO/execution_events.parquet |   Bin 0 -> 736595 bytes
+ .../v3-13/BINGX_PORTFOLIO/rejected_signals.json    |     1 +
+ .../v3-13/BINGX_PORTFOLIO/rejected_signals.parquet |   Bin 0 -> 5692 bytes
+ runs/golden/v3-13/BINGX_PORTFOLIO/report.md        |   106 +
+ .../golden/v3-13/BINGX_PORTFOLIO/run_manifest.json |    59 +
+ .../v3-13/BINGX_PORTFOLIO/signal_decisions.parquet |   Bin 0 -> 222118 bytes
+ runs/golden/v3-13/BINGX_PORTFOLIO/signals.csv      |  5985 +++++
+ runs/golden/v3-13/BINGX_PORTFOLIO/signals.parquet  |   Bin 0 -> 364669 bytes
+ .../v3-13/BINGX_PORTFOLIO/skipped_signals.json     | 22022 +++++++++++++++++++
+ .../v3-13/BINGX_PORTFOLIO/skipped_signals.parquet  |   Bin 0 -> 56421 bytes
+ runs/golden/v3-13/BINGX_PORTFOLIO/trades.csv       |  6266 ++++++
+ runs/golden/v3-13/BINGX_PORTFOLIO/trades.parquet   |   Bin 0 -> 852229 bytes
+ runs/golden/v3-13/BINGX_PORTFOLIO/validation.json  |   556 +
+ .../v3-13/ONE_TRADE_PER_COMBO/ARTIFACTS.json       |    62 +
+ .../golden/v3-13/ONE_TRADE_PER_COMBO/analysis.json |  1941 ++
+ .../v3-13/ONE_TRADE_PER_COMBO/execution_events.csv | 12531 +++++++++++
+ .../ONE_TRADE_PER_COMBO/execution_events.parquet   |   Bin 0 -> 704698 bytes
+ .../ONE_TRADE_PER_COMBO/rejected_signals.json      |     1 +
+ .../ONE_TRADE_PER_COMBO/rejected_signals.parquet   |   Bin 0 -> 5692 bytes
+ runs/golden/v3-13/ONE_TRADE_PER_COMBO/report.md    |   104 +
+ .../v3-13/ONE_TRADE_PER_COMBO/run_manifest.json    |    50 +
+ .../ONE_TRADE_PER_COMBO/signal_decisions.parquet   |   Bin 0 -> 222118 bytes
+ runs/golden/v3-13/ONE_TRADE_PER_COMBO/signals.csv  |  5985 +++++
+ .../v3-13/ONE_TRADE_PER_COMBO/signals.parquet      |   Bin 0 -> 364669 bytes
+ .../v3-13/ONE_TRADE_PER_COMBO/skipped_signals.json | 22022 +++++++++++++++++++
+ .../ONE_TRADE_PER_COMBO/skipped_signals.parquet    |   Bin 0 -> 56421 bytes
+ runs/golden/v3-13/ONE_TRADE_PER_COMBO/trades.csv   |  6266 ++++++
+ .../v3-13/ONE_TRADE_PER_COMBO/trades.parquet       |   Bin 0 -> 809693 bytes
+ .../v3-13/ONE_TRADE_PER_COMBO/validation.json      |   556 +
+ runs/golden/v3-13/SHA256SUMS.txt                   |    49 +
+ runs/golden/v3-13/dataset_manifest.json            |   470 +
+ 96 files changed, 140246 insertions(+), 107 deletions(-)
