@@ -12,6 +12,7 @@ from pathlib import Path
 
 FORBIDDEN_PREFIXES = (
     "autotrade_v3.engine.execution_simulator",
+    "autotrade_v3.sim",
     "autotrade_v3.analysis",
     "autotrade_v3.lab",
     "autotrade_v2",

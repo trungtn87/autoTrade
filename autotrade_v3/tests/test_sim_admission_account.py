@@ -137,7 +137,6 @@ def test_unfillable_signal_at_end_of_data() -> None:
     sig_late = _make_sig("S_LATE", "BTC-USDT", 1, last_open_ms)
     sim = UnifiedSimulator(
         risk_config=RiskConfig(slippage_rate=0.0),
-        allow_legacy_entry_fallback=False,
     )
     for mode in ("ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"):
         res = sim.run(mode=mode, signals=[sig_late], candle_dict={"BTC-USDT": df})

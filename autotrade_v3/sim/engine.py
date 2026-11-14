@@ -149,7 +149,6 @@ class UnifiedSimulator:
         trailing_act_pct: float = 0.005,
         trailing_cb_pct: float = 0.005,
         *,
-        allow_legacy_entry_fallback: bool = True,
         strict_mode_b_same_bar: bool = False,
         force_close_before_exit_on_final_bar_mode_c: bool = True,
     ) -> None:
@@ -157,7 +156,6 @@ class UnifiedSimulator:
         self.final14_exit_mode = final14_exit_mode
         self.trailing_act_pct = trailing_act_pct
         self.trailing_cb_pct = trailing_cb_pct
-        self.allow_legacy_entry_fallback = allow_legacy_entry_fallback
         self.strict_mode_b_same_bar = strict_mode_b_same_bar
         self.force_close_before_exit_on_final_bar_mode_c = force_close_before_exit_on_final_bar_mode_c
 
@@ -186,19 +184,11 @@ class UnifiedSimulator:
         self,
         sig: Signal,
         arrays: M1BarArrays,
-        pos_map: dict[int, int] | None,
     ) -> int | None:
         earliest_exec_ms = sig.signal_close_ms + 1
         entry_idx = int(np.searchsorted(arrays.t_ms, earliest_exec_ms))
-        if entry_idx < arrays.n_bars:
+        if 0 <= entry_idx < arrays.n_bars:
             return entry_idx
-        if self.allow_legacy_entry_fallback and pos_map is not None:
-            if hasattr(sig, "bar_open_ms") and sig.bar_open_ms in pos_map:
-                return pos_map[sig.bar_open_ms]
-            if sig.signal_close_ms in pos_map:
-                return pos_map[sig.signal_close_ms]
-            if 0 <= getattr(sig, "bar_position", -1) < arrays.n_bars:
-                return sig.bar_position
         return None
 
     def _run_virtual_mode(
@@ -212,11 +202,6 @@ class UnifiedSimulator:
             if canonical_mode == "ALL_SIGNALS"
             else OneTradePerCombo(strict_same_bar=self.strict_mode_b_same_bar)
         )
-        pos_maps = {
-            sym: {int(ts): i for i, ts in enumerate(arr.t_ms)}
-            for sym, arr in arrays_by_sym.items()
-        }
-
         trades: list[TradeRecord] = []
         events: list[ExecutionEvent] = []
         decisions: list[SignalDecision] = []
@@ -226,24 +211,23 @@ class UnifiedSimulator:
         for sig in sorted_signals:
             sig_id = _resolve_signal_id(sig)
             arr = arrays_by_sym.get(sig.symbol)
-            entry_idx = self._find_entry_idx(sig, arr, pos_maps.get(sig.symbol)) if arr is not None else None
+            entry_idx = self._find_entry_idx(sig, arr) if arr is not None else None
 
             if arr is None or entry_idx is None or entry_idx < 0 or entry_idx >= arr.n_bars:
-                if not self.allow_legacy_entry_fallback:
-                    decisions.append(
-                        SignalDecision(
-                            signal_id=sig_id,
-                            symbol=sig.symbol,
-                            combo_id=sig.combo_id,
-                            combo_name=sig.combo_name,
-                            timeframe=sig.timeframe,
-                            side=sig.side,
-                            signal_close_ms=sig.signal_close_ms,
-                            signal_close_dt=str(sig.signal_close_dt),
-                            status="UNFILLABLE",
-                            reason="NO_M1_BAR_AFTER_SIGNAL",
-                        )
+                decisions.append(
+                    SignalDecision(
+                        signal_id=sig_id,
+                        symbol=sig.symbol,
+                        combo_id=sig.combo_id,
+                        combo_name=sig.combo_name,
+                        timeframe=sig.timeframe,
+                        side=sig.side,
+                        signal_close_ms=sig.signal_close_ms,
+                        signal_close_dt=str(sig.signal_close_dt),
+                        status="UNFILLABLE",
+                        reason="NO_M1_BAR_AFTER_SIGNAL",
                     )
+                )
                 continue
 
             entry_time_ms = int(arr.t_ms[entry_idx])
@@ -458,26 +442,25 @@ class UnifiedSimulator:
             sig_id = _resolve_signal_id(sig)
             earliest_exec_ms = sig.signal_close_ms + 1
             if sig.symbol not in arrays_by_sym or earliest_exec_ms < first_ts or earliest_exec_ms > last_ts:
-                if not self.allow_legacy_entry_fallback:
-                    decisions.append(
-                        SignalDecision(
-                            signal_id=sig_id,
-                            symbol=sig.symbol,
-                            combo_id=sig.combo_id,
-                            combo_name=sig.combo_name,
-                            timeframe=sig.timeframe,
-                            side=sig.side,
-                            signal_close_ms=sig.signal_close_ms,
-                            signal_close_dt=str(sig.signal_close_dt),
-                            status="UNFILLABLE",
-                            reason="NO_M1_BAR_AFTER_SIGNAL",
-                        )
+                decisions.append(
+                    SignalDecision(
+                        signal_id=sig_id,
+                        symbol=sig.symbol,
+                        combo_id=sig.combo_id,
+                        combo_name=sig.combo_name,
+                        timeframe=sig.timeframe,
+                        side=sig.side,
+                        signal_close_ms=sig.signal_close_ms,
+                        signal_close_dt=str(sig.signal_close_dt),
+                        status="UNFILLABLE",
+                        reason="NO_M1_BAR_AFTER_SIGNAL",
                     )
+                )
                 continue
             idx = int(np.searchsorted(t_ms_array, earliest_exec_ms))
             if 0 <= idx < n_bars:
                 signals_by_bar.setdefault(idx, []).append(sig)
-            elif not self.allow_legacy_entry_fallback:
+            else:
                 decisions.append(
                     SignalDecision(
                         signal_id=sig_id,

@@ -92,7 +92,8 @@ class TestResearchLab12Checks(unittest.TestCase):
         sim = ExecutionSimulator()
         res_a = sim.simulate_research_mode("ALL_SIGNALS", sigs, {"ETH-USDT": df_m1})
         self.assertEqual(len(res_a.skipped_signals), 0, "Mode A must NEVER skip signals due to concurrency")
-        self.assertEqual(res_a.accepted_trades_count, len(sigs))
+        unfillable_a = sum(1 for d in res_a.signal_decisions if d.status == "UNFILLABLE")
+        self.assertEqual(res_a.accepted_trades_count + unfillable_a, len(sigs))
 
     # 5. ONE_TRADE_PER_COMBO skips concurrent signals
     def test_05_one_trade_per_combo_skips_concurrency(self):
@@ -106,7 +107,8 @@ class TestResearchLab12Checks(unittest.TestCase):
         self.assertGreater(len(res_b.skipped_signals), 0, "Mode B must skip overlapping signals")
         for sk in res_b.skipped_signals:
             self.assertEqual(sk["reason"], "SKIPPED_BY_CONCURRENCY")
-        self.assertEqual(res_b.accepted_trades_count + len(res_b.skipped_signals), len(sigs))
+        unfillable_b = sum(1 for d in res_b.signal_decisions if d.status == "UNFILLABLE")
+        self.assertEqual(res_b.accepted_trades_count + len(res_b.skipped_signals) + unfillable_b, len(sigs))
 
     # 6. BINGX_PORTFOLIO manages margin and merged positions
     def test_06_bingx_portfolio_margin_and_merged_positions(self):

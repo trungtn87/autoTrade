@@ -1475,7 +1475,6 @@ class ExecutionSimulator:
             final14_exit_mode=self.final14_exit_mode,
             trailing_act_pct=self.trailing_act_pct,
             trailing_cb_pct=self.trailing_cb_pct,
-            allow_legacy_entry_fallback=True,
             strict_mode_b_same_bar=False,
             force_close_before_exit_on_final_bar_mode_c=True,
         )
