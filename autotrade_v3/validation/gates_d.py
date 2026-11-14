@@ -300,6 +300,11 @@ def recompute_analysis(
                 "net_profit_factor": c_pfs["net_pf_leg"],
                 "gross_profit_factor": c_pfs["gross_pf_leg"],
             }
+            if "fee_entry" in t.columns:
+                c_own = float(g["pnl_own_entry"].sum()) if "pnl_own_entry" in g.columns else c_net
+                c_dict["pnl_own_entry_unrounded"] = c_own
+                c_dict["pnl_own_entry"] = round(c_own, 4)
+                c_dict["pnl_attribution_basis"] = "pnl_own_entry" if mode == "BINGX_PORTFOLIO" else "net_pnl"
             if signals_df is not None and {"symbol", "combo_name"} <= set(signals_df.columns):
                 c_dict["signals"] = int(((signals_df["symbol"] == g["symbol"].iloc[0]) & (signals_df["combo_name"] == g["combo_name"].iloc[0])).sum())
             combos.append(c_dict)
@@ -469,12 +474,39 @@ def recompute_analysis(
         "ambiguity": {
             "intrabar_tp_sl_ambiguous_count": int(t["intrabar_ambiguous"].sum()) if "intrabar_ambiguous" in t.columns else 0,
             "intrabar_trailing_ambiguous_count": int(t["intrabar_trailing_ambiguous"].sum()) if "intrabar_trailing_ambiguous" in t.columns else 0,
+            **(
+                {
+                    "by_type": {
+                        atype: int((t["ambiguity_type"].fillna("") == atype).sum())
+                        for atype in ("TP_AND_SL", "SL_AND_TRAIL_ACT", "TRAIL_ACT_AND_CB", "TRAIL_PEAK_AND_STOP")
+                    }
+                }
+                if "ambiguity_type" in t.columns
+                else {}
+            ),
         },
         "symbols": symbols,
         "combos": combos,
         "monthly": monthly,
         "subwindows": sub_out,
         "exit_reasons": exit_reasons,
+        **(
+            {
+                "execution_costs": {
+                    "cost_profile": str(manifest.get("cost_profile", "")),
+                    "cost_profile_hash": str(manifest.get("cost_profile_hash", "")),
+                    "gross_pnl_raw": round(float(t["gross_pnl_raw"].sum()), 4) if "gross_pnl_raw" in t.columns and legs else 0.0,
+                    "fee_entry": round(float(t["fee_entry"].sum()), 4) if legs else 0.0,
+                    "fee_exit": round(float(t["fee_exit"].sum()), 4) if "fee_exit" in t.columns and legs else 0.0,
+                    "spread_cost": round(float(t["spread_cost"].sum()), 4) if "spread_cost" in t.columns and legs else 0.0,
+                    "slippage_cost": round(float(t["slippage_cost"].sum()), 4) if "slippage_cost" in t.columns and legs else 0.0,
+                    "funding_cost": round(float(t["funding_cost"].sum()), 4) if "funding_cost" in t.columns and legs else 0.0,
+                    "net_pnl": round(net_u, 4),
+                }
+            }
+            if "fee_entry" in t.columns
+            else {}
+        ),
     }
 
     if is_v309:
@@ -730,10 +762,25 @@ def _verify_report(text: str, exp: dict[str, Any], manifest: dict[str, Any], vio
             check_tokens(line.split(":", 1)[1], "skipped", [acct["skipped_by_concurrency"]])
         elif line.startswith("- Rejected by Margin:"):
             check_tokens(line.split(":", 1)[1], "rejected", [acct["rejected_by_margin"]])
+        elif line.startswith("- Gross PnL (Fill):"):
+            check_tokens(line.split(":", 1)[1], "gross_pnl_fill", [pnl.get("gross_pnl_unrounded", pnl["gross_pnl"])])
+        elif line.startswith("- Gross PnL (Raw/Trigger):"):
+            ec = exp.get("execution_costs", {})
+            check_tokens(line.split(":", 1)[1], "gross_pnl_raw", [ec.get("gross_pnl_raw", pnl.get("gross_pnl_unrounded", pnl["gross_pnl"]))])
         elif line.startswith("- Gross PnL:"):
             check_tokens(line.split(":", 1)[1], "gross_pnl", [pnl.get("gross_pnl_unrounded", pnl["gross_pnl"])])
+        elif line.startswith("- Entry Fee:"):
+            ec = exp.get("execution_costs", {})
+            fe = ec.get("fee_entry", 0.0)
+            fx = ec.get("fee_exit", 0.0)
+            check_tokens(line, "entry_exit_fees", [fe, fx, fe + fx])
+        elif line.startswith("- Spread Cost:"):
+            ec = exp.get("execution_costs", {})
+            check_tokens(line, "spread_slip_fund", [ec.get("spread_cost", 0.0), ec.get("slippage_cost", 0.0), ec.get("funding_cost", 0.0)])
         elif line.startswith("- Total Fees"):
             check_tokens(line, "total_fees", [fee_pct, pnl.get("total_fees_unrounded", pnl["total_fees"])])
+        elif line.startswith("- Net PnL ("):
+            check_tokens(line.split(":", 1)[1], "net_pnl_profile", [pnl.get("net_pnl_unrounded", pnl["net_pnl"])])
         elif line.startswith("- Net PnL:"):
             check_tokens(line.split(":", 1)[1], "net_pnl", [pnl.get("net_pnl_unrounded", pnl["net_pnl"])])
         elif line.startswith("- ROI ("):
@@ -842,7 +889,9 @@ def _verify_report(text: str, exp: dict[str, Any], manifest: dict[str, Any], vio
                         viol.add({"line": "symbol_table_header", "kind": "TABLE_HEADER_MISMATCH", "actual": cells})
                 elif cells[0] == "Combo Key":
                     expected_combo_cols = ["Combo Key", "Symbol", "ID", "Name", "Timeframe", "Entries", "Legs", "Net PnL", "Win Rate", "Net PF (Leg)", "Net PF (Trade)"]
-                    if cells != expected_combo_cols:
+                    expected_combo_cols_own = ["Combo Key", "Symbol", "ID", "Name", "Timeframe", "Entries", "Legs", "Net PnL (own_entry)", "Win Rate", "Net PF (Leg)", "Net PF (Trade)"]
+                    is_mode_c_own = str(manifest.get("execution_mode", "")) == "BINGX_PORTFOLIO" and any("pnl_own_entry_unrounded" in row for row in combo_rows.values())
+                    if not (cells == expected_combo_cols or (is_mode_c_own and cells == expected_combo_cols_own)):
                         viol.add({"line": "combo_table_header", "kind": "TABLE_HEADER_MISMATCH", "actual": cells})
                 elif cells[0] == "Exit Reason":
                     expected_exit_cols = ["Exit Reason", "Count", "Pct of Legs", "Gross PnL", "Net PnL"]
@@ -879,7 +928,10 @@ def _verify_report(text: str, exp: dict[str, Any], manifest: dict[str, Any], vio
                         check_tokens(cell, f"{cells[0]}.pf", [e])
             elif in_combo_table and cells[0] in combo_rows:
                 c = combo_rows[cells[0]]
-                c_net = c.get("net_pnl_unrounded", c["net_pnl"])
+                if c.get("pnl_attribution_basis") == "pnl_own_entry" and "pnl_own_entry_unrounded" in c:
+                    c_net = c["pnl_own_entry_unrounded"]
+                else:
+                    c_net = c.get("net_pnl_unrounded", c["net_pnl"])
                 # Columns: Combo Key | Symbol | ID | Name | Timeframe | Entries | Legs | Net PnL | Win Rate | Net PF (Leg) | Net PF (Trade)
                 if len(cells) >= 11:
                     exp_nums = [c["combo_id"], c["entries"], c["legs"], c_net, c["win_rate_pct"]]

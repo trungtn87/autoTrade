@@ -1,0 +1,13 @@
+Commit SHA: 03ec6b1e30e450780461208a14c1c9252b860205
+Run Dir: runs/golden/v3-13/BINGX_PORTFOLIO
+Total Legs: 6265
+AC2 Max |pnl_own_entry - (gross_pnl_raw - all_costs)|: 0.000e+00
+Mode C Accounting Invariant: {
+  "passed": true,
+  "max_group_diff": 8.952838470577262e-13,
+  "mismatched_groups": [],
+  "expected_final_equity": 1282.193484036123,
+  "actual_final_equity": 1282.1935,
+  "equity_diff": 1.5963877103786217e-05
+}
+Simulation Limits Keys: ['contract_lot_and_tick_rounding', 'exchange_mark_and_liquidation_price', 'exchange_rejected_protective_orders', 'funding_rate', 'intrabar_price_order', 'order_placement_latency', 'orderbook_depth_and_real_slippage', 'partial_fills']

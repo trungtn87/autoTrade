@@ -1,0 +1,7 @@
+Commit SHA: 03ec6b1e30e450780461208a14c1c9252b860205
+M1 (slippage_cost mutated without net_pnl): C4=FAIL violations=[{'leg_id': 'SIG_BTCUSDT_C11_1h_BUY_1701860399999#L1', 'kind': 'NET_COST_INVARIANT'}]
+M2 (SL exit_px_fill reverted to trigger): C3=FAIL violations=[{'leg_id': 'SIG_ETHUSDT_C12_1h_BUY_1701892799999#L1', 'signal_id': 'SIG_ETHUSDT_C12_1h_BUY_1701892799999', 'problems': 'EXIT_PRICE', 'ledger_exit_reason': 'SL', 'replay_exit_reason': 'SL', 'ledger_exit_time_ms': 1701909060000, 'replay_exit_time_ms': 1701909060000}]
+M3 (SYNTHETIC OPTIMISTIC run labeled CONSERVATIVE; control C3=PASS): C3=FAIL violations=[{'leg_id': 'SYNTH_M3_001#L1', 'signal_id': 'SYNTH_M3_001', 'problems': 'EXIT_REASON,EXIT_PRICE', 'ledger_exit_reason': 'TP', 'replay_exit_reason': 'SL_INTRABAR_AMBIGUOUS', 'ledger_exit_time_ms': 1704067320000, 'replay_exit_time_ms': 1704067320000}]
+M4 (Mode C pnl_vwap mutated by +1.0): invariant_passed=False max_group_diff=0.9999999999991331
+M5 (cost_profiles.json mutated keeping name IDEAL): C4=FAIL violations=[{'kind': 'COST_PROFILE_HASH_MISMATCH', 'cost_profile': 'IDEAL', 'manifest_hash': 'c670e9dc806a8b0477846bebd36486bad7ecf3917f21096febda5c913563bf5b', 'expected_hash': 'e735abcdc4a8d0e985d16f657d92e04d01324e1e633fce28b353adf297ea03c8'}]
+M6 (favorable slippage direction): pytest_exit=1

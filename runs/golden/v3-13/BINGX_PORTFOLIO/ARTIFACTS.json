@@ -1,0 +1,70 @@
+{
+  "mode": "BINGX_PORTFOLIO",
+  "generated_at_utc": "2026-11-14T13:24:02.929175+00:00",
+  "artifacts": {
+    "run_manifest.json": {
+      "file_name": "run_manifest.json",
+      "size_bytes": 2694,
+      "sha256": "556749e98419821cb5336aff4755b7ae36760c22ad082bac73f03f971d334dce",
+      "content_hash": "556749e98419821cb5336aff4755b7ae36760c22ad082bac73f03f971d334dce",
+      "row_count": null
+    },
+    "analysis.json": {
+      "file_name": "analysis.json",
+      "size_bytes": 63182,
+      "sha256": "6db716b91059a59e839cf37c2395072983eaf202bd1b2d4d22593eb04cacca17",
+      "content_hash": "6db716b91059a59e839cf37c2395072983eaf202bd1b2d4d22593eb04cacca17",
+      "row_count": null
+    },
+    "signals.parquet": {
+      "file_name": "signals.parquet",
+      "size_bytes": 364669,
+      "sha256": "c71366290a201a7086bf22158c81fa44efbb8f5aa9f0ca0c7513076b0f65ee21",
+      "content_hash": "52ed9b559dfba7521fe7bbe0801c485ae8ac7c4e692eb7517643ac9594999e8b",
+      "row_count": 5984
+    },
+    "signal_decisions.parquet": {
+      "file_name": "signal_decisions.parquet",
+      "size_bytes": 222118,
+      "sha256": "41a6deebb4362a4821bd4fc41777fc742b722290ccb98f87db9335c2915eb248",
+      "content_hash": "5b621544e832661c6d15f70bd171a3391bb012f434f2ef31d4ee94c49504734c",
+      "row_count": 5984
+    },
+    "trades.parquet": {
+      "file_name": "trades.parquet",
+      "size_bytes": 852229,
+      "sha256": "f9f382caa33fc9833635d7675fa2747a5e5486eac48cb5e75ac70c5a413da4a3",
+      "content_hash": "64812518e6012fed83004defbc45bf047f46219b366f72f07826e82cceb99df6",
+      "row_count": 6265
+    },
+    "execution_events.parquet": {
+      "file_name": "execution_events.parquet",
+      "size_bytes": 736595,
+      "sha256": "20d4ac3988f271e21fc5a4330c4a01e7a203fa55624e8db27fe624ecf56c9ea5",
+      "content_hash": "a166ec167e3d632b4e8d863edec37a710fca86c2e810cf4e3a654c206ed2cdc7",
+      "row_count": 12530
+    },
+    "skipped_signals.parquet": {
+      "file_name": "skipped_signals.parquet",
+      "size_bytes": 56421,
+      "sha256": "8c89a65f2f0e292ae38b18aef12931c5500f86a3f8b520a619871bef8be0e79c",
+      "content_hash": "9a0939bb2f24328bd9e7abbe0cd60156ceec4d148edf301976030de177b8ddda",
+      "row_count": 1835
+    },
+    "rejected_signals.parquet": {
+      "file_name": "rejected_signals.parquet",
+      "size_bytes": 5692,
+      "sha256": "d60841a007a44b9eefd467085d4f659b934e7dab2f3350a91695dab6c6c4a989",
+      "content_hash": "245de4d472e8c3ee29935fc7a6ba1a5ab8a6da6c50c9ad485ed70237f50a2aa7",
+      "row_count": 0
+    },
+    "snapshots.parquet": {
+      "file_name": "snapshots.parquet",
+      "absolute_path": "D:\\AutoTrade\\runs\\golden\\v3-13\\BINGX_PORTFOLIO\\snapshots.parquet",
+      "size_bytes": 23619083,
+      "sha256": "a02644b48fe0cec76bd00a58afb8acb3e40c18b81832c66197dc34ea8c7dca6a",
+      "committed": false,
+      "reason": "Exceeds 20 MB threshold; omitted from git"
+    }
+  }
+}

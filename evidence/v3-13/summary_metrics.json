@@ -1,0 +1,107 @@
+{
+  "ALL_SIGNALS": {
+    "overall_validation": "VERIFIED",
+    "gates": {
+      "A1": "PASS",
+      "A2": "PASS",
+      "B1": "PASS",
+      "B2": "PASS",
+      "B3": "PASS",
+      "C1": "PASS",
+      "C2": "PASS",
+      "C3": "PASS",
+      "C4": "PASS",
+      "C5": "PASS",
+      "D1": "PASS",
+      "D2": "PASS"
+    },
+    "accepted_signals": null,
+    "total_legs": null,
+    "net_pnl": null,
+    "roi_pct": null,
+    "win_rate": {
+      "leg_win_rate_pct": 42.75,
+      "trade_win_rate_pct": 38.72,
+      "winning_legs": 3530,
+      "losing_legs": 4728,
+      "breakeven_legs": 0,
+      "winning_trades": 2317,
+      "losing_trades": 3667,
+      "breakeven_trades": 0
+    },
+    "profit_factor": null,
+    "max_drawdown_pct": null,
+    "cost_profile": "IDEAL",
+    "ambiguity_policy": "CONSERVATIVE"
+  },
+  "ONE_TRADE_PER_COMBO": {
+    "overall_validation": "VERIFIED",
+    "gates": {
+      "A1": "PASS",
+      "A2": "PASS",
+      "B1": "PASS",
+      "B2": "PASS",
+      "B3": "PASS",
+      "C1": "PASS",
+      "C2": "PASS",
+      "C3": "PASS",
+      "C4": "PASS",
+      "C5": "PASS",
+      "D1": "PASS",
+      "D2": "PASS"
+    },
+    "accepted_signals": null,
+    "total_legs": null,
+    "net_pnl": null,
+    "roi_pct": null,
+    "win_rate": {
+      "leg_win_rate_pct": 44.31,
+      "trade_win_rate_pct": 39.6,
+      "winning_legs": 2776,
+      "losing_legs": 3489,
+      "breakeven_legs": 0,
+      "winning_trades": 1643,
+      "losing_trades": 2506,
+      "breakeven_trades": 0
+    },
+    "profit_factor": null,
+    "max_drawdown_pct": null,
+    "cost_profile": "IDEAL",
+    "ambiguity_policy": "CONSERVATIVE"
+  },
+  "BINGX_PORTFOLIO": {
+    "overall_validation": "VERIFIED",
+    "gates": {
+      "A1": "PASS",
+      "A2": "PASS",
+      "B1": "PASS",
+      "B2": "PASS",
+      "B3": "PASS",
+      "C1": "PASS",
+      "C2": "PASS",
+      "C3": "PASS",
+      "C4": "PASS",
+      "C5": "PASS",
+      "D1": "PASS",
+      "D2": "PASS"
+    },
+    "accepted_signals": null,
+    "total_legs": null,
+    "net_pnl": null,
+    "roi_pct": null,
+    "win_rate": {
+      "leg_win_rate_pct": 45.06,
+      "trade_win_rate_pct": 40.85,
+      "winning_legs": 2823,
+      "losing_legs": 3442,
+      "breakeven_legs": 0,
+      "winning_trades": 1695,
+      "losing_trades": 2454,
+      "breakeven_trades": 0
+    },
+    "profit_factor": null,
+    "max_drawdown_pct": null,
+    "cost_profile": "IDEAL",
+    "ambiguity_policy": "CONSERVATIVE"
+  }
+}
