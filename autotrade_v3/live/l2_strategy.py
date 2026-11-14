@@ -2,8 +2,9 @@
 
 The calculation is the existing pure engine (``autotrade_v2.app.strategy``:
 FINAL14 + NEW6 = 20FINAL). This module only converts its output, stores the
-9 agreed fields in ``strategy_signals`` and dispatches to L5 (signal alert)
-and L3 (execution). No SMC/AI/extra condition is added here.
+9 agreed fields in ``strategy_signals`` and dispatches to L3 (execution). L5 emits a signal-only note when
+execution is disabled; live execution emits only the BingX-confirmed L3 result.
+No SMC/AI/extra condition is added here.
 """
 from __future__ import annotations
 
@@ -50,7 +51,9 @@ class L2Strategy:
                 except Exception as exc:
                     self.control.report("L2", "handoff_l3", f"Không chuyển được tín hiệu sang L3: {exc}",
                                         symbol=sig.symbol, event_id=sig.event_id)
-            if self.alert is not None:
+            # Never duplicate L3's confirmed trade with a speculative L2 signal.
+            # In signal-only mode there is no real order to confirm, so retain the signal note.
+            if self.executor is None and self.alert is not None:
                 try:
                     self.alert.signal({**signal_row(sig), "close_time_ms": sig.close_time, "timeframe": sig.timeframe})
                 except Exception as exc:

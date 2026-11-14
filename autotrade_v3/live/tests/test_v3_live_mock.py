@@ -170,9 +170,9 @@ def test_mock_l2_signal_routing_and_l3_success_routing():
     l2 = L2Strategy(store, control, alert, executor=None)
     l2.dispatch([sig("BTC-USDT"), sig("ETH-USDT", combo=1, side="SELL")])
     assert sender.channels() == ["btc", "eth"]
-    assert sender.calls[0][1].startswith("📡 Tín hiệu BTC-USDT")
+    assert sender.calls[0][1].startswith("📡 **BTC BUY · C1 | TÍN HIỆU**")
     executor.execute(sig("ETH-USDT", combo=3, side="BUY"))
-    assert sender.channels()[-1] == "eth" and sender.calls[-1][1].endswith("✅ Đặt lệnh thành công")
+    assert sender.channels()[-1] == "eth" and sender.calls[-1][1].startswith("✅ **ETH BUY · C3 | ĐẶT LỆNH THÀNH CÔNG**")
     assert set(store.signals) == {sig("BTC-USDT").event_id, sig("ETH-USDT", combo=1, side="SELL").event_id}
 
 
@@ -440,12 +440,22 @@ def test_mock_hourly_projection_attributes_triggered_child_orders():
     assert fin["is_fully_closed"] is True and fin["gross_pnl"] == -0.8
 
 
-def test_success_message_uses_v2_layout_without_ids():
+def test_success_message_uses_confirmed_bingx_prices_without_ids():
     from autotrade_v3.live.l5_alert import success_message
-    text = success_message({"event_id": "BTC-USDT|1h|C4|SELL|1794625199999", "symbol": "BTC-USDT", "combo": "C4",
-                            "side": "SELL", "avg_price": 67666.5, "tp_price": 66448.503, "sl_price": 68275.4985,
-                            "entry_order_id": "2121438081244680192", "client_order_id": "v3e-abc",
-                            "confirmed_at_ms": 1794625249000})
-    assert text == ("✅ Đặt lệnh\nBTC-USDT SELL\n\n📊 Combo C4\nEntry: 67666.5\n\n"
-                    "TP : 66448.503\nSL : 68275.4985\n\n🕒 Giờ xác nhận lệnh (VN): 10:00:49 14/11/2026\n\n"
-                    "✅ Đặt lệnh thành công")
+    row = {"event_id": "BTC-USDT|1h|C4|SELL|1794625199999", "symbol": "BTC-USDT", "combo": "C4",
+           "side": "SELL", "avg_price": 67666.5, "tp_price": 12345.0, "sl_price": 98765.0,
+           "entry_order_id": "2121438081244680192", "client_order_id": "v3e-abc",
+           "confirmed_at_ms": 1794625249000,
+           "protection": {
+               "tp": {"status": "confirmed", "evidence": {
+                   "confirm": {"order": {"stopPrice": "66448.503"}},
+                   "params": {"stopPrice": "66448.5"}}},
+               "sl": {"status": "confirmed", "evidence": {
+                   "confirm": {"order": {"stopPrice": "68275.4985"}},
+                   "params": {"stopPrice": "68275.4"}}}}}
+    message = success_message(row)
+    assert message == ("✅ **BTC SELL · C4 | ĐẶT LỆNH THÀNH CÔNG**\n"
+                       "Entry **67666.5** · TP **66448.5** · SL **68275.5**\n"
+                       "🕒 10:00:49 · 14/11/2026")
+    assert "12345" not in message and "98765" not in message
+    assert "2121438081244680192" not in message and "v3e-abc" not in message

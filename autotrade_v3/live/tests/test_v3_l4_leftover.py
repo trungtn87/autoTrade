@@ -56,7 +56,7 @@ def test_tp_and_trailing_fill_then_orphan_sl_is_cancelled_by_exact_id_only():
     assert error_steps(store) == []
     text = [c for _, c in sender.calls]
     assert len(text) == 1 and sender.channels() == ["btc"]
-    assert "🏁 Đóng lệnh" in text[0] and "TP" in text[0] and "Trailing" in text[0] and "Đã dọn lệnh dư: SL" in text[0]
+    assert "🏁 **BTC BUY · C1 | ĐÃ ĐÓNG**" in text[0] and "TP" in text[0] and "Trailing" in text[0] and "Đã dọn lệnh dư: SL" in text[0]
     # a second pass does nothing and sends nothing
     sender.calls.clear()
     cleaner.run_pass("again")
