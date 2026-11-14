@@ -129,6 +129,9 @@ class RunManifest:
     duckdb_version: str = ""
     pyarrow_version: str = ""
     dataset_hash: str = ""
+    signal_spec_hash: str = ""
+    exit_spec_hash: str = ""
+    spec_hash: str = ""
     is_golden: bool = False
     created_at_utc: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 

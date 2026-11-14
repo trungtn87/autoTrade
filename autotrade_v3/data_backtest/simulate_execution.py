@@ -386,15 +386,18 @@ def load_events(path: Path) -> tuple[dict[str, list[dict]], dict]:
 
 
 def _config_map() -> dict[tuple[str, int], dict]:
-    """Import ONLY pinned V2 pure config file by path, never executor/engine."""
-    file = Path(__file__).resolve().parents[2] / 'autotrade_v2/app/strategy/final14_config.py'
-    spec = importlib.util.spec_from_file_location('v3_readonly_locked_config', file)
-    if not spec or not spec.loader:
-        raise RuntimeError('V2 pure config unavailable')
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return {(symbol, combo): cfg for source in (mod.FINAL14_CASES, mod.NEW6_CASES)
-            for symbol, items in source.items() for combo, cfg in items.items()}
+    """Load locked 20FINAL config from independent strategy_core parameters."""
+    from autotrade_v3.strategy_core.registry import StrategyCoreRegistry
+    strat = StrategyCoreRegistry.get("20FINAL", "1")
+    out: dict[tuple[str, int], dict] = {}
+    for c in strat.spec().combos:
+        out[(c.symbol, c.combo_id)] = {
+            "tp_pct": c.exit_policy.tp_pct,
+            "sl_pct": c.exit_policy.sl_pct,
+            "layer2": c.layer2,
+            "entry_variant": c.entry_variant,
+        }
+    return out
 
 
 def _read_candles(catalog: Path, symbol: str, start_ms: int, end_ms: int) -> list[Candle]:
@@ -515,7 +518,8 @@ def run(events_csv: Path, catalog: Path, out: Path, profile: Profile,
     profile_hash = hashlib.sha256(json.dumps(asdict(profile),sort_keys=True).encode()).hexdigest()
     source_sha = hashlib.sha256(events_csv.read_bytes()).hexdigest()
     file = Path(__file__)
-    config_file = file.resolve().parents[2]/'autotrade_v2/app/strategy/final14_config.py'
+    from autotrade_v3.strategy_core.strategies.final20.logic import DEFAULT_PARAMS_PATH
+    config_file = DEFAULT_PARAMS_PATH
     try:
         git_sha = subprocess.check_output(['git','rev-parse','HEAD'],cwd=file.resolve().parents[2],text=True,stderr=subprocess.DEVNULL).strip()
     except (OSError,subprocess.CalledProcessError):

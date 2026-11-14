@@ -65,7 +65,9 @@ def cmd_strategies(args: argparse.Namespace) -> None:
     for s in strategies:
         print(f"- Strategy ID: {s['strategy_id']} (v{s['version']})")
         print(f"  Required Timeframes: {s['required_timeframes']}")
-        print(f"  Config Hash:         {s['config_hash']}")
+        print(f"  Signal Spec Hash:    {s.get('signal_spec_hash', s['config_hash'])}")
+        print(f"  Exit Spec Hash:      {s.get('exit_spec_hash', s['config_hash'])}")
+        print(f"  Spec Hash:           {s.get('spec_hash', s['config_hash'])}")
 
 
 def cmd_modes(args: argparse.Namespace) -> None:
