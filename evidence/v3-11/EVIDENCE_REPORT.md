@@ -62,7 +62,7 @@
 
 ### 2. Full Pytest Suite (Unit + Integration + Adversarial Mutations)
 - **Lệnh chạy:** `$env:PYTHONPATH="."; .\.venv\Scripts\python.exe -m pytest autotrade_v3/tests --junitxml=evidence/v3-11/junit/all.xml -v`
-- **Tổng hợp (máy cục bộ có dữ liệu M1 thật):** **245 passed, 0 failed, 0 skipped** trong **764.17s (0:12:44)** (Exit Code: `0`). Trên môi trường CI không có `data/m1_raw/` và `catalog/research.duckdb` (bị gitignore), các test phụ thuộc dữ liệu M1 thật được skip có điều kiện qua `@unittest.skipUnless(_has_real_m1_data(), ...)`.
+- **Tổng hợp:** Máy local có dữ liệu M1: `245 passed, 0 failed, 0 skipped` trong **764.17s (0:12:44)** (Exit Code: `0`). CI (không có M1): các test phụ thuộc M1 (`test_06b`, `test_06c`, `test_08`, `test_gate_b3_batch_live_equivalence`) bị skip có điều kiện, chỉ chạy trên máy có dữ liệu thật.
 - **Artifact JUnit XML:** [`evidence/v3-11/junit/all.xml`](junit/all.xml).
 - **CLI Clone & 3-Mode Smoke Backtest:** Chạy `cli strategy clone --from 20FINAL@1 --to EXP_SMOKE@1` và `cli backtest --strategy 20FINAL@1 --mode ALL --smoke-test` (synthetic fixture) — Exit Code `0`, log tại [`evidence/v3-11/cli_clone_smoke.log`](cli_clone_smoke.log).
 
@@ -143,7 +143,7 @@ Chạy lại cả 3 chế độ `--golden` bằng `strategy_core` (`20FINAL@1`) 
 
 ## G. REPRODUCIBILITY
 
-- **Dataset Hash:** `07c92a7f9eb6...` (74 partitions, `3,156,480` nến M1 thật trong `data/m1_raw/`, `catalog/research.duckdb`)
+- **Dataset Hash:** `ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628` (74 partitions, `3,156,480` nến M1 thật trong `data/m1_raw/`, `catalog/research.duckdb`)
 - **Strategy Hashes (`20FINAL@1`):**
   - `signal_spec_hash`: `4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79`
   - `exit_spec_hash`: `ce10e2b1c328201266965d2b1a4d991136941320ff9c2cdb338a471d7927254d`
