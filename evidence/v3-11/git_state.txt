@@ -1,12 +1,20 @@
-﻿=== GIT STATE FOR V3-11 ===
-Base Branch: feat/v3-10-validation-gates (011d081ac84668211cd48ed497781904ce8eefd2)
-Code Head SHA (pre-evidence): 6ef6c1eba1abd79b8e0eb6be9e3595d035c7697e
+﻿=== V3-11 GIT STATE ===
+Branch: feat/v3-11-strategy-core
+Base (feat/v3-10-validation-gates): 011d081ac84668211cd48ed497781904ce8eefd2
+Code Head (pre-evidence): df5782c723a9b2f52291797d1df29c4f803c850d
 
---- git diff --stat feat/v3-10-validation-gates..HEAD -- autotrade_v2 ---
+Commits:
+df5782c fix(v3-11): address PR #117 review findings 1-10 and update baseline lock
+aa1f5b1 docs(v3-11): add V3-11 evidence package and delivery report
+6ef6c1e feat(v3-11): add 20final_v1.lock, strategy clone CLI, and V3-11 test suite
+0690210 feat(v3-11): migrate lab and backtest runtime to strategy_core and remove V2 imports
+cdaa9e7 feat(v3-11): implement incremental O(1) on_bar_close and enable Validation Gate B3
+7d81999 feat(v3-11): implement Strategy Core API, batch generate(), and versioned registry
+9b62abc feat(v3-11): add 20FINAL v1 parameters extraction and strategy_core hashing
+6987ac5 feat(v3-11): copy verbatim 20FINAL indicator and signal functions with PROVENANCE
 
+git diff --stat feat/v3-10-validation-gates..HEAD -- autotrade_v2:
+<EMPTY - 0 changes>
 
---- git diff --stat feat/v3-10-validation-gates..HEAD -- runs/golden/v3-08 ---
-
-
---- git log feat/v3-10-validation-gates..HEAD --oneline ---
-6ef6c1e feat(v3-11): add 20final_v1.lock, strategy clone CLI, and V3-11 test suite 0690210 feat(v3-11): migrate lab and backtest runtime to strategy_core and remove V2 imports cdaa9e7 feat(v3-11): implement incremental O(1) on_bar_close and enable Validation Gate B3 7d81999 feat(v3-11): implement Strategy Core API, batch generate(), and versioned registry 9b62abc feat(v3-11): add 20FINAL v1 parameters extraction and strategy_core hashing 6987ac5 feat(v3-11): copy verbatim 20FINAL indicator and signal functions with PROVENANCE
+git diff --stat feat/v3-10-validation-gates..HEAD -- runs/golden/v3-08:
+<EMPTY - 0 changes>

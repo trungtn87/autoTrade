@@ -13,7 +13,7 @@
       "rows_total": 74,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 1.021,
+      "duration_s": 0.86,
       "reason": "",
       "details": {
         "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
@@ -29,7 +29,7 @@
       "rows_total": 3156480,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 5.651,
+      "duration_s": 4.219,
       "reason": "",
       "details": {
         "per_symbol": {
@@ -58,7 +58,7 @@
             "negative_volume": 0
           }
         },
-        "scan_seconds": 5.649
+        "scan_seconds": 4.218
       }
     },
     "B1": {
@@ -69,7 +69,7 @@
       "rows_total": 5984,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 1.297,
+      "duration_s": 0.81,
       "reason": "",
       "details": {
         "strategy_ref": "20FINAL@1",
@@ -228,12 +228,12 @@
       "rows_total": 20,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 45.128,
+      "duration_s": 38.42,
       "reason": "",
       "details": {
         "seed": 20261110,
         "n_cutoffs": 20,
-        "duration_s": 45.1,
+        "duration_s": 38.4,
         "cutoffs_tested": [
           {
             "cutoff_ms": 1705919399999,
@@ -409,11 +409,11 @@
       "rows_total": 5984,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.014,
+      "duration_s": 0.464,
       "reason": "",
       "details": {
         "strategy_ref": "20FINAL@1",
-        "signal_spec_hash": "fe592c07fdeaee9a20e21c7a1443ae1ac94ab2ec9a8c30d92dcb1dcea997b26e",
+        "signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
         "unclosed_bar_rejected": true,
         "per_symbol": {
           "BTC-USDT": {
@@ -433,7 +433,7 @@
             "field_mismatches": 0
           }
         },
-        "duration_s": 0.0
+        "duration_s": 0.45
       }
     },
     "C1": {
@@ -444,7 +444,7 @@
       "rows_total": 8258,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.165,
+      "duration_s": 0.145,
       "reason": "",
       "details": {
         "mode": "ALL_SIGNALS",
@@ -459,7 +459,7 @@
       "rows_total": 8258,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 3.597,
+      "duration_s": 3.18,
       "reason": "",
       "details": {
         "policies_checked": 20
@@ -473,7 +473,7 @@
       "rows_total": 8258,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.459,
+      "duration_s": 0.443,
       "reason": "",
       "details": {
         "mode": "ALL_SIGNALS",
@@ -489,7 +489,7 @@
       "rows_total": 8258,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.086,
+      "duration_s": 0.089,
       "reason": "",
       "details": {
         "notes": [],
@@ -522,7 +522,7 @@
       "rows_total": 7,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 1.486,
+      "duration_s": 1.15,
       "reason": "",
       "details": {
         "undelivered_large_artifacts": []
@@ -536,7 +536,7 @@
       "rows_total": 1605,
       "violation_count": 0,
       "violations": [],
-      "duration_s": 0.462,
+      "duration_s": 0.406,
       "reason": "",
       "details": {
         "analysis_leaves_total": 1398,
@@ -548,7 +548,7 @@
     }
   },
   "failure_reasons": [],
-  "total_duration_s": 59.4,
+  "total_duration_s": 50.21,
   "seed": 20261110,
   "n_cutoffs": 20
 }

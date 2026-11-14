@@ -1,13 +1,13 @@
 === V3-11 STEP B10: 3-MODE GOLDEN REPLAY & LEDGER CONTENT HASH COMPARISON ===
 
 Command Equivalent: python -m autotrade_v3.cli backtest --strategy 20FINAL@1 --mode ALL --start 2023-11-01 --end 2026-11-01 --golden
-Exit Code: 0 | Total Duration (3 modes + 12-gate validation): 1157.39s
+Exit Code: 0 | Total Duration (3 modes + 12-gate validation): 1066.88s
 
 --- Mode: ALL_SIGNALS ---
   strategy_id:      20FINAL@1
-  signal_spec_hash: fe592c07fdeaee9a20e21c7a1443ae1ac94ab2ec9a8c30d92dcb1dcea997b26e
+  signal_spec_hash: 4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79
   exit_spec_hash:   ce10e2b1c328201266965d2b1a4d991136941320ff9c2cdb338a471d7927254d
-  spec_hash:        e2dcfe7e10c2ff7c63b5a94b946721e1d671219d60b22a452c62f507af4cc058
+  spec_hash:        1145d7f5494a9e9aaa250a48c214acdd8c87bf58869ff6c24861fbfe65033b81
   signals.parquet            rows= 5984/5984  gold_hash=52ed9b559dfba752... new_hash=52ed9b559dfba752... match=True
   trades.parquet             rows= 8258/8258  gold_hash=9ca9215cd1c9f32e... new_hash=9ca9215cd1c9f32e... match=True
   skipped_signals.parquet    rows=    0/0     gold_hash=206e84787e2cc2d0... new_hash=206e84787e2cc2d0... match=True
@@ -16,9 +16,9 @@ Exit Code: 0 | Total Duration (3 modes + 12-gate validation): 1157.39s
 
 --- Mode: ONE_TRADE_PER_COMBO ---
   strategy_id:      20FINAL@1
-  signal_spec_hash: fe592c07fdeaee9a20e21c7a1443ae1ac94ab2ec9a8c30d92dcb1dcea997b26e
+  signal_spec_hash: 4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79
   exit_spec_hash:   ce10e2b1c328201266965d2b1a4d991136941320ff9c2cdb338a471d7927254d
-  spec_hash:        e2dcfe7e10c2ff7c63b5a94b946721e1d671219d60b22a452c62f507af4cc058
+  spec_hash:        1145d7f5494a9e9aaa250a48c214acdd8c87bf58869ff6c24861fbfe65033b81
   signals.parquet            rows= 5984/5984  gold_hash=52ed9b559dfba752... new_hash=52ed9b559dfba752... match=True
   trades.parquet             rows= 6273/6273  gold_hash=6fb3c2f2491a9e57... new_hash=6fb3c2f2491a9e57... match=True
   skipped_signals.parquet    rows= 1828/1828  gold_hash=6f49c7d657cfa137... new_hash=6f49c7d657cfa137... match=True
@@ -27,9 +27,9 @@ Exit Code: 0 | Total Duration (3 modes + 12-gate validation): 1157.39s
 
 --- Mode: BINGX_PORTFOLIO ---
   strategy_id:      20FINAL@1
-  signal_spec_hash: fe592c07fdeaee9a20e21c7a1443ae1ac94ab2ec9a8c30d92dcb1dcea997b26e
+  signal_spec_hash: 4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79
   exit_spec_hash:   ce10e2b1c328201266965d2b1a4d991136941320ff9c2cdb338a471d7927254d
-  spec_hash:        e2dcfe7e10c2ff7c63b5a94b946721e1d671219d60b22a452c62f507af4cc058
+  spec_hash:        1145d7f5494a9e9aaa250a48c214acdd8c87bf58869ff6c24861fbfe65033b81
   signals.parquet            rows= 5984/5984  gold_hash=52ed9b559dfba752... new_hash=52ed9b559dfba752... match=True
   trades.parquet             rows= 6265/6265  gold_hash=779fac41367787ec... new_hash=779fac41367787ec... match=True
   skipped_signals.parquet    rows= 1835/1835  gold_hash=b585ce8eb2c9ecd2... new_hash=b585ce8eb2c9ecd2... match=True

@@ -103,7 +103,7 @@
  
  
  # -----------------------------------------------------------------------------
-@@ -291,218 +253,2498 @@
+@@ -291,218 +253,2535 @@
      return long,short
  
  
@@ -586,18 +586,21 @@
 +
 +        hashes = compute_all_hashes(params_data, core_root=self._core_root)
 +
-+        # Enforce baseline immutability lock when loading 20FINAL version 1
++        # Enforce baseline immutability lock when loading 20FINAL version 1 (fail-closed)
 +        if enforce_lock and strategy_id in ("20FINAL", "20FINAL_BASELINE") and version in ("1", "1.0.0"):
-+            if self._lock_path.exists():
-+                lock_data = json.loads(normalize_lf(self._lock_path.read_text(encoding="utf-8")))
-+                for h_key in ("signal_spec_hash", "exit_spec_hash", "spec_hash"):
-+                    expected_h = lock_data.get(h_key)
-+                    actual_h = hashes.get(h_key)
-+                    if expected_h != actual_h:
-+                        raise BaselineLockError(
-+                            f"Baseline 20FINAL@1 lock mismatch on {h_key}: "
-+                            f"expected={expected_h}, actual={actual_h}"
-+                        )
++            if not self._lock_path.exists():
++                raise BaselineLockError(
++                    f"Baseline 20FINAL@1 lock file missing (fail-closed): {self._lock_path}"
++                )
++            lock_data = json.loads(normalize_lf(self._lock_path.read_text(encoding="utf-8")))
++            for h_key in ("signal_spec_hash", "exit_spec_hash", "spec_hash"):
++                expected_h = lock_data.get(h_key)
++                actual_h = hashes.get(h_key)
++                if expected_h != actual_h:
++                    raise BaselineLockError(
++                        f"Baseline 20FINAL@1 lock mismatch on {h_key}: "
++                        f"expected={expected_h}, actual={actual_h}"
++                    )
 +
 +        combos = tuple(ComboSpec.from_dict(c) for c in params_data.get("combos", []))
 +        self._spec = StrategySpec(
@@ -713,6 +716,15 @@
 +        events.sort(key=lambda e: (e.signal_close_ms, int(e.tags["combo_id"]), e.side))
 +        return events
 +
++    @staticmethod
++    def _canonical_symbol(sym: str) -> str:
++        up = sym.upper()
++        if "BTC" in up:
++            return "BTC-USDT"
++        if "ETH" in up:
++            return "ETH-USDT"
++        return sym
++
 +    def generate(
 +        self,
 +        bars: dict[str, pd.DataFrame] | pd.DataFrame,
@@ -723,14 +735,35 @@
 +        """Batch signal generation across provided closed M15 candle frames."""
 +        if isinstance(bars, pd.DataFrame):
 +            sym = symbols[0] if symbols else "BTC-USDT"
-+            return self._generate_symbol(sym, bars, only_approved=only_approved, only_warmup_ready=only_warmup_ready)
++            sym_canonical = self._canonical_symbol(sym)
++            evs = self._generate_symbol(
++                sym_canonical,
++                bars,
++                only_approved=only_approved,
++                only_warmup_ready=only_warmup_ready,
++            )
++            if sym != sym_canonical:
++                evs = [
++                    SignalEvent(
++                        signal_id=e.signal_id,
++                        combo_key=e.combo_key,
++                        symbol=sym,
++                        side=e.side,
++                        native_open_ms=e.native_open_ms,
++                        signal_close_ms=e.signal_close_ms,
++                        ref_price=e.ref_price,
++                        tags=e.tags,
++                    )
++                    for e in evs
++                ]
++            return evs
 +
 +        target_symbols = symbols or list(bars.keys())
 +        all_events: list[SignalEvent] = []
 +        for sym in target_symbols:
 +            if sym not in bars:
 +                continue
-+            sym_canonical = "BTC-USDT" if "BTC" in sym.upper() else ("ETH-USDT" if "ETH" in sym.upper() else sym)
++            sym_canonical = self._canonical_symbol(sym)
 +            evs = self._generate_symbol(
 +                sym_canonical,
 +                bars[sym],
@@ -760,8 +793,8 @@
 +        self,
 +        state: Any,
 +        bar: Any,
-+        only_approved: bool = True,
-+        only_warmup_ready: bool = True,
++        only_approved: bool | None = None,
++        only_warmup_ready: bool | None = None,
 +    ) -> list[SignalEvent]:
 +        """Incremental O(1) bar-by-bar signal generation on each closed M15 candle.
 +
@@ -772,13 +805,17 @@
 +                 `symbol` (optional if state is single-symbol, defaults to 'BTC-USDT'),
 +                 `open_ms` (or `open_time` / `timestamp`), `open`, `high`, `low`, `close`, `volume`,
 +                 and optional `is_closed` (must be True if present), `close_ms`, `provider`.
++            only_approved: Optional override. If None, preserves the setting configured on `state` (default True).
++            only_warmup_ready: Optional override. If None, preserves the setting configured on `state` (default True).
 +        """
 +        if isinstance(state, dict):
 +            live_state = state.get("_final20_live_state")
 +            if live_state is None:
++                eff_approved = bool(state.get("only_approved", True)) if only_approved is None else bool(only_approved)
++                eff_warmup = bool(state.get("only_warmup_ready", True)) if only_warmup_ready is None else bool(only_warmup_ready)
 +                live_state = self.init_live_state(
-+                    only_approved=bool(state.get("only_approved", only_approved)),
-+                    only_warmup_ready=bool(state.get("only_warmup_ready", only_warmup_ready)),
++                    only_approved=eff_approved,
++                    only_warmup_ready=eff_warmup,
 +                )
 +                state["_final20_live_state"] = live_state
 +        elif isinstance(state, Final20LiveState):
@@ -786,8 +823,8 @@
 +        elif isinstance(state, SymbolLiveState):
 +            return state.step_bar_dict(
 +                bar,
-+                only_approved=only_approved,
-+                only_warmup_ready=only_warmup_ready,
++                only_approved=True if only_approved is None else bool(only_approved),
++                only_warmup_ready=True if only_warmup_ready is None else bool(only_warmup_ready),
 +            )
          else:
 -            pos=-1

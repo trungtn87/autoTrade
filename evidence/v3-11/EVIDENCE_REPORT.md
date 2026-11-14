@@ -12,7 +12,7 @@
 - **PR Title:** `V3-11: Independent strategy core and plugin API`
 - **Branch:** `feat/v3-11-strategy-core`
 - **Base Branch / Base SHA:** `feat/v3-10-validation-gates` (`011d081ac84668211cd48ed497781904ce8eefd2`)
-- **Code Head SHA (pre-evidence):** `6ef6c1eba1abd79b8e0eb6be9e3595d035c7697e` (xem `evidence/v3-11/git_state.txt` để lấy Head SHA cuối cùng sau khi commit `evidence/v3-11/`)
+- **Code Head SHA (pre-evidence):** `df5782c` (xem `evidence/v3-11/git_state.txt` để lấy Head SHA cuối cùng sau khi commit `evidence/v3-11/`)
 - **Lịch sử Commit tách theo mục 12:**
   1. `6987ac5` — `feat(v3-11): copy verbatim 20FINAL indicator and signal functions with PROVENANCE`
   2. `9b62abc` — `feat(v3-11): add 20FINAL v1 parameters extraction and strategy_core hashing`
@@ -20,7 +20,9 @@
   4. `cdaa9e7` — `feat(v3-11): implement incremental O(1) on_bar_close and enable Validation Gate B3`
   5. `0690210` — `feat(v3-11): migrate lab and backtest runtime to strategy_core and remove V2 imports`
   6. `6ef6c1e` — `feat(v3-11): add 20final_v1.lock, strategy clone CLI, and V3-11 test suite`
-  7. Commit cuối cùng — `docs(v3-11): add V3-11 evidence package and delivery report`
+  7. `aa1f5b1` — `docs(v3-11): add V3-11 evidence package and delivery report`
+  8. `df5782c` — `fix(v3-11): address PR #117 review findings 1-10 and update baseline lock`
+  9. Commit cuối cùng — `docs(v3-11): update evidence and report for PR #117 review fixes`
 - **Phạm vi thay đổi:**
   - Gói mới: `autotrade_v3/strategy_core/` (`api.py`, `hashing.py`, `registry.py`, `indicators/*`, `strategies/final20/logic.py`, `params/20final_v1.json`, `params/20final_v1.lock`, `PROVENANCE.json`).
   - Tool trích tham số AST: `autotrade_v3/tools/extract_20final_params.py` (chỉ đọc văn bản AST `autotrade_v2/app/strategy/final14_config.py`, không import V2, không nằm trên đường chạy backtest).
@@ -60,7 +62,7 @@
 
 ### 2. Full Pytest Suite (Unit + Integration + Adversarial Mutations)
 - **Lệnh chạy:** `$env:PYTHONPATH="."; .\.venv\Scripts\python.exe -m pytest autotrade_v3/tests --junitxml=evidence/v3-11/junit/all.xml -v`
-- **Tổng hợp:** **242 passed, 0 failed, 0 skipped** trong **700.05s** (Exit Code: `0`).
+- **Tổng hợp:** **245 passed, 0 failed, 0 skipped** trong **764.17s (0:12:44)** (Exit Code: `0`).
 - **Artifact JUnit XML:** [`evidence/v3-11/junit/all.xml`](junit/all.xml).
 - **CLI Clone & 3-Mode Smoke Backtest:** Chạy `cli strategy clone --from 20FINAL@1 --to EXP_SMOKE@1` và `cli backtest --strategy 20FINAL@1 --mode ALL --smoke-test` (synthetic fixture) — Exit Code `0`, log tại [`evidence/v3-11/cli_clone_smoke.log`](cli_clone_smoke.log).
 
@@ -75,9 +77,11 @@
 ### 1. Three Canonical Hashes của `20FINAL@1`
 | Hash Name | Giá trị SHA256 (Canonical LF-normalized JSON) | Nguồn |
 |:---|:---|:---|
-| `signal_spec_hash` | `fe592c07fdeaee9a20e21c7a1443ae1ac94ab2ec9a8c30d92dcb1dcea997b26e` | `20final_v1.lock` |
+| `signal_spec_hash` | `4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79` | `20final_v1.lock` |
 | `exit_spec_hash` | `ce10e2b1c328201266965d2b1a4d991136941320ff9c2cdb338a471d7927254d` | `20final_v1.lock` |
-| `spec_hash` | `e2dcfe7e10c2ff7c63b5a94b946721e1d671219d60b22a452c62f507af4cc058` | `20final_v1.lock` |
+| `spec_hash` | `1145d7f5494a9e9aaa250a48c214acdd8c87bf58869ff6c24861fbfe65033b81` | `20final_v1.lock` |
+
+> **Giải thích cập nhật `20final_v1.lock` (so với `aa1f5b1`):** `signal_spec_hash` và `spec_hash` thay đổi có chủ đích sau khi sửa Review #2 (bổ sung trường hiệu lực `is_new6` vào payload của `signal_spec_hash`), Review #3 (khoanh vùng hash mã nguồn chỉ gồm core dùng chung + `strategies/final20` thay vì mọi plugin), và Review #7–#8 (sửa `logic.py` về tham số `on_bar_close` và chuẩn hoá alias symbol trong `generate()`). `exit_spec_hash` giữ nguyên (`ce10e2b1...`).
 
 ### 2. Batch Signal Parity 3 Năm (Step B6 — `signal_parity.csv` & `signal_parity.log`)
 | Chỉ tiêu đối chiếu | Nguồn Tham Chiếu | Kết quả `strategy_core` | Sai lệch | Trạng thái |
@@ -88,12 +92,12 @@
 
 ### 3. Batch (`generate`) vs Live Incremental (`on_bar_close`) 3 Năm (Step B7 — `batch_vs_live.log`)
 - **Phạm vi:** Toàn bộ 3 năm (`2023-11-01` đến `2026-11-01` kèm `3,400` nến warm-up = `105,216` nến M15 / symbol, tổng `210,432` nến M15).
-- **Thời gian chạy `on_bar_close`:** BTC-USDT `13.842s`, ETH-USDT `14.877s` (tổng `28.719s` — hoàn toàn dưới ngưỡng 6 giờ).
+- **Thời gian chạy `on_bar_close`:** BTC-USDT `12.498s`, ETH-USDT `12.102s` (tổng `24.600s` — hoàn toàn dưới ngưỡng 6 giờ).
 
 | Symbol | Số nến M15 | Raw Events (Batch / Live) | Approved Eval Events (Batch / Live) | Sai lệch (`raw` / `approved`) | Thời gian Batch / Live | Trạng thái |
 |:---|---:|---:|---:|---:|---:|:---:|
-| `BTC-USDT` | `105,216` | `3,085` / `3,085` | `2,575` / `2,575` | `0` / `0` | `20.840s` / `13.842s` | **VERIFIED** |
-| `ETH-USDT` | `105,216` | `3,667` / `3,667` | `3,409` / `3,409` | `0` / `0` | `19.467s` / `14.877s` | **VERIFIED** |
+| `BTC-USDT` | `105,216` | `3,085` / `3,085` | `2,575` / `2,575` | `0` / `0` | `17.071s` / `12.498s` | **VERIFIED** |
+| `ETH-USDT` | `105,216` | `3,667` / `3,667` | `3,409` / `3,409` | `0` / `0` | `16.922s` / `12.102s` | **VERIFIED** |
 
 ### 4. Thí nghiệm Cửa sổ con & Warm-up (Mục 4.8 — `subwindow_experiment.md`)
 - **Cửa sổ đo:** `2025-05-01` đến `2025-11-01` (nạp kèm `3,400` nến M15 warm-up) so với tập con cùng kỳ của Run 3 năm (`2023-11-01` đến `2026-11-01`).
@@ -117,7 +121,8 @@ Toàn bộ mutation test M1–M5 nằm trong `autotrade_v3/tests/test_strategy_c
 | **M1** | Đổi `tp_pct` một combo giữ nguyên `20FINAL@1` -> bị lock từ chối; đổi trên bản clone -> `spec_hash` và `exit_spec_hash` đổi, `signal_spec_hash` & tín hiệu giữ nguyên | Reject by lock / hash đổi trên clone | `BaselineLockError` khi giữ `20FINAL@1`; hash & parity đúng trên clone (`PASSED`) | `test_strategy_core_v311.py` |
 | **M2** | Đổi ngưỡng entry của `BTC-USDT/C7` trên bản clone | `signal_spec_hash` đổi; Gate B1 trả `INCONCLUSIVE` (nếu là clone) hoặc `FAIL` (nếu so với reference baseline), không `PASS` | `signal_spec_hash` đổi; B1 trả `INCONCLUSIVE` / `FAIL` (`PASSED`) | `test_strategy_core_v311.py` |
 | **M3** | Sửa tham số độ dài pivot SMC (`swing_len=5` thay vì `50`) | Parity thất bại và liệt kê các `signal_id` lệch | `len(orig_ids ^ mut_ids) > 0` (`PASSED`) | `test_strategy_core_v311.py` |
-| **M4** | Làm `on_bar_close` nhận nến chưa đóng (`is_closed=False`) và dịch `signal_close_ms` 1 nến | Cổng B3 trả về `FAIL` | B3 trả `FAIL` với `UNCLOSED_BAR_ACCEPTED` và `ONLY_IN_LIVE` (`PASSED`) | `test_strategy_core_v311.py` |
+| **M4a** | Làm `on_bar_close` nhận nến chưa đóng (`is_closed=False`) | Cổng B3 trả về `FAIL` | B3 trả `FAIL` với `UNCLOSED_BAR_ACCEPTED` (`PASSED`) | `test_06b_mutation_m4a_...` |
+| **M4b** | Làm `on_bar_close` dịch `signal_close_ms` 1 nến so với batch `generate()` | Cổng B3 trả về `FAIL` | B3 trả `FAIL` với `ONLY_IN_LIVE` (`PASSED`) | `test_06c_mutation_m4b_...` |
 | **M5** | Chèn `from autotrade_v2.app.strategy import final14_config` vào file tạm | Quét AST phát hiện vi phạm ranh giới | AST scanner bắt được `autotrade_v2` (`PASSED`) | `test_strategy_core_v311.py` |
 
 ---
@@ -140,10 +145,10 @@ Chạy lại cả 3 chế độ `--golden` bằng `strategy_core` (`20FINAL@1`) 
 
 - **Dataset Hash:** `07c92a7f9eb6...` (74 partitions, `3,156,480` nến M1 thật trong `data/m1_raw/`, `catalog/research.duckdb`)
 - **Strategy Hashes (`20FINAL@1`):**
-  - `signal_spec_hash`: `fe592c07fdeaee9a20e21c7a1443ae1ac94ab2ec9a8c30d92dcb1dcea997b26e`
+  - `signal_spec_hash`: `4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79`
   - `exit_spec_hash`: `ce10e2b1c328201266965d2b1a4d991136941320ff9c2cdb338a471d7927254d`
-  - `spec_hash`: `e2dcfe7e10c2ff7c63b5a94b946721e1d671219d60b22a452c62f507af4cc058`
-- **Code SHA (pre-evidence):** `6ef6c1eba1abd79b8e0eb6be9e3595d035c7697e` (`code_dirty=false`)
+  - `spec_hash`: `1145d7f5494a9e9aaa250a48c214acdd8c87bf58869ff6c24861fbfe65033b81`
+- **Code SHA (pre-evidence):** `df5782c` (`code_dirty=false`)
 - **Lệnh tái lập chính:**
   - Trích & đối chiếu tham số: `.\.venv\Scripts\python.exe -m autotrade_v3.tools.extract_20final_params`
   - Full test suite: `$env:PYTHONPATH="."; .\.venv\Scripts\python.exe -m pytest autotrade_v3/tests -v`
@@ -163,3 +168,23 @@ Chạy lại cả 3 chế độ `--golden` bằng `strategy_core` (`20FINAL@1`) 
 
 - **Trạng thái tự đánh giá:** **VERIFIED** (đối với toàn bộ tiêu chí AC1–AC9 và 12/12 cổng kiểm định trên dữ liệu M1 thật; riêng `mypy` chưa chạy được do thiếu gói trong `.venv` và biến môi trường trailing V2 live chưa đối chiếu theo đúng giả định mục 4.3).
 - **Đề nghị:** Toàn bộ 9 Acceptance Criteria (AC1–AC9) đều đạt có bằng chứng truy xuất được. Kính chuyển Claude thực hiện Review độc lập (R1–R16) và Owner xem xét nghiệm thu, merge PR vào nhánh đích.
+
+---
+
+## J. XỬ LÝ REVIEW PR #117 (MỤC 1–10)
+
+| Mục | Mô tả | Trạng thái | Thay đổi & Bằng chứng |
+|:---:|:---|:---:|:---|
+| **1** | Khoá `20FINAL` fail-closed khi thiếu `.lock`; `gate_b1` không đặt `lock_verified=True` khi thiếu `signal_spec_hash` hoặc thiếu `.lock` | **Đã sửa** | `logic.py` raise `BaselineLockError` khi thiếu `.lock`; `gates_b.py` đặt `lock_verified=False` cho manifest thiếu hash và thêm `LOCK_FILE_MISSING` khi thiếu `.lock`. Test: `test_03_baseline_lock_enforcement_m2` (`PASSED`). |
+| **2** | Thêm `is_new6` (giá trị hiệu lực) vào payload của `signal_spec_hash` | **Đã sửa** | `hashing.py` thêm `"is_new6": bool(c.get("is_new6", cid >= 101))` vào `signal_combos`. Test: `test_02_hash_sensitivity_and_crlf_invariance` (`PASSED`). |
+| **3** | Chỉ hash mã nguồn của strategy đó + core dùng chung, không hash mọi `*.py` trong `strategy_core/` | **Đã sửa** | `hashing.py` (`collect_strategy_core_source_hashes(..., strategy_subdir=...)`) chỉ hash root `.py`, `indicators/**/*.py`, `strategies/__init__.py`, và `<strategy_subdir>/**/*.py`. Test: `test_02_hash_sensitivity_and_crlf_invariance` (`PASSED`). |
+| **4** | Từ chối clone vào `<ID>@<version>` đã tồn tại (kể cả clone vào chính nó) trước khi ghi | **Đã sửa** | `registry.py` (`clone_strategy_params`) raise `ValueError` khi tự clone và `FileExistsError` khi thư mục/file đích đã tồn tại trước `mkdir`/ghi file. Test: `test_07_clone_existing_and_self_rejected_and_alias_and_live_state_preserved` (`PASSED`). |
+| **5** | Gate B3 so `signals.parquet` với live theo bản ghi (field + số lần lặp), phát hiện dòng trùng và sai nội dung | **Đã sửa** | `gates_b.py` lưu toàn bộ `live_eval_records` và đối chiếu từng bản ghi + bội số (`DUPLICATE_SIGNAL_IN_RUN`, `RUN_SIGNAL_FIELD_MISMATCH`). Test: `test_07_...` & `test_gate_b3_batch_live_equivalence` (`PASSED`). |
+| **6** | CI thiếu dữ liệu M1: thêm `@unittest.skipUnless(_has_real_m1_data(), ...)` cho test dùng M1 thật | **Đã sửa** | `test_validation_gates.py` (`test_gate_b3_batch_live_equivalence`) và `test_strategy_core_v311.py` (`test_06b`, `test_06c`) chỉ skip khi thiếu dữ liệu M1; trên máy có dữ liệu thật vẫn chạy đủ (`PASSED`). |
+| **7** | `on_bar_close` không ghi đè `only_approved`/`only_warmup_ready` trong `live_state` khi caller không truyền | **Đã sửa** | `logic.py` đổi mặc định thành `None`, chỉ ghi đè `live_state` khi truyền tường minh. Test: `test_07_...` (`PASSED`). |
+| **8** | Nhánh DataFrame đơn của `generate(df, symbols=["BTCUSDT"])` chuẩn hoá alias giống dict và live | **Đã sửa** | `logic.py` dùng `_canonical_symbol(sym)` chuẩn hoá đầu vào và giữ `symbol` yêu cầu trên `SignalEvent` trả về. Test: `test_07_...` (`PASSED`). |
+| **9** | Tách mutation M4 thành M4a (nhận nến chưa đóng) và M4b (lệch batch/live) | **Đã sửa** | `test_strategy_core_v311.py` tách thành `test_06b_mutation_m4a_unclosed_bar_accepted_fails_b3` và `test_06c_mutation_m4b_batch_live_divergence_fails_b3` (cả 2 `PASSED`). |
+| **10** | Kiểm tra chạy trực tiếp `legacy/reconcile_runs.py` và `tools/run_head_verification.py` | **Đã sửa** | Cả hai script bị `ModuleNotFoundError: No module named 'autotrade_v3'` khi chạy trực tiếp; đã thêm fallback `REPO_ROOT` vào `sys.path` chỉ khi `__package__ in (None, "")` (không import `autotrade_v2`). Chạy `--help` exit `0`. |
+
+- **Ghi chú về `test_04`/`test_05`/`test_06` (`ValueError: M15 gapped, misaligned or insufficient live warmup` tại `logic.py:710`):** Trong các lần chạy cục bộ trên commit `df5782c`, cả `test_04`, `test_05`, `test_06a`, `test_06b`, `test_06c` đều `PASSED` và không gặp lỗi này vì `TestStrategyCoreV311.setUpClass` tạo `60,000` nến M1 liên tục (`4,000` nến M15 >= `3,400` nến warm-up). Lỗi tại `logic.py:710` chỉ xảy ra nếu caller truyền chuỗi M15 thiếu warm-up (`< 3,400` nến), bị gap, hoặc lệch mốc 15 phút.
+- **Sửa lỗi phụ phát hiện trong quá trình chạy `--golden` (`run_manager.py`):** `get_git_state()` trước đó gọi `.strip()` trên `git status --porcelain`, làm mất dấu cách đầu của `" M evidence/..."` khiến `line[3:].startswith("evidence/")` bị trượt và báo nhầm `code_dirty=True`. Đã sửa thành `.rstrip("\r\n")` trong `df5782c`.

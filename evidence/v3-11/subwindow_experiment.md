@@ -1,7 +1,7 @@
 # THÍ NGHIỆM CỬA SỔ CON & WARM-UP (MỤC 4.8 — KIỂM CHỨNG GIẢ THUYẾT P2-5)
 
 ## 1. Thiết lập thí nghiệm
-- **Chiến lược:** `20FINAL@1` (`signal_spec_hash = fe592c07fdeaee9a20e21c7a1443ae1ac94ab2ec9a8c30d92dcb1dcea997b26e`)
+- **Chiến lược:** `20FINAL@1` (`signal_spec_hash = 4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79`)
 - **Run đầy đủ 3 năm:** `2023-11-01` đến `2026-11-01` (nạp kèm 3.400 nến M15 warm-up từ `2023-09-26T14:00:00Z`), sau đó trích tập con tín hiệu nằm trong cửa sổ `[2025-05-01, 2025-11-01)`.
 - **Run cửa sổ con:** `2025-05-01` đến `2025-11-01` (nạp kèm 3.400 nến M15 warm-up từ `2025-03-26T00:00:00+00:00` đến `2025-10-31T23:45:00+00:00`, tổng `21,120` nến M15/symbol).
 
