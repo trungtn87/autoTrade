@@ -1,0 +1,45 @@
+{
+  "run_id": "ONE_TRADE_PER_COMBO",
+  "strategy_id": "20FINAL_BASELINE",
+  "strategy_version": "1.0.0",
+  "config_hash": "1145d7f5494a9e9aaa250a48c214acdd8c87bf58869ff6c24861fbfe65033b81",
+  "data_manifest_hash": "a18fc2e1bf5985945fee6609847cce753cd319da74415dc23d4f4bae231487be",
+  "git_sha": "9c7b12b36ffbef963e29e481c1b2d602cafbb216",
+  "execution_mode": "ONE_TRADE_PER_COMBO",
+  "time_window": {
+    "start": "2023-11-01",
+    "end": "2026-11-01"
+  },
+  "symbols": [
+    "BTC-USDT",
+    "ETH-USDT"
+  ],
+  "fee_rate_taker": 0.0005,
+  "slippage_rate": 0.0,
+  "initial_equity": 1000.0,
+  "notional_per_trade": 100.0,
+  "total_signals": 5984,
+  "accepted_entries": 4149,
+  "total_legs": 6265,
+  "skipped_signals_count": 1835,
+  "rejected_signals_count": 0,
+  "ambiguity_stats": {
+    "intrabar_tp_sl_ambiguous_count": 3,
+    "intrabar_trailing_ambiguous_count": 459
+  },
+  "validation_status": "VERIFIED",
+  "code_sha": "9c7b12b36ffbef963e29e481c1b2d602cafbb216",
+  "code_dirty": false,
+  "diff_sha256": "",
+  "python_version": "3.12.8",
+  "pandas_version": "2.2.3",
+  "numpy_version": "2.3.5",
+  "duckdb_version": "1.4.2",
+  "pyarrow_version": "26.0.1",
+  "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+  "signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
+  "exit_spec_hash": "ce10e2b1c328201266965d2b1a4d991136941320ff9c2cdb338a471d7927254d",
+  "spec_hash": "1145d7f5494a9e9aaa250a48c214acdd8c87bf58869ff6c24861fbfe65033b81",
+  "is_golden": true,
+  "created_at_utc": "2026-11-14T11:48:05.543638+00:00"
+}

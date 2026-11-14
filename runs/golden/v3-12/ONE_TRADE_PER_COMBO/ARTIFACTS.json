@@ -1,0 +1,62 @@
+{
+  "mode": "ONE_TRADE_PER_COMBO",
+  "generated_at_utc": "2026-11-14T11:48:58.319240+00:00",
+  "artifacts": {
+    "run_manifest.json": {
+      "file_name": "run_manifest.json",
+      "size_bytes": 1624,
+      "sha256": "2fa7f4dfdba5948acd53bc51149f537af595a87e8cb0d30bb084e900170c4eab",
+      "content_hash": "2fa7f4dfdba5948acd53bc51149f537af595a87e8cb0d30bb084e900170c4eab",
+      "row_count": null
+    },
+    "analysis.json": {
+      "file_name": "analysis.json",
+      "size_bytes": 59927,
+      "sha256": "77a6d5cc81cea12da028e99fd8cb96b1b1c1af3ee4d59f184cfbd20be269602d",
+      "content_hash": "77a6d5cc81cea12da028e99fd8cb96b1b1c1af3ee4d59f184cfbd20be269602d",
+      "row_count": null
+    },
+    "signals.parquet": {
+      "file_name": "signals.parquet",
+      "size_bytes": 364669,
+      "sha256": "c71366290a201a7086bf22158c81fa44efbb8f5aa9f0ca0c7513076b0f65ee21",
+      "content_hash": "52ed9b559dfba7521fe7bbe0801c485ae8ac7c4e692eb7517643ac9594999e8b",
+      "row_count": 5984
+    },
+    "signal_decisions.parquet": {
+      "file_name": "signal_decisions.parquet",
+      "size_bytes": 222118,
+      "sha256": "41a6deebb4362a4821bd4fc41777fc742b722290ccb98f87db9335c2915eb248",
+      "content_hash": "5b621544e832661c6d15f70bd171a3391bb012f434f2ef31d4ee94c49504734c",
+      "row_count": 5984
+    },
+    "trades.parquet": {
+      "file_name": "trades.parquet",
+      "size_bytes": 551621,
+      "sha256": "13853781e6fa8612a949c0c302f50ea7dfb864a5bd2aaf086d6ade274fc89080",
+      "content_hash": "49320f8f212a14672e1d6ffe434c37d09019e7fa3735f72652cfbe7ef7285038",
+      "row_count": 6265
+    },
+    "execution_events.parquet": {
+      "file_name": "execution_events.parquet",
+      "size_bytes": 704145,
+      "sha256": "f6cc68b960c32e34131820b10f6efacd8273cb0b2103b981040dde08c6fbbbc3",
+      "content_hash": "da295a5bd3db9edb3616eeb010511713a9cce49caacde0a4fcbd8da132175591",
+      "row_count": 12530
+    },
+    "skipped_signals.parquet": {
+      "file_name": "skipped_signals.parquet",
+      "size_bytes": 56421,
+      "sha256": "8c89a65f2f0e292ae38b18aef12931c5500f86a3f8b520a619871bef8be0e79c",
+      "content_hash": "9a0939bb2f24328bd9e7abbe0cd60156ceec4d148edf301976030de177b8ddda",
+      "row_count": 1835
+    },
+    "rejected_signals.parquet": {
+      "file_name": "rejected_signals.parquet",
+      "size_bytes": 5692,
+      "sha256": "d60841a007a44b9eefd467085d4f659b934e7dab2f3350a91695dab6c6c4a989",
+      "content_hash": "245de4d472e8c3ee29935fc7a6ba1a5ab8a6da6c50c9ad485ed70237f50a2aa7",
+      "row_count": 0
+    }
+  }
+}

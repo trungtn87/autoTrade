@@ -1,0 +1,62 @@
+{
+  "mode": "ALL_SIGNALS",
+  "generated_at_utc": "2026-11-14T11:45:59.417178+00:00",
+  "artifacts": {
+    "run_manifest.json": {
+      "file_name": "run_manifest.json",
+      "size_bytes": 1605,
+      "sha256": "692401e96cc4b7300987aaa188c55b4d98458ae5a040f2bbf34a2a59dd58d363",
+      "content_hash": "692401e96cc4b7300987aaa188c55b4d98458ae5a040f2bbf34a2a59dd58d363",
+      "row_count": null
+    },
+    "analysis.json": {
+      "file_name": "analysis.json",
+      "size_bytes": 60058,
+      "sha256": "999a158a7e13d65593ef9e96f5ad37239084b76590eb0b81f88deec9978596c7",
+      "content_hash": "999a158a7e13d65593ef9e96f5ad37239084b76590eb0b81f88deec9978596c7",
+      "row_count": null
+    },
+    "signals.parquet": {
+      "file_name": "signals.parquet",
+      "size_bytes": 364669,
+      "sha256": "c71366290a201a7086bf22158c81fa44efbb8f5aa9f0ca0c7513076b0f65ee21",
+      "content_hash": "52ed9b559dfba7521fe7bbe0801c485ae8ac7c4e692eb7517643ac9594999e8b",
+      "row_count": 5984
+    },
+    "signal_decisions.parquet": {
+      "file_name": "signal_decisions.parquet",
+      "size_bytes": 210072,
+      "sha256": "07dfc5692176f797e2d31eb4c6be9b07bec9178a0d518a2fb19754d4fdd902bc",
+      "content_hash": "2b3455653e043ac40f3faed4de22a8851b7b6986d7baa11d43dbdf37b59136e3",
+      "row_count": 5984
+    },
+    "trades.parquet": {
+      "file_name": "trades.parquet",
+      "size_bytes": 713478,
+      "sha256": "2b1a32b61bd8ffdeb7c7f5a25edaf60a72482a38266cd2b2cfdbaf8ad1d75ffe",
+      "content_hash": "7ec6621eb778be638e4d4737dbc496916bacdb607d7890846075f1956c69b5f6",
+      "row_count": 8258
+    },
+    "execution_events.parquet": {
+      "file_name": "execution_events.parquet",
+      "size_bytes": 928756,
+      "sha256": "4ff6a0ee837a51febbd2d7c4c8f87531cf7862d0af7fadc46ffa2c567f77e71d",
+      "content_hash": "b9198ee5658fbe77af415b808d6399dcb66e6e6f93ee6d28c90070902eca5126",
+      "row_count": 16516
+    },
+    "skipped_signals.parquet": {
+      "file_name": "skipped_signals.parquet",
+      "size_bytes": 4411,
+      "sha256": "efdbf7739ceeb278c256c64119a1b0e132e6e72380c94f049860a529a71edb8b",
+      "content_hash": "206e84787e2cc2d0550e43c2f61690999abb7f7164e582c9b91162d3a4667823",
+      "row_count": 0
+    },
+    "rejected_signals.parquet": {
+      "file_name": "rejected_signals.parquet",
+      "size_bytes": 5692,
+      "sha256": "d60841a007a44b9eefd467085d4f659b934e7dab2f3350a91695dab6c6c4a989",
+      "content_hash": "245de4d472e8c3ee29935fc7a6ba1a5ab8a6da6c50c9ad485ed70237f50a2aa7",
+      "row_count": 0
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "timings": {
+    "ALL_SIGNALS": 762.603,
+    "ONE_TRADE_PER_COMBO": 128.152,
+    "BINGX_PORTFOLIO": 202.045
+  },
+  "validation": {
+    "ALL_SIGNALS": {
+      "overall_status": "VERIFIED",
+      "gates": {
+        "A1": "PASS",
+        "A2": "PASS",
+        "B1": "PASS",
+        "B2": "PASS",
+        "B3": "PASS",
+        "C1": "PASS",
+        "C2": "PASS",
+        "C3": "PASS",
+        "C4": "PASS",
+        "C5": "PASS",
+        "D1": "PASS",
+        "D2": "PASS"
+      }
+    },
+    "ONE_TRADE_PER_COMBO": {
+      "overall_status": "VERIFIED",
+      "gates": {
+        "A1": "PASS",
+        "A2": "PASS",
+        "B1": "PASS",
+        "B2": "PASS",
+        "B3": "PASS",
+        "C1": "PASS",
+        "C2": "PASS",
+        "C3": "PASS",
+        "C4": "PASS",
+        "C5": "PASS",
+        "D1": "PASS",
+        "D2": "PASS"
+      }
+    },
+    "BINGX_PORTFOLIO": {
+      "overall_status": "FAILED",
+      "gates": {
+        "A1": "PASS",
+        "A2": "PASS",
+        "B1": "PASS",
+        "B2": "PASS",
+        "B3": "PASS",
+        "C1": "PASS",
+        "C2": "PASS",
+        "C3": "PASS",
+        "C4": "FAIL",
+        "C5": "PASS",
+        "D1": "PASS",
+        "D2": "PASS"
+      }
+    }
+  },
+  "b8_checks": {
+    "ALL_SIGNALS": {
+      "ref": "runs\\golden\\v3-08\\ALL_SIGNALS",
+      "rows_only_in_a": 0,
+      "rows_only_in_b": 0,
+      "bad_cols": []
+    },
+    "ONE_TRADE_PER_COMBO": {
+      "ref": "C:\\Users\\TCGamingCB\\.gemini\\antigravity\\brain\\9621c1f3-0d9f-4617-b2a0-e560bf854ae9\\scratch\\b7_runs\\RUN_20261114_113132_20FINAL_BASELINE_ONE_TRADE_PER_COMBO_20231101_20261101",
+      "rows_only_in_a": 0,
+      "rows_only_in_b": 0,
+      "bad_cols": []
+    },
+    "BINGX_PORTFOLIO": {
+      "ref": "runs\\golden\\v3-08\\BINGX_PORTFOLIO",
+      "rows_only_in_a": 0,
+      "rows_only_in_b": 0,
+      "bad_cols": []
+    }
+  }
+}

@@ -1,0 +1,43 @@
+=== M1: Mutate TP before SL in copy of sim/leg.py ===
+M1 spec test exit_code=1
+....FF.....................                                              [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'TP' == 'SL_INTRABAR_AMBIGUOUS'
+      
+      - SL_INTRABAR_AMBIGUOUS
+      + TP
+C:\Users\TCGAMI~1\AppData\Local\Temp\tmpclcmuogm\m1_repo\autotrade_v3\tests\test_sim_leg_spec.py:270: AssertionError: assert 'TP' == 'SL_INTRABAR_AMBIGUOUS'
+E   AssertionError: assert 'TP' == 'SL_INTRABAR_AMBIGUOUS'
+      
+      - SL_INTRABAR_AMBIGUOUS
+      + TP
+C:\Users\TCGAMI~1\AppData\Local\Temp\tmpclcmuogm\m1_repo\autotrade_v3\tests\test_sim_leg_spec.py:283: AssertionError: assert 'TP' == 'SL_INTRABAR_AMBIGUOUS'
+=========================== short test summary info ===========================
+FAILED autotrade_v3/tests/test_sim_leg_spec.py::test_buy_both_tp_and_sl_same_bar_prioritizes_sl
+FAILED autotrade_v3/tests/test_sim_leg_spec.py::test_sell_both_tp_and_sl_same_bar_prioritizes_sl
+2 failed, 25 passed in 1.59s
+M1_MUTATED_EXIT_REASON= TP EXIT_PRICE= 102.0
+M1 C3 on mutated exit: status=FAIL violations=1 sample=[{'leg_id': 'SIG_BTCUSDT_C1_1h_BUY_1717761599999#L2', 'signal_id': 'SIG_BTCUSDT_C1_1h_BUY_1717761599999', 'problems': 'EXIT_REASON,EXIT_PRICE', 'ledger_exit_reason': 'TP', 'replay_exit_reason': 'SL_INTRABAR_AMBIGUOUS', 'ledger_exit_time_ms': 1717763400000, 'replay_exit_time_ms': 1717763400000}]
+
+=== M2: Mutate entry_time_ms to signal_close_ms -> C1 FAIL ===
+M2 C1 on look-ahead entry: status=FAIL violations=1 sample=[{'leg_id': 'SIG_BTCUSDT_C11_1h_BUY_1701860399999#L1', 'signal_id': 'SIG_BTCUSDT_C11_1h_BUY_1701860399999', 'kind': 'ENTRY_TIME', 'expected_ms': 1701860400000, 'actual_ms': 1701860399999, 'delta_min': -1.6666666666666667e-05}]
+
+=== M3: Delete 1 row from copy of signal_decisions.parquet -> C5 FAIL ===
+M3 C5 after deleting 1 row: status=FAIL violations=2 sample=[{'signal_id': 'SIG_BTCUSDT_C11_1h_BUY_1701856799999', 'kind': 'MISSING_SIGNAL_DECISION'}, {'kind': 'MANIFEST_COUNT', 'field': 'accepted_entries', 'manifest': 5984, 'recomputed': 5983}]
+
+=== M4: Restore '>' in copy of sim/admission.py -> same-bar test FAIL ===
+M4 admission test exit_code=1
+.F...                                                                    [100%]
+================================== FAILURES ===================================
+E   AssertionError: assert 'ACCEPTED' == 'SKIPPED'
+      
+      - SKIPPED
+      + ACCEPTED
+C:\Users\TCGAMI~1\AppData\Local\Temp\tmpclcmuogm\m1_repo\autotrade_v3\tests\test_sim_admission_account.py:104: AssertionError: assert 'ACCEPTED' == 'SKIPPED'
+=========================== short test summary info ===========================
+FAILED autotrade_v3/tests/test_sim_admission_account.py::test_admission_mode_b_skips_open_combo_and_same_bar
+1 failed, 4 passed in 8.09s
+
+=== M5: Mutate 1 high price in copy of M1 bars -> compare_ledgers detects exact leg ===
+M5 orig exit_reason=SL, mut exit_reason=TP
+M5 compare_ledgers matched=1 diff_cols=['exit_time_ms', 'exit_time_dt', 'exit_price', 'exit_reason', 'gross_pnl', 'fee_total', 'net_pnl', 'return_pct', 'bars_held']
