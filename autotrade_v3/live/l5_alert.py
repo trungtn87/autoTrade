@@ -64,32 +64,37 @@ def default_sender(url: str, content: str) -> tuple[bool, str]:
     return False, "HTTP 429 after one retry"
 
 
+def vn_clock(ms: int | None) -> str:
+    """V2 style clock: HH:MM:SS DD/MM/YYYY in Vietnam time."""
+    stamp = int(ms) if ms else int(time.time() * 1000)
+    return datetime.fromtimestamp(stamp / 1000, tz=VN).strftime("%H:%M:%S %d/%m/%Y")
+
+
 def signal_message(sig: dict) -> str:
+    """Short strategy-signal note (not an order confirmation)."""
     return "\n".join([
-        f"📡 **TÍN HIỆU 20FINAL** — {sig['symbol']} {sig['combo']} **{sig['side']}**",
-        "(Đây là tín hiệu chiến lược, CHƯA phải xác nhận đặt lệnh)",
-        f"Event ID: `{sig['event_id']}`",
-        f"Nến đóng: {vn_time(sig.get('close_time_ms'))} · khung {sig.get('timeframe', '?')}",
-        f"Entry lý thuyết: {_fmt(sig['entry'])} · TP: {_fmt(sig['tp'])} · SL: {_fmt(sig['sl'])}",
+        f"📡 Tín hiệu {sig['symbol']} {sig['side']} · Combo {sig['combo']}",
+        f"Entry: {_fmt(sig['entry'])} · TP: {_fmt(sig['tp'])} · SL: {_fmt(sig['sl'])}",
+        f"🕒 Nến đóng (VN): {vn_clock(sig.get('close_time_ms')) if sig.get('close_time_ms') else '?'}",
     ])
 
 
 def success_message(r: dict) -> str:
-    lines = [
-        f"✅ **ĐẶT LỆNH THÀNH CÔNG** — {r['symbol']} {r['combo']} **{r['side']}**",
-        "Entry và các lệnh bảo vệ đã được BingX xác nhận.",
-        f"Event ID: `{r['event_id']}`",
-        f"Entry Order ID: `{_fmt(r.get('entry_order_id'))}` · Client Order ID: `{_fmt(r.get('client_order_id'))}`",
-        f"Giá khớp thực tế: {_fmt(r.get('avg_price'))} · Khối lượng khớp: {_fmt(r.get('executed_qty'))} · x{_fmt(r.get('leverage'))}",
-        f"SL: `{_fmt(r.get('sl_order_id'))}` @ {_fmt(r.get('sl_price'))} (KL {_fmt(r.get('sl_qty'))})",
-        f"TP: `{_fmt(r.get('tp_order_id'))}` @ {_fmt(r.get('tp_price'))} (KL {_fmt(r.get('tp_qty'))})",
-    ]
-    if r.get("trailing_order_id"):
-        lines.append(f"Trailing: `{_fmt(r.get('trailing_order_id'))}` kích hoạt {_fmt(r.get('trailing_activation_price'))}"
-                     f" · callback {_fmt(r.get('trailing_callback_rate'))} (KL {_fmt(r.get('trailing_qty'))})")
-    else:
-        lines.append(f"Chế độ thoát: {_fmt(r.get('exit_mode'))} (không có trailing)")
-    return "\n".join(lines)
+    """Order confirmation in the old V2 layout; order IDs stay in the database."""
+    return "\n".join([
+        "✅ Đặt lệnh",
+        f"{r['symbol']} {r['side']}",
+        "",
+        f"📊 Combo {r['combo']}",
+        f"Entry: {_fmt(r.get('avg_price'))}",
+        "",
+        f"TP : {_fmt(r.get('tp_price'))}",
+        f"SL : {_fmt(r.get('sl_price'))}",
+        "",
+        f"🕒 Giờ xác nhận lệnh (VN): {vn_clock(r.get('confirmed_at_ms'))}",
+        "",
+        "✅ Đặt lệnh thành công",
+    ])
 
 
 def error_message(rec: dict, log_id: int | None) -> str:
