@@ -337,16 +337,10 @@ def test_mock_hourly_projection_builds_results_and_finances():
     _, store, client, sender, alert, control, _reader, executor = build()
     r = executor.execute(sig())
     ex = store.executions[r["event_id"]]
-    store.archive_orders = [
-        {"order_id": ex["tp_order_id"], "status": "FILLED", "filled_qty": 0.0005, "avg_price": 102000.0,
-         "updated_ms": 1763003600000, "raw": {"profit": "1.0"}},
-        {"order_id": ex["sl_order_id"], "status": "NEW", "filled_qty": 0, "avg_price": 0, "raw": {}},
-    ]
-    store.archive_fills = [
-        {"order_id": ex["entry_order_id"], "fee": -0.05, "realized_pnl": 0},
-        {"order_id": ex["tp_order_id"], "fee": -0.03, "realized_pnl": 1.0},
-    ]
-    counts = project_results(store, control)
+    client.orders[ex["entry_order_id"]]["commission"] = "-0.05"
+    client.orders[ex["tp_order_id"]].update({"status": "FILLED", "executedQty": "0.0005", "avgPrice": "102000",
+                                             "updateTime": 1763003600000, "profit": "1.0", "commission": "-0.03"})
+    counts = project_results(store, control, client)
     assert counts == {"executions": 1, "results": 1, "finances": 1}
     res = store.results[ex["tp_order_id"]]
     assert res["close_type"] == "TP" and res["closed_qty"] == 0.0005
@@ -428,13 +422,11 @@ def test_mock_hourly_projection_attributes_triggered_child_orders():
     _, store, client, sender, alert, control, _reader, executor = build()
     r = executor.execute(sig())
     ex = store.executions[r["event_id"]]
-    store.archive_orders = [
-        {"order_id": ex["sl_order_id"], "status": "FILLED", "filled_qty": 0.001, "avg_price": 99200.0, "raw": {}},
-        {"order_id": "777", "status": "FILLED", "filled_qty": 0.001, "avg_price": 99200.0, "updated_ms": 1,
-         "raw": {"triggerOrderId": ex["sl_order_id"], "profit": "-0.8"}},
-    ]
-    store.archive_fills = [{"order_id": "777", "fee": -0.04, "realized_pnl": -0.8}]
-    counts = project_results(store, control)
+    client.orders[ex["sl_order_id"]].update({"status": "FILLED", "executedQty": "0.001", "avgPrice": "99200"})
+    client.orders["777"] = {"orderId": "777", "symbol": ex["symbol"], "status": "FILLED", "executedQty": "0.001",
+                            "avgPrice": "99200", "updateTime": 1, "triggerOrderId": ex["sl_order_id"],
+                            "profit": "-0.8", "commission": "-0.04"}
+    counts = project_results(store, control, client)
     assert counts["results"] == 1 and store.results["777"]["close_type"] == "SL"
     fin = store.finances[ex["id"]]
     assert fin["is_fully_closed"] is True and fin["gross_pnl"] == -0.8
@@ -459,3 +451,12 @@ def test_success_message_uses_confirmed_bingx_prices_without_ids():
                        "🕒 10:00:49 · 14/11/2026")
     assert "12345" not in message and "98765" not in message
     assert "2121438081244680192" not in message and "v3e-abc" not in message
+
+
+def test_l4_never_touches_v2_tables_or_collector():
+    import pathlib
+    import autotrade_v3.live as live
+    root = pathlib.Path(live.__file__).parent
+    for name in ("l4_control.py", "store.py", "l4_leftover.py"):
+        code = "\n".join(l for l in (root / name).read_text().splitlines() if not l.lstrip().startswith(("#", '"', "No V2", "Own thread")))
+        assert "FROM autotrade_analytics" not in code and "CollectorRuntime" not in code and "processed_targets" not in code

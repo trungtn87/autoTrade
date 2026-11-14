@@ -48,7 +48,7 @@ class Runtime:
         self.leftover = LeftoverCleaner(s, self.client, self.store, self.reader, self.control, self.alert,
                                         busy=v3_threads_busy)
         self.executor.on_settled = self.leftover.request
-        self.hourly = HourlySync(self.store, self.control, admit=self._archive_ready, after_sync=self.leftover.request)
+        self.hourly = HourlySync(self.store, self.control, admit=self._archive_ready, client=self.client, after_sync=self.leftover.request)
         self.stream = None
         self._processed: dict[str, int] = {}
         self._symbol_locks = {sym: threading.Lock() for sym in s.symbols}

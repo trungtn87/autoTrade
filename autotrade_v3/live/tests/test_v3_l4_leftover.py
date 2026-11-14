@@ -232,8 +232,8 @@ def test_request_runs_in_background_after_busy_threads_finish():
 def test_hourly_sync_hands_over_to_cleanup_after_projection():
     _, store, client, sender, control, executor, cleaner, _ = setup()
     seen = []
-    sync = HourlySync(store, control, admit=lambda: True, after_sync=seen.append)
-    sync._notify({"result": "completed"})
+    sync = HourlySync(store, control, admit=lambda: True, client=client, after_sync=seen.append)
+    assert sync.run_once()["result"] == "completed"
     assert seen == ["hourly_sync"]
 
 
