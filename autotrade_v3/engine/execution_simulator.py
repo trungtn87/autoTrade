@@ -81,6 +81,8 @@ class TradeRecord:
     slippage_cost: float = 0.0
     funding_cost: float = 0.0
     gross_pnl_raw: float = 0.0
+    ambiguity_type: str = "NONE"
+    ambiguity_policy: str = "LEGACY"
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -129,12 +131,14 @@ class ExecutionSimulator:
         trailing_act_pct: float = 0.005,
         trailing_cb_pct: float = 0.005,
         cost_model: Any = None,
+        ambiguity_policy: str = "LEGACY",
     ):
         self.risk = risk_config or RiskConfig()
         self.final14_exit_mode = final14_exit_mode
         self.trailing_act_pct = trailing_act_pct
         self.trailing_cb_pct = trailing_cb_pct
         self.cost_model = cost_model if cost_model is not None else getattr(self.risk, "cost_model", None)
+        self.ambiguity_policy = ambiguity_policy
         self.execution_events: list[ExecutionEvent] = []
         self.last_skipped_signals: list[dict[str, Any]] = []
         self.last_rejected_signals: list[dict[str, Any]] = []
@@ -165,6 +169,7 @@ class ExecutionSimulator:
             trailing_act_pct=self.trailing_act_pct,
             trailing_cb_pct=self.trailing_cb_pct,
             cost_model=self.cost_model,
+            ambiguity_policy=self.ambiguity_policy,
         )
 
     def simulate_virtual_trades(

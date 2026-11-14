@@ -5,6 +5,14 @@ import numpy as np
 import pandas as pd
 
 from autotrade_v3.engine.candle_loader import datetime_index_to_ms
+from autotrade_v3.sim.ambiguity import (
+    AmbiguityPolicy,
+    normalize_ambiguity_policy,
+    resolve_sl_and_trail_act,
+    resolve_tp_and_sl,
+    resolve_trail_act_and_cb,
+    resolve_trail_peak_and_stop,
+)
 from autotrade_v3.sim.types import ExitRules, LegOutcome, LegSpec, M1BarArrays
 
 
@@ -39,6 +47,7 @@ def _simulate_fixed_leg(
     is_buy: bool,
     leg_spec: LegSpec,
     exit_rules: ExitRules,
+    ambiguity_policy: AmbiguityPolicy = "LEGACY",
 ) -> LegOutcome:
     tp_price = entry_price * (1.0 + exit_rules.tp_pct) if is_buy else entry_price * (1.0 - exit_rules.tp_pct)
     sl_price = entry_price * (1.0 - exit_rules.sl_pct) if is_buy else entry_price * (1.0 + exit_rules.sl_pct)
@@ -50,6 +59,7 @@ def _simulate_fixed_leg(
     n_bars = arrays.n_bars
 
     ambiguous = False
+    amb_type = "NONE"
     exit_price = 0.0
     exit_reason = ""
     exit_bar_idx = n_bars - 1
@@ -97,9 +107,20 @@ def _simulate_fixed_leg(
             hit_sl = h >= sl_price
 
         if hit_tp and hit_sl:
-            ambiguous = True
-            exit_price = sl_price
-            exit_reason = "SL_INTRABAR_AMBIGUOUS"
+            bar_op = float(opens[i]) if opens is not None else float(closes[i])
+            bar_cl = float(closes[i])
+            res = resolve_tp_and_sl(
+                policy=ambiguity_policy,
+                is_buy=is_buy,
+                tp_price=tp_price,
+                sl_price=sl_price,
+                bar_open=bar_op,
+                bar_close=bar_cl,
+            )
+            ambiguous = res.intrabar_ambiguous
+            amb_type = res.ambiguity_type
+            exit_price = res.exit_price
+            exit_reason = res.exit_reason
             exit_bar_idx = i
             break
         elif hit_sl:
@@ -129,6 +150,8 @@ def _simulate_fixed_leg(
         bars_held=exit_bar_idx - entry_idx,
         intrabar_ambiguous=ambiguous,
         intrabar_trailing_ambiguous=False,
+        ambiguity_type=amb_type,
+        ambiguity_policy=ambiguity_policy,
     )
 
 
@@ -139,6 +162,7 @@ def _simulate_trailing_leg(
     is_buy: bool,
     leg_spec: LegSpec,
     exit_rules: ExitRules,
+    ambiguity_policy: AmbiguityPolicy = "LEGACY",
 ) -> LegOutcome:
     sl_price = entry_price * (1.0 - exit_rules.sl_pct) if is_buy else entry_price * (1.0 + exit_rules.sl_pct)
     act_price = (
@@ -163,6 +187,7 @@ def _simulate_trailing_leg(
     exit_reason = ""
     ambiguous = False
     trailing_ambiguous = False
+    amb_type = "NONE"
 
     for i in range(entry_idx, n_bars):
         if exit_rules.max_bars_held is not None and (i - entry_idx) >= exit_rules.max_bars_held:
@@ -188,86 +213,176 @@ def _simulate_trailing_leg(
 
         h = float(highs[i])
         l = float(lows[i])
+        bar_op = float(opens[i]) if opens is not None else float(closes[i])
+        bar_cl = float(closes[i])
         trailing_ambiguous = False
 
         if is_buy:
             if not trail_active:
                 if l <= sl_price and h >= act_price:
-                    ambiguous = True
-                    exit_price = sl_price
-                    exit_reason = "SL_INTRABAR_AMBIGUOUS"
-                    exit_bar_idx = i
-                    break
-                elif h >= act_price:
-                    trail_active = True
-                    peak_price = h
-                    trail_stop = max(sl_price, peak_price * (1.0 - cb_pct))
-                    if l <= trail_stop:
-                        trailing_ambiguous = True
-                        exit_price = trail_stop
-                        exit_reason = "TRAIL"
+                    res = resolve_sl_and_trail_act(
+                        policy=ambiguity_policy,
+                        is_buy=True,
+                        sl_price=sl_price,
+                        fav_extreme=h,
+                        cb_pct=cb_pct,
+                        bar_open=bar_op,
+                        bar_close=bar_cl,
+                    )
+                    ambiguous = res.intrabar_ambiguous
+                    amb_type = res.ambiguity_type
+                    if res.should_exit:
+                        exit_price = res.exit_price
+                        exit_reason = res.exit_reason
                         exit_bar_idx = i
                         break
+                    trail_active = True
+                    peak_price = res.new_peak_price
+                    trail_stop = res.new_trail_stop
+                elif h >= act_price:
+                    trail_active = True
+                    cand_peak = h
+                    cand_stop = max(sl_price, cand_peak * (1.0 - cb_pct))
+                    if l <= cand_stop:
+                        res = resolve_trail_act_and_cb(
+                            policy=ambiguity_policy,
+                            is_buy=True,
+                            fav_extreme=cand_peak,
+                            new_stop=cand_stop,
+                            bar_open=bar_op,
+                            bar_close=bar_cl,
+                        )
+                        trailing_ambiguous = res.intrabar_trailing_ambiguous
+                        amb_type = res.ambiguity_type
+                        peak_price = res.new_peak_price
+                        trail_stop = res.new_trail_stop
+                        if res.should_exit:
+                            exit_price = res.exit_price
+                            exit_reason = res.exit_reason
+                            exit_bar_idx = i
+                            break
+                    else:
+                        peak_price = cand_peak
+                        trail_stop = cand_stop
                 elif l <= sl_price:
                     exit_price = sl_price
                     exit_reason = "SL"
                     exit_bar_idx = i
                     break
             else:
-                if l <= trail_stop:
+                if h > peak_price:
+                    cand_stop = max(trail_stop, h * (1.0 - cb_pct))
+                    if l <= cand_stop:
+                        res = resolve_trail_peak_and_stop(
+                            policy=ambiguity_policy,
+                            is_buy=True,
+                            old_stop=trail_stop,
+                            new_stop=cand_stop,
+                            fav_extreme=h,
+                            hit_old_stop=(l <= trail_stop),
+                            bar_open=bar_op,
+                            bar_close=bar_cl,
+                        )
+                        trailing_ambiguous = res.intrabar_trailing_ambiguous
+                        amb_type = res.ambiguity_type
+                        peak_price = res.new_peak_price
+                        trail_stop = res.new_trail_stop
+                        if res.should_exit:
+                            exit_price = res.exit_price
+                            exit_reason = res.exit_reason
+                            exit_bar_idx = i
+                            break
+                    else:
+                        peak_price = h
+                        trail_stop = cand_stop
+                elif l <= trail_stop:
                     exit_price = trail_stop
                     exit_reason = "TRAIL"
                     exit_bar_idx = i
                     break
-                elif h > peak_price:
-                    peak_price = h
-                    new_stop = max(trail_stop, peak_price * (1.0 - cb_pct))
-                    trail_stop = new_stop
-                    if l <= new_stop:
-                        trailing_ambiguous = True
-                        exit_price = new_stop
-                        exit_reason = "TRAIL"
-                        exit_bar_idx = i
-                        break
         else:
             if not trail_active:
                 if h >= sl_price and l <= act_price:
-                    ambiguous = True
-                    exit_price = sl_price
-                    exit_reason = "SL_INTRABAR_AMBIGUOUS"
-                    exit_bar_idx = i
-                    break
-                elif l <= act_price:
-                    trail_active = True
-                    peak_price = l
-                    trail_stop = min(sl_price, peak_price * (1.0 + cb_pct))
-                    if h >= trail_stop:
-                        trailing_ambiguous = True
-                        exit_price = trail_stop
-                        exit_reason = "TRAIL"
+                    res = resolve_sl_and_trail_act(
+                        policy=ambiguity_policy,
+                        is_buy=False,
+                        sl_price=sl_price,
+                        fav_extreme=l,
+                        cb_pct=cb_pct,
+                        bar_open=bar_op,
+                        bar_close=bar_cl,
+                    )
+                    ambiguous = res.intrabar_ambiguous
+                    amb_type = res.ambiguity_type
+                    if res.should_exit:
+                        exit_price = res.exit_price
+                        exit_reason = res.exit_reason
                         exit_bar_idx = i
                         break
+                    trail_active = True
+                    peak_price = res.new_peak_price
+                    trail_stop = res.new_trail_stop
+                elif l <= act_price:
+                    trail_active = True
+                    cand_peak = l
+                    cand_stop = min(sl_price, cand_peak * (1.0 + cb_pct))
+                    if h >= cand_stop:
+                        res = resolve_trail_act_and_cb(
+                            policy=ambiguity_policy,
+                            is_buy=False,
+                            fav_extreme=cand_peak,
+                            new_stop=cand_stop,
+                            bar_open=bar_op,
+                            bar_close=bar_cl,
+                        )
+                        trailing_ambiguous = res.intrabar_trailing_ambiguous
+                        amb_type = res.ambiguity_type
+                        peak_price = res.new_peak_price
+                        trail_stop = res.new_trail_stop
+                        if res.should_exit:
+                            exit_price = res.exit_price
+                            exit_reason = res.exit_reason
+                            exit_bar_idx = i
+                            break
+                    else:
+                        peak_price = cand_peak
+                        trail_stop = cand_stop
                 elif h >= sl_price:
                     exit_price = sl_price
                     exit_reason = "SL"
                     exit_bar_idx = i
                     break
             else:
-                if h >= trail_stop:
+                if l < peak_price:
+                    cand_stop = min(trail_stop, l * (1.0 + cb_pct))
+                    if h >= cand_stop:
+                        res = resolve_trail_peak_and_stop(
+                            policy=ambiguity_policy,
+                            is_buy=False,
+                            old_stop=trail_stop,
+                            new_stop=cand_stop,
+                            fav_extreme=l,
+                            hit_old_stop=(h >= trail_stop),
+                            bar_open=bar_op,
+                            bar_close=bar_cl,
+                        )
+                        trailing_ambiguous = res.intrabar_trailing_ambiguous
+                        amb_type = res.ambiguity_type
+                        peak_price = res.new_peak_price
+                        trail_stop = res.new_trail_stop
+                        if res.should_exit:
+                            exit_price = res.exit_price
+                            exit_reason = res.exit_reason
+                            exit_bar_idx = i
+                            break
+                    else:
+                        peak_price = l
+                        trail_stop = cand_stop
+                elif h >= trail_stop:
                     exit_price = trail_stop
                     exit_reason = "TRAIL"
                     exit_bar_idx = i
                     break
-                elif l < peak_price:
-                    peak_price = l
-                    new_stop = min(trail_stop, peak_price * (1.0 + cb_pct))
-                    trail_stop = new_stop
-                    if h >= new_stop:
-                        trailing_ambiguous = True
-                        exit_price = new_stop
-                        exit_reason = "TRAIL"
-                        exit_bar_idx = i
-                        break
     else:
         exit_bar_idx = n_bars - 1
         exit_price = float(closes[exit_bar_idx])
@@ -285,6 +400,8 @@ def _simulate_trailing_leg(
         bars_held=exit_bar_idx - entry_idx,
         intrabar_ambiguous=ambiguous,
         intrabar_trailing_ambiguous=trailing_ambiguous,
+        ambiguity_type=amb_type,
+        ambiguity_policy=ambiguity_policy,
     )
 
 
@@ -295,13 +412,15 @@ def simulate_leg(
     side: str,
     leg_spec: LegSpec,
     exit_rules: ExitRules,
+    ambiguity_policy: str = "LEGACY",
 ) -> LegOutcome:
     """Simulate a single leg over M1 bars starting at ``entry_idx``.
 
     Pure function: contains the sole implementation of M1 exit rules
     (fixed TP/SL, trailing activation/peak/callback, gap open, intrabar
-    SL-first ambiguity, MAX_BARS_HELD, and FORCE_CLOSE).
+    ambiguity policy, MAX_BARS_HELD, and FORCE_CLOSE).
     """
+    policy = normalize_ambiguity_policy(ambiguity_policy)
     arrays = bars_m1 if isinstance(bars_m1, M1BarArrays) else extract_m1_arrays(bars_m1)
     if entry_idx < 0 or entry_idx >= arrays.n_bars:
         raise IndexError(f"entry_idx {entry_idx} out of range for {arrays.n_bars} M1 bars")
@@ -315,6 +434,7 @@ def simulate_leg(
             is_buy=is_buy,
             leg_spec=leg_spec,
             exit_rules=exit_rules,
+            ambiguity_policy=policy,
         )
     return _simulate_fixed_leg(
         arrays=arrays,
@@ -323,4 +443,5 @@ def simulate_leg(
         is_buy=is_buy,
         leg_spec=leg_spec,
         exit_rules=exit_rules,
+        ambiguity_policy=policy,
     )

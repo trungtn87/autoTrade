@@ -11,6 +11,7 @@ from autotrade_v3.engine.risk_manager import RiskConfig
 from autotrade_v3.engine.signal_engine import Signal
 from autotrade_v3.sim.account import AccountLedger
 from autotrade_v3.sim.admission import AllSignals, OneTradePerCombo, Portfolio
+from autotrade_v3.sim.ambiguity import AmbiguityPolicy, normalize_ambiguity_policy
 from autotrade_v3.sim.costs import CostModel
 from autotrade_v3.sim.leg import extract_m1_arrays, simulate_leg
 from autotrade_v3.sim.types import Event, ExitRules, LegOutcome, LegSpec, M1BarArrays, SignalDecision
@@ -151,11 +152,13 @@ class UnifiedSimulator:
         trailing_act_pct: float = 0.005,
         trailing_cb_pct: float = 0.005,
         cost_model: CostModel | None = None,
+        ambiguity_policy: str = "LEGACY",
     ) -> None:
         self.risk = risk_config or RiskConfig()
         self.final14_exit_mode = final14_exit_mode
         self.trailing_act_pct = trailing_act_pct
         self.trailing_cb_pct = trailing_cb_pct
+        self.ambiguity_policy: AmbiguityPolicy = normalize_ambiguity_policy(ambiguity_policy)
         if cost_model is not None:
             self.cost_model = cost_model
         elif getattr(self.risk, "cost_model", None) is not None:
@@ -285,6 +288,7 @@ class UnifiedSimulator:
                     side=sig.side,
                     leg_spec=leg_spec,
                     exit_rules=exit_rules,
+                    ambiguity_policy=self.ambiguity_policy,
                 )
                 if outcome.exit_bar_idx > max_exit_idx:
                     max_exit_idx = outcome.exit_bar_idx
@@ -416,6 +420,8 @@ class UnifiedSimulator:
                         slippage_cost=cb.slippage_cost,
                         funding_cost=cb.funding_cost,
                         gross_pnl_raw=cb.gross_pnl_raw,
+                        ambiguity_type=outcome.ambiguity_type,
+                        ambiguity_policy=outcome.ambiguity_policy,
                     )
                 )
 
@@ -583,6 +589,7 @@ class UnifiedSimulator:
                         side=sig.side,
                         leg_spec=leg_spec,
                         exit_rules=exit_rules,
+                        ambiguity_policy=self.ambiguity_policy,
                     )
                     portfolio_policy.record_open_leg(sig.symbol, sig.combo_id, leg_spec.leg_id, trade_id)
 
@@ -751,6 +758,8 @@ class UnifiedSimulator:
                                 slippage_cost=cb.slippage_cost,
                                 funding_cost=cb.funding_cost,
                                 gross_pnl_raw=cb.gross_pnl_raw,
+                                ambiguity_type=outcome.ambiguity_type,
+                                ambiguity_policy=outcome.ambiguity_policy,
                             )
                         )
 
@@ -841,6 +850,7 @@ class UnifiedSimulator:
             "rejected_signals_count": len(rejected_signals),
             "cost_profile": self.cost_model.profile.name,
             "cost_profile_hash": self.cost_model.profile.profile_hash,
+            "ambiguity_policy": self.ambiguity_policy,
             **extra_summary,
         }
         return SimulationResult(

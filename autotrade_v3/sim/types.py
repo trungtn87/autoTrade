@@ -47,6 +47,8 @@ class LegOutcome:
     bars_held: int
     intrabar_ambiguous: bool
     intrabar_trailing_ambiguous: bool
+    ambiguity_type: str = "NONE"
+    ambiguity_policy: str = "LEGACY"
 
 
 @dataclass(frozen=True)
