@@ -98,6 +98,7 @@ class L3Executor:
         self._pending_claims: dict[str, dict] = {}
         self._lock = threading.Lock()
         self.results: list[dict] = []
+        self.on_settled = None   # optional callback after an Entry attempt finished; never blocks or gates trading
 
     # ------------------------------------------------------------------
     def submit(self, sig: V3Signal) -> threading.Thread:
@@ -116,6 +117,11 @@ class L3Executor:
             result = {"event_id": sig.event_id, "stage": "internal_error", "error": clean_text(exc)}
         self.results.append(clean(result))
         del self.results[:-200]
+        if self.on_settled is not None:
+            try:
+                self.on_settled("entry")
+            except Exception as exc:
+                log.error("V3_L3_ON_SETTLED_FAILED error_class=%s", type(exc).__name__)
         return result
 
     # ------------------------------------------------------------------

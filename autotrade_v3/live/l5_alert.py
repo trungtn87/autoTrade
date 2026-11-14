@@ -97,6 +97,33 @@ def success_message(r: dict) -> str:
     ])
 
 
+LEG_LABELS = {"sl": "SL", "tp": "TP", "trailing": "Trailing"}
+
+
+def closed_message(r: dict) -> str:
+    """Combo closed: which exits filled, and what leftover protection was cleaned (or would be, in shadow)."""
+    fills = " · ".join(f"{LEG_LABELS.get(f['kind'], f['kind'])} {_fmt(f['qty'])} @ {_fmt(f['price'])}" for f in r["filled"])
+    left = r.get("leftover") or {}
+    names = ", ".join(LEG_LABELS.get(k, k) for k in left.get("legs") or [])
+    if left.get("mode") == "shadow" and names:
+        cleanup = f"🧹 Còn lệnh dư: {names} (chế độ shadow, chưa hủy)"
+    elif names:
+        cleanup = f"🧹 Đã dọn lệnh dư: {names}"
+    else:
+        cleanup = "🧹 Không còn lệnh dư"
+    return "\n".join([
+        "🏁 Đóng lệnh",
+        f"{r['symbol']} {r['side']}",
+        "",
+        f"📊 Combo {r['combo']}",
+        f"Entry: {_fmt(r.get('avg_price'))} · Khối lượng: {_fmt(r.get('entry_qty'))}",
+        f"Đã khớp: {fills}",
+        cleanup,
+        "",
+        f"🕒 Giờ xác nhận (VN): {vn_clock(r.get('closed_at_ms'))}",
+    ])
+
+
 def error_message(rec: dict, log_id: int | None) -> str:
     layer = str(rec.get("layer") or "?")
     lines = [
@@ -139,6 +166,9 @@ class L5Alert:
 
     def trade_success(self, row: dict) -> None:
         self._submit(self.channel_for_symbol(row["symbol"]), success_message(row), kind="success", ref=row["event_id"])
+
+    def trade_closed(self, row: dict) -> None:
+        self._submit(self.channel_for_symbol(row["symbol"]), closed_message(row), kind="closed", ref=row["event_id"])
 
     def error(self, rec: dict, log_id: int | None) -> None:
         self._submit("ERROR", error_message(rec, log_id), kind="error", ref=rec.get("event_id"), log_id=log_id)

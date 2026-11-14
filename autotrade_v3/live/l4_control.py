@@ -310,8 +310,9 @@ def project_results(store, control: ControlLog, *, lookback_days: int = 7) -> di
 class HourlySync:
     """Runs the existing V2 :07 archive collector unchanged, then projects V3 rows."""
 
-    def __init__(self, store, control: ControlLog, admit, collector_factory=None):
+    def __init__(self, store, control: ControlLog, admit, collector_factory=None, after_sync=None):
         self.store = store
+        self.after_sync = after_sync
         self.control = control
         self.admit = admit
         self.last: dict = {"state": "not_started"}
@@ -326,6 +327,11 @@ class HourlySync:
                 self.last["v3_projection"] = project_results(self.store, self.control)
             except Exception as exc:
                 self.control.report("L4", "hourly_projection", f"Dựng execution_results/finances thất bại: {exc}")
+            if self.after_sync is not None:
+                try:
+                    self.after_sync("hourly_sync")
+                except Exception as exc:
+                    self.control.report("L4", "hourly_after_sync", f"Không kích hoạt được dọn lệnh sau sync :07: {exc}")
         elif phase in {"failed", "cooldown"}:
             self.control.report("L4", "hourly_sync", f"Đồng bộ BingX định kỳ :07 lỗi: {phase}",
                                 error_code=state.get("error_class") or state.get("configuration_code"),
