@@ -134,8 +134,6 @@ class MemoryStore:
         self.results: dict[str, dict] = {}
         self.finances: dict[int, dict] = {}
         self.control_logs: list[dict] = []
-        self.archive_orders: list[dict] = []
-        self.archive_fills: list[dict] = []
         self.fail: set[str] = set()   # names of methods that should raise (fault injection)
         self._next = 1
 
@@ -201,14 +199,6 @@ class MemoryStore:
             return [dict(r) for r in self.executions.values() if r.get("entry_order_id") and r.get("executed_qty")
                     and r.get("stage") in ("protected", "protection_incomplete")
                     and ((r.get("raw_protection") or {}).get("cleanup") or {}).get("status") != "done"]
-
-    def archive_rows(self, order_ids: list[str]) -> tuple[list[dict], list[dict]]:
-        self._maybe_fail("archive_rows")
-        ids = {str(x) for x in order_ids}
-        orders = [o for o in self.archive_orders if str(o.get("order_id")) in ids
-                  or str((o.get("raw") or {}).get("triggerOrderId") or "") in ids]
-        all_ids = ids | {str(o.get("order_id")) for o in orders}
-        return orders, [f for f in self.archive_fills if str(f.get("order_id")) in all_ids]
 
     def upsert_result(self, row: dict) -> None:
         self._maybe_fail("upsert_result")
@@ -293,26 +283,6 @@ class PostgresStore:
             f"SELECT * FROM {SCHEMA}.execution_orders WHERE entry_order_id IS NOT NULL AND executed_qty > 0"
             " AND stage IN ('protected','protection_incomplete') AND created_at >= %s"
             " AND COALESCE(raw_protection->'cleanup'->>'status','') <> 'done' ORDER BY id", (since,), fetch="all") or []
-
-    def archive_rows(self, order_ids: list[str]) -> tuple[list[dict], list[dict]]:
-        """Read-only view of the hourly BingX archive (kept existing :07 function).
-
-        A triggered SL/TP/trailing fills as a child order whose raw
-        ``triggerOrderId`` points to the protection order; both are returned.
-        """
-        if not order_ids:
-            return [], []
-        ids = [str(x) for x in order_ids]
-        orders = self._exec(
-            "SELECT order_id,symbol,side,position_side,type,status,avg_price,filled_qty,updated_ms,raw"
-            " FROM autotrade_analytics.bingx_orders WHERE order_id = ANY(%s)"
-            " OR (raw::jsonb->>'triggerOrderId') = ANY(%s) OR (raw::jsonb->>'triggerOrderID') = ANY(%s)",
-            (ids, ids, ids), fetch="all") or []
-        all_ids = sorted(set(ids) | {str(o["order_id"]) for o in orders})
-        fills = self._exec(
-            "SELECT trade_id,order_id,symbol,qty,price,realized_pnl,fee,timestamp_ms"
-            " FROM autotrade_analytics.bingx_fills WHERE order_id = ANY(%s)", (all_ids,), fetch="all") or []
-        return orders, fills
 
     def upsert_result(self, row: dict) -> None:
         self._exec(

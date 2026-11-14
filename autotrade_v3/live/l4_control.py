@@ -7,9 +7,9 @@ Exactly three BingX read mechanisms (Owner decision, Issue #109):
   2. ``confirm_order`` / ``confirm_entry`` - GET the exact order by orderId or
      clientOrderId: status, fill price and fill quantity. Insufficient evidence
      is reported as UNKNOWN; absence is never assumed.
-  3. ``HourlySync`` - the existing :07 (Vietnam time) BingX archive collector
-     with its 3-hour window, unchanged, followed by a projection of the archived
-     rows into execution_results / execution_finances.
+  3. ``HourlySync`` - :07 (Vietnam time) BingX order-history GET for V3's own
+     open combos, written straight into execution_results / execution_finances.
+     No V2 collector and no autotrade_analytics.* table is used.
 
 L4 never POSTs or modifies orders and no GET result is used to block an
 independent signal. The one write L4 owns is the leftover cleanup in
@@ -233,12 +233,22 @@ class L4Reader:
 CLOSE_LEGS = (("sl_order_id", "SL"), ("tp_order_id", "TP"), ("trailing_order_id", "TRAILING"))
 
 
-def project_results(store, control: ControlLog, *, lookback_days: int = 7) -> dict:
-    """Turn archived BingX orders/fills into execution_results + execution_finances.
+def _norm_history(row: dict) -> dict:
+    """BingX order-history row -> the shape project_results works with."""
+    return {"order_id": order_id_of(row), "status": str(row.get("status") or ""), "avg_price": _num(row.get("avgPrice")),
+            "filled_qty": _num(row.get("executedQty")),
+            "updated_ms": int(_num(row.get("updateTime") or row.get("time"))) or None, "raw": row}
 
-    Reads only the archive written by the existing hourly collector; no extra
-    BingX request. Attribution is by this trade's own protection order IDs.
+
+def project_results(store, control: ControlLog, client, *, lookback_days: int = 7, now_ms=None) -> dict:
+    """Mechanism 3: GET BingX order history for V3's own open combos and write
+    execution_results + execution_finances (V3 tables only).
+
+    No V2 archive (autotrade_analytics.*) is read or written. One history GET per
+    open combo, from its own creation time (bounded to < 7 days). Attribution is by
+    this trade's own protection order IDs.
     """
+    now = int(now_ms if now_ms is not None else time.time() * 1000)
     since = datetime.now(timezone.utc) - timedelta(days=lookback_days)
     counts = {"executions": 0, "results": 0, "finances": 0}
     executions = store.executions_for_sync(since)
@@ -253,41 +263,42 @@ def project_results(store, control: ControlLog, *, lookback_days: int = 7) -> di
             if force_close_id:
                 legs[str(force_close_id)] = "FORCE_CLOSE"
             entry_id = str(ex["entry_order_id"])
-            orders, fills = store.archive_rows([entry_id, *legs])
-            fills_by = {}
-            for f in fills:
-                fills_by.setdefault(str(f.get("order_id")), []).append(f)
-            open_fee = sum(abs(_num(f.get("fee"))) for f in fills_by.get(entry_id, []))
+            symbol = str(ex["symbol"])
+            created = ex.get("created_at")
+            start = int(created.timestamp() * 1000) - 120_000 if isinstance(created, datetime) else now - 3 * 3600_000
+            start = max(start, now - int(6.5 * 86400_000))
+            rows = client.get_order_history(symbol, start, now + 60_000, required_ids={entry_id, *legs})
+            orders = [_norm_history(r) for r in rows if order_id_of(r)]
+            by_id = {o["order_id"]: o for o in orders}
+            open_fee = abs(_num((by_id.get(entry_id) or {}).get("raw", {}).get("commission")))
             closed_qty = 0.0
             gross = 0.0
             close_fee = 0.0
-            parents_with_child = {str((o.get("raw") or {}).get("triggerOrderId") or (o.get("raw") or {}).get("triggerOrderID") or "")
+            parents_with_child = {str((o["raw"] or {}).get("triggerOrderId") or (o["raw"] or {}).get("triggerOrderID") or "")
                                   for o in orders} - {""}
             for o in orders:
-                oid = str(o.get("order_id"))
+                oid = str(o["order_id"])
                 if oid in parents_with_child:
                     continue  # count the triggered child order once, not its parent as well
-                raw_o = o.get("raw") or {}
-                parent = str(raw_o.get("triggerOrderId") or raw_o.get("triggerOrderID") or "")
+                raw = o["raw"] or {}
+                parent = str(raw.get("triggerOrderId") or raw.get("triggerOrderID") or "")
                 leg = legs.get(parent) if parent in legs else legs.get(oid)
                 if leg is None or oid == entry_id:
                     continue
-                if str(o.get("status") or "").upper() not in {"FILLED", "PARTIALLY_FILLED"} or _num(o.get("filled_qty")) <= 0:
+                if o["status"].upper() not in {"FILLED", "PARTIALLY_FILLED"} or o["filled_qty"] <= 0:
                     continue
-                leg_fills = fills_by.get(oid, [])
-                raw = o.get("raw") or {}
-                pnl = sum(_num(f.get("realized_pnl")) for f in leg_fills) if leg_fills else _num(raw.get("profit"))
-                fee = sum(abs(_num(f.get("fee"))) for f in leg_fills) if leg_fills else abs(_num(raw.get("commission")))
-                qty = _num(o.get("filled_qty"))
+                pnl = _num(raw.get("profit"))
+                fee = abs(_num(raw.get("commission")))
+                qty = o["filled_qty"]
                 closed_qty += qty
                 gross += pnl
                 close_fee += fee
                 store.upsert_result({
                     "execution_order_id": ex["id"], "event_id": ex["event_id"], "close_order_id": oid,
-                    "close_type": leg, "closed_qty": qty, "close_price": _num(o.get("avg_price")),
+                    "close_type": leg, "closed_qty": qty, "close_price": o["avg_price"],
                     "realized_pnl": pnl, "fee": fee,
-                    "closed_at": datetime.fromtimestamp(int(o.get("updated_ms") or 0) / 1000, tz=timezone.utc)
-                    if o.get("updated_ms") else None, "raw": {"order": raw, "fills": leg_fills}})
+                    "closed_at": datetime.fromtimestamp(o["updated_ms"] / 1000, tz=timezone.utc) if o["updated_ms"] else None,
+                    "raw": {"order": raw}})
                 counts["results"] += 1
             avg = _num(ex.get("avg_price"))
             qty_open = _num(ex.get("executed_qty"))
@@ -301,7 +312,7 @@ def project_results(store, control: ControlLog, *, lookback_days: int = 7) -> di
                 "funding": None,  # BingX funding is per symbol/position, not per order: not attributed
                 "gross_pnl": gross, "net_pnl": net, "roi_pct": (net / margin * 100) if margin else None,
                 "closed_qty": closed_qty, "is_fully_closed": qty_open > 0 and closed_qty + 1e-12 >= qty_open,
-                "raw": {"source": "autotrade_analytics.bingx_orders/bingx_fills", "legs": legs}})
+                "raw": {"source": "bingx order history GET (v3)", "legs": legs}})
             counts["finances"] += 1
         except Exception as exc:
             control.report("L4", "hourly_projection", f"Không dựng được kết quả/tài chính cho lệnh: {exc}",
@@ -309,53 +320,74 @@ def project_results(store, control: ControlLog, *, lookback_days: int = 7) -> di
     return counts
 
 
-class HourlySync:
-    """Runs the existing V2 :07 archive collector unchanged, then projects V3 rows."""
+def _next_slot(now: datetime) -> datetime:
+    """Next HH:07 (Vietnam = UTC+7, so the UTC minute is the same)."""
+    slot = now.replace(minute=7, second=0, microsecond=0)
+    return slot if slot > now else slot + timedelta(hours=1)
 
-    def __init__(self, store, control: ControlLog, admit, collector_factory=None, after_sync=None):
+
+class HourlySync:
+    """V3-only :07 sync: BingX order-history GET (3h window) -> execution_results/finances.
+
+    Own thread, no V2 collector, no autotrade_analytics.* tables.
+    """
+
+    def __init__(self, store, control: ControlLog, admit, client=None, after_sync=None, now=None):
         self.store = store
+        self.client = client
         self.after_sync = after_sync
         self.control = control
         self.admit = admit
         self.last: dict = {"state": "not_started"}
-        self._factory = collector_factory
-        self.runtime = None
+        self._now = now or (lambda: datetime.now(timezone.utc))
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
 
-    def _notify(self, state: dict) -> None:
-        self.last = dict(state)
-        phase = str(state.get("result") or state.get("state") or "")
-        if phase == "completed":
+    def run_once(self) -> dict:
+        try:
+            counts = project_results(self.store, self.control, self.client)
+            self.last = {"state": "waiting", "result": "completed", "finished_at": _now_iso(), "v3_projection": counts}
+        except Exception as exc:
+            self.last = {"state": "failed", "result": "failed", "error_class": type(exc).__name__}
+            self.control.report("L4", "hourly_sync", f"Đồng bộ BingX định kỳ :07 lỗi: {exc}")
+            return self.last
+        if self.after_sync is not None:
             try:
-                self.last["v3_projection"] = project_results(self.store, self.control)
+                self.after_sync("hourly_sync")
             except Exception as exc:
-                self.control.report("L4", "hourly_projection", f"Dựng execution_results/finances thất bại: {exc}")
-            if self.after_sync is not None:
-                try:
-                    self.after_sync("hourly_sync")
-                except Exception as exc:
-                    self.control.report("L4", "hourly_after_sync", f"Không kích hoạt được dọn lệnh sau sync :07: {exc}")
-        elif phase in {"failed", "cooldown"}:
-            self.control.report("L4", "hourly_sync", f"Đồng bộ BingX định kỳ :07 lỗi: {phase}",
-                                error_code=state.get("error_class") or state.get("configuration_code"),
-                                details=state)
+                self.control.report("L4", "hourly_after_sync", f"Không kích hoạt được dọn lệnh sau sync :07: {exc}")
+        return self.last
+
+    def _loop(self) -> None:
+        self.last = {"state": "waiting"}
+        slot = _next_slot(self._now())
+        while not self._stop.is_set():
+            if self._now() >= slot:
+                # Yield to trading: wait (bounded) for admission, then run once.
+                waited = 0
+                while not self._stop.is_set() and waited < 600:
+                    try:
+                        if self.admit():
+                            break
+                    except Exception:
+                        break
+                    self._stop.wait(5)
+                    waited += 5
+                if self._stop.is_set():
+                    break
+                self.run_once()
+                slot = _next_slot(self._now())
+            self._stop.wait(30)
 
     def start(self) -> None:
-        try:
-            if self._factory is None:
-                from autotrade_v2.analytics.lifecycle import CollectorRuntime
-                self._factory = CollectorRuntime
-            self.runtime = self._factory(admit=self.admit, notify=self._notify)
-            self.runtime.start()
-        except Exception as exc:
-            self.control.report("L4", "hourly_sync_start", f"Không khởi động được đồng bộ :07: {exc}")
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._loop, name="v3-l4-hourly", daemon=True)
+        self._thread.start()
 
     def stop(self) -> None:
-        if self.runtime is not None:
-            try:
-                self.runtime.stop()
-            except Exception:
-                pass
+        self._stop.set()
 
     def status(self) -> dict:
-        runtime_status = getattr(self.runtime, "status", None)
-        return {"last": clean(self.last), "runtime": clean(runtime_status or {})}
+        return {"last": clean(self.last), "runtime": {"alive": bool(self._thread and self._thread.is_alive())}}
