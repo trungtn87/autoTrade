@@ -127,7 +127,8 @@ class Runtime:
                  s.websocket_enabled, s.symbols)
         if s.is_postgres:
             self.hourly.start()
-            self.sl_resize_poll.start()
+            if s.execution_enabled:
+                self.sl_resize_poll.start()
         if s.websocket_enabled:
             threading.Thread(target=self._start_data, name="v3-data-start", daemon=True).start()
         else:
