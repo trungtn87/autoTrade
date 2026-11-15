@@ -18,6 +18,7 @@ from .l1_data import STEP_15M_MS, L1Data
 from .l2_strategy import L2Strategy
 from .l3_execution import L3Executor
 from .l4_leftover import LeftoverCleaner, v3_threads_busy
+from .l4_sl_resize import SLResizePoller
 from .l4_control import ControlLog, HourlySync, L4Reader
 from .l5_alert import L5Alert
 from .sanitize import clean
@@ -48,6 +49,8 @@ class Runtime:
         self.leftover = LeftoverCleaner(s, self.client, self.store, self.reader, self.control, self.alert,
                                         busy=v3_threads_busy)
         self.executor.on_settled = self.leftover.request
+        self.sl_resize_poll = SLResizePoller(self.leftover, self.store, admit=self._archive_ready,
+                                             interval_sec=s.sl_resize_poll_sec)
         self.hourly = HourlySync(self.store, self.control, admit=self._archive_ready, client=self.client, after_sync=self.leftover.request)
         self.stream = None
         self._processed: dict[str, int] = {}
@@ -124,6 +127,7 @@ class Runtime:
                  s.websocket_enabled, s.symbols)
         if s.is_postgres:
             self.hourly.start()
+            self.sl_resize_poll.start()
         if s.websocket_enabled:
             threading.Thread(target=self._start_data, name="v3-data-start", daemon=True).start()
         else:
@@ -150,6 +154,7 @@ class Runtime:
         if self.stream is not None:
             self.stream.stop()
         self.hourly.stop()
+        self.sl_resize_poll.stop()
         self.alert.stop()
 
     # ---- views ---------------------------------------------------------
@@ -169,6 +174,7 @@ class Runtime:
             "alerts_recent": self.alert.sent[-20:],
             "hourly_sync": self.hourly.status(),
             "leftover_cleanup": self.leftover.status(),
+            "sl_resize": self.sl_resize_poll.status(),
             "legacy_v2_trading": False,
         })
 
