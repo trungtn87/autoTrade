@@ -204,8 +204,9 @@ class MemoryStore:
         with self._lock:
             ex = self.executions.get(event_id) or {}
             finance = self.finances.get(ex.get("id")) or {}
-            return ((finance.get("raw") or {}).get("allocation")
-                    if finance.get("is_fully_closed") else None)
+            raw = finance.get("raw") or {}
+            return (raw if finance.get("is_fully_closed") and
+                    raw.get("source") == "BingX exact close orders; logical shared-position allocation" else None)
 
     def reconciliation_rows(self, since: datetime) -> tuple[list[dict], list[dict]]:
         """V3 original executions/results in offline mode, including fully closed peers."""
@@ -312,7 +313,9 @@ class PostgresStore:
             f"SELECT raw FROM {SCHEMA}.execution_finances"
             " WHERE event_id=%s AND is_fully_closed=true", (event_id,), fetch="one")
         raw = got[0] if got else None
-        return (raw or {}).get("allocation") if isinstance(raw, dict) else None
+        if isinstance(raw, dict) and raw.get("source") == "BingX exact close orders; logical shared-position allocation":
+            return raw
+        return None
 
     def reconciliation_rows(self, since: datetime) -> tuple[list[dict], list[dict]]:
         """Load source fills for *all* position peers, even ones marked fully closed."""
