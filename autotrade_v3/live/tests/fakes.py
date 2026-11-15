@@ -140,6 +140,25 @@ class FakeBingX:
             raise RuntimeError("BingX trade transport failed: ReadTimeout")
         return {"code": 0, "data": {"order": {"orderId": str(order_id), "status": "CANCELED"}}}
 
+    def amend_order(self, symbol, *, order_id, quantity):
+        """Mock in-place quantity-only amend. No deletion or new order is created."""
+        self.amends = getattr(self, "amends", [])
+        self.amends.append((str(order_id), str(quantity)))
+        row = self.orders.get(str(order_id))
+        mode = getattr(self, "amend_mode", "ok")
+        if mode == "reject" or row is None or row["symbol"] != symbol or row["type"] != "STOP_MARKET" or row["status"] != "NEW":
+            raise BingXApiError("109400", "amend rejected (mock)", "/openApi/swap/v1/trade/amend", {})
+        if mode == "lost_not_applied":
+            raise RuntimeError("BingX amend response lost before applying")
+        if mode == "triggered_before":
+            row["status"] = "FILLED"
+            row["executedQty"] = row["origQty"]
+            raise RuntimeError("SL triggered during amend (mock)")
+        row["origQty"] = str(quantity)
+        if mode == "lost_applied":
+            raise RuntimeError("BingX amend response lost after applying")
+        return {"code": 0, "data": {"orderId": str(order_id), "quantity": str(quantity)}}
+
     def get_order_history(self, symbol, start_ms, end_ms, required_ids=None):
         if getattr(self, "history_mode", "ok") == "error":
             raise ValueError("BingX history missing/truncated")
