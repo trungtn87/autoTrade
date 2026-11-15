@@ -147,12 +147,11 @@ def test_cost_model_net_pnl_invariant_seeded_random():
 
 
 def test_unconfirmed_and_test_only_profiles_rejected_on_real_data():
-    for name in ("BASE", "STRESS"):
+    for name, exp_slip in (("BASE", 2.0), ("STRESS", 5.0)):
         prof = load_cost_profile(name)
-        assert prof.status == "UNCONFIRMED"
-        assert prof.values == {}
-        with pytest.raises(ValueError, match="BLOCKED_ON_OWNER"):
-            validate_profile_for_real_data(prof)
+        assert prof.status == "CONFIRMED"
+        assert prof.values["default"]["slippage_bps"]["entry_market"] == exp_slip
+        validate_profile_for_real_data(prof)
 
     test_prof = load_cost_profile("TEST_ONLY")
     assert test_prof.status == "TEST_ONLY"

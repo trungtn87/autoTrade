@@ -22,15 +22,45 @@
   },
   "BASE": {
     "name": "BASE",
-    "status": "UNCONFIRMED",
-    "source": "",
-    "values": {}
+    "status": "CONFIRMED",
+    "source": "Owner duyệt 2026-11-15. Giả định, chưa hiệu chỉnh từ lệnh live. TP tạm tính taker.",
+    "values": {
+      "default": {
+        "fee_taker": 0.0005,
+        "fee_maker": 0.0,
+        "maker_order_types": [],
+        "half_spread_bps": 0.0,
+        "slippage_bps": {
+          "entry_market": 2.0,
+          "tp": 2.0,
+          "stop": 2.0,
+          "trailing_stop": 2.0
+        },
+        "funding": "NOT_MODELED",
+        "funding_bps_per_8h": null
+      }
+    }
   },
   "STRESS": {
     "name": "STRESS",
-    "status": "UNCONFIRMED",
-    "source": "",
-    "values": {}
+    "status": "CONFIRMED",
+    "source": "Owner duyệt 2026-11-15. Giả định, chưa hiệu chỉnh từ lệnh live. TP tạm tính taker.",
+    "values": {
+      "default": {
+        "fee_taker": 0.0005,
+        "fee_maker": 0.0,
+        "maker_order_types": [],
+        "half_spread_bps": 0.0,
+        "slippage_bps": {
+          "entry_market": 5.0,
+          "tp": 5.0,
+          "stop": 5.0,
+          "trailing_stop": 5.0
+        },
+        "funding": "NOT_MODELED",
+        "funding_bps_per_8h": null
+      }
+    }
   },
   "TEST_ONLY": {
     "name": "TEST_ONLY",

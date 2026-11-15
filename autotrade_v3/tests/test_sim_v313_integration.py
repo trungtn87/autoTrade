@@ -51,11 +51,16 @@ def test_synthetic_pipeline_with_test_only_and_verify_c2_c3_c4(tmp_path, policy)
 
 
 def test_real_data_rejects_missing_or_unconfirmed_cost_profile(tmp_path):
+    from autotrade_v3.sim.costs import CostModel
+
     rm = RunManager(runs_dir=tmp_path)
     runner = ExperimentRunner(run_manager=rm)
     with pytest.raises(ValueError, match="cost-profile"):
         runner.run_experiment(smoke_test=False, cost_profile=None)
-    for bad in ("BASE", "STRESS", "TEST_ONLY"):
+    for confirmed in ("BASE", "STRESS", "IDEAL"):
+        cm = CostModel.from_profile_name(confirmed, is_real_data=True)
+        assert cm.profile.status == "CONFIRMED"
+    for bad in ("TEST_ONLY",):
         with pytest.raises(ValueError):
             runner.run_experiment(smoke_test=False, cost_profile=bad)
 

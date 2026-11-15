@@ -1,4 +1,4 @@
-"""Screen 5: Signal Explorer — signal table, search by signal_id, M15/M1/trailing/exit chart."""
+"""Three-stage Signal Explorer with real V3 artifacts and candle drill-down."""
 from __future__ import annotations
 
 import pandas as pd
@@ -6,155 +6,103 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from autotrade_v3.dashboard import queries
-from autotrade_v3.dashboard.ui_shared import get_catalog_path, get_store_dir, render_status_banner
+from autotrade_v3.dashboard.ui_shared import get_catalog_path, get_store_dir, page_heading, render_status_banner, style_plotly
 
 
 def render() -> None:
-    st.header("Signal Explorer")
-    store_dir = get_store_dir()
-    catalog_path = get_catalog_path()
+    page_heading("04", "Signal Explorer", "Theo dấu trigger thô qua filter gate, position lock và execution ledger.")
+    store_dir, catalog_path = get_store_dir(), get_catalog_path()
     runs = queries.list_store_runs(store_dir=store_dir)
     if not runs:
-        st.info("Run Store đang trống. Chưa có tín hiệu để tra cứu.")
+        st.info("RunStore chưa có tín hiệu.")
         return
 
-    run_ids = [str(r["run_id"]) for r in runs]
-    selected_run = st.selectbox("Chọn Run ID", run_ids, key="sig_exp_run")
-
-    try:
-        summary = queries.get_run_summary(selected_run, store_dir=store_dir)
-        render_status_banner(summary)
-        all_sigs = queries.list_run_signals(selected_run, store_dir=store_dir)
-    except queries.MissingArtifactError as exc:
-        st.error(f"Lỗi thiếu artifact trong RunStore: {exc}")
-        return
-    except Exception as exc:
-        st.error(f"Không thể đọc tín hiệu của run '{selected_run}': {exc}")
+    selected_run = st.selectbox("Run", [str(run["run_id"]) for run in runs], key="signal-run")
+    summary = queries.get_run_summary(selected_run, store_dir=store_dir)
+    render_status_banner(summary)
+    all_signals = queries.list_run_signals(selected_run, store_dir=store_dir)
+    if all_signals.empty:
+        st.info("Run này không có signal.")
         return
 
-    if all_sigs.empty:
-        st.info("Run này không có tín hiệu nào.")
-        return
+    combo_options = sorted(all_signals["combo_key"].unique().tolist())
+    selected_combo = st.selectbox("Combo", combo_options, key="signal-combo")
+    funnel_data = queries.get_signal_funnel(selected_run, store_dir=store_dir, combo_key=selected_combo)
+    funnel = go.Figure(go.Funnel(
+        y=["Raw Indicator Triggers", "Passed Filter Signals", "Executed Entries"],
+        x=[funnel_data["raw_indicator_triggers"], funnel_data["passed_filter_signals"], funnel_data["executed_entries"]],
+        textinfo="value+percent initial",
+        marker=dict(color=["#35d9ff", "#ffb547", "#36e394"]),
+        connector=dict(line=dict(color="#334155")),
+    ))
+    st.plotly_chart(style_plotly(funnel, 300), use_container_width=True, key="signal-funnel")
 
-    f1, f2, f3, f4 = st.columns(4)
-    sig_query = f1.text_input("Tìm theo signal_id", value="", key="sig_exp_query")
-    sym_opts = ["ALL"] + sorted(all_sigs["symbol"].unique().tolist())
-    sel_sym = f2.selectbox("Symbol", sym_opts, key="sig_exp_sym")
-    st_opts = ["ALL"] + sorted(all_sigs["status"].unique().tolist())
-    sel_st = f3.selectbox("Trạng thái", st_opts, key="sig_exp_status")
-    ambig_only = f4.checkbox("Chỉ tín hiệu Ambiguous", value=False, key="sig_exp_ambig")
-
-    filtered = queries.list_run_signals(
-        selected_run,
-        store_dir=store_dir,
-        signal_id_query=sig_query or None,
-        symbol=None if sel_sym == "ALL" else sel_sym,
-        status=None if sel_st == "ALL" else sel_st,
-        ambiguous_only=ambig_only,
-    )
-    st.write(f"Hiển thị **{len(filtered):,}** / {len(all_sigs):,} tín hiệu")
-    st.dataframe(filtered.head(500), use_container_width=True, hide_index=True)
+    table_col, chart_col = st.columns([1.05, 1.35])
+    with table_col:
+        st.subheader("Signal Log & Rejection Tags")
+        f1, f2 = st.columns(2)
+        status_options = ["ALL"] + sorted(all_signals["status"].astype(str).unique().tolist())
+        status = f1.selectbox("Status", status_options)
+        reasons = ["ALL"] + sorted(all_signals["reason"].astype(str).unique().tolist())
+        reason = f2.selectbox("Reason", reasons)
+        filtered = queries.list_run_signals(
+            selected_run,
+            store_dir=store_dir,
+            combo_key=selected_combo,
+            status=None if status == "ALL" else status,
+        )
+        if reason != "ALL":
+            filtered = filtered[filtered["reason"].astype(str) == reason]
+        display_columns = ["signal_id", "signal_close_dt", "entry_price", "status", "reason", "leg_count", "net_pnl"]
+        event = st.dataframe(
+            filtered[display_columns].head(500),
+            use_container_width=True,
+            hide_index=True,
+            height=540,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="signal-log-table",
+        )
 
     if filtered.empty:
+        chart_col.info("Không có signal phù hợp bộ lọc.")
         return
+    selected_index = event.selection.rows[0] if event.selection.rows else 0
+    selected_signal = str(filtered.iloc[selected_index]["signal_id"])
+    detail = queries.get_signal_detail_and_chart(selected_run, selected_signal, store_dir=store_dir, catalog_path=catalog_path)
+    signal, decision, levels = detail["signal"], detail["decision"], detail["levels"]
 
-    sig_ids = filtered["signal_id"].tolist()
-    selected_sig = st.selectbox("Chọn Signal ID để mở biểu đồ", sig_ids, key="sig_exp_selected_id")
+    with chart_col:
+        st.subheader("Interactive Candlestick Drill-down")
+        st.caption(f"`{selected_signal}` · {signal['symbol']} · {signal['combo_name']} · Decision `{decision.get('status', 'UNKNOWN')}`")
+        if detail["ambiguity_flags"]:
+            st.warning("Ambiguity: " + ", ".join(detail["ambiguity_flags"]))
+        fig = go.Figure()
+        candles = detail["m15_df"]
+        if not candles.empty:
+            times = pd.to_datetime(candles["time_ms"].astype("int64"), unit="ms", utc=True)
+            fig.add_trace(go.Candlestick(
+                x=times, open=candles["open"], high=candles["high"], low=candles["low"], close=candles["close"],
+                name="M15", increasing_line_color="#36e394", decreasing_line_color="#ff5c68",
+            ))
+        m1 = detail["m1_path_df"]
+        if not m1.empty:
+            fig.add_trace(go.Scatter(x=pd.to_datetime(m1["time_ms"].astype("int64"), unit="ms", utc=True), y=m1["close"], name="M1 path", line=dict(color="#35d9ff", width=1)))
+        trailing_source = detail["trailing_series_df"]
+        trailing = trailing_source.dropna(subset=["trailing_stop"]) if "trailing_stop" in trailing_source.columns else pd.DataFrame()
+        if not trailing.empty:
+            fig.add_trace(go.Scatter(x=pd.to_datetime(trailing["time_ms"].astype("int64"), unit="ms", utc=True), y=trailing["trailing_stop"], name="Trailing", line=dict(color="#ffb547", dash="dot")))
+        fig.add_hline(y=levels["entry_price"], line_color="#35d9ff", annotation_text="ENTRY")
+        if levels["tp_price"] is not None:
+            fig.add_hline(y=levels["tp_price"], line_dash="dash", line_color="#36e394", annotation_text="TP")
+        if levels["sl_price"] is not None:
+            fig.add_hline(y=levels["sl_price"], line_dash="dash", line_color="#ff5c68", annotation_text="SL")
+        fig.update_layout(xaxis_rangeslider_visible=False)
+        st.plotly_chart(style_plotly(fig, 570), use_container_width=True, key="signal-candlestick")
 
-    detail = queries.get_signal_detail_and_chart(
-        selected_run,
-        selected_sig,
-        store_dir=store_dir,
-        catalog_path=catalog_path,
-    )
-
-    sig = detail["signal"]
-    dec = detail["decision"]
-    lv = detail["levels"]
-    ambig_flags = detail["ambiguity_flags"]
-
-    st.subheader(f"Chi tiết Signal `{selected_sig}` ({sig['symbol']} | {sig['combo_name']} | {sig['side']})")
-    if ambig_flags:
-        st.warning(f"Cờ Ambiguity: {', '.join(ambig_flags)}")
-    st.caption(
-        f"Status: `{dec.get('status', 'UNKNOWN')}` ({dec.get('reason', '')}) | "
-        f"Entry: `{lv['entry_price']:.4f}` | "
-        f"TP: `{lv['tp_price']:.4f}` | " if lv["tp_price"] is not None else f"Entry: `{lv['entry_price']:.4f}` | "
-    )
-
-    m15_df = detail["m15_df"]
-    m1_df = detail["m1_path_df"]
-    trail_df = detail["trailing_series_df"]
-    legs_df = detail["legs_df"]
-
-    fig = go.Figure()
-    if not m15_df.empty:
-        t15 = pd.to_datetime(m15_df["time_ms"].astype("int64"), unit="ms", utc=True)
-        fig.add_trace(
-            go.Candlestick(
-                x=t15,
-                open=m15_df["open"],
-                high=m15_df["high"],
-                low=m15_df["low"],
-                close=m15_df["close"],
-                name="M15 Candles",
-                opacity=0.6,
-            )
-        )
-    if not m1_df.empty:
-        t1 = pd.to_datetime(m1_df["time_ms"].astype("int64"), unit="ms", utc=True)
-        fig.add_trace(
-            go.Scatter(
-                x=t1,
-                y=m1_df["close"],
-                mode="lines",
-                name="M1 Close Path",
-                line=dict(color="royalblue", width=1.5),
-            )
-        )
-    if not trail_df.empty and trail_df["trailing_stop"].notna().any():
-        tr_sub = trail_df.dropna(subset=["trailing_stop"])
-        tt = pd.to_datetime(tr_sub["time_ms"].astype("int64"), unit="ms", utc=True)
-        fig.add_trace(
-            go.Scatter(
-                x=tt,
-                y=tr_sub["trailing_stop"],
-                mode="lines",
-                name="Trailing Stop",
-                line=dict(color="orange", width=2, dash="dot"),
-            )
-        )
-
-    fig.add_hline(y=lv["entry_price"], line_dash="solid", line_color="blue", annotation_text="Entry")
-    if lv["tp_price"] is not None:
-        fig.add_hline(y=lv["tp_price"], line_dash="dash", line_color="green", annotation_text="TP")
-    if lv["sl_price"] is not None:
-        fig.add_hline(y=lv["sl_price"], line_dash="dash", line_color="red", annotation_text="SL")
-    if lv["trailing_act_price"] is not None:
-        fig.add_hline(y=lv["trailing_act_price"], line_dash="dot", line_color="orange", annotation_text="Trail Act")
-
-    if not legs_df.empty:
-        ex_t = pd.to_datetime(legs_df["exit_time_ms"].astype("int64"), unit="ms", utc=True)
-        ex_px = legs_df["exit_px_fill"] if "exit_px_fill" in legs_df.columns else legs_df["exit_price"]
-        fig.add_trace(
-            go.Scatter(
-                x=ex_t,
-                y=ex_px,
-                mode="markers+text",
-                text=legs_df["exit_reason"],
-                textposition="top center",
-                marker=dict(size=10, color="purple", symbol="diamond"),
-                name="Leg Exits",
-            )
-        )
-
-    fig.update_layout(height=480, xaxis_rangeslider_visible=False, margin=dict(l=10, r=10, t=30, b=10))
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("Legs của Signal")
-    st.dataframe(legs_df, use_container_width=True, hide_index=True)
-    st.subheader("Execution Events của Signal")
-    st.dataframe(detail["events_df"], use_container_width=True, hide_index=True)
+    with st.expander("Legs & execution events", expanded=False):
+        st.dataframe(detail["legs_df"], use_container_width=True, hide_index=True)
+        st.dataframe(detail["events_df"], use_container_width=True, hide_index=True)
 
 
 if __name__ == "__main__":

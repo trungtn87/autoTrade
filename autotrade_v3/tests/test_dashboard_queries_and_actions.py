@@ -356,7 +356,7 @@ def test_actions_whitelist_and_injection_rejection(tmp_path: Path) -> None:
             symbols="BTC-USDT",
             start="2024-01-01",
             end="2024-02-01",
-            cost_profile="BASE",
+            cost_profile="TEST_ONLY",
             smoke_test=False,
             log_path=tmp_path / "a.log",
         )

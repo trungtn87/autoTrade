@@ -14,6 +14,7 @@ import duckdb
 import pandas as pd
 
 from autotrade_v3.analysis.research_analyzer import ResearchAnalyzer
+from autotrade_v3.dashboard.metrics_engine import attribution_breakdown, cost_reality_metrics
 from autotrade_v3.data_layer import DataLayer
 from autotrade_v3.engine.candle_loader import load_m1_from_catalog, resample_m1_to_timeframe
 from autotrade_v3.runstore.diff import diff_runs
@@ -563,10 +564,11 @@ def get_run_summary(run_id: str, store_dir: str | Path = DEFAULT_STORE_DIR) -> d
     validation_status, is_synthetic = _effective_validation_status(manifest, validation)
 
     total_legs = len(legs_df)
-    total_entries = int(legs_df["trade_id"].nunique()) if total_legs > 0 else 0
-    gross_pnl = float(legs_df["gross_pnl"].astype(float).sum()) if total_legs > 0 else 0.0
-    total_fees = float(legs_df["fee_total"].astype(float).sum()) if total_legs > 0 else 0.0
-    net_pnl = float(legs_df["net_pnl"].astype(float).sum()) if total_legs > 0 else 0.0
+    canonical = cost_reality_metrics(legs_df, run_id=str(manifest.get("run_id", rdir.name)))
+    total_entries = canonical.total_entries
+    gross_pnl = canonical.gross_pnl
+    total_fees = canonical.total_fees
+    net_pnl = canonical.net_pnl
     pf = _compute_four_pf_from_df(legs_df)
 
     # Trade-level & leg-level win rate
@@ -630,6 +632,11 @@ def get_run_summary(run_id: str, store_dir: str | Path = DEFAULT_STORE_DIR) -> d
         "gross_pnl": gross_pnl,
         "total_fees": total_fees,
         "net_pnl": net_pnl,
+        "total_notional_volume": canonical.total_notional_volume,
+        "weighted_pf": canonical.weighted_pf,
+        "break_even_slippage_pct": canonical.break_even_slippage_pct,
+        "fee_drag_pct": canonical.fee_drag_pct,
+        "net_pnl_per_entry": canonical.net_pnl_per_entry,
         "roi_pct": roi_pct,
         "roi_label": roi_label,
         "roi_note": roi_note,
@@ -663,6 +670,43 @@ def get_run_equity_curve(run_id: str, store_dir: str | Path = DEFAULT_STORE_DIR)
     eq["drawdown_pct"] = (eq["drawdown_dollars"] / peak.where(peak > 0, 1.0) * 100.0).fillna(0.0)
     eq["timestamp_dt"] = pd.to_datetime(eq["time_ms"].astype("int64"), unit="ms", utc=True)
     return eq
+
+
+def get_run_legs_ledger(run_id: str, store_dir: str | Path = DEFAULT_STORE_DIR) -> pd.DataFrame:
+    """Return an isolated in-memory copy of the canonical legs ledger."""
+    rdir = _resolve_run_dir(run_id, store_dir)
+    return _load_parquet_required(rdir, "legs.parquet").copy()
+
+
+def get_signal_funnel(
+    run_id: str,
+    store_dir: str | Path = DEFAULT_STORE_DIR,
+    *,
+    combo_key: str | None = None,
+) -> dict[str, int]:
+    """Return raw -> passed filter -> executed counts from real run artifacts."""
+    rdir = _resolve_run_dir(run_id, store_dir)
+    signals = _load_parquet_required(rdir, "signals.parquet").copy()
+    decisions = _load_parquet_required(rdir, "signal_decisions.parquet").copy()
+    legs = _load_parquet_required(rdir, "legs.parquet").copy()
+    if combo_key:
+        symbol, combo_name = combo_key.split("/", 1)
+        signals = signals[(signals["symbol"].astype(str) == symbol) & (signals["combo_name"].astype(str) == combo_name)]
+        decisions = decisions[(decisions["symbol"].astype(str) == symbol) & (decisions["combo_name"].astype(str) == combo_name)]
+        legs = legs[(legs["symbol"].astype(str) == symbol) & (legs["combo_name"].astype(str) == combo_name)]
+    raw_ids = set(signals["signal_id"].astype(str)) if not signals.empty else set()
+    executed_ids = set(legs["signal_id"].astype(str)) if not legs.empty else set()
+    passed_statuses = {"ACCEPTED", "EXECUTED", "FILLED"}
+    if decisions.empty:
+        passed_ids = executed_ids
+    else:
+        passed_ids = set(decisions[decisions["status"].astype(str).str.upper().isin(passed_statuses)]["signal_id"].astype(str))
+        passed_ids |= executed_ids
+    return {
+        "raw_indicator_triggers": len(raw_ids),
+        "passed_filter_signals": len(passed_ids),
+        "executed_entries": int(legs["trade_id"].nunique()) if not legs.empty else 0,
+    }
 
 
 def get_run_symbol_breakdown(run_id: str, store_dir: str | Path = DEFAULT_STORE_DIR) -> pd.DataFrame:
@@ -718,11 +762,16 @@ def get_run_combo_breakdown(run_id: str, store_dir: str | Path = DEFAULT_STORE_D
         ck_series = dec_df["symbol"].astype(str) + "/" + dec_df["combo_name"].astype(str)
         sig_counts = {str(k): int(v) for k, v in ck_series.value_counts().items()}
 
+    canonical = attribution_breakdown(df, dec_df, group_columns=["symbol", "combo_name"])
+    canonical["combo_key"] = canonical["symbol"].astype(str) + "/" + canonical["combo_name"].astype(str)
+    canonical_by_key = canonical.set_index("combo_key")
+
     rows: list[dict[str, Any]] = []
     for (sym, cname), grp in df.groupby(["symbol", "combo_name"], sort=True):
         ckey = f"{sym}/{cname}"
         pf = _compute_four_pf_from_df(grp)
         own_col = grp["pnl_own_entry"].astype(float) if "pnl_own_entry" in grp.columns else grp["net_pnl"].astype(float)
+        metric = canonical_by_key.loc[ckey]
         lwr = float((grp["net_pnl"].astype(float) > 0).sum()) / len(grp) * 100.0 if len(grp) > 0 else 0.0
         rows.append(
             {
@@ -730,14 +779,19 @@ def get_run_combo_breakdown(run_id: str, store_dir: str | Path = DEFAULT_STORE_D
                 "symbol": str(sym),
                 "combo_name": str(cname),
                 "timeframe": str(grp["timeframe"].iloc[0]) if "timeframe" in grp.columns else "",
-                "signals": sig_counts.get(ckey, int(grp["signal_id"].nunique()) if "signal_id" in grp.columns else int(grp["trade_id"].nunique())),
-                "entries": int(grp["trade_id"].nunique()),
+                "signals": int(metric["signals"]),
+                "entries": int(metric["entries"]),
                 "legs": len(grp),
+                "leg_structure": "2-Leg" if len(grp) / max(int(grp["trade_id"].nunique()), 1) > 1.25 else "1-Leg",
+                "pos_fill_rate": float(metric["pos_fill_rate"]),
                 "leg_win_rate_pct": round(lwr, 2),
                 "gross_pnl": float(grp["gross_pnl"].astype(float).sum()),
-                "fees": float(grp["fee_total"].astype(float).sum()),
-                "net_pnl": float(grp["net_pnl"].astype(float).sum()),
-                "pnl_own_entry": float(own_col.sum()),
+                "fees": float(metric["fees"]),
+                "net_pnl": float(metric["net_pnl"]),
+                "pnl_own_entry": float(metric["pnl_own_entry"]),
+                "attribution_delta": float(metric["attribution_delta"]),
+                "weighted_pf": metric["weighted_pf"],
+                "total_notional_volume": float(metric["total_notional_volume"]),
                 "pnl_attribution_basis": "pnl_own_entry" if mode == "BINGX_PORTFOLIO" else "net_pnl",
                 "net_pf_trade": pf["net_pf_trade"],
                 "net_pf_leg": pf["net_pf_leg"],
