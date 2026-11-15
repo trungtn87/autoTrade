@@ -85,8 +85,17 @@
 
 ---
 
-## 4. Validation Gates V3 & Reproducibility
+## 4. Validation Gates V3, Reproducibility & Regression Tests
 
-- **`IDEAL` (3 modes):** Tất cả các gate thực thi (`A1, A2, B2, B3, C1, C2, C3, C4, C5, D1, D2`) đều **PASS** (`B1` là `INCONCLUSIVE` do `20FINAL_FIXED_V1@1` là baseline mới chưa có frozen reference; trạng thái tổng thể trước khi commit là `UNVERIFIED_DIRTY`).
-- **`BASE` & `STRESS`:** Gate `C1` báo `FAIL` do thiết kế hiện tại của `autotrade_v3/validation/gates_c.py` so sánh `entry_price` trực tiếp với giá M1 `open` thô chưa cộng slippage (ví dụ `44126.9` vs `44135.72538` = +2 bps ở `BASE`, `44148.96345` = +5 bps ở `STRESS`). Theo quy tắc không sửa gate để hợp thức hóa kết quả, hành vi này được giữ nguyên và ghi nhận minh bạch trong `validation_results.json`.
-- **Regression & Execution Scenario Tests:** `390/390` tests của `autotrade_v3` PASS (`task-162`), cộng thêm `12/12` tests mới trong `test_fixed_tpsl_v1.py` và `test_fixed_tpsl_execution_scenarios.py`, và `15/15` tests trong `test_sim_v313_integration.py` + `test_strategy_core_v311.py`.
+- **Clean Working Tree Run:** Toàn bộ 9 cấu hình được chạy lại trên commit `14b57851e137d7f3830c35da2c0dfb30f6eb7e43` với `code_dirty=False` (`task-257`). Tất cả 9 lượt đạt trạng thái **`PARTIALLY_VERIFIED`** (0 gate `FAIL`).
+- **Bảng trạng thái từng Gate (9 cấu hình):**
+  - `A1` (Dataset hash), `A2` (M1 integrity), `B2` (No-lookahead), `B3` (Batch-Live equiv), `C1` (Entry causality — đã sửa để đọc `cost_profile` slippage/spread), `C2` (ExitPolicy propagation), `C3` (Exit replay), `C4` (Mode C accounting), `C5` (Ambiguity policy), `D1` (Artifact hashes): **PASS (9/9 cấu hình)**.
+  - `D2` (Reported numbers): **PASS** ở 6 cấu hình `IDEAL` & `BASE`; **`INCONCLUSIVE`** ở 3 cấu hình `STRESS` (`1,645/1,646` checked, `0 violations`, toàn bộ `1,441/1,441` leaves của `analysis.json` đều khớp, chỉ có 1 con số trong `report.md` không khớp regex).
+  - `B1` (Frozen signal parity): **`INCONCLUSIVE` (9/9 cấu hình)** vì `20FINAL_FIXED_V1@1` là baseline mới chưa có frozen reference baseline đăng ký trước.
+- **Reproducibility:** Chạy lại ở hai thời điểm khác nhau (trên `ec2c7f96` và `14b57851`) đều tái lập chính xác tuyệt đối 3 mốc `BINGX_PORTFOLIO`: `IDEAL = +$516.3583`, `BASE = +$338.0100`, `STRESS = +$57.2547` (sai số `0.0000`).
+- **Regression & Unit Tests (tổng 428 tests trong `autotrade_v3/tests/`):**
+  - `390/390` passed (`task-162`, khi chạy `--ignore` 3 file nặng `test_sim_v313_integration.py`, `test_golden_baseline_v308.py`, `test_mutation_v308.py` vốn chứa `19` tests).
+  - `15/15` passed cho `test_sim_v313_integration.py` + `test_strategy_core_v311.py` (`task-27`).
+  - `17/17` passed cho [test_gate_c1_cost_profiles.py](file:///d:/AutoTrade/autotrade_v3/tests/test_gate_c1_cost_profiles.py) (BUY/SELL 0/2/5bps, sai giá, ngược chiều slippage, look-ahead).
+  - `12/12` passed cho [test_fixed_tpsl_v1.py](file:///d:/AutoTrade/autotrade_v3/tests/test_fixed_tpsl_v1.py) và [test_fixed_tpsl_execution_scenarios.py](file:///d:/AutoTrade/autotrade_v3/tests/test_fixed_tpsl_execution_scenarios.py).
+  - *(Chênh lệch `395` vs `390` ở lần chạy trước là do `390` đã `--ignore` 3 file nặng 19 tests và trước khi thêm 17 tests Gate C1 mới; tổng toàn bộ suite hiện tại là `428` tests.)*
