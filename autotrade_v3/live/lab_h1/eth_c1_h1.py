@@ -9,15 +9,15 @@ Scope: ETH-USDT/C1 only. The 19 other combos stay on the V2 StrategyEngine path.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+import hashlib
+import json
 import logging
 import math
 from typing import Any, Literal
 
 import pandas as pd
 
-from autotrade_v3.engine.signal_engine import Signal
-from autotrade_v3.strategy.base import ExitPolicy
 from .indicators import (atr, cci, dmi, edge_event, ema, mfi, rsi, sma, stochastic)
 from .signals import align_confirmed, ensure_dt, resample_ohlcv
 from .smc_ob import OBConfig, ob_context
@@ -25,6 +25,54 @@ from .smc_structure import smc_direction
 from .two_trail_layer12 import approved
 
 logger = logging.getLogger(__name__)
+
+
+# Local mirrors of autotrade_v3.strategy.base.ExitPolicy and autotrade_v3.engine.signal_engine.Signal.
+# The Docker image ships only autotrade_v3/live/, so the live package cannot import the Lab
+# engine/strategy packages. Fields and the policy hash follow the Lab definitions exactly.
+@dataclass(frozen=True)
+class ExitPolicy:
+    tp_pct: float
+    sl_pct: float
+    split_legs: bool = True
+    trailing_act_pct: float = 0.005
+    trailing_cb_pct: float = 0.005
+    leg_weights: tuple[float, ...] = (0.5, 0.5)
+    max_bars_held: int | None = None
+    force_close_on_window_end: bool = False
+
+    def get_policy_hash(self) -> str:
+        """Deterministic SHA256 of the ExitPolicy parameters (same as the Lab)."""
+        raw = json.dumps(asdict(self), sort_keys=True, default=str)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class Signal:
+    symbol: str
+    combo_id: int
+    combo_name: str
+    timeframe: str
+    side: Literal["BUY", "SELL"]
+    signal_close_ms: int
+    signal_close_dt: pd.Timestamp
+    bar_position: int
+    bar_open_ms: int
+    entry_price: float
+    tp_pct: float
+    sl_pct: float
+    tp_price: float
+    sl_price: float
+    approved: bool
+    warmup_ready: bool
+    smc_dir: int
+    ob_blocked: bool
+    provider: str
+    is_new6: bool
+    exit_policy: Any = None
+    exit_policy_hash: str = ""
+    signal_id: str = ""
+
 
 ETH_C1_STRATEGY_ID = "20FINAL_FIXED_TPSL_ETH_C1_H1_BOTH_1"
 ETH_C1_STRATEGY_VERSION = "1.0.0"
