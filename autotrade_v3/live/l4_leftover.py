@@ -263,8 +263,6 @@ class LeftoverCleaner:
             proof = self.store.shared_allocation_for_cleanup(ex["event_id"])
             if not isinstance(proof, dict):
                 return False
-            raw_entry = (_protection(ex).get("entry") or {})  # not the position identity source
-            _ = raw_entry  # identity must come from the exact L4 Entry confirmation instead
             entry = (ex.get("raw_entry") or {}).get("confirm") or {}
             position = (entry.get("order") or {}).get("positionID")
             if not position or str(position) != str(proof.get("position_id")):
