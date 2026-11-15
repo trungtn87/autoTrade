@@ -52,5 +52,26 @@ class V3BingXClient(LegacyStyleBingXClient):
     def place_order(self, params: dict) -> dict:
         return self._signed_request("POST", self.ORDER_PATH, dict(params))
 
+    def amend_order(self, symbol: str, *, order_id: str, quantity: str) -> dict:
+        """BingX in-place quantity-only amendment (exact STOP_MARKET support unverified).
+
+        This method never falls back to cancel/replace. Callers own proof and
+        explicit opt-in; transport only signs the exact parameters.
+        """
+        from decimal import Decimal, InvalidOperation
+        import re
+
+        if not re.fullmatch(r"[1-9][0-9]*", str(order_id)):
+            raise ValueError("invalid exact order ID")
+        try:
+            qty = Decimal(str(quantity))
+        except (InvalidOperation, ValueError, TypeError) as exc:
+            raise ValueError("invalid amend quantity") from exc
+        if not qty.is_finite() or qty <= 0:
+            raise ValueError("amend quantity must be positive")
+        return self._signed_request("POST", "/openApi/swap/v1/trade/amend",
+                                    {"symbol": symbol, "orderId": str(order_id),
+                                     "quantity": format(qty, "f")})
+
     fmt_price = staticmethod(LegacyStyleBingXClient._fmt_price)
     fmt_qty = staticmethod(LegacyStyleBingXClient._fmt_qty)

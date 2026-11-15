@@ -93,6 +93,9 @@ class LeftoverCleaner:
         self._busy = busy or (lambda: False)
         self._busy_wait_sec = busy_wait_sec
         self._now_ms = now_ms or (lambda: int(time.time() * 1000))
+        from .l4_sl_resize import SLResizer
+        self.sl_resizer = SLResizer(client, reader, store, control,
+                                  mode=getattr(settings, "sl_resize_mode", "shadow"), now_ms=self._now_ms)
         self._pass_lock = threading.Lock()
         self._guard = threading.Lock()
         self._pending = False
@@ -242,9 +245,11 @@ class LeftoverCleaner:
             remaining = entry_qty - total
             sl = active.get("sl")
             if sl is not None and Decimal(sl["orig"]) - Decimal(sl["executed"]) > remaining:
-                self._warn_once(ex, state, "SL_OVER_REMAINING",
-                                f"SL còn {Decimal(sl['orig']) - Decimal(sl['executed'])} lớn hơn phần còn lại của combo ({remaining})"
-                                " (chỉ cảnh báo, không tự sửa)", order_id=legs["sl"])
+                amended = self.sl_resizer.adjust(ex, state, views, legs["sl"], remaining)
+                if not amended:
+                    self._warn_once(ex, state, "SL_OVER_REMAINING",
+                                    f"SL còn {Decimal(sl['orig']) - Decimal(sl['executed'])} lớn hơn phần còn lại của combo ({remaining})"
+                                    " (chưa xác nhận điều chỉnh SL)", order_id=legs["sl"])
         if outcome in ("closed_clean", "cancelled", "would_cancel") and not state.get("closed_notified"):
             state["closed_notified"] = True
             self._notify_closed(ex, state, views, active, legs, outcome)

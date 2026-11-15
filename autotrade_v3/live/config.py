@@ -46,6 +46,11 @@ class V3Settings:
     # Leftover protection cleanup after a combo closes: live (cancel, default) | shadow (record only) | off.
     leftover_cleanup_mode: str = field(default_factory=lambda: os.getenv("V3_LEFTOVER_CLEANUP_MODE", "live").strip().lower())
 
+    # SL amendments require controlled BingX STOP_MARKET verification before opt-in.
+    # shadow records proposed exact-ID changes; live sends in-place amendments only.
+    sl_resize_mode: str = field(default_factory=lambda: os.getenv("V3_SL_RESIZE_MODE", "shadow").strip().lower())
+    sl_resize_poll_sec: int = field(default_factory=lambda: max(20, int(os.getenv("V3_SL_RESIZE_POLL_SEC", "30"))))
+
     log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO").upper())
 
     @property
