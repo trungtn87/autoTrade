@@ -200,6 +200,22 @@ class MemoryStore:
                     and r.get("stage") in ("protected", "protection_incomplete")
                     and ((r.get("raw_protection") or {}).get("cleanup") or {}).get("status") != "done"]
 
+    def reconciliation_rows(self, since: datetime) -> tuple[list[dict], list[dict]]:
+        """Local copy of all V3 executed combos and exact original fill rows."""
+        self._maybe_fail("reconciliation_rows")
+        with self._lock:
+            entries = []
+            for ex in self.executions.values():
+                if not ex.get("entry_order_id") or not ex.get("executed_qty"):
+                    continue
+                row = dict(ex)
+                finance = self.finances.get(ex.get("id")) or {}
+                row["existing_open_fee"] = finance.get("open_fee")
+                entries.append(row)
+            events = {e["event_id"] for e in entries}
+            results = [dict(r) for r in self.results.values() if r.get("event_id") in events]
+            return entries, results
+
     def upsert_result(self, row: dict) -> None:
         self._maybe_fail("upsert_result")
         with self._lock:
@@ -283,6 +299,19 @@ class PostgresStore:
             f"SELECT * FROM {SCHEMA}.execution_orders WHERE entry_order_id IS NOT NULL AND executed_qty > 0"
             " AND stage IN ('protected','protection_incomplete') AND created_at >= %s"
             " AND COALESCE(raw_protection->'cleanup'->>'status','') <> 'done' ORDER BY id", (since,), fetch="all") or []
+
+    def reconciliation_rows(self, since: datetime) -> tuple[list[dict], list[dict]]:
+        """Include fully-closed peers: the normal hourly sync excludes them."""
+        entries = self._exec(
+            f"SELECT e.*, f.open_fee AS existing_open_fee FROM {SCHEMA}.execution_orders e"
+            f" LEFT JOIN {SCHEMA}.execution_finances f ON f.execution_order_id=e.id"
+            " WHERE e.created_at >= %s AND e.entry_order_id IS NOT NULL AND e.executed_qty > 0",
+            (since,), fetch="all") or []
+        results = self._exec(
+            f"SELECT r.* FROM {SCHEMA}.execution_results r JOIN {SCHEMA}.execution_orders e"
+            " ON e.id=r.execution_order_id WHERE e.created_at >= %s",
+            (since,), fetch="all") or []
+        return entries, results
 
     def upsert_result(self, row: dict) -> None:
         self._exec(
