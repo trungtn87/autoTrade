@@ -14,6 +14,7 @@ from autotrade_v2.app.strategy.engine import StrategyEngine
 from autotrade_v2.app.strategy.final14_config import case_name, get_case
 from autotrade_v2.app.strategy.final14_exact_strategy import hard_tp_sl
 
+from .eth_c1_history import EthC1History, HistoryNotReady
 from .l3_execution import V3Signal
 from .lab_h1.eth_c1_h1 import M15_MS, EthC1H1Both1Strategy, compute_eth_c1_l2_features
 from .store import ms_to_dt
@@ -32,7 +33,7 @@ ETH = "ETH-USDT"
 
 class L2Strategy:
     def __init__(self, store, control, alert=None, executor=None, engine: StrategyEngine | None = None,
-                 eth_c1_h1_enabled: bool = True):
+                 eth_c1_h1_enabled: bool = True, historical=None):
         self.store = store
         self.control = control
         self.alert = alert
@@ -41,6 +42,7 @@ class L2Strategy:
         self.last_signals: list[dict] = []
         # ETH-USDT/C1 only: H1_BOTH_1 generator (Lab P3 semantics). False = pure V2 output (rollback).
         self.eth_c1_gen = EthC1H1Both1Strategy(enable_eth_c1_h1_l2=True) if eth_c1_h1_enabled else None
+        self.eth_history = EthC1History(historical) if (eth_c1_h1_enabled and historical is not None) else None
 
     def calculate(self, snapshot) -> list[V3Signal]:
         signals = [V3Signal(event_id=i.event_id, symbol=i.symbol, combo=int(i.combo), combo_name=case_name(i.combo),
@@ -52,7 +54,14 @@ class L2Strategy:
         # ETH C1 is replaced, not filtered: H1 must sit before edge detection (P3 pre_edge_h1=True).
         others = [s for s in signals if not (s.symbol == ETH and s.combo == 1)]
         try:
-            c1 = self._eth_c1_latest(snapshot)
+            if self.eth_history is None:
+                raise HistoryNotReady("nguồn lịch sử ETH M15 chưa được gắn")
+            history = self.eth_history.frame_for(snapshot.candles)
+            c1 = self._eth_c1_latest(snapshot, history)
+        except HistoryNotReady as exc:  # not enough trusted history: no unconfirmed ETH C1, other combos run
+            self.control.report("L2", "eth_c1_h1",
+                                f"ETH C1 H1 tạm dừng lượt này, chưa đủ lịch sử 12000 nến M15: {exc}", symbol=ETH)
+            return others
         except Exception as exc:  # missing indicator: emit no unconfirmed ETH C1, keep the other combos
             self.control.report("L2", "eth_c1_h1",
                                 f"Thiếu dữ liệu chỉ báo ETH C1 H1, không phát tín hiệu ETH C1 lượt này: {exc}",
@@ -61,11 +70,11 @@ class L2Strategy:
             return others
         return others + c1
 
-    def _eth_c1_latest(self, snapshot) -> list[V3Signal]:
+    def _eth_c1_latest(self, snapshot, history) -> list[V3Signal]:
         """Latest closed M15 bar only, the same way V2 emits C1 at the 1H boundary."""
         gen = self.eth_c1_gen
         gen.last_l2_rejections = []
-        feats = compute_eth_c1_l2_features(snapshot.candles)
+        feats = compute_eth_c1_l2_features(history)
         buys = gen._generate_eth_c1_side(feats, side="BUY", only_approved=True, only_warmup_ready=True)
         sells = gen._generate_eth_c1_side(feats, side="SELL", only_approved=True, only_warmup_ready=True)
         latest_open_ms = int(feats["d15"].index[-1].value // 1_000_000)

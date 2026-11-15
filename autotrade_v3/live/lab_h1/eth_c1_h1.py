@@ -17,6 +17,7 @@ from typing import Any, Literal
 import pandas as pd
 
 from autotrade_v3.engine.signal_engine import Signal
+from autotrade_v3.strategy.base import ExitPolicy
 from .indicators import (atr, cci, dmi, edge_event, ema, mfi, rsi, sma, stochastic)
 from .signals import align_confirmed, ensure_dt, resample_ohlcv
 from .smc_ob import OBConfig, ob_context
@@ -27,6 +28,8 @@ logger = logging.getLogger(__name__)
 
 ETH_C1_STRATEGY_ID = "20FINAL_FIXED_TPSL_ETH_C1_H1_BOTH_1"
 ETH_C1_STRATEGY_VERSION = "1.0.0"
+ETH_C1_TP_PCT = 0.02
+ETH_C1_SL_PCT = 0.00666667
 LAB_WARMUP_BARS = 3400  # same as the Lab spec warmup_bars and V2 MIN_LIVE_15M_BARS
 
 
@@ -37,6 +40,9 @@ class _ComboSpecShim:
     combo_name: str
     native_timeframe: str
     entry: dict
+    layer2: str = "SMC_VETO"        # live V2 config for ETH C1 (final14_config)
+    is_new6: bool = False
+    entry_variant: str = "MFI_L50_S50"
     combo_key: str = "ETH-USDT/C1"
 
 
@@ -204,6 +210,16 @@ class EthC1H1Both1Strategy:
         self.sell_min_dist_ema150_4h_pct = float(sell_min_dist_ema150_4h_pct)
         self.pre_edge_h1 = bool(pre_edge_h1)
         self.last_l2_rejections: list[dict[str, Any]] = []
+
+    def get_exit_policy(self, symbol: str, combo_id: int) -> ExitPolicy:
+        """ETH-USDT/C1 exit policy from the Lab H1 spec: one TP and one SL, no trailing.
+
+        Equal to the live V2 ETH C1 config (tp 2.0%, sl 0.666667%); the test suite asserts that.
+        """
+        if symbol == "ETH-USDT" and int(combo_id) == 1:
+            return ExitPolicy(tp_pct=ETH_C1_TP_PCT, sl_pct=ETH_C1_SL_PCT, split_legs=False,
+                              trailing_act_pct=0.0, trailing_cb_pct=0.0, leg_weights=(1.0,))
+        raise ValueError("ETH C1 generator only serves ETH-USDT/C1")
 
     def _eth_c1_spec(self):
         matches = [
