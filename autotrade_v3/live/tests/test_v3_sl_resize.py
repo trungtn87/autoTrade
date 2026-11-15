@@ -35,11 +35,13 @@ def test_live_amend_shrinks_only_own_sl_and_get_verifies_quantity():
     old_qty = ex["sl_qty"]
     expected = str(Decimal(str(ex["executed_qty"])) - Decimal(str(ex["tp_qty"])))
     before_posts = list(client.order_posts)
+    before_entries = list(client.entry_posts)
     result = cleaner.run_pass("sl_resize_test")
     assert result["executions"][ex["event_id"]] == "open"
     assert client.amends == [(ex["sl_order_id"], expected)]
     assert client.orders[ex["sl_order_id"]]["origQty"] == expected
-    assert client.order_posts == before_posts  # no replacement SL/TP or Entry POST
+    assert client.order_posts == before_posts  # no replacement SL/TP
+    assert client.entry_posts == before_entries  # never resends Entry
     assert getattr(client, "cancels", []) == []
     assert not errors(store, "SL_OVER_REMAINING")
     events = latest_resize(store, ex)
