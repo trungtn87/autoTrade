@@ -68,6 +68,8 @@ class TradeRecord:
     exit_policy_hash: str = ""
     tp_pct: float = 0.0
     sl_pct: float = 0.0
+    tp_price: float = 0.0
+    sl_price: float = 0.0
     trailing_act_pct: float = 0.0
     trailing_cb_pct: float = 0.0
     max_bars_held: int | None = None
