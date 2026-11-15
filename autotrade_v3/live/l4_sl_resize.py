@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import re
 import threading
-import time
 from datetime import timedelta
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
