@@ -130,3 +130,58 @@ def test_memory_store_reconciler_updates_finance_only_not_actual_exit_records():
     assert [(r["event_id"], r["closed_qty"], r["close_order_id"]) for r in store.results.values()] == [
         (r["event_id"], r["closed_qty"], r["close_order_id"]) for r in rows
     ]
+
+
+def test_l4_cleanup_marks_both_terminal_shared_combos_done_without_any_exchange_delete():
+    from autotrade_v3.live.l4_leftover import LeftoverCleaner
+    from autotrade_v3.live.tests.fakes import build
+
+    settings, store, client, sender, alert, control, reader, _executor = build()
+    exs = entries()
+    allocated = allocate_group(exs, exits(exs))
+    for ex in exs:
+        source = ex["event_id"]
+        # The three original SL/TP/trailing orders are already terminal on BingX.
+        # C13 raw own fills = 0.07 > Entry, C15 raw own fills = 0.03 < Entry.
+        own_qty = {"C13": ("0.05", "0", "0.02"), "C15": ("0.01", "0", "0.02")}[ex["combo"]]
+        leg_keys = [ex["sl_order_id"], ex["tp_order_id"], ex["trailing_order_id"]]
+        ex["raw_protection"] = {"cleanup": {"legs": {
+            oid: {"status": "TERMINAL", "executed": q, "source": "triggered_child",
+                  "price": 1744.7 if q != "0" else None}
+            for oid, q in zip(leg_keys, own_qty)
+        }, "warnings": [], "attempts": {}, "shadow_logged": []}}
+        ex["stage"] = "protected"
+        store.executions[source] = ex
+        store.finances[ex["id"]] = allocated[source]
+    cleaner = LeftoverCleaner(settings, client, store, reader, control, alert, mode="live",
+                              busy=lambda: False)
+    outputs = [cleaner._handle(ex, {}) for ex in exs]
+    assert outputs == ["shared_closed", "shared_closed"]
+    assert all(store.executions[ex["event_id"]]["raw_protection"]["cleanup"]["status"] == "done"
+               for ex in exs)
+    assert getattr(client, "cancels", []) == []
+    assert not any("🏁" in msg for _, msg in sender.calls)
+    assert not any(row.get("error_code") for row in store.control_logs)
+
+
+def test_l4_never_marks_shared_combo_done_with_mismatched_position_proof():
+    from autotrade_v3.live.l4_leftover import LeftoverCleaner
+    from autotrade_v3.live.tests.fakes import build
+
+    settings, store, client, sender, alert, control, reader, _executor = build()
+    exs = entries()
+    ex = exs[0]
+    financial = allocate_group(exs, exits(exs))[EVENT13]
+    financial["raw"]["position_id"] = "99999"
+    store.finances[ex["id"]] = financial
+    for col, qty in [("sl_order_id", "0.05"), ("tp_order_id", "0"), ("trailing_order_id", "0.02")]:
+        ex.setdefault("raw_protection", {}).setdefault("cleanup", {}).setdefault("legs", {})[ex[col]] = {
+            "status": "TERMINAL", "executed": qty, "price": 1759.0,
+        }
+    store.executions[ex["event_id"]] = ex
+    cleaner = LeftoverCleaner(settings, client, store, reader, control, alert, mode="live",
+                              busy=lambda: False)
+    assert cleaner._handle(ex, {}) == "anomaly"
+    assert store.executions[ex["event_id"]]["raw_protection"]["cleanup"].get("status") != "done"
+    assert getattr(client, "cancels", []) == []
+    assert any(r.get("error_code") == "LEFTOVER_FILL_OVER_ENTRY" for r in store.control_logs)
