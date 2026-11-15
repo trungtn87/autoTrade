@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
+import time
+from datetime import timedelta
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
@@ -191,3 +194,47 @@ class SLResizer:
                         f"Đã GET xác nhận SL nhưng không lưu được DB: {type(exc).__name__}")
         self._log_note(ex, sl_id, f"SL đã giảm {live_qty} → {want}; orderId {sl_id} được GET xác nhận")
         return True
+
+class SLResizePoller:
+    """Best-effort background L4 scans between the existing hourly :07 syncs.
+
+    No order is sent by this poller. It only requests the existing background
+    L4 pass if the order pipeline is idle and unclosed V3 combos exist.
+    """
+
+    def __init__(self, cleaner, store, *, admit, interval_sec=30):
+        self.cleaner = cleaner
+        self.store = store
+        self.admit = admit
+        self.interval = max(20, int(interval_sec))
+        self._stop = threading.Event()
+        self._thread = None
+        self.last = {"status": "not_started"}
+
+    def _loop(self):
+        while not self._stop.wait(self.interval):
+            try:
+                if not self.admit():
+                    continue
+                since = datetime.now(timezone.utc) - timedelta(days=6)
+                if not self.store.executions_for_cleanup(since):
+                    continue
+                self.cleaner.request("sl_resize_poll")
+                self.last = {"status": "requested", "at": datetime.now(timezone.utc).isoformat()}
+            except Exception as exc:
+                self.last = {"status": "error", "type": type(exc).__name__}
+                log.exception("V3_SL_RESIZE_POLL_FAILED")
+
+    def start(self):
+        if self._thread is not None and self._thread.is_alive():
+            return
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._loop, name="v3-sl-resize-poll", daemon=True)
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+
+    def status(self):
+        return {"interval_sec": self.interval, "mode": self.cleaner.sl_resizer.mode,
+                "running": bool(self._thread and self._thread.is_alive()), "last": dict(self.last)}
