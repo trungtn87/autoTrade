@@ -452,7 +452,7 @@ class LeftoverCleaner:
         try:
             self.store.insert_control_log({"layer": "L4", "step": step, "message": clean_text(message), "symbol": ex.get("symbol"),
                                            "event_id": ex.get("event_id"), "order_id": str(order_id) if order_id else None,
-                                           "error_code": None, "details": clean(details or {}), "discord_status": "skipped"})
+                                           "error_code": None, "details": clean(details or {}), "discord_status": "disabled"})
         except Exception as exc:
             log.error("V3_LEFTOVER_NOTE_DB_FAILED %s", clean_text(exc, 200))
 

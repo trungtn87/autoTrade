@@ -37,8 +37,33 @@ def cleanup_state(store, ex):
 
 
 def error_steps(store):
-    return [r["step"] for r in store.control_logs if r["layer"] != "L5" and r.get("discord_status") != "skipped"
+    return [r["step"] for r in store.control_logs if r["layer"] != "L5" and r.get("discord_status") != "disabled"
             and r["step"].startswith("leftover")]
+
+
+def test_informational_cleanup_note_uses_database_allowed_status():
+    """The live control_logs CHECK accepts disabled, not skipped; notes must persist."""
+    _, store, client, sender, control, executor, cleaner, _ = setup()
+    db_allowed = {"pending", "sent", "failed", "disabled"}
+    real_insert = store.insert_control_log
+
+    def constraint_checked_insert(row):
+        assert row.get("discord_status", "pending") in db_allowed
+        return real_insert(row)
+
+    store.insert_control_log = constraint_checked_insert
+    ex = open_combo(executor, store)
+    client.trigger_fill(ex["tp_order_id"], ex["tp_qty"], price="99000")
+    client.trigger_fill(ex["trailing_order_id"], ex["trailing_qty"], price="98500")
+    sender.calls.clear()
+    cleaner.run_pass()
+    notes = [row for row in store.control_logs if row["step"] == "leftover_cancel_ok"]
+    assert len(notes) == 1
+    assert notes[0]["discord_status"] == "disabled"
+    assert notes[0]["error_code"] is None
+    assert error_steps(store) == []
+    assert "error" not in sender.channels()
+    assert cleanup_state(store, ex)["status"] == "done"
 
 
 def test_tp_and_trailing_fill_then_orphan_sl_is_cancelled_by_exact_id_only():
