@@ -672,6 +672,13 @@ def gate_c4(ctx: VerifyContext) -> GateResult:
             )[0]
             if len(bad_fe):
                 viol.add_many(len(bad_fe), [{"leg_id": lid[i], "kind": "FEE_SUM_MISMATCH"} for i in bad_fe[:20]])
+        elif portfolio:
+            c4_subchecks = {
+                "NET_COST_INVARIANT_OWN": "N/A_LEGACY_SCHEMA",
+                "NET_IS_VWAP_BASIS": "N/A_LEGACY_SCHEMA",
+                "BASIS_SHIFT_CONSERVATION": "N/A_LEGACY_SCHEMA",
+            }
+            notes.append("Mode C legacy schema: itemized cost columns missing; dual-basis C4 subchecks marked N/A_LEGACY_SCHEMA.")
 
         # leg totals vs execution events
         ev = run.events

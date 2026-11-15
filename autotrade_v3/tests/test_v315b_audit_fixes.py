@@ -241,3 +241,20 @@ def test_validation_json_is_single_source_of_truth(tmp_path: Path) -> None:
     idx.upsert_run(rdir)
     assert idx.list_runs()[0]["validation_status"] == "UNVERIFIED"
     assert list_store_runs(store_dir)[0]["validation_status"] == "UNVERIFIED"
+
+
+def test_c4_mode_c_legacy_schema_marks_na_and_note(tmp_path: Path) -> None:
+    """Mode C without itemized cost columns must mark c4_subchecks as N/A_LEGACY_SCHEMA and add a note."""
+    rdir = _make_synthetic_mode_c_run(tmp_path)
+    drop_cols = ["gross_pnl_raw", "fee_entry", "fee_exit", "spread_cost", "slippage_cost", "funding_cost", "pnl_own_entry", "pnl_vwap"]
+    df = pd.read_parquet(rdir / "trades.parquet").drop(columns=drop_cols)
+    df.to_parquet(rdir / "trades.parquet", index=False)
+
+    res = _run_c4(rdir)
+    assert res.status == "PASS", res.details
+    assert res.details["c4_subchecks"] == {
+        "NET_COST_INVARIANT_OWN": "N/A_LEGACY_SCHEMA",
+        "NET_IS_VWAP_BASIS": "N/A_LEGACY_SCHEMA",
+        "BASIS_SHIFT_CONSERVATION": "N/A_LEGACY_SCHEMA",
+    }
+    assert any("N/A_LEGACY_SCHEMA" in n for n in res.details["notes"])
