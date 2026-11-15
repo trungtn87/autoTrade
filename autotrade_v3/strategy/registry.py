@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 from autotrade_v3.strategy.base import BaseStrategy
 from autotrade_v3.strategy.baseline_20final import Baseline20FinalStrategy
+from autotrade_v3.strategy.eth_c1_h1_both_1 import EthC1H1Both1Strategy
 from autotrade_v3.strategy_core.registry import StrategyCoreRegistry, parse_strategy_ref
 
 
@@ -85,6 +86,7 @@ class StrategyRegistry:
     @classmethod
     def _register_defaults(cls) -> None:
         cls.register(Baseline20FinalStrategy())
+        cls.register(EthC1H1Both1Strategy())
 
 
 # Initialize defaults
