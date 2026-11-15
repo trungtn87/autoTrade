@@ -429,6 +429,7 @@ class TestValidationGatesMutations(unittest.TestCase):
             m_path = tmp_run / "run_manifest.json"
             m = json.loads(m_path.read_text(encoding="utf-8"))
             m["code_dirty"] = True
+            m["artifact_schema_version"] = "V3-08"
             m_path.write_text(json.dumps(m), encoding="utf-8")
 
             # Update ARTIFACTS.json with the new hash for run_manifest.json
