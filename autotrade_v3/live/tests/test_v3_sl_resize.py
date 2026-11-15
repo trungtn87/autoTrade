@@ -5,15 +5,14 @@ import pytest
 from decimal import Decimal
 
 from autotrade_v3.live.l4_leftover import LeftoverCleaner
-from autotrade_v3.live.tests.fakes import build, sig
+from autotrade_v3.live.tests.fakes import build, open_legacy_split, sig
 
 
 def case(*, resize_mode="live", exchange_mode="ok"):
     settings, store, client, sender, alert, control, reader, executor = build(sl_resize_mode=resize_mode)
     client.amend_mode = exchange_mode
-    ex = executor.execute(sig(combo=1, side="BUY"))
-    assert ex["stage"] == "protected"
-    row = store.executions[ex["event_id"]]
+    row = open_legacy_split(executor, sig(combo=1, side="BUY"))
+    ex = row
     cleaner = LeftoverCleaner(settings, client, store, reader, control, alert,
                               mode="live", busy=lambda: False)
     client.trigger_fill(row["tp_order_id"], row["tp_qty"], price="102000")
@@ -53,9 +52,9 @@ def test_live_amend_shrinks_only_own_sl_and_get_verifies_quantity():
 
 def test_other_combo_sl_untouched_during_same_symbol_hedge_position():
     settings, store, client, sender, alert, control, reader, executor = build(sl_resize_mode="live")
-    a = executor.execute(sig(combo=1, side="BUY"))
+    exa = open_legacy_split(executor, sig(combo=1, side="BUY"))   # legacy partial TP: only A's TP fills
     b = executor.execute(sig(combo=2, side="BUY"))
-    exa, exb = store.executions[a["event_id"]], store.executions[b["event_id"]]
+    exb = store.executions[b["event_id"]]
     old_second = client.orders[exb["sl_order_id"]]["origQty"]
     client.trigger_fill(exa["tp_order_id"], exa["tp_qty"])
     cleaner = LeftoverCleaner(settings, client, store, reader, control, alert,
@@ -128,9 +127,8 @@ def test_default_settings_never_enable_live_sl_amend(monkeypatch):
 def test_eth_c13_c15_trailing_then_resized_sl_cannot_overclose_combo():
     """Regression for 15 Nov 2026 C13/C15 pattern: reduce each SL before it fires."""
     settings, store, client, _sender, alert, control, reader, executor = build(sl_resize_mode="live")
-    a = executor.execute(sig(symbol="ETH-USDT", combo=103, side="SELL"))
-    b = executor.execute(sig(symbol="ETH-USDT", combo=105, side="SELL"))
-    ea, eb = store.executions[a["event_id"]], store.executions[b["event_id"]]
+    ea = open_legacy_split(executor, sig(symbol="ETH-USDT", combo=103, side="SELL"))
+    eb = open_legacy_split(executor, sig(symbol="ETH-USDT", combo=105, side="SELL"))
     for ex in (ea, eb):
         client.trigger_fill(ex["trailing_order_id"], ex["trailing_qty"], price="2750")
     cleaner = LeftoverCleaner(settings, client, store, reader, control, alert,

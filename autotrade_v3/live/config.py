@@ -30,13 +30,10 @@ class V3Settings:
     historical_request_limit: int = 1000
     historical_min_interval_ms: int = 1100
 
-    # Current execution mechanism (unchanged from production V2):
-    # 100 USDT notional, x50, SL on the full fill, 50% fixed TP + 50% trailing.
+    # Exit policy FIXED_TP_SL for every new entry: 100 USDT notional, x50, one fixed TP and
+    # one fixed SL on the full real fill. No trailing, no split, no breakeven.
     notional_usdt: float = 100.0
     leverage: int = 50
-    tp_trailing_split_enabled: bool = field(default_factory=lambda: _bool("TP_TRAILING_SPLIT_ENABLED", True))
-    trailing_activation_pct: float = field(default_factory=lambda: float(os.getenv("TP_TRAILING_ACTIVATION_PCT", "0.005")))
-    trailing_callback_rate: float = field(default_factory=lambda: float(os.getenv("TP_TRAILING_CALLBACK_RATE", "0.005")))
 
     discord_enabled: bool = field(default_factory=lambda: _bool("DISCORD_ENABLED", True))
     discord_webhook_btc: str = field(default_factory=lambda: os.getenv("DISCORD_WEBHOOK_BTC", ""))

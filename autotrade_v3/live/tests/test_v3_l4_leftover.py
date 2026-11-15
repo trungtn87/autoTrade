@@ -8,7 +8,7 @@ import threading
 
 from autotrade_v3.live.l4_leftover import LeftoverCleaner, norm_id
 from autotrade_v3.live.l4_control import HourlySync
-from autotrade_v3.live.tests.fakes import build, sig
+from autotrade_v3.live.tests.fakes import build, open_legacy_split, sig
 
 
 class Clock:
@@ -27,9 +27,7 @@ def setup(mode="live", **kw):
 
 
 def open_combo(executor, store, **kw):
-    r = executor.execute(sig(**kw))
-    assert r["stage"] == "protected"
-    return store.executions[r["event_id"]]
+    return open_legacy_split(executor, sig(**kw))
 
 
 def cleanup_state(store, ex):

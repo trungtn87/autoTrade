@@ -125,14 +125,24 @@ def test_mock_entry_filled_but_sl_rejected_reports_exact_step_and_force_closes()
     assert "btc" not in sender.channels()[1:]   # no success message
 
 
-def test_mock_entry_filled_but_trailing_rejected_reports_trailing_step():
+def test_mock_entry_filled_but_tp_rejected_reports_tp_step_and_keeps_sl():
     _, store, client, sender, *_rest, executor = build()
-    client.leg_mode["TRAILING_STOP_MARKET"] = "reject"
+    client.leg_mode["TAKE_PROFIT_MARKET"] = "reject"
     r = executor.execute(sig())
     assert r["stage"] == "protection_incomplete"
-    assert [x["step"] for x in store.control_logs] == ["trailing_place"]
-    assert "Trailing" in store.control_logs[0]["message"]
+    assert [x["step"] for x in store.control_logs] == ["tp_place"]
+    assert "TP THẤT BẠI" not in store.control_logs[0]["message"] and "TP" in store.control_logs[0]["message"]
     assert sender.channels() == ["error"]
+
+
+def test_mock_fixed_tp_sl_never_places_trailing_and_uses_full_fill():
+    _, store, client, sender, *_rest, executor = build()
+    r = executor.execute(sig())
+    assert r["stage"] == "protected" and r["exit_mode"] == "fixed_tp_sl"
+    assert [p["type"] for p in client.order_posts] == ["STOP_MARKET", "TAKE_PROFIT_MARKET"]
+    tp = [p for p in client.order_posts if p["type"] == "TAKE_PROFIT_MARKET"][0]
+    assert tp["quantity"] == r["executed_qty"] == r["sl_qty"]
+    assert "trailing_order_id" not in store.executions[r["event_id"]] or not store.executions[r["event_id"]]["trailing_order_id"]
 
 
 def test_mock_sl_response_lost_is_verified_by_client_order_id_not_resent():
@@ -149,8 +159,7 @@ def test_mock_tp_sl_are_derived_from_the_real_fill():
     r = executor.execute(s)
     assert r["tp_price"] == pytest.approx(r["avg_price"] * 1.02)          # BTC C1 tp_pct 2.0%
     assert r["sl_price"] == pytest.approx(r["avg_price"] * (1 - 0.008))    # BTC C1 sl_pct 0.8%
-    trail = [p for p in client.order_posts if p["type"] == "TRAILING_STOP_MARKET"][0]
-    assert float(trail["activationPrice"]) == pytest.approx(r["avg_price"] * 1.005, abs=0.01)
+    assert not [p for p in client.order_posts if p["type"] == "TRAILING_STOP_MARKET"]
 
 
 def test_mock_same_event_never_gets_two_entry_posts():
@@ -437,7 +446,7 @@ def test_success_message_uses_confirmed_bingx_prices_without_ids():
     row = {"event_id": "BTC-USDT|1h|C4|SELL|1794625199999", "symbol": "BTC-USDT", "combo": "C4",
            "side": "SELL", "avg_price": 67666.5, "tp_price": 12345.0, "sl_price": 98765.0,
            "entry_order_id": "2121438081244680192", "client_order_id": "v3e-abc",
-           "confirmed_at_ms": 1794625249000,
+           "confirmed_at_ms": 1794625249000, "executed_qty": "0.0015",
            "protection": {
                "tp": {"status": "confirmed", "evidence": {
                    "confirm": {"order": {"stopPrice": "66448.503"}},
@@ -448,6 +457,8 @@ def test_success_message_uses_confirmed_bingx_prices_without_ids():
     message = success_message(row)
     assert message == ("✅ **BTC SELL · C4 | ĐẶT LỆNH THÀNH CÔNG**\n"
                        "Entry **67666.5** · TP **66448.5** · SL **68275.5**\n"
+                       "Khối lượng: **0.0015**\n"
+                       "✅ Entry đã khớp — TP/SL đã xác nhận\n"
                        "🕒 10:00:49 · 14/11/2026")
     assert "12345" not in message and "98765" not in message
     assert "2121438081244680192" not in message and "v3e-abc" not in message
@@ -460,3 +471,14 @@ def test_l4_never_touches_v2_tables_or_collector():
     for name in ("l4_control.py", "store.py", "l4_leftover.py"):
         code = "\n".join(l for l in (root / name).read_text().splitlines() if not l.lstrip().startswith(("#", '"', "No V2", "Own thread")))
         assert "FROM autotrade_analytics" not in code and "CollectorRuntime" not in code and "processed_targets" not in code
+
+
+@pytest.mark.parametrize("side,tp_mul,sl_mul", [("BUY", 1.02, 0.992), ("SELL", 0.98, 1.008)])
+def test_fixed_tp_sl_long_and_short_formulas_from_real_fill(side, tp_mul, sl_mul):
+    _, store, client, *_rest, executor = build()
+    r = executor.execute(sig(side=side))
+    assert r["stage"] == "protected"
+    assert r["tp_price"] == pytest.approx(r["avg_price"] * tp_mul)
+    assert r["sl_price"] == pytest.approx(r["avg_price"] * sl_mul)
+    assert r["executed_qty"] == r["tp_qty"] == r["sl_qty"]
+    assert not [p for p in client.order_posts if p["type"] == "TRAILING_STOP_MARKET"]

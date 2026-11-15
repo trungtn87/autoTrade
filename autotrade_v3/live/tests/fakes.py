@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import itertools
+from decimal import Decimal, ROUND_DOWN
 
 from autotrade_v3.live.config import V3Settings
 from autotrade_v3.live.l3_execution import L3Executor, V3Signal
@@ -17,7 +18,7 @@ def settings(**kw) -> V3Settings:
     base = dict(symbols=("BTC-USDT", "ETH-USDT"), bingx_api_key="mock-key", bingx_api_secret="mock-secret",
                 database_url="", discord_enabled=True, discord_webhook_btc="https://mock.local/btc",
                 discord_webhook_eth="https://mock.local/eth", discord_webhook_error="https://mock.local/error",
-                tp_trailing_split_enabled=True, trailing_activation_pct=0.005, trailing_callback_rate=0.005)
+                )
     base.update(kw)
     return V3Settings(**base)
 
@@ -34,6 +35,7 @@ class FakeBingX:
         self.orders: dict[str, dict] = {}
         self.by_client: dict[str, str] = {}
         self.entry_mode = "ok"
+        self.qty_multiplier = 1   # MOCK only: lets a legacy split fixture get a splittable size
         self.leg_mode: dict[str, str] = {}
         self.get_mode = "ok"
         self.entry_posts: list[dict] = []
@@ -57,6 +59,7 @@ class FakeBingX:
         return order
 
     def place_market_entry(self, symbol, side, qty, leverage, client_order_id=None):
+        qty = Decimal(str(qty)) * self.qty_multiplier
         params = {"symbol": symbol, "side": side, "positionSide": "LONG" if side == "BUY" else "SHORT",
                   "type": "MARKET", "quantity": V3BingXClient.fmt_qty(qty), "clientOrderId": client_order_id,
                   "leverage": leverage}
@@ -211,3 +214,35 @@ def sig(symbol="BTC-USDT", combo=1, side="BUY", close_time=1763000099999) -> V3S
     sl = entry * (0.992 if side == "BUY" else 1.008)
     return V3Signal(event_id=f"{symbol}|{tf}|{name}|{side}|{close_time}", symbol=symbol, combo=combo, combo_name=name,
                     side=side, timeframe=tf, close_time=close_time, entry=entry, tp=tp, sl=sl)
+
+
+def open_legacy_split(executor, sg=None):
+    """MOCK fixture for a position opened BEFORE the FIXED_TP_SL change: SL full, TP ~50%, trailing ~50%.
+
+    New entries never produce this shape any more; this only exists so the L4 cleanup of old
+    positions (still open on BingX at deploy time) keeps being tested.
+    """
+    client, store = executor.client, executor.store
+    sg = sg or sig()
+    client.qty_multiplier = 4          # 4 steps of 0.001 BTC: enough for two valid legs
+    try:
+        r = executor.execute(sg)
+    finally:
+        client.qty_multiplier = 1
+    assert r["stage"] == "protected"
+    ex = store.executions[r["event_id"]]
+    q = Decimal(str(ex["executed_qty"]))
+    step = Decimal(1).scaleb(q.as_tuple().exponent)
+    half = (q / 2).quantize(step, rounding=ROUND_DOWN)
+    other = q - half
+    client.orders[ex["tp_order_id"]]["origQty"] = str(half)
+    opposite = "SELL" if sg.side == "BUY" else "BUY"
+    params = {"symbol": sg.symbol, "side": opposite, "positionSide": "LONG" if sg.side == "BUY" else "SHORT",
+              "type": "TRAILING_STOP_MARKET", "quantity": str(other),
+              "activationPrice": str(round(ex["avg_price"] * (1.005 if sg.side == "BUY" else 0.995), 2)),
+              "priceRate": "0.005", "clientOrderId": "legacy-trail-" + sg.event_id[-13:]}
+    ack = client.place_order(params)["data"]["order"]
+    fields = {"tp_qty": str(half), "exit_mode": "split_trailing", "trailing_order_id": ack["orderId"],
+              "trailing_qty": str(other), "trailing_status": "NEW", "trailing_callback_rate": 0.005}
+    executor._save(sg, fields)
+    return store.executions[r["event_id"]]
