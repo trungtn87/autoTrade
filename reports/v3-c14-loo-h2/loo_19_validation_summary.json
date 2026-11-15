@@ -1,0 +1,99 @@
+{
+  "experiment": "LOO-19 (C14_DISABLED)",
+  "simulator_version": "v3.16-fixed-tpsl",
+  "git_sha": "c99e4529ac1761614ccfd1fdbed8a92315e7a5d7",
+  "code_dirty": true,
+  "expected_dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+  "runs": {
+    "ALL_SIGNALS__IDEAL": {
+      "run_id": "RUN_20261115_163016_20FINAL_FIXED_V1_ALL_SIGNALS_20231101_20261101",
+      "overall_status": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    },
+    "ALL_SIGNALS__BASE": {
+      "run_id": "RUN_20261115_163103_20FINAL_FIXED_V1_ALL_SIGNALS_20231101_20261101",
+      "overall_status": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    },
+    "ALL_SIGNALS__STRESS": {
+      "run_id": "RUN_20261115_163149_20FINAL_FIXED_V1_ALL_SIGNALS_20231101_20261101",
+      "overall_status": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    },
+    "ONE_TRADE_PER_COMBO__IDEAL": {
+      "run_id": "RUN_20261115_163234_20FINAL_FIXED_V1_ONE_TRADE_PER_COMBO_20231101_20261101",
+      "overall_status": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    },
+    "ONE_TRADE_PER_COMBO__BASE": {
+      "run_id": "RUN_20261115_163317_20FINAL_FIXED_V1_ONE_TRADE_PER_COMBO_20231101_20261101",
+      "overall_status": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    },
+    "ONE_TRADE_PER_COMBO__STRESS": {
+      "run_id": "RUN_20261115_163401_20FINAL_FIXED_V1_ONE_TRADE_PER_COMBO_20231101_20261101",
+      "overall_status": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    },
+    "BINGX_PORTFOLIO__IDEAL": {
+      "run_id": "RUN_20261115_163509_20FINAL_FIXED_V1_BINGX_PORTFOLIO_20231101_20261101",
+      "overall_status": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    },
+    "BINGX_PORTFOLIO__BASE": {
+      "run_id": "RUN_20261115_163709_20FINAL_FIXED_V1_BINGX_PORTFOLIO_20231101_20261101",
+      "overall_status": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    },
+    "BINGX_PORTFOLIO__STRESS": {
+      "run_id": "RUN_20261115_163909_20FINAL_FIXED_V1_BINGX_PORTFOLIO_20231101_20261101",
+      "overall_status": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    }
+  }
+}

@@ -1,0 +1,290 @@
+{
+  "total_c14_otc_trades": 294,
+  "tp_count": 89,
+  "sl_count": 205,
+  "win_rate_pct": 30.27,
+  "own_net_pnl_base": 6.0536,
+  "vwap_net_pnl_base": -17.1414,
+  "winners_vs_losers": {
+    "feature": [
+      "dist_close_kijun_atr",
+      "abs_dist_close_kumo_pct",
+      "kumo_thickness_pct",
+      "atr14_pct",
+      "tk_spread_atr",
+      "hold_minutes",
+      "mfe_pct",
+      "mae_pct"
+    ],
+    "winners_mean": {
+      "dist_close_kijun_atr": 1.307131,
+      "abs_dist_close_kumo_pct": 0.016089,
+      "kumo_thickness_pct": 0.011278,
+      "atr14_pct": 0.006729,
+      "tk_spread_atr": 0.236113,
+      "hold_minutes": 800.134831,
+      "mfe_pct": 0.021103,
+      "mae_pct": 0.003236
+    },
+    "winners_median": {
+      "dist_close_kijun_atr": 1.197021,
+      "abs_dist_close_kumo_pct": 0.012612,
+      "kumo_thickness_pct": 0.008466,
+      "atr14_pct": 0.006392,
+      "tk_spread_atr": 0.215473,
+      "hold_minutes": 548.0,
+      "mfe_pct": 0.020623,
+      "mae_pct": 0.003186
+    },
+    "losers_mean": {
+      "dist_close_kijun_atr": 1.259018,
+      "abs_dist_close_kumo_pct": 0.016874,
+      "kumo_thickness_pct": 0.011607,
+      "atr14_pct": 0.007257,
+      "tk_spread_atr": 0.246825,
+      "hold_minutes": 433.409756,
+      "mfe_pct": 0.005675,
+      "mae_pct": 0.007426
+    },
+    "losers_median": {
+      "dist_close_kijun_atr": 1.233354,
+      "abs_dist_close_kumo_pct": 0.011208,
+      "kumo_thickness_pct": 0.008908,
+      "atr14_pct": 0.006549,
+      "tk_spread_atr": 0.164358,
+      "hold_minutes": 252.0,
+      "mfe_pct": 0.003819,
+      "mae_pct": 0.007068
+    }
+  },
+  "sl_favorable_excursion": {
+    "total_sl": 205,
+    "sl_mfe_ge_0_3pct": 119,
+    "sl_mfe_ge_0_5pct": 85,
+    "sl_mfe_ge_1_0pct": 42,
+    "sl_mfe_ge_1_5pct": 17,
+    "sl_mfe_mean_pct": 0.5675,
+    "sl_mfe_median_pct": 0.3819
+  },
+  "by_side": [
+    {
+      "side": "BUY",
+      "trades": 161,
+      "tp_count": 48,
+      "sl_count": 113,
+      "win_rate_pct": 29.81,
+      "net_pnl": 1.3338,
+      "avg_pnl": 0.0083,
+      "avg_overext_atr": 1.2859,
+      "avg_kumo_pct": 1.1885,
+      "avg_atr_pct": 0.6913
+    },
+    {
+      "side": "SELL",
+      "trades": 133,
+      "tp_count": 41,
+      "sl_count": 92,
+      "win_rate_pct": 30.83,
+      "net_pnl": 4.7198,
+      "avg_pnl": 0.0355,
+      "avg_overext_atr": 1.2587,
+      "avg_kumo_pct": 1.1051,
+      "avg_atr_pct": 0.732
+    }
+  ],
+  "by_year": [
+    {
+      "year": "2023",
+      "trades": 6,
+      "tp_count": 3,
+      "sl_count": 3,
+      "win_rate_pct": 50.0,
+      "net_pnl": 3.2819,
+      "avg_pnl": 0.547,
+      "avg_overext_atr": 0.9284,
+      "avg_kumo_pct": 0.916,
+      "avg_atr_pct": 0.621
+    },
+    {
+      "year": "2024",
+      "trades": 111,
+      "tp_count": 32,
+      "sl_count": 79,
+      "win_rate_pct": 28.83,
+      "net_pnl": -1.9933,
+      "avg_pnl": -0.018,
+      "avg_overext_atr": 1.2822,
+      "avg_kumo_pct": 1.3284,
+      "avg_atr_pct": 0.7806
+    },
+    {
+      "year": "2025",
+      "trades": 104,
+      "tp_count": 34,
+      "sl_count": 70,
+      "win_rate_pct": 32.69,
+      "net_pnl": 8.8607,
+      "avg_pnl": 0.0852,
+      "avg_overext_atr": 1.319,
+      "avg_kumo_pct": 1.0258,
+      "avg_atr_pct": 0.7014
+    },
+    {
+      "year": "2026",
+      "trades": 73,
+      "tp_count": 20,
+      "sl_count": 53,
+      "win_rate_pct": 27.4,
+      "net_pnl": -4.0956,
+      "avg_pnl": -0.0561,
+      "avg_overext_atr": 1.2242,
+      "avg_kumo_pct": 1.0779,
+      "avg_atr_pct": 0.6211
+    }
+  ],
+  "by_vol_regime": [
+    {
+      "vol_regime": "LOW_VOL",
+      "trades": 98,
+      "tp_count": 28,
+      "sl_count": 70,
+      "win_rate_pct": 28.57,
+      "net_pnl": -2.4089,
+      "avg_pnl": -0.0246,
+      "avg_overext_atr": 1.0971,
+      "avg_kumo_pct": 0.8387,
+      "avg_atr_pct": 0.4318
+    },
+    {
+      "vol_regime": "MID_VOL",
+      "trades": 98,
+      "tp_count": 34,
+      "sl_count": 64,
+      "win_rate_pct": 34.69,
+      "net_pnl": 13.5661,
+      "avg_pnl": 0.1384,
+      "avg_overext_atr": 1.3668,
+      "avg_kumo_pct": 1.0281,
+      "avg_atr_pct": 0.6517
+    },
+    {
+      "vol_regime": "HIGH_VOL",
+      "trades": 98,
+      "tp_count": 27,
+      "sl_count": 71,
+      "win_rate_pct": 27.55,
+      "net_pnl": -5.1036,
+      "avg_pnl": -0.0521,
+      "avg_overext_atr": 1.3568,
+      "avg_kumo_pct": 1.5854,
+      "avg_atr_pct": 1.0457
+    }
+  ],
+  "by_overext_bucket": [
+    {
+      "overext_bucket": "<=0.75",
+      "trades": 76,
+      "tp_count": 23,
+      "sl_count": 53,
+      "win_rate_pct": 30.26,
+      "net_pnl": 1.5485,
+      "avg_pnl": 0.0204,
+      "avg_overext_atr": 0.3581,
+      "avg_kumo_pct": 1.1346,
+      "avg_atr_pct": 0.6763
+    },
+    {
+      "overext_bucket": "0.75-1.5",
+      "trades": 108,
+      "tp_count": 30,
+      "sl_count": 78,
+      "win_rate_pct": 27.78,
+      "net_pnl": -4.9589,
+      "avg_pnl": -0.0459,
+      "avg_overext_atr": 1.1161,
+      "avg_kumo_pct": 1.316,
+      "avg_atr_pct": 0.7064
+    },
+    {
+      "overext_bucket": "1.5-2.5",
+      "trades": 92,
+      "tp_count": 29,
+      "sl_count": 63,
+      "win_rate_pct": 31.52,
+      "net_pnl": 4.9592,
+      "avg_pnl": 0.0539,
+      "avg_overext_atr": 1.8843,
+      "avg_kumo_pct": 1.0334,
+      "avg_atr_pct": 0.7266
+    },
+    {
+      "overext_bucket": ">2.5",
+      "trades": 18,
+      "tp_count": 7,
+      "sl_count": 11,
+      "win_rate_pct": 38.89,
+      "net_pnl": 4.5048,
+      "avg_pnl": 0.2503,
+      "avg_overext_atr": 2.9622,
+      "avg_kumo_pct": 0.8266,
+      "avg_atr_pct": 0.7846
+    }
+  ],
+  "by_kumo_bucket": [
+    {
+      "kumo_bucket": "<0.5%",
+      "trades": 79,
+      "tp_count": 19,
+      "sl_count": 60,
+      "win_rate_pct": 24.05,
+      "net_pnl": -11.4758,
+      "avg_pnl": -0.1453,
+      "avg_overext_atr": 1.3716,
+      "avg_kumo_pct": 0.2472,
+      "avg_atr_pct": 0.6113
+    },
+    {
+      "kumo_bucket": "0.5-1.0%",
+      "trades": 83,
+      "tp_count": 34,
+      "sl_count": 49,
+      "win_rate_pct": 40.96,
+      "net_pnl": 25.3794,
+      "avg_pnl": 0.3058,
+      "avg_overext_atr": 1.3464,
+      "avg_kumo_pct": 0.7168,
+      "avg_atr_pct": 0.6585
+    },
+    {
+      "kumo_bucket": "1.0-2.0%",
+      "trades": 82,
+      "tp_count": 22,
+      "sl_count": 60,
+      "win_rate_pct": 26.83,
+      "net_pnl": -5.8445,
+      "avg_pnl": -0.0713,
+      "avg_overext_atr": 1.1543,
+      "avg_kumo_pct": 1.4144,
+      "avg_atr_pct": 0.7389
+    },
+    {
+      "kumo_bucket": ">2.0%",
+      "trades": 50,
+      "tp_count": 14,
+      "sl_count": 36,
+      "win_rate_pct": 28.0,
+      "net_pnl": -2.0055,
+      "avg_pnl": -0.0401,
+      "avg_overext_atr": 1.1934,
+      "avg_kumo_pct": 2.8662,
+      "avg_atr_pct": 0.9024
+    }
+  ],
+  "h2_filter_coverage_on_c14_otc": {
+    "h2a_pass_count": 184,
+    "h2a_drop_count": 110,
+    "h2b_pass_count": 215,
+    "h2b_drop_count": 79,
+    "h2ab_pass_count": 140
+  }
+}
