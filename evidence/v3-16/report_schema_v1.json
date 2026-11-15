@@ -1,0 +1,513 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://autotrade.local/schemas/v3/report_schema_v1.json",
+  "title": "AutoTrade V3 MT5-Style Report Data Package (v1 Draft)",
+  "description": "Single-source-of-truth JSON schema for AI/Codex consumption and verify_report.py reconciliation (Issue #102 AC1). Unrounded values are stored in `value`; missing data uses `value: null` and `status: 'N/A'` with an explicit `reason`.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at_utc",
+    "run_info",
+    "kpi",
+    "breakdowns"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "metricStatus": {
+      "type": "string",
+      "enum": ["AVAILABLE", "NEEDS_IMPL", "N/A"]
+    },
+    "metricField": {
+      "type": "object",
+      "required": ["value", "unit", "source", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "type": ["number", "string", "boolean", "null"]
+        },
+        "unit": {
+          "type": "string",
+          "description": "e.g. USD, pct, bps, count, ratio, ratio_annualized_365d"
+        },
+        "source": {
+          "type": "string",
+          "description": "Exact artifact & column or function path, e.g. 'analysis.json#pnl.net_pnl' or 'trades.parquet#net_pnl'"
+        },
+        "status": {
+          "$ref": "#/$defs/metricStatus"
+        },
+        "reason": {
+          "type": ["string", "null"],
+          "description": "Required when status is 'N/A' or 'NEEDS_IMPL'."
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0-draft"
+    },
+    "generated_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "is_sample_layout": {
+      "type": "boolean",
+      "description": "True only for static mock/demo artifacts; production reports must set false."
+    },
+    "run_info": {
+      "type": "object",
+      "required": [
+        "run_id",
+        "execution_mode",
+        "symbols",
+        "time_window_utc",
+        "cost_profile",
+        "ambiguity_policy",
+        "git_commit",
+        "dataset_hash",
+        "config_hash",
+        "validation_status",
+        "governance_labels"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "run_id": { "type": "string" },
+        "strategy_id": { "type": "string" },
+        "strategy_version": { "type": "string" },
+        "execution_mode": {
+          "type": "string",
+          "enum": ["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"]
+        },
+        "symbols": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "time_window_utc": {
+          "type": "object",
+          "required": ["start", "end"],
+          "additionalProperties": false,
+          "properties": {
+            "start": { "type": "string" },
+            "end": { "type": "string" }
+          }
+        },
+        "cost_profile": {
+          "type": "object",
+          "required": ["name", "hash", "status"],
+          "additionalProperties": false,
+          "properties": {
+            "name": { "type": "string", "enum": ["IDEAL", "BASE", "STRESS", "TEST_ONLY"] },
+            "hash": { "type": "string" },
+            "status": { "type": "string", "enum": ["CONFIRMED", "UNCONFIRMED", "TEST_ONLY"] },
+            "ideal_warning_required": { "type": "boolean" }
+          }
+        },
+        "ambiguity_policy": {
+          "type": "string",
+          "enum": ["LEGACY", "CONSERVATIVE", "OPTIMISTIC", "OHLC_PATH"]
+        },
+        "git_commit": { "type": "string" },
+        "dataset_hash": { "type": "string" },
+        "config_hash": { "type": "string" },
+        "validation_status": {
+          "type": "string",
+          "enum": ["VERIFIED", "FAILED", "UNVERIFIED"]
+        },
+        "governance_labels": {
+          "type": "object",
+          "required": ["window_2026_label"],
+          "additionalProperties": false,
+          "properties": {
+            "window_2026_label": {
+              "type": "string",
+              "const": "VALIDATION (đã dùng để chọn biến thể)",
+              "description": "AT2-002 rule: 2026 data must never be labeled OOS or Holdout."
+            },
+            "development_window": { "type": "string" },
+            "forward_evidence_start_utc": { "type": "string" }
+          }
+        }
+      }
+    },
+    "kpi": {
+      "type": "object",
+      "required": [
+        "account",
+        "cost_reality",
+        "risk",
+        "volume",
+        "mt5_results",
+        "long_short",
+        "streaks"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "account": {
+          "type": "object",
+          "required": [
+            "initial_capital",
+            "final_balance",
+            "final_equity_mtm",
+            "max_used_margin",
+            "min_free_margin",
+            "min_margin_level_pct"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "initial_capital": { "$ref": "#/$defs/metricField" },
+            "final_balance": { "$ref": "#/$defs/metricField" },
+            "final_equity_mtm": { "$ref": "#/$defs/metricField" },
+            "max_used_margin": { "$ref": "#/$defs/metricField" },
+            "min_free_margin": { "$ref": "#/$defs/metricField" },
+            "min_margin_level_pct": { "$ref": "#/$defs/metricField" }
+          }
+        },
+        "cost_reality": {
+          "type": "object",
+          "required": [
+            "gross_pnl_before_costs",
+            "total_fees",
+            "fee_drag_pct",
+            "break_even_slippage_per_side_pct",
+            "break_even_slippage_per_side_bps",
+            "spread_cost",
+            "slippage_cost",
+            "funding_cost"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "gross_pnl_before_costs": { "$ref": "#/$defs/metricField" },
+            "total_fees": { "$ref": "#/$defs/metricField" },
+            "fee_drag_pct": { "$ref": "#/$defs/metricField" },
+            "break_even_slippage_per_side_pct": { "$ref": "#/$defs/metricField" },
+            "break_even_slippage_per_side_bps": { "$ref": "#/$defs/metricField" },
+            "spread_cost": { "$ref": "#/$defs/metricField" },
+            "slippage_cost": { "$ref": "#/$defs/metricField" },
+            "funding_cost": { "$ref": "#/$defs/metricField" }
+          }
+        },
+        "risk": {
+          "type": "object",
+          "required": [
+            "net_pf_entry",
+            "net_pf_leg",
+            "recovery_factor_closed",
+            "recovery_factor_m2m",
+            "sharpe_daily_365",
+            "closed_max_dd_dollars",
+            "closed_max_dd_pct",
+            "m2m_max_dd_dollars",
+            "m2m_max_dd_pct"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "net_pf_entry": { "$ref": "#/$defs/metricField" },
+            "net_pf_leg": { "$ref": "#/$defs/metricField" },
+            "recovery_factor_closed": { "$ref": "#/$defs/metricField" },
+            "recovery_factor_m2m": { "$ref": "#/$defs/metricField" },
+            "sharpe_daily_365": { "$ref": "#/$defs/metricField" },
+            "closed_max_dd_dollars": { "$ref": "#/$defs/metricField" },
+            "closed_max_dd_pct": { "$ref": "#/$defs/metricField" },
+            "m2m_max_dd_dollars": { "$ref": "#/$defs/metricField" },
+            "m2m_max_dd_pct": { "$ref": "#/$defs/metricField" }
+          }
+        },
+        "volume": {
+          "type": "object",
+          "required": [
+            "total_signals",
+            "accepted_entries",
+            "entry_fill_rate_pct",
+            "total_legs",
+            "skipped_by_concurrency",
+            "rejected_by_margin"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "total_signals": { "$ref": "#/$defs/metricField" },
+            "accepted_entries": { "$ref": "#/$defs/metricField" },
+            "entry_fill_rate_pct": { "$ref": "#/$defs/metricField" },
+            "total_legs": { "$ref": "#/$defs/metricField" },
+            "skipped_by_concurrency": { "$ref": "#/$defs/metricField" },
+            "rejected_by_margin": { "$ref": "#/$defs/metricField" }
+          }
+        },
+        "mt5_results": {
+          "type": "object",
+          "required": [
+            "total_net_profit",
+            "roi_pct",
+            "gross_profit_entry",
+            "gross_loss_entry",
+            "expected_payoff_entry",
+            "expected_payoff_leg",
+            "balance_dd_absolute_dollars",
+            "balance_dd_absolute_pct",
+            "balance_dd_maximal_dollars",
+            "balance_dd_relative_pct",
+            "winning_entries",
+            "losing_entries",
+            "entry_win_rate_pct",
+            "leg_win_rate_pct",
+            "largest_profit_entry",
+            "largest_loss_entry",
+            "avg_profit_entry",
+            "avg_loss_entry"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "total_net_profit": { "$ref": "#/$defs/metricField" },
+            "roi_pct": { "$ref": "#/$defs/metricField" },
+            "gross_profit_entry": { "$ref": "#/$defs/metricField" },
+            "gross_loss_entry": { "$ref": "#/$defs/metricField" },
+            "expected_payoff_entry": { "$ref": "#/$defs/metricField" },
+            "expected_payoff_leg": { "$ref": "#/$defs/metricField" },
+            "balance_dd_absolute_dollars": { "$ref": "#/$defs/metricField" },
+            "balance_dd_absolute_pct": { "$ref": "#/$defs/metricField" },
+            "balance_dd_maximal_dollars": { "$ref": "#/$defs/metricField" },
+            "balance_dd_relative_pct": { "$ref": "#/$defs/metricField" },
+            "winning_entries": { "$ref": "#/$defs/metricField" },
+            "losing_entries": { "$ref": "#/$defs/metricField" },
+            "entry_win_rate_pct": { "$ref": "#/$defs/metricField" },
+            "leg_win_rate_pct": { "$ref": "#/$defs/metricField" },
+            "largest_profit_entry": { "$ref": "#/$defs/metricField" },
+            "largest_loss_entry": { "$ref": "#/$defs/metricField" },
+            "avg_profit_entry": { "$ref": "#/$defs/metricField" },
+            "avg_loss_entry": { "$ref": "#/$defs/metricField" }
+          }
+        },
+        "long_short": {
+          "type": "object",
+          "required": [
+            "long_entries",
+            "long_won",
+            "long_win_rate_pct",
+            "long_net_pnl",
+            "long_pf",
+            "short_entries",
+            "short_won",
+            "short_win_rate_pct",
+            "short_net_pnl",
+            "short_pf"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "long_entries": { "$ref": "#/$defs/metricField" },
+            "long_won": { "$ref": "#/$defs/metricField" },
+            "long_win_rate_pct": { "$ref": "#/$defs/metricField" },
+            "long_net_pnl": { "$ref": "#/$defs/metricField" },
+            "long_pf": { "$ref": "#/$defs/metricField" },
+            "short_entries": { "$ref": "#/$defs/metricField" },
+            "short_won": { "$ref": "#/$defs/metricField" },
+            "short_win_rate_pct": { "$ref": "#/$defs/metricField" },
+            "short_net_pnl": { "$ref": "#/$defs/metricField" },
+            "short_pf": { "$ref": "#/$defs/metricField" }
+          }
+        },
+        "streaks": {
+          "type": "object",
+          "required": [
+            "max_consecutive_wins_count",
+            "max_consecutive_wins_dollars",
+            "max_consecutive_losses_count",
+            "max_consecutive_losses_dollars",
+            "maximal_consecutive_profit_dollars",
+            "maximal_consecutive_profit_count",
+            "maximal_consecutive_loss_dollars",
+            "maximal_consecutive_loss_count",
+            "avg_consecutive_wins",
+            "avg_consecutive_losses"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "max_consecutive_wins_count": { "$ref": "#/$defs/metricField" },
+            "max_consecutive_wins_dollars": { "$ref": "#/$defs/metricField" },
+            "max_consecutive_losses_count": { "$ref": "#/$defs/metricField" },
+            "max_consecutive_losses_dollars": { "$ref": "#/$defs/metricField" },
+            "maximal_consecutive_profit_dollars": { "$ref": "#/$defs/metricField" },
+            "maximal_consecutive_profit_count": { "$ref": "#/$defs/metricField" },
+            "maximal_consecutive_loss_dollars": { "$ref": "#/$defs/metricField" },
+            "maximal_consecutive_loss_count": { "$ref": "#/$defs/metricField" },
+            "avg_consecutive_wins": { "$ref": "#/$defs/metricField" },
+            "avg_consecutive_losses": { "$ref": "#/$defs/metricField" }
+          }
+        }
+      }
+    },
+    "breakdowns": {
+      "type": "object",
+      "required": [
+        "cost_sensitivity",
+        "combos",
+        "symbols",
+        "monthly",
+        "mode_comparison"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "cost_sensitivity": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["slippage_bps", "label", "net_pnl", "roi_pct", "net_pf_leg", "m2m_dd_pct"],
+            "additionalProperties": false,
+            "properties": {
+              "slippage_bps": { "type": "number" },
+              "label": { "type": "string" },
+              "run_ref": { "type": ["string", "null"] },
+              "net_pnl": { "$ref": "#/$defs/metricField" },
+              "roi_pct": { "$ref": "#/$defs/metricField" },
+              "net_pf_leg": { "$ref": "#/$defs/metricField" },
+              "m2m_dd_pct": { "$ref": "#/$defs/metricField" }
+            }
+          }
+        },
+        "combos": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "combo_key",
+              "symbol",
+              "timeframe",
+              "signals",
+              "entries",
+              "fill_rate_pct",
+              "legs",
+              "leg_win_rate_pct",
+              "own_entry_pnl",
+              "portfolio_net_pnl",
+              "basis_shift_delta",
+              "fees",
+              "net_pf_leg"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "combo_key": { "type": "string" },
+              "symbol": { "type": "string" },
+              "timeframe": { "type": "string" },
+              "signals": { "$ref": "#/$defs/metricField" },
+              "entries": { "$ref": "#/$defs/metricField" },
+              "fill_rate_pct": { "$ref": "#/$defs/metricField" },
+              "legs": { "$ref": "#/$defs/metricField" },
+              "leg_win_rate_pct": { "$ref": "#/$defs/metricField" },
+              "own_entry_pnl": { "$ref": "#/$defs/metricField" },
+              "portfolio_net_pnl": { "$ref": "#/$defs/metricField" },
+              "basis_shift_delta": { "$ref": "#/$defs/metricField" },
+              "fees": { "$ref": "#/$defs/metricField" },
+              "net_pf_leg": { "$ref": "#/$defs/metricField" }
+            }
+          }
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "symbol",
+              "signals",
+              "entries",
+              "legs",
+              "leg_win_rate_pct",
+              "gross_pnl",
+              "total_fees",
+              "net_pnl",
+              "net_pf_trade",
+              "net_pf_leg"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "symbol": { "type": "string" },
+              "signals": { "$ref": "#/$defs/metricField" },
+              "entries": { "$ref": "#/$defs/metricField" },
+              "legs": { "$ref": "#/$defs/metricField" },
+              "leg_win_rate_pct": { "$ref": "#/$defs/metricField" },
+              "gross_pnl": { "$ref": "#/$defs/metricField" },
+              "total_fees": { "$ref": "#/$defs/metricField" },
+              "net_pnl": { "$ref": "#/$defs/metricField" },
+              "net_pf_trade": { "$ref": "#/$defs/metricField" },
+              "net_pf_leg": { "$ref": "#/$defs/metricField" }
+            }
+          }
+        },
+        "monthly": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "year_month",
+              "governance_period",
+              "entries",
+              "legs",
+              "leg_win_rate_pct",
+              "gross_pnl",
+              "fees",
+              "net_pnl",
+              "net_pf_leg"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "year_month": { "type": "string", "pattern": "^\\d{4}-\\d{2}$" },
+              "governance_period": {
+                "type": "string",
+                "enum": [
+                  "DEVELOPMENT (24M)",
+                  "VALIDATION (đã dùng để chọn biến thể)",
+                  "FORWARD EVIDENCE (Frozen Config)"
+                ]
+              },
+              "entries": { "$ref": "#/$defs/metricField" },
+              "legs": { "$ref": "#/$defs/metricField" },
+              "leg_win_rate_pct": { "$ref": "#/$defs/metricField" },
+              "gross_pnl": { "$ref": "#/$defs/metricField" },
+              "fees": { "$ref": "#/$defs/metricField" },
+              "net_pnl": { "$ref": "#/$defs/metricField" },
+              "net_pf_leg": { "$ref": "#/$defs/metricField" }
+            }
+          }
+        },
+        "mode_comparison": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "execution_mode",
+              "validation_status",
+              "entries",
+              "legs",
+              "gross_pnl",
+              "total_fees",
+              "net_pnl",
+              "roi_pct",
+              "leg_win_rate_pct",
+              "net_pf_leg",
+              "closed_dd_pct",
+              "m2m_dd_pct"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "execution_mode": {
+                "type": "string",
+                "enum": ["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"]
+              },
+              "validation_status": { "type": "string" },
+              "entries": { "$ref": "#/$defs/metricField" },
+              "legs": { "$ref": "#/$defs/metricField" },
+              "gross_pnl": { "$ref": "#/$defs/metricField" },
+              "total_fees": { "$ref": "#/$defs/metricField" },
+              "net_pnl": { "$ref": "#/$defs/metricField" },
+              "roi_pct": { "$ref": "#/$defs/metricField" },
+              "leg_win_rate_pct": { "$ref": "#/$defs/metricField" },
+              "net_pf_leg": { "$ref": "#/$defs/metricField" },
+              "closed_dd_pct": { "$ref": "#/$defs/metricField" },
+              "m2m_dd_pct": { "$ref": "#/$defs/metricField" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
