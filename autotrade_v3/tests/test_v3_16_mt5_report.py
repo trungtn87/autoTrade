@@ -209,3 +209,197 @@ def test_golden_v3_13_mt5_report_all_three_modes(
     else:
         assert data["kpi"]["account"]["final_equity_mtm"]["status"] == "N/A"
         assert "không có snapshot M2M" in data["kpi"]["account"]["final_equity_mtm"]["reason"]
+
+
+def test_all_signals_portfolio_m2m_snapshots_and_parity() -> None:
+    """ALL_SIGNALS_PORTFOLIO produces M2M snapshots, end equity == balance, and matches Mode A PnL."""
+    from autotrade_v3.engine.risk_manager import RiskConfig
+    from autotrade_v3.engine.signal_engine import Signal
+    from autotrade_v3.sim.costs import CostModel
+    from autotrade_v3.sim.engine import UnifiedSimulator
+
+    base_ms = 1_704_067_200_000
+    rows = []
+    # 10 M1 bars: starts at 100.0, rises to 105.0 so +2% TP hits cleanly
+    for i in range(10):
+        t = base_ms + i * 60_000
+        o = 100.0 + i * 0.6
+        rows.append(
+            {
+                "timestamp": pd.Timestamp(t, unit="ms", tz="UTC"),
+                "t_ms": t,
+                "open": o,
+                "high": o + 1.0,
+                "low": o - 0.2,
+                "close": o + 0.5,
+                "volume": 10.0,
+            }
+        )
+    m1_df = pd.DataFrame(rows).set_index("timestamp")
+    candle_dict = {"BTC-USDT": m1_df}
+
+    signals = [
+        Signal(
+            symbol="BTC-USDT",
+            combo_id=11,
+            combo_name="C11",
+            timeframe="1h",
+            side="BUY",
+            signal_close_ms=base_ms + 30_000,
+            signal_close_dt=pd.Timestamp(base_ms + 30_000, unit="ms", tz="UTC"),
+            bar_position=0,
+            bar_open_ms=base_ms,
+            entry_price=100.6,
+            tp_pct=0.02,
+            sl_pct=0.05,
+            tp_price=102.612,
+            sl_price=95.57,
+            approved=True,
+            warmup_ready=True,
+            smc_dir=1,
+            ob_blocked=False,
+            provider="test",
+            is_new6=True,
+        ),
+        Signal(
+            symbol="BTC-USDT",
+            combo_id=11,
+            combo_name="C11",
+            timeframe="1h",
+            side="BUY",
+            signal_close_ms=base_ms + 90_000,
+            signal_close_dt=pd.Timestamp(base_ms + 90_000, unit="ms", tz="UTC"),
+            bar_position=1,
+            bar_open_ms=base_ms + 60_000,
+            entry_price=101.2,
+            tp_pct=0.02,
+            sl_pct=0.05,
+            tp_price=103.224,
+            sl_price=96.14,
+            approved=True,
+            warmup_ready=True,
+            smc_dir=1,
+            ob_blocked=False,
+            provider="test",
+            is_new6=True,
+        ),
+    ]
+
+    risk_cfg = RiskConfig(
+        initial_equity=1000.0,
+        notional_per_trade=100.0,
+        leverage_btc=100.0,
+        leverage_eth=50.0,
+        taker_fee_rate=0.0005,
+        slippage_rate=0.0002,
+        cost_profile="BASE",
+    )
+    cost_model = CostModel.from_profile_name("BASE", is_real_data=False)
+    sim = UnifiedSimulator(risk_config=risk_cfg, cost_model=cost_model, ambiguity_policy="CONSERVATIVE")
+
+    res_a = sim.run(mode="ALL_SIGNALS", signals=signals, candle_dict=candle_dict)
+    res_p0 = sim.run(mode="ALL_SIGNALS_PORTFOLIO", signals=signals, candle_dict=candle_dict)
+
+    assert len(res_a.trades) == 2
+    assert len(res_p0.trades) == 2
+    assert sum(t.net_pnl for t in res_p0.trades) == pytest.approx(
+        sum(t.net_pnl for t in res_a.trades), abs=1e-6
+    )
+    assert len(res_p0.snapshots) > 0
+    last_snap = res_p0.snapshots.iloc[-1]
+    assert float(last_snap["used_margin"]) == pytest.approx(0.0, abs=1e-9)
+    assert float(last_snap["equity"]) == pytest.approx(float(last_snap["balance"]), abs=1e-9)
+
+
+def test_step3_concentration_and_sensitivity_verification_mutations(tmp_path: Path) -> None:
+    """Verify concentration, sensitivity grid, Vietnamese BASE banner, and tamper detection."""
+    df, snaps = _hand_calc_ledger()
+    df["combo_name"] = ["C11", "C11", "C11", "C3", "C3", "C1", "C3", "C3"]
+    df["notional"] = 100.0
+
+    runs: dict[float, Path] = {}
+    for slip_bps, mult in [(0.0, 1.2), (2.0, 1.0), (5.0, 0.7)]:
+        rdir = tmp_path / f"run_{slip_bps}"
+        rdir.mkdir()
+        df_s = df.copy()
+        df_s["pnl_own_entry"] = df["pnl_own_entry"] * mult
+        df_s["net_pnl"] = df["net_pnl"] * mult
+        df_s["gross_pnl"] = df_s["net_pnl"] + df_s["fee_total"]
+        df_s.to_parquet(rdir / "trades.parquet", index=False)
+        snaps.to_parquet(rdir / "snapshots.parquet", index=False)
+        profile_name = "IDEAL" if slip_bps == 0.0 else ("BASE" if slip_bps == 2.0 else "STRESS")
+        (rdir / "run_manifest.json").write_text(
+            json.dumps(
+                {
+                    "mode": "ALL_SIGNALS_PORTFOLIO",
+                    "symbols": ["BTC-USDT", "ETH-USDT"],
+                    "time_window": {"start": "2024-01-01", "end": "2024-01-10"},
+                    "cost_profile": profile_name,
+                    "cost_profile_hash": f"hash_{profile_name}",
+                    "ambiguity_policy": "CONSERVATIVE",
+                    "git_sha": "deadbeef",
+                    "dataset_hash": "cafebabe",
+                    "config_hash": "12345678",
+                    "validation_status": "VERIFIED",
+                    "total_signals": 10,
+                }
+            ),
+            encoding="utf-8",
+        )
+        runs[slip_bps] = rdir
+
+    out_dir = tmp_path / "out_base"
+    json_p, html_p = generate_mt5_report(runs[2.0], out_dir, sensitivity_runs=runs)
+    assert verify_mt5_report(runs[2.0], json_p, html_p, sensitivity_runs=runs) is True
+
+    html_text = html_p.read_text(encoding="utf-8")
+    assert find_english_label_leaks(html_text) == []
+    assert "CHẾ ĐỘ CHI PHÍ: BASE (giả định 2 bps)" in html_text
+    assert "ngoài phạm vi báo cáo chính từ V3-16 Bước 3" in html_text
+
+    # Mutation A: tamper concentration max_open_entries_any_sym_side -> FAIL
+    bad_conc = json.loads(json_p.read_text(encoding="utf-8"))
+    bad_conc["kpi"]["concentration"]["max_open_entries_any_sym_side"]["value"] += 1
+    p_a = out_dir / "bad_conc.json"
+    p_a.write_text(json.dumps(bad_conc), encoding="utf-8")
+    assert verify_mt5_report(runs[2.0], p_a, html_p, sensitivity_runs=runs) is False
+
+    # Mutation B: tamper BTC C11 own-entry PnL -> FAIL
+    bad_c11 = json.loads(json_p.read_text(encoding="utf-8"))
+    bad_c11["kpi"]["concentration"]["btc_c11_own_entry_pnl"]["value"] += 1.0
+    p_b = out_dir / "bad_c11.json"
+    p_b.write_text(json.dumps(bad_c11), encoding="utf-8")
+    assert verify_mt5_report(runs[2.0], p_b, html_p, sensitivity_runs=runs) is False
+
+    # Mutation C: tamper sensitivity grid net_pnl -> FAIL
+    bad_sens = json.loads(json_p.read_text(encoding="utf-8"))
+    bad_sens["breakdowns"]["cost_sensitivity"][0]["net_pnl"]["value"] += 5.0
+    p_c = out_dir / "bad_sens.json"
+    p_c.write_text(json.dumps(bad_sens), encoding="utf-8")
+    assert verify_mt5_report(runs[2.0], p_c, html_p, sensitivity_runs=runs) is False
+
+
+def test_v3_16_all_signals_base_real_run_smoke(tmp_path: Path) -> None:
+    """Smoke check on real 3Y ALL_SIGNALS_PORTFOLIO BASE + sensitivity runs if present."""
+    root = Path("runs/v3_16_all_signals")
+    base_dir = root / "BASE"
+    if not (base_dir / "trades.parquet").exists():
+        pytest.skip(f"Real ALL_SIGNALS_PORTFOLIO runs not present at {root}")
+
+    sens = {
+        0.0: root / "IDEAL",
+        1.0: root / "SLIP_1BPS",
+        2.0: root / "BASE",
+        3.4: root / "SLIP_3_4BPS",
+        5.0: root / "STRESS",
+    }
+    out_dir = tmp_path / "ALL_SIGNALS_BASE"
+    json_p, html_p = generate_mt5_report(base_dir, out_dir, sensitivity_runs=sens)
+    assert verify_mt5_report(base_dir, json_p, html_p, sensitivity_runs=sens) is True
+    assert find_english_label_leaks(html_p.read_text(encoding="utf-8")) == []
+
+    data = json.loads(json_p.read_text(encoding="utf-8"))
+    assert data["kpi"]["mt5_results"]["total_net_profit"]["value"] == pytest.approx(168.5995, abs=0.05)
+    assert data["kpi"]["risk"]["m2m_max_dd_dollars"]["value"] == pytest.approx(105.0274, abs=0.05)
+    assert data["kpi"]["concentration"]["max_open_entries_any_sym_side"]["value"] == 26
+

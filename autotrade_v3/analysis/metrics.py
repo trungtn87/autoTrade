@@ -485,14 +485,14 @@ def compute_mt5_extended_metrics(
         "net_pnl",
         "notional",
     }
-    if execution_mode == "BINGX_PORTFOLIO":
+    if execution_mode in ("BINGX_PORTFOLIO", "ALL_SIGNALS_PORTFOLIO"):
         required_cols.add("pnl_own_entry")
 
     missing = sorted(required_cols.difference(trades_df.columns))
     if missing:
         raise ValueError(f"Missing required ledger columns: {missing}")
 
-    entry_basis_col = "pnl_own_entry" if execution_mode == "BINGX_PORTFOLIO" else "net_pnl"
+    entry_basis_col = "pnl_own_entry" if execution_mode in ("BINGX_PORTFOLIO", "ALL_SIGNALS_PORTFOLIO") else "net_pnl"
     total_legs = int(len(trades_df))
 
     if total_legs == 0:
@@ -694,6 +694,100 @@ def compute_mt5_extended_metrics(
             "short": _compute_side_stats(entries_df, "SELL"),
         },
         "streaks": _compute_streaks([float(x) for x in epnl.tolist()]),
+        "concentration": compute_concentration_metrics(
+            trades_df,
+            execution_mode=execution_mode,
+        ),
     }
+
+
+def compute_concentration_metrics(
+    trades_df: pd.DataFrame,
+    *,
+    execution_mode: str = "ALL_SIGNALS_PORTFOLIO",
+) -> dict[str, Any]:
+    """Compute concurrency, max open notional, and BTC C11 profit concentration metrics."""
+    required = {"trade_id", "symbol", "combo_name", "side", "entry_time_ms", "exit_time_ms", "notional", "net_pnl"}
+    if execution_mode in ("BINGX_PORTFOLIO", "ALL_SIGNALS_PORTFOLIO"):
+        required.add("pnl_own_entry")
+    missing = sorted(required.difference(trades_df.columns))
+    if missing:
+        raise ValueError(f"Missing required concentration columns: {missing}")
+
+    if trades_df.empty:
+        return {
+            "max_open_entries_any_sym_side": 0,
+            "max_open_entries_by_sym_side": {},
+            "max_open_notional_any_sym_side": 0.0,
+            "max_open_notional_total": 0.0,
+            "btc_c11_own_entry_pnl": 0.0,
+            "btc_c11_share_of_total_net_pct": None,
+        }
+
+    entry_basis_col = "pnl_own_entry" if execution_mode in ("BINGX_PORTFOLIO", "ALL_SIGNALS_PORTFOLIO") else "net_pnl"
+    entries = (
+        trades_df.groupby("trade_id", as_index=False)
+        .agg(
+            symbol=("symbol", "first"),
+            side=("side", "first"),
+            entry_time_ms=("entry_time_ms", "min"),
+            exit_time_ms=("exit_time_ms", "max"),
+            notional=("notional", "sum"),
+        )
+    )
+
+    by_sym_side_cnt: dict[str, int] = {}
+    by_sym_side_notional: dict[str, float] = {}
+    all_events: list[tuple[int, int, float]] = []
+
+    for (sym, side), grp in entries.groupby(["symbol", "side"], sort=True):
+        events: list[tuple[int, int, float]] = []
+        for _, row in grp.iterrows():
+            t0 = int(row["entry_time_ms"])
+            t1 = int(row["exit_time_ms"])
+            not_val = float(row["notional"])
+            events.append((t0, 1, not_val))
+            events.append((t1, -1, -not_val))
+            all_events.append((t0, 1, not_val))
+            all_events.append((t1, -1, -not_val))
+        # Process closes (-1) before opens (+1) at identical timestamps
+        events.sort(key=lambda x: (x[0], x[1]))
+        cur_cnt = 0
+        cur_not = 0.0
+        max_cnt = 0
+        max_not = 0.0
+        for _, delta_cnt, delta_not in events:
+            cur_cnt += delta_cnt
+            cur_not += delta_not
+            if cur_cnt > max_cnt:
+                max_cnt = cur_cnt
+            if cur_not > max_not:
+                max_not = cur_not
+        key = f"{sym}/{side}"
+        by_sym_side_cnt[key] = int(max_cnt)
+        by_sym_side_notional[key] = float(max_not)
+
+    all_events.sort(key=lambda x: (x[0], x[1]))
+    cur_tot_not = 0.0
+    max_tot_not = 0.0
+    for _, _, delta_not in all_events:
+        cur_tot_not += delta_not
+        if cur_tot_not > max_tot_not:
+            max_tot_not = cur_tot_not
+
+    c11_mask = (trades_df["symbol"] == "BTC-USDT") & (trades_df["combo_name"] == "C11")
+    btc_c11_own = float(trades_df.loc[c11_mask, entry_basis_col].astype(float).sum())
+    total_net = float(trades_df["net_pnl"].astype(float).sum())
+    btc_c11_share = (btc_c11_own / total_net * 100.0) if abs(total_net) > 1e-9 else None
+
+    return {
+        "max_open_entries_any_sym_side": max(by_sym_side_cnt.values()) if by_sym_side_cnt else 0,
+        "max_open_entries_by_sym_side": by_sym_side_cnt,
+        "max_open_notional_any_sym_side": max(by_sym_side_notional.values()) if by_sym_side_notional else 0.0,
+        "max_open_notional_total": float(max_tot_not),
+        "btc_c11_own_entry_pnl": btc_c11_own,
+        "btc_c11_share_of_total_net_pct": btc_c11_share,
+    }
+
 
 

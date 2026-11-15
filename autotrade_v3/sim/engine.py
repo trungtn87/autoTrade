@@ -139,17 +139,21 @@ def _to_execution_event(ev: Event) -> ExecutionEvent:
     )
 
 
-def _canonicalize_mode(mode: str) -> Literal["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"]:
+def _canonicalize_mode(
+    mode: str,
+) -> Literal["ALL_SIGNALS", "ALL_SIGNALS_PORTFOLIO", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"]:
     mode_clean = mode.upper().strip()
     if mode_clean in ("A", "MODE_A", "ALL_SIGNALS"):
         return "ALL_SIGNALS"
+    if mode_clean in ("P0", "ALL_SIGNALS_PORTFOLIO"):
+        return "ALL_SIGNALS_PORTFOLIO"
     if mode_clean in ("B", "MODE_B", "ONE_TRADE_PER_COMBO", "VIRTUAL_ISOLATED"):
         return "ONE_TRADE_PER_COMBO"
     if mode_clean in ("C", "MODE_C", "BINGX_PORTFOLIO", "PORTFOLIO", "EXCHANGE_HEDGE_MERGED"):
         return "BINGX_PORTFOLIO"
     raise ValueError(
         f"Unknown research simulation mode: {mode}. "
-        "Expected ALL_SIGNALS, ONE_TRADE_PER_COMBO, or BINGX_PORTFOLIO"
+        "Expected ALL_SIGNALS, ALL_SIGNALS_PORTFOLIO, ONE_TRADE_PER_COMBO, or BINGX_PORTFOLIO"
     )
 
 
@@ -204,7 +208,10 @@ class UnifiedSimulator:
             res = self._run_virtual_mode(canonical_mode, sorted_signals, arrays_by_sym)
         else:
             res = self._run_portfolio_mode(
-                sorted_signals, arrays_by_sym, sample_snapshot_interval_m1=sample_snapshot_interval_m1
+                sorted_signals,
+                arrays_by_sym,
+                sample_snapshot_interval_m1=sample_snapshot_interval_m1,
+                allow_multiple_per_combo=(canonical_mode == "ALL_SIGNALS_PORTFOLIO"),
             )
         if pre_filtered_decisions:
             merged = list(res.signal_decisions) + list(pre_filtered_decisions)
@@ -467,10 +474,12 @@ class UnifiedSimulator:
         arrays_by_sym: dict[str, M1BarArrays],
         *,
         sample_snapshot_interval_m1: int = 15,
+        allow_multiple_per_combo: bool = False,
     ) -> SimulationResult:
+        out_mode = "ALL_SIGNALS_PORTFOLIO" if allow_multiple_per_combo else "BINGX_PORTFOLIO"
         if not arrays_by_sym:
             return self._build_result(
-                mode="BINGX_PORTFOLIO",
+                mode=out_mode,
                 trades=[],
                 events=[],
                 decisions=[],
@@ -496,7 +505,7 @@ class UnifiedSimulator:
             opens_by_symbol=opens_by_sym,
             closes_by_symbol=closes_by_sym,
         )
-        portfolio_policy = Portfolio(account)
+        portfolio_policy = Portfolio(account, allow_multiple_per_combo=allow_multiple_per_combo)
 
         decisions: list[SignalDecision] = []
         signals_by_bar: dict[int, list[Signal]] = {}
@@ -843,7 +852,7 @@ class UnifiedSimulator:
         if liq_warning:
             m2m_summary.update(liq_warning)
         return self._build_result(
-            mode="BINGX_PORTFOLIO",
+            mode=out_mode,
             trades=closed_trades,
             events=events,
             decisions=decisions,

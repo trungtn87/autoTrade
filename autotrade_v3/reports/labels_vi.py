@@ -6,10 +6,14 @@ import re
 LABELS_VI: dict[str, str] = {
     # Banner & Governance
     "fee_mode_prefix": "CHẾ ĐỘ CHI PHÍ",
+    "fee_mode_base_detail": "BASE (giả định 2 bps)",
+    "fee_mode_stress_detail": "STRESS (giả định 5 bps)",
+    "fee_mode_ideal_ref": "IDEAL (tham chiếu 0 bps)",
     "ideal_warning": (
         "Cảnh báo: Hồ sơ IDEAL giả định trượt giá = 0, chênh lệch giá = 0, "
-        "phí funding = Chưa mô hình hóa. Không dùng để đánh giá lợi nhuận giao dịch thực tế."
+        "phí funding = Chưa mô hình hóa. Chỉ dùng làm mốc tham chiếu, không phản ánh chi phí thực tế."
     ),
+    "other_modes_out_of_scope": "Chế độ khác (ONE_TRADE_PER_COMBO, BINGX_PORTFOLIO): ngoài phạm vi báo cáo chính từ V3-16 Bước 3, xem evidence cũ.",
     "gov_2026_validation": "VALIDATION (đã dùng để chọn biến thể)",
     "gov_development": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
     "gov_forward": "BẰNG CHỨNG FORWARD (Cấu hình đã khóa)",
@@ -36,7 +40,15 @@ LABELS_VI: dict[str, str] = {
     "sec_combos": "Bảng 20 combo hợp nhất (cầu nối cơ sở Mode C)",
     "sec_symbols": "Phân tách theo cặp giao dịch (BTC/ETH)",
     "sec_monthly": "Báo cáo theo tháng",
-    "sec_mode_comparison": "So sánh 3 chế độ mô phỏng",
+    "sec_mode_comparison": "Phạm vi chế độ mô phỏng",
+    "sec_concentration": "Mức độ tập trung & đồng thời (cảnh báo rủi ro)",
+
+    # Concentration
+    "max_open_entries_any_sym_side": "Số lệnh mở đồng thời tối đa (cặp-chiều)",
+    "max_open_notional_any_sym_side": "Notional mở tối đa (cặp-chiều)",
+    "max_open_notional_total": "Notional mở tối đa toàn danh mục",
+    "btc_c11_own_entry_pnl": "Lãi lỗ BTC-USDT/C11 (entry riêng)",
+    "btc_c11_share_of_total_net_pct": "Tỷ trọng BTC-USDT/C11 trong tổng lãi ròng",
 
     # Account
     "initial_capital": "Vốn ban đầu",

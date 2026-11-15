@@ -735,6 +735,8 @@ def verify_mt5_report(
     run_dir: Path,
     report_json_path: Path,
     report_html_path: Path,
+    *,
+    sensitivity_runs: dict[float, Path] | None = None,
 ) -> bool:
     """Independently verify ``report_v1.json`` and ``report_mt5.html`` against ledger."""
     import json
@@ -755,7 +757,11 @@ def verify_mt5_report(
     html_text = report_html_path.read_text(encoding="utf-8")
 
     # Recompute directly from ledger (fail-closed if columns missing)
-    expected_data = build_report_data(run_dir, include_mode_comparison=False)
+    expected_data = build_report_data(
+        run_dir,
+        sensitivity_runs=sensitivity_runs,
+        include_mode_comparison=False,
+    )
 
     # 1. Verify all KPI groups & fields
     for group_name, exp_group in expected_data["kpi"].items():
@@ -802,6 +808,31 @@ def verify_mt5_report(
         else:
             verifications.append(f"VERIFIED basis_shift conservation: sum={basis_sum:.2e}")
 
+    # 2b. Verify concentration_by_sym_side & cost_sensitivity
+    exp_conc_sym = expected_data["breakdowns"].get("concentration_by_sym_side", {})
+    act_conc_sym = actual_data.get("breakdowns", {}).get("concentration_by_sym_side", {})
+    if exp_conc_sym != act_conc_sym:
+        discrepancies.append(f"CONCENTRATION_BY_SYM_SIDE_MISMATCH: actual={act_conc_sym} vs expected={exp_conc_sym}")
+    else:
+        verifications.append(f"VERIFIED concentration_by_sym_side: {act_conc_sym}")
+
+    if sensitivity_runs:
+        exp_sens = {float(r["slippage_bps"]): r for r in expected_data["breakdowns"]["cost_sensitivity"]}
+        act_sens = {float(r["slippage_bps"]): r for r in actual_data.get("breakdowns", {}).get("cost_sensitivity", [])}
+        for bps_val, exp_r in exp_sens.items():
+            act_r = act_sens.get(bps_val)
+            if not act_r:
+                discrepancies.append(f"MISSING cost_sensitivity row: {bps_val} bps")
+                continue
+            for col in ("net_pnl", "roi_pct", "net_pf_leg", "m2m_dd_pct"):
+                _compare_numeric(
+                    f"sensitivity.{bps_val}bps.{col}",
+                    act_r.get(col, {}).get("value"),
+                    exp_r[col]["value"],
+                    discrepancies,
+                    verifications,
+                )
+
     # 3. Verify HTML Vietnamese labels (no English label leaks)
     leaks = find_english_label_leaks(html_text)
     if leaks:
@@ -840,12 +871,33 @@ def main_cli(argv: list[str] | None = None) -> int:
     parser.add_argument("--report", dest="report_file", help="Path to report.md")
     parser.add_argument("--trades", dest="trades_file", help="Path to trades.parquet")
     parser.add_argument("--mt5-dir", dest="mt5_dir", help="Directory containing report_v1.json and report_mt5.html")
+    parser.add_argument("--slip-0-dir", type=Path, default=None)
+    parser.add_argument("--slip-1-dir", type=Path, default=None)
+    parser.add_argument("--slip-2-dir", type=Path, default=None)
+    parser.add_argument("--slip-34-dir", type=Path, default=None)
+    parser.add_argument("--slip-5-dir", type=Path, default=None)
     args = parser.parse_args(argv)
 
     if args.mt5_dir:
         r_dir = Path(args.run_dir or args.report_dir or args.mt5_dir)
         m_dir = Path(args.mt5_dir)
-        ok = verify_mt5_report(r_dir, m_dir / "report_v1.json", m_dir / "report_mt5.html")
+        sens_runs: dict[float, Path] = {}
+        if args.slip_0_dir:
+            sens_runs[0.0] = args.slip_0_dir
+        if args.slip_1_dir:
+            sens_runs[1.0] = args.slip_1_dir
+        if args.slip_2_dir:
+            sens_runs[2.0] = args.slip_2_dir
+        if args.slip_34_dir:
+            sens_runs[3.4] = args.slip_34_dir
+        if args.slip_5_dir:
+            sens_runs[5.0] = args.slip_5_dir
+        ok = verify_mt5_report(
+            r_dir,
+            m_dir / "report_v1.json",
+            m_dir / "report_mt5.html",
+            sensitivity_runs=sens_runs or None,
+        )
         return 0 if ok else 1
 
     target_dir = args.run_dir or args.report_dir

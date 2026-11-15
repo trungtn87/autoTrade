@@ -66,9 +66,9 @@ def _compute_combo_rows(
     execution_mode: str,
 ) -> list[dict[str, Any]]:
     df = trades_df.copy()
-    if execution_mode == "BINGX_PORTFOLIO" and "pnl_own_entry" not in df.columns:
-        raise ValueError("Missing required Mode C column: pnl_own_entry")
-    own_col = "pnl_own_entry" if execution_mode == "BINGX_PORTFOLIO" else "net_pnl"
+    if execution_mode in ("BINGX_PORTFOLIO", "ALL_SIGNALS_PORTFOLIO") and "pnl_own_entry" not in df.columns:
+        raise ValueError(f"Missing required {execution_mode} column: pnl_own_entry")
+    own_col = "pnl_own_entry" if execution_mode in ("BINGX_PORTFOLIO", "ALL_SIGNALS_PORTFOLIO") else "net_pnl"
 
     sig_counts: dict[str, int] = {}
     if decisions_df is not None and not decisions_df.empty and {"symbol", "combo_name"}.issubset(decisions_df.columns):
@@ -418,7 +418,7 @@ def build_report_data(
     *,
     sibling_dirs: dict[str, Path] | None = None,
     sensitivity_runs: dict[float, Path] | None = None,
-    include_mode_comparison: bool = True,
+    include_mode_comparison: bool = False,
 ) -> dict[str, Any]:
     """Read ledger artifacts from ``run_dir`` and construct ``report_v1.json`` payload."""
     manifest_p = run_dir / "run_manifest.json"
@@ -473,6 +473,7 @@ def build_report_data(
     res = ext["mt5_results"]
     ls = ext["long_short"]
     stk = ext["streaks"]
+    conc = ext["concentration"]
 
     cost_profile_name = str(manifest.get("cost_profile", "IDEAL"))
     cost_profile_hash = str(manifest.get("cost_profile_hash", ""))
@@ -604,12 +605,47 @@ def build_report_data(
                     "avg_consecutive_losses",
                 )
             },
+            "concentration": {
+                "max_open_entries_any_sym_side": _metric_field(
+                    value=conc["max_open_entries_any_sym_side"],
+                    unit="count",
+                    source="trades.parquet#entry_time_ms,exit_time_ms",
+                    label_vi=LABELS_VI["max_open_entries_any_sym_side"],
+                ),
+                "max_open_notional_any_sym_side": _metric_field(
+                    value=conc["max_open_notional_any_sym_side"],
+                    unit="USD",
+                    source="trades.parquet#notional",
+                    label_vi=LABELS_VI["max_open_notional_any_sym_side"],
+                ),
+                "max_open_notional_total": _metric_field(
+                    value=conc["max_open_notional_total"],
+                    unit="USD",
+                    source="trades.parquet#notional",
+                    label_vi=LABELS_VI["max_open_notional_total"],
+                ),
+                "btc_c11_own_entry_pnl": _metric_field(
+                    value=conc["btc_c11_own_entry_pnl"],
+                    unit="USD",
+                    source=f"trades.parquet#{entry_basis}",
+                    label_vi=LABELS_VI["btc_c11_own_entry_pnl"],
+                ),
+                "btc_c11_share_of_total_net_pct": _metric_field(
+                    value=conc["btc_c11_share_of_total_net_pct"],
+                    unit="pct",
+                    source=f"derived:btc_c11_{entry_basis}/net_pnl",
+                    label_vi=LABELS_VI["btc_c11_share_of_total_net_pct"],
+                    status="AVAILABLE" if conc["btc_c11_share_of_total_net_pct"] is not None else "N/A",
+                    reason=None if conc["btc_c11_share_of_total_net_pct"] is not None else "Tổng lãi ròng bằng 0",
+                ),
+            },
         },
         "breakdowns": {
             "cost_sensitivity": [],
             "combos": _compute_combo_rows(trades_df, decisions_df, execution_mode),
             "symbols": _compute_symbol_rows(trades_df, decisions_df),
             "monthly": _compute_monthly_rows(trades_df),
+            "concentration_by_sym_side": conc["max_open_entries_by_sym_side"],
             "mode_comparison": [],
         },
         "series": _build_chart_series(trades_df, snapshots_df, initial_equity),
@@ -636,12 +672,21 @@ def render_html_report(payload: dict[str, Any]) -> str:
     res = kpi["mt5_results"]
     ls = kpi["long_short"]
     stk = kpi["streaks"]
+    conc = kpi["concentration"]
     brk = payload["breakdowns"]
     series = payload["series"]
 
     cp_name = ri["cost_profile"]["name"]
     cp_hash = ri["cost_profile"]["hash"][:8]
     banner_cls = "banner-ideal" if cp_name == "IDEAL" else ("banner-base" if cp_name == "BASE" else "banner-stress")
+    if cp_name == "BASE":
+        fee_banner_label = f"{LABELS_VI['fee_mode_prefix']}: {LABELS_VI['fee_mode_base_detail']}"
+    elif cp_name == "STRESS":
+        fee_banner_label = f"{LABELS_VI['fee_mode_prefix']}: {LABELS_VI['fee_mode_stress_detail']}"
+    elif cp_name == "IDEAL":
+        fee_banner_label = f"{LABELS_VI['fee_mode_prefix']}: {LABELS_VI['fee_mode_ideal_ref']}"
+    else:
+        fee_banner_label = f"{LABELS_VI['fee_mode_prefix']}: {cp_name}"
     ideal_warn_html = (
         f'<div class="banner-warn">{html.escape(LABELS_VI["ideal_warning"])}</div>'
         if ri["cost_profile"]["ideal_warning_required"]
@@ -875,7 +920,7 @@ def render_html_report(payload: dict[str, Any]) -> str:
   <header class="{banner_cls}">
     <div class="banner-top">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span class="fee-pill">{html.escape(LABELS_VI['fee_mode_prefix'])}: {html.escape(cp_name)}</span>
+        <span class="fee-pill">{html.escape(fee_banner_label)}</span>
         <span class="gov-pill">2026: {html.escape(LABELS_VI['gov_2026_validation'])}</span>
         <span class="badge badge-pass">{html.escape(ri['validation_status'])}</span>
       </div>
@@ -1009,6 +1054,22 @@ def render_html_report(payload: dict[str, Any]) -> str:
   </section>
 
   <section class="card">
+    <h2><span>{html.escape(LABELS_VI['sec_concentration'])}</span><span class="badge badge-dev">{html.escape(basis_note)}</span></h2>
+    <div class="two-col">
+      <div>
+        <div class="kv"><span class="k">{html.escape(LABELS_VI['max_open_entries_any_sym_side'])}</span><span class="v">{int(conc['max_open_entries_any_sym_side']['value'])}</span></div>
+        <div class="kv"><span class="k">{html.escape(LABELS_VI['max_open_notional_any_sym_side'])}</span><span class="v">{_fmt_usd(conc['max_open_notional_any_sym_side']['value'])}</span></div>
+        <div class="kv"><span class="k">{html.escape(LABELS_VI['max_open_notional_total'])}</span><span class="v">{_fmt_usd(conc['max_open_notional_total']['value'])}</span></div>
+        <div class="kv"><span class="k">{html.escape(LABELS_VI['btc_c11_own_entry_pnl'])}</span><span class="v {'pos' if float(conc['btc_c11_own_entry_pnl']['value']) >= 0 else 'neg'}">{_fmt_signed_usd(conc['btc_c11_own_entry_pnl']['value'])}</span></div>
+        <div class="kv"><span class="k">{html.escape(LABELS_VI['btc_c11_share_of_total_net_pct'])}</span><span class="v">{_na_or(conc['btc_c11_share_of_total_net_pct'], _fmt_pct)}</span></div>
+      </div>
+      <div>
+        {''.join(f'<div class="kv"><span class="k">Mở tối đa {html.escape(k)}</span><span class="v">{int(v)} entry</span></div>' for k, v in sorted(brk.get("concentration_by_sym_side", {}).items()))}
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
     <h2><span>{html.escape(LABELS_VI['sec_cost_sensitivity'])}</span></h2>
     <div class="table-wrap">
       <table>
@@ -1068,12 +1129,7 @@ def render_html_report(payload: dict[str, Any]) -> str:
 
   <section class="card">
     <h2><span>{html.escape(LABELS_VI['sec_mode_comparison'])}</span></h2>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th class="sticky-col">Chế độ mô phỏng</th><th>Kiểm định</th><th class="num">Entry đã khớp</th><th class="num">Chân lệnh (leg)</th><th class="num">Lãi gộp ($)</th><th class="num">Phí ($)</th><th class="num">Lãi ròng ($)</th><th class="num">ROI %</th><th class="num">Thắng leg %</th><th class="num">PF</th><th class="num">DD đã chốt %</th><th class="num">DD M2M %</th></tr></thead>
-        <tbody>{''.join(mode_rows_html)}</tbody>
-      </table>
-    </div>
+    <p style="margin:0;color:var(--muted);font-size:13px;">{html.escape(LABELS_VI['other_modes_out_of_scope'])}</p>
   </section>
 </div>
 <script>
@@ -1118,20 +1174,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Generate MT5-style V3 report (JSON + Vietnamese HTML).")
     parser.add_argument("--run-dir", type=Path, required=True, help="Run directory containing trades.parquet and run_manifest.json")
     parser.add_argument("--out-dir", type=Path, required=True, help="Output directory for report_v1.json and report_mt5.html")
-    parser.add_argument("--all-signals-dir", type=Path, default=None)
-    parser.add_argument("--one-trade-dir", type=Path, default=None)
-    parser.add_argument("--bingx-dir", type=Path, default=None)
+    parser.add_argument("--slip-0-dir", type=Path, default=None)
+    parser.add_argument("--slip-1-dir", type=Path, default=None)
+    parser.add_argument("--slip-2-dir", type=Path, default=None)
+    parser.add_argument("--slip-34-dir", type=Path, default=None)
+    parser.add_argument("--slip-5-dir", type=Path, default=None)
     args = parser.parse_args(argv)
 
-    siblings: dict[str, Path] = {}
-    if args.all_signals_dir:
-        siblings["ALL_SIGNALS"] = args.all_signals_dir
-    if args.one_trade_dir:
-        siblings["ONE_TRADE_PER_COMBO"] = args.one_trade_dir
-    if args.bingx_dir:
-        siblings["BINGX_PORTFOLIO"] = args.bingx_dir
+    sens_runs: dict[float, Path] = {}
+    if args.slip_0_dir:
+        sens_runs[0.0] = args.slip_0_dir
+    if args.slip_1_dir:
+        sens_runs[1.0] = args.slip_1_dir
+    if args.slip_2_dir:
+        sens_runs[2.0] = args.slip_2_dir
+    if args.slip_34_dir:
+        sens_runs[3.4] = args.slip_34_dir
+    if args.slip_5_dir:
+        sens_runs[5.0] = args.slip_5_dir
 
-    j_path, h_path = generate_mt5_report(args.run_dir, args.out_dir, sibling_dirs=siblings or None)
+    j_path, h_path = generate_mt5_report(
+        args.run_dir,
+        args.out_dir,
+        sensitivity_runs=sens_runs or None,
+    )
     print(f"Generated MT5 report:\n  JSON: {j_path}\n  HTML: {h_path}")
     return 0
 
