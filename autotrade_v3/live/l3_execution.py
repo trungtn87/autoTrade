@@ -25,7 +25,6 @@ from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from autotrade_v2.app.execution.quantity import allocate_exit_qty
 from autotrade_v2.app.strategy.final14_config import get_case
 from autotrade_v2.app.strategy.final14_exact_strategy import hard_tp_sl
 
@@ -318,19 +317,9 @@ class L3Executor:
             self._report(sig, "sl_verify", f"Entry ĐÃ KHỚP ({filled_raw} @ {avg}) nhưng SL CHƯA XÁC NHẬN được trên BingX: {sl.error}",
                          order_id=sl.order_id or entry_order_id, code=sl.error_code, details={"sl": protection["sl"]})
 
-        # split exactly like the current production mechanism
-        exit_mode = "hard_tp"
-        tp_qty, trail_qty = filled_raw, "0"
-        if self.settings.tp_trailing_split_enabled:
-            try:
-                rules = self.client.get_contract_rules(sig.symbol)
-                alloc = allocate_exit_qty(filled_raw, rules, min(avg, tp_price))
-                exit_mode = alloc["mode"]
-                tp_qty = alloc["tp_qty"]
-                trail_qty = alloc["trailing_qty"]
-            except Exception as exc:
-                self._report(sig, "split_quantity", f"Không đọc được quy tắc khối lượng BingX để chia TP/trailing; đặt TP 100%: {exc}",
-                             order_id=entry_order_id, code=getattr(exc, "code", None))
+        # FIXED_TP_SL: one TP and one SL on the full real fill. No split, no trailing.
+        exit_mode = "fixed_tp_sl"
+        tp_qty = filled_raw
         out.update(exit_mode=exit_mode, tp_qty=tp_qty)
 
         tp = self._place_leg(sig, "tp", {"symbol": sig.symbol, "side": opposite, "positionSide": position_side,
@@ -347,30 +336,7 @@ class L3Executor:
                          f"{tp.error_code or ''} {tp.error}", order_id=tp.order_id or entry_order_id, code=tp.error_code,
                          details={"tp": protection["tp"]})
 
-        trail = None
-        if exit_mode == "split_trailing":
-            act = Decimal(str(avg)) * (Decimal(1) + Decimal(str(self.settings.trailing_activation_pct)) * direction)
-            act_price = float(act)
-            rate = self.settings.trailing_callback_rate
-            trail = self._place_leg(sig, "trailing", {"symbol": sig.symbol, "side": opposite, "positionSide": position_side,
-                                                      "type": TYPES["trailing"], "quantity": trail_qty,
-                                                      "activationPrice": self.client.fmt_price(act_price),
-                                                      "priceRate": str(rate)}, trigger=act_price, qty=trail_qty,
-                                    callback=rate)
-            protection["trailing"] = asdict(trail)
-            out.update(trailing_order_id=trail.order_id, trailing_activation_price=act_price,
-                       trailing_callback_rate=rate, trailing_qty=trail_qty)
-            self._save(sig, {"trailing_order_id": trail.order_id, "trailing_activation_price": act_price,
-                             "trailing_callback_rate": rate, "trailing_qty": trail_qty,
-                             "trailing_status": trail.exchange_status or trail.status, "raw_protection": protection})
-            if trail.status != "confirmed":
-                what = "BingX từ chối" if trail.status == "rejected" else "chưa xác nhận được"
-                self._report(sig, "trailing_place" if trail.status == "rejected" else "trailing_verify",
-                             f"Entry ĐÃ KHỚP, nhưng Trailing {what}: {trail.error_code or ''} {trail.error}",
-                             order_id=trail.order_id or entry_order_id, code=trail.error_code,
-                             details={"trailing": protection["trailing"]})
-
-        legs = [sl, tp] + ([trail] if trail is not None else [])
+        legs = [sl, tp]
         all_ok = all(leg.status == "confirmed" for leg in legs)
         stage = "protected" if all_ok else "protection_incomplete"
         self._save(sig, {"stage": stage, "protection_status": "confirmed" if all_ok else "failed",

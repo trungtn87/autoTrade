@@ -123,6 +123,8 @@ def success_message(r: dict) -> str:
     return "\n".join([
         f"✅ **{_symbol_label(r['symbol'])} {r['side']} · {r['combo']} | ĐẶT LỆNH THÀNH CÔNG**",
         f"Entry **{_fmt_price(r.get('avg_price'))}** · TP **{_confirmed_stop_price(r, 'tp')}** · SL **{_confirmed_stop_price(r, 'sl')}**",
+        f"Khối lượng: **{_fmt(r.get('executed_qty'))}**",
+        "✅ Entry đã khớp — TP/SL đã xác nhận",
         f"🕒 {vn_clock(r.get('confirmed_at_ms'))}",
     ])
 
