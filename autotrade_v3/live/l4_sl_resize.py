@@ -112,7 +112,15 @@ class SLResizer:
         events = state.setdefault("sl_resizes", {})
         prev = events.get(key)
         if prev and prev.get("state") == "confirmed":
-            return True
+            # A previous success does not prove the SL is still the same size.
+            proof = self.reader.confirm_order(str(ex["symbol"]), order_id=sl_id)
+            try:
+                self._check_identity(ex, sl_id, proof, expected_qty=want)
+                return True
+            except ValueError as exc:
+                self._error(ex, sl_id, "SL_RESIZE_DRIFT",
+                            f"SL từng sửa thành công nhưng GET hiện tại sai lệch: {exc}")
+                return False
         if self.mode == "shadow":
             if not prev:
                 events[key] = {"state": "shadow", "sl_order_id": sl_id,
