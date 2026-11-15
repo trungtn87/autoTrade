@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import pytest
+from decimal import Decimal
 
 from autotrade_v3.live.l4_leftover import LeftoverCleaner
 from autotrade_v3.live.tests.fakes import build, sig
@@ -32,13 +33,12 @@ def errors(store, code):
 def test_live_amend_shrinks_only_own_sl_and_get_verifies_quantity():
     store, client, _sender, cleaner, ex = case()
     old_qty = ex["sl_qty"]
-    expected = str(float(ex["executed_qty"]) - float(ex["tp_qty"]))
+    expected = str(Decimal(str(ex["executed_qty"])) - Decimal(str(ex["tp_qty"])))
     before_posts = list(client.order_posts)
     result = cleaner.run_pass("sl_resize_test")
     assert result["executions"][ex["event_id"]] == "open"
     assert client.amends == [(ex["sl_order_id"], expected)]
     assert client.orders[ex["sl_order_id"]]["origQty"] == expected
-    assert len(client.orders) == len(client.orders)  # no replacement order submitted
     assert client.order_posts == before_posts  # no replacement SL/TP or Entry POST
     assert getattr(client, "cancels", []) == []
     assert not errors(store, "SL_OVER_REMAINING")
