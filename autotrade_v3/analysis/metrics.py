@@ -365,3 +365,335 @@ def get_baseline_combo_keys() -> set[str]:
         "ETH-USDT/C10", "ETH-USDT/C12", "ETH-USDT/C13", "ETH-USDT/C15",
     }
 
+
+def _pf_ratio(wins: float, losses_abs: float) -> float | str:
+    if losses_abs > 1e-9:
+        return wins / losses_abs
+    if wins > 1e-9:
+        return "UNDEFINED_NO_LOSS"
+    return 0.0
+
+
+def _compute_streaks(pnl_values: list[float]) -> dict[str, Any]:
+    """Compute the 6 MT5 consecutive win/loss streak metrics on ordered entry PnLs."""
+    win_streaks: list[tuple[int, float]] = []
+    loss_streaks: list[tuple[int, float]] = []
+    cur_type: str | None = None
+    cur_count = 0
+    cur_sum = 0.0
+
+    def _flush() -> None:
+        if cur_type == "W" and cur_count > 0:
+            win_streaks.append((cur_count, cur_sum))
+        elif cur_type == "L" and cur_count > 0:
+            loss_streaks.append((cur_count, cur_sum))
+
+    for val in pnl_values:
+        if val > 0.0:
+            if cur_type == "W":
+                cur_count += 1
+                cur_sum += val
+            else:
+                _flush()
+                cur_type, cur_count, cur_sum = "W", 1, val
+        elif val < 0.0:
+            if cur_type == "L":
+                cur_count += 1
+                cur_sum += val
+            else:
+                _flush()
+                cur_type, cur_count, cur_sum = "L", 1, val
+        else:
+            _flush()
+            cur_type, cur_count, cur_sum = None, 0, 0.0
+    _flush()
+
+    max_w_cnt, max_w_usd = max(win_streaks, key=lambda x: (x[0], x[1])) if win_streaks else (0, 0.0)
+    max_l_cnt, max_l_usd = max(loss_streaks, key=lambda x: (x[0], -x[1])) if loss_streaks else (0, 0.0)
+    prof_usd, prof_cnt = (
+        max(((s[1], s[0]) for s in win_streaks), key=lambda x: (x[0], x[1]))
+        if win_streaks
+        else (0.0, 0)
+    )
+    loss_usd, loss_cnt = (
+        min(((s[1], s[0]) for s in loss_streaks), key=lambda x: (x[0], -x[1]))
+        if loss_streaks
+        else (0.0, 0)
+    )
+    avg_w = (sum(c for c, _ in win_streaks) / len(win_streaks)) if win_streaks else 0.0
+    avg_l = (sum(c for c, _ in loss_streaks) / len(loss_streaks)) if loss_streaks else 0.0
+
+    return {
+        "max_consecutive_wins_count": int(max_w_cnt),
+        "max_consecutive_wins_dollars": float(max_w_usd),
+        "max_consecutive_losses_count": int(max_l_cnt),
+        "max_consecutive_losses_dollars": float(max_l_usd),
+        "maximal_consecutive_profit_dollars": float(prof_usd),
+        "maximal_consecutive_profit_count": int(prof_cnt),
+        "maximal_consecutive_loss_dollars": float(loss_usd),
+        "maximal_consecutive_loss_count": int(loss_cnt),
+        "avg_consecutive_wins": float(avg_w),
+        "avg_consecutive_losses": float(avg_l),
+    }
+
+
+def _compute_side_stats(entries_df: pd.DataFrame, side_value: str) -> dict[str, Any]:
+    sub = entries_df[entries_df["side"] == side_value]
+    cnt = int(len(sub))
+    if cnt == 0:
+        return {"entries": 0, "won": 0, "win_rate_pct": 0.0, "net_pnl": 0.0, "pf": 0.0}
+    pnl = sub["entry_pnl"].astype(float)
+    won = int((pnl > 0.0).sum())
+    wins_sum = float(pnl[pnl > 0.0].sum())
+    losses_abs = float(abs(pnl[pnl < 0.0].sum()))
+    return {
+        "entries": cnt,
+        "won": won,
+        "win_rate_pct": float(won / cnt * 100.0),
+        "net_pnl": float(pnl.sum()),
+        "pf": _pf_ratio(wins_sum, losses_abs),
+    }
+
+
+def compute_mt5_extended_metrics(
+    trades_df: pd.DataFrame,
+    *,
+    initial_equity: float = 1000.0,
+    snapshots_df: pd.DataFrame | None = None,
+    total_signals: int | None = None,
+    skipped_by_concurrency: int = 0,
+    rejected_by_margin: int = 0,
+    execution_mode: str = "BINGX_PORTFOLIO",
+) -> dict[str, Any]:
+    """Compute MT5-style extended metrics from trades_df (and optional snapshots_df).
+
+    Entry-level metrics (win rate, largest/avg win/loss, Long/Short, streaks)
+    strictly use ``pnl_own_entry`` for ``BINGX_PORTFOLIO`` (Mode C) and ``net_pnl``
+    for Mode A / Mode B. Portfolio totals always use ``net_pnl``.
+    Raises ValueError if required ledger columns are missing (fail-closed).
+    """
+    required_cols = {
+        "trade_id",
+        "leg_id",
+        "symbol",
+        "combo_name",
+        "side",
+        "entry_time_ms",
+        "exit_time_ms",
+        "gross_pnl",
+        "fee_total",
+        "net_pnl",
+        "notional",
+    }
+    if execution_mode == "BINGX_PORTFOLIO":
+        required_cols.add("pnl_own_entry")
+
+    missing = sorted(required_cols.difference(trades_df.columns))
+    if missing:
+        raise ValueError(f"Missing required ledger columns: {missing}")
+
+    entry_basis_col = "pnl_own_entry" if execution_mode == "BINGX_PORTFOLIO" else "net_pnl"
+    total_legs = int(len(trades_df))
+
+    if total_legs == 0:
+        raise ValueError("Cannot compute MT5 metrics on empty trades_df")
+
+    # Portfolio totals (always net_pnl = VWAP in Mode C)
+    gross_pnl_before_costs = float(trades_df["gross_pnl"].astype(float).sum())
+    total_fees = float(trades_df["fee_total"].astype(float).sum())
+    total_net_profit = float(trades_df["net_pnl"].astype(float).sum())
+    total_notional = float(trades_df["notional"].astype(float).sum())
+    roi_pct = (total_net_profit / initial_equity * 100.0) if initial_equity > 0 else 0.0
+    fee_drag_pct = (total_fees / gross_pnl_before_costs * 100.0) if abs(gross_pnl_before_costs) > 1e-12 else 0.0
+    be_slip_pct = (total_net_profit / (2.0 * total_notional) * 100.0) if total_notional > 0 else 0.0
+
+    # Leg-level PF & WR
+    l_net = trades_df["net_pnl"].astype(float)
+    l_gross = trades_df["gross_pnl"].astype(float)
+    winning_legs = int((l_net > 0.0).sum())
+    leg_win_rate_pct = float(winning_legs / total_legs * 100.0)
+    net_pf_leg = _pf_ratio(float(l_net[l_net > 0.0].sum()), float(abs(l_net[l_net < 0.0].sum())))
+    gross_pf_leg = _pf_ratio(float(l_gross[l_gross > 0.0].sum()), float(abs(l_gross[l_gross < 0.0].sum())))
+
+    # Entry-level aggregation using canonical entry_basis_col
+    entries_df = (
+        trades_df.groupby("trade_id", as_index=False)
+        .agg(
+            side=("side", "first"),
+            entry_time_ms=("entry_time_ms", "min"),
+            exit_time_ms=("exit_time_ms", "max"),
+            entry_pnl=(entry_basis_col, "sum"),
+            portfolio_pnl=("net_pnl", "sum"),
+        )
+        .sort_values(["exit_time_ms", "entry_time_ms", "trade_id"], kind="mergesort")
+        .reset_index(drop=True)
+    )
+    accepted_entries = int(len(entries_df))
+    epnl = entries_df["entry_pnl"].astype(float)
+    wins_s = epnl[epnl > 0.0]
+    losses_s = epnl[epnl < 0.0]
+    evens_cnt = int((epnl == 0.0).sum())
+
+    gross_profit_entry = float(wins_s.sum())
+    gross_loss_entry = float(losses_s.sum())
+    net_pf_entry = _pf_ratio(gross_profit_entry, abs(gross_loss_entry))
+
+    vwap_entry_s = entries_df["portfolio_pnl"].astype(float)
+    net_pf_trade_vwap = _pf_ratio(
+        float(vwap_entry_s[vwap_entry_s > 0.0].sum()),
+        float(abs(vwap_entry_s[vwap_entry_s < 0.0].sum())),
+    )
+
+    # Closed-trade Balance curve & DD (leg exit order)
+    ordered_legs = trades_df.sort_values(
+        ["exit_time_ms", "entry_time_ms", "trade_id", "leg_id"], kind="mergesort"
+    )
+    bal = float(initial_equity)
+    peak_bal = bal
+    min_closed_bal = bal
+    closed_max_dd_dollars = 0.0
+    closed_max_dd_pct = 0.0
+    for val in ordered_legs["net_pnl"].astype(float):
+        bal += float(val)
+        if bal < min_closed_bal:
+            min_closed_bal = bal
+        if bal > peak_bal:
+            peak_bal = bal
+        dd = peak_bal - bal
+        if dd > closed_max_dd_dollars:
+            closed_max_dd_dollars = dd
+        dd_pct = (dd / peak_bal * 100.0) if peak_bal > 0 else 0.0
+        if dd_pct > closed_max_dd_pct:
+            closed_max_dd_pct = dd_pct
+
+    # Snapshots M2M & Margin & Daily Balance Sharpe
+    has_snapshots = snapshots_df is not None and not snapshots_df.empty
+    if has_snapshots:
+        assert snapshots_df is not None
+        snap_req = {"timestamp_ms", "balance", "equity", "used_margin", "free_margin", "drawdown_dollars", "drawdown_pct"}
+        snap_missing = sorted(snap_req.difference(snapshots_df.columns))
+        if snap_missing:
+            raise ValueError(f"Missing required snapshot columns: {snap_missing}")
+        min_balance = float(min(initial_equity, float(snapshots_df["balance"].astype(float).min())))
+        final_balance = float(snapshots_df["balance"].astype(float).iloc[-1])
+        final_equity_mtm: float | None = float(snapshots_df["equity"].astype(float).iloc[-1])
+        max_used_margin: float | None = float(snapshots_df["used_margin"].astype(float).max())
+        min_free_margin: float | None = float(snapshots_df["free_margin"].astype(float).min())
+        active_m = snapshots_df[snapshots_df["used_margin"].astype(float) > 1e-9]
+        min_margin_level_pct: float | None = (
+            float((active_m["equity"].astype(float) / active_m["used_margin"].astype(float) * 100.0).min())
+            if not active_m.empty
+            else None
+        )
+        m2m_max_dd_dollars: float | None = float(snapshots_df["drawdown_dollars"].astype(float).max())
+        m2m_max_dd_pct: float | None = float(snapshots_df["drawdown_pct"].astype(float).max())
+
+        snap_days = pd.to_datetime(snapshots_df["timestamp_ms"], unit="ms", utc=True).dt.floor("D")
+        daily_bal = snapshots_df.assign(_d=snap_days).groupby("_d")["balance"].last().astype(float)
+    else:
+        min_balance = min_closed_bal
+        final_balance = float(initial_equity + total_net_profit)
+        final_equity_mtm = None
+        max_used_margin = None
+        min_free_margin = None
+        min_margin_level_pct = None
+        m2m_max_dd_dollars = None
+        m2m_max_dd_pct = None
+
+        leg_days = pd.to_datetime(ordered_legs["exit_time_ms"], unit="ms", utc=True).dt.floor("D")
+        leg_bal = float(initial_equity) + ordered_legs["net_pnl"].astype(float).cumsum()
+        daily_raw = pd.DataFrame({"_d": leg_days.values, "balance": leg_bal.values}).groupby("_d")["balance"].last()
+        full_idx = pd.date_range(daily_raw.index.min(), daily_raw.index.max(), freq="D", tz="UTC")
+        daily_bal = daily_raw.reindex(full_idx).ffill().fillna(float(initial_equity))
+
+    balance_dd_abs_dollars = max(0.0, float(initial_equity) - min_balance)
+    balance_dd_abs_pct = (balance_dd_abs_dollars / initial_equity * 100.0) if initial_equity > 0 else 0.0
+
+    recovery_closed = (total_net_profit / closed_max_dd_dollars) if closed_max_dd_dollars > 1e-9 else None
+    recovery_m2m = (
+        (total_net_profit / m2m_max_dd_dollars)
+        if (m2m_max_dd_dollars is not None and m2m_max_dd_dollars > 1e-9)
+        else None
+    )
+
+    daily_ret = daily_bal.pct_change().dropna()
+    if len(daily_ret) >= 2 and float(daily_ret.std(ddof=1)) > 1e-12:
+        sharpe_daily_365: float | None = float(daily_ret.mean() / daily_ret.std(ddof=1) * math.sqrt(365.0))
+    else:
+        sharpe_daily_365 = None
+
+    sig_count = int(total_signals) if total_signals is not None else accepted_entries
+    fill_rate_pct = (accepted_entries / sig_count * 100.0) if sig_count > 0 else 0.0
+
+    return {
+        "entry_basis": entry_basis_col,
+        "has_snapshots": has_snapshots,
+        "account": {
+            "initial_capital": float(initial_equity),
+            "final_balance": final_balance,
+            "final_equity_mtm": final_equity_mtm,
+            "max_used_margin": max_used_margin,
+            "min_free_margin": min_free_margin,
+            "min_margin_level_pct": min_margin_level_pct,
+        },
+        "cost_reality": {
+            "gross_pnl_before_costs": gross_pnl_before_costs,
+            "total_fees": total_fees,
+            "fee_drag_pct": fee_drag_pct,
+            "break_even_slippage_per_side_pct": be_slip_pct,
+            "break_even_slippage_per_side_bps": be_slip_pct * 100.0,
+            "spread_cost": float(trades_df["spread_cost"].astype(float).sum()) if "spread_cost" in trades_df.columns else 0.0,
+            "slippage_cost": float(trades_df["slippage_cost"].astype(float).sum()) if "slippage_cost" in trades_df.columns else 0.0,
+            "funding_cost": float(trades_df["funding_cost"].astype(float).sum()) if "funding_cost" in trades_df.columns else 0.0,
+        },
+        "volume": {
+            "total_signals": sig_count,
+            "accepted_entries": accepted_entries,
+            "entry_fill_rate_pct": fill_rate_pct,
+            "total_legs": total_legs,
+            "skipped_by_concurrency": int(skipped_by_concurrency),
+            "rejected_by_margin": int(rejected_by_margin),
+        },
+        "risk": {
+            "net_pf_entry": net_pf_entry,
+            "net_pf_trade_vwap": net_pf_trade_vwap,
+            "net_pf_leg": net_pf_leg,
+            "gross_pf_leg": gross_pf_leg,
+            "recovery_factor_closed": recovery_closed,
+            "recovery_factor_m2m": recovery_m2m,
+            "sharpe_daily_365": sharpe_daily_365,
+            "closed_max_dd_dollars": closed_max_dd_dollars,
+            "closed_max_dd_pct": closed_max_dd_pct,
+            "m2m_max_dd_dollars": m2m_max_dd_dollars,
+            "m2m_max_dd_pct": m2m_max_dd_pct,
+        },
+        "mt5_results": {
+            "total_net_profit": total_net_profit,
+            "roi_pct": roi_pct,
+            "gross_profit_entry": gross_profit_entry,
+            "gross_loss_entry": gross_loss_entry,
+            "expected_payoff_entry": float(epnl.mean()),
+            "expected_payoff_portfolio_entry": float(vwap_entry_s.mean()),
+            "expected_payoff_leg": total_net_profit / total_legs,
+            "balance_dd_absolute_dollars": balance_dd_abs_dollars,
+            "balance_dd_absolute_pct": balance_dd_abs_pct,
+            "balance_dd_maximal_dollars": closed_max_dd_dollars,
+            "balance_dd_relative_pct": closed_max_dd_pct,
+            "winning_entries": int(len(wins_s)),
+            "losing_entries": int(len(losses_s)),
+            "breakeven_entries": evens_cnt,
+            "entry_win_rate_pct": float(len(wins_s) / accepted_entries * 100.0),
+            "leg_win_rate_pct": leg_win_rate_pct,
+            "largest_profit_entry": float(wins_s.max()) if not wins_s.empty else 0.0,
+            "largest_loss_entry": float(losses_s.min()) if not losses_s.empty else 0.0,
+            "avg_profit_entry": float(wins_s.mean()) if not wins_s.empty else 0.0,
+            "avg_loss_entry": float(losses_s.mean()) if not losses_s.empty else 0.0,
+        },
+        "long_short": {
+            "long": _compute_side_stats(entries_df, "BUY"),
+            "short": _compute_side_stats(entries_df, "SELL"),
+        },
+        "streaks": _compute_streaks([float(x) for x in epnl.tolist()]),
+    }
+
+
