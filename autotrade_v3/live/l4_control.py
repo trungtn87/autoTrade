@@ -346,7 +346,12 @@ class HourlySync:
     def run_once(self) -> dict:
         try:
             counts = project_results(self.store, self.control, self.client)
-            self.last = {"state": "waiting", "result": "completed", "finished_at": _now_iso(), "v3_projection": counts}
+            # Accounting only: reconstruct shared-position allocations from already
+            # persisted BingX order evidence. Never sends trade/cancel requests.
+            from .l4_allocation import reconcile_shared_positions
+            allocated = reconcile_shared_positions(self.store, self.control)
+            self.last = {"state": "waiting", "result": "completed", "finished_at": _now_iso(),
+                         "v3_projection": counts, "shared_position_allocation": allocated}
         except Exception as exc:
             self.last = {"state": "failed", "result": "failed", "error_class": type(exc).__name__}
             self.control.report("L4", "hourly_sync", f"Đồng bộ BingX định kỳ :07 lỗi: {exc}")
