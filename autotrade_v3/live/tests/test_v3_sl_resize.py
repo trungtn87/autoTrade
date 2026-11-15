@@ -123,3 +123,27 @@ def test_default_settings_never_enable_live_sl_amend(monkeypatch):
 
     monkeypatch.delenv("V3_SL_RESIZE_MODE", raising=False)
     assert V3Settings().sl_resize_mode == "shadow"
+
+
+def test_eth_c13_c15_trailing_then_resized_sl_cannot_overclose_combo():
+    """Regression for 15 Nov 2026 C13/C15 pattern: reduce each SL before it fires."""
+    settings, store, client, _sender, alert, control, reader, executor = build(sl_resize_mode="live")
+    a = executor.execute(sig(symbol="ETH-USDT", combo=103, side="SELL"))
+    b = executor.execute(sig(symbol="ETH-USDT", combo=105, side="SELL"))
+    ea, eb = store.executions[a["event_id"]], store.executions[b["event_id"]]
+    for ex in (ea, eb):
+        client.trigger_fill(ex["trailing_order_id"], ex["trailing_qty"], price="2750")
+    cleaner = LeftoverCleaner(settings, client, store, reader, control, alert,
+                              mode="live", busy=lambda: False)
+    cleaner.run_pass("after_trailing")
+    assert set(x[0] for x in client.amends) == {ea["sl_order_id"], eb["sl_order_id"]}
+    for ex in (ea, eb):
+        remain = Decimal(str(ex["executed_qty"])) - Decimal(str(ex["trailing_qty"]))
+        assert Decimal(client.orders[ex["sl_order_id"]]["origQty"]) == remain
+        client.trigger_fill(ex["sl_order_id"], str(remain), price="3100")
+    second = cleaner.run_pass("after_resized_sl")
+    assert second["executions"][ea["event_id"]] in {"cancelled", "closed_clean"}
+    assert second["executions"][eb["event_id"]] in {"cancelled", "closed_clean"}
+    assert client.cancels == [ea["tp_order_id"], eb["tp_order_id"]]
+    assert not errors(store, "LEFTOVER_FILL_OVER_ENTRY")
+    assert not errors(store, "SL_RESIZE_NOT_CONFIRMED")
