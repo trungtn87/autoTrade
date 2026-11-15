@@ -147,6 +147,8 @@ class RunManifest:
     filtered_signals_count: int = 0
     as_of_unverified: bool = False
     dropped_future_annotations: int = 0
+    simulator_version: str = ""
+    parity_status: str = ""
     source: str = "V3"
     created_at_utc: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 

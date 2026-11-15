@@ -67,7 +67,7 @@ class ExperimentRunner:
 
     def run_experiment(
         self,
-        strategy_id: str = "20FINAL_BASELINE",
+        strategy_id: str = "20FINAL_FIXED_V1",
         mode: Literal["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"] | str = "ALL_SIGNALS",
         symbols: list[str] | None = None,
         start: str = "2023-11-01",
@@ -90,6 +90,7 @@ class ExperimentRunner:
         """Execute a full research experiment and persist artifacts."""
         from autotrade_v3.sim.ambiguity import normalize_ambiguity_policy
         from autotrade_v3.sim.costs import CostModel
+        from autotrade_v3.sim.engine import SIMULATOR_VERSION
 
         resolved_policy = normalize_ambiguity_policy(ambiguity_policy)
         if not smoke_test and not cost_profile:
@@ -390,6 +391,12 @@ class ExperimentRunner:
             filtered_signals_count=len(pre_filtered_decisions),
             as_of_unverified=bool(f_res.used_unverified_annotations),
             dropped_future_annotations=int(f_res.dropped_future_annotations),
+            simulator_version=SIMULATOR_VERSION,
+            parity_status=(
+                "PARITY_PENDING_LIVE_VERIFICATION"
+                if strategy.strategy_id == "20FINAL_FIXED_V1"
+                else "LEGACY_BASELINE"
+            ),
         )
 
         reproducible_hit = False

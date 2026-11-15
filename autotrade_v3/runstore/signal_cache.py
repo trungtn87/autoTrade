@@ -159,7 +159,12 @@ def rebind_exit_policies(signals: list[Any], strategy: Any) -> list[Any]:
         else:
             tp_px = entry_px * (1.0 - tp_pct)
             sl_px = entry_px * (1.0 + sl_pct)
-        policy_hash = policy.policy_hash() if hasattr(policy, "policy_hash") else sig.exit_policy_hash
+        if hasattr(policy, "get_policy_hash"):
+            policy_hash = policy.get_policy_hash()
+        elif hasattr(policy, "policy_hash"):
+            policy_hash = policy.policy_hash()
+        else:
+            policy_hash = sig.exit_policy_hash
         rebound.append(
             replace(
                 sig,

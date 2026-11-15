@@ -1,0 +1,583 @@
+{
+  "from_strategy": "20FINAL@1",
+  "to_strategy": "20FINAL_FIXED_V1@1",
+  "top_level_changes": {},
+  "added_combos": [],
+  "removed_combos": [],
+  "modified_combos": {
+    "BTC-USDT/C1": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.008,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.008,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "BTC-USDT/C10": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.01,
+          "sl_pct": 0.008,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.01,
+          "sl_pct": 0.008,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "BTC-USDT/C11": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.009,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.009,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "BTC-USDT/C14": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.006666666666666667,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.006666666666666667,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "BTC-USDT/C16": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.011,
+          "sl_pct": 0.009,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.011,
+          "sl_pct": 0.009,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "BTC-USDT/C2": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.012,
+          "sl_pct": 0.008,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.012,
+          "sl_pct": 0.008,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "BTC-USDT/C4": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.009,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.009,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "BTC-USDT/C6": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.00666667,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.00666667,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "BTC-USDT/C7": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.008,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.008,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "BTC-USDT/C9": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.01,
+          "sl_pct": 0.004,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.01,
+          "sl_pct": 0.004,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "BTC-USDT/TIER": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.009,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.009,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "ETH-USDT/C1": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.00666667,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.00666667,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "ETH-USDT/C10": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.009,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.009,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "ETH-USDT/C12": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.009,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.009,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "ETH-USDT/C13": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.008,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.008,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "ETH-USDT/C15": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.008,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.008,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "ETH-USDT/C3": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.006,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.006,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "ETH-USDT/C4": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.008,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.008,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "ETH-USDT/C6": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.00666667,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.02,
+          "sl_pct": 0.00666667,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    },
+    "ETH-USDT/C7": {
+      "exit_policy": {
+        "from": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.009,
+          "split_legs": true,
+          "leg_weights": [
+            0.5,
+            0.5
+          ],
+          "trailing_act_pct": 0.005,
+          "trailing_cb_pct": 0.005,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        },
+        "to": {
+          "tp_pct": 0.018,
+          "sl_pct": 0.009,
+          "split_legs": false,
+          "leg_weights": [
+            1.0
+          ],
+          "trailing_act_pct": 0.0,
+          "trailing_cb_pct": 0.0,
+          "max_bars_held": null,
+          "force_close_on_window_end": false
+        }
+      }
+    }
+  }
+}

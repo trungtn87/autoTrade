@@ -17,6 +17,8 @@ from autotrade_v3.sim.leg import extract_m1_arrays, simulate_leg
 from autotrade_v3.sim.types import Event, ExitRules, LegOutcome, LegSpec, M1BarArrays, SignalDecision
 from autotrade_v3.strategy.base import ExitPolicy
 
+SIMULATOR_VERSION = "v3.16-fixed-tpsl"
+
 MODE_C_SIMULATION_LIMITS: dict[str, str] = {
     "intrabar_price_order": "OHLC M1 bars do not encode tick-level ordering inside a 1-minute bar.",
     "orderbook_depth_and_real_slippage": "No L2 orderbook depth; slippage is modeled via static profile bps.",
@@ -427,6 +429,8 @@ class UnifiedSimulator:
                         exit_policy_hash=exit_rules.exit_policy_hash,
                         tp_pct=exit_rules.tp_pct,
                         sl_pct=exit_rules.sl_pct,
+                        tp_price=outcome.tp_price,
+                        sl_price=outcome.sl_price,
                         trailing_act_pct=exit_rules.trailing_act_pct,
                         trailing_cb_pct=exit_rules.trailing_cb_pct,
                         max_bars_held=exit_rules.max_bars_held,
@@ -768,6 +772,8 @@ class UnifiedSimulator:
                                 exit_policy_hash=pending.exit_rules.exit_policy_hash,
                                 tp_pct=pending.exit_rules.tp_pct,
                                 sl_pct=pending.exit_rules.sl_pct,
+                                tp_price=outcome.tp_price,
+                                sl_price=outcome.sl_price,
                                 trailing_act_pct=pending.exit_rules.trailing_act_pct,
                                 trailing_cb_pct=pending.exit_rules.trailing_cb_pct,
                                 max_bars_held=pending.exit_rules.max_bars_held,

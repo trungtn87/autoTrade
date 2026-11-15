@@ -1,0 +1,4418 @@
+{
+  "ALL_SIGNALS__IDEAL": {
+    "by_symbol": [
+      {
+        "symbol": "BTC-USDT",
+        "trades": 2575,
+        "wins": 1104,
+        "win_rate_pct": 42.8738,
+        "gross_pnl": 708.4,
+        "total_fees": 257.5936,
+        "slippage_cost": 0.0,
+        "net_pnl": 450.8063,
+        "profit_factor": 1.3347
+      },
+      {
+        "symbol": "ETH-USDT",
+        "trades": 3409,
+        "wins": 1195,
+        "win_rate_pct": 35.0543,
+        "gross_pnl": 548.8333,
+        "total_fees": 340.8241,
+        "slippage_cost": 0.0,
+        "net_pnl": 208.0092,
+        "profit_factor": 1.1044
+      }
+    ],
+    "by_side": [
+      {
+        "side": "BUY",
+        "trades": 3478,
+        "wins": 1291,
+        "win_rate_pct": 37.119,
+        "gross_pnl": 646.3332,
+        "total_fees": 348.1232,
+        "slippage_cost": 0.0,
+        "net_pnl": 298.2101,
+        "profit_factor": 1.153
+      },
+      {
+        "side": "SELL",
+        "trades": 2506,
+        "wins": 1008,
+        "win_rate_pct": 40.2235,
+        "gross_pnl": 610.9,
+        "total_fees": 250.2946,
+        "slippage_cost": 0.0,
+        "net_pnl": 360.6054,
+        "profit_factor": 1.2593
+      }
+    ],
+    "by_year": [
+      {
+        "year": "2023",
+        "trades": 121,
+        "wins": 31,
+        "win_rate_pct": 25.6198,
+        "gross_pnl": -21.4,
+        "total_fees": 12.0883,
+        "slippage_cost": 0.0,
+        "net_pnl": -33.4883,
+        "profit_factor": 0.598
+      },
+      {
+        "year": "2024",
+        "trades": 2121,
+        "wins": 865,
+        "win_rate_pct": 40.7826,
+        "gross_pnl": 568.6666,
+        "total_fees": 212.17,
+        "slippage_cost": 0.0,
+        "net_pnl": 356.4967,
+        "profit_factor": 1.313
+      },
+      {
+        "year": "2025",
+        "trades": 1961,
+        "wins": 714,
+        "win_rate_pct": 36.41,
+        "gross_pnl": 317.7333,
+        "total_fees": 196.1416,
+        "slippage_cost": 0.0,
+        "net_pnl": 121.5917,
+        "profit_factor": 1.1079
+      },
+      {
+        "year": "2026",
+        "trades": 1781,
+        "wins": 689,
+        "win_rate_pct": 38.6861,
+        "gross_pnl": 392.2333,
+        "total_fees": 178.0178,
+        "slippage_cost": 0.0,
+        "net_pnl": 214.2155,
+        "profit_factor": 1.2162
+      }
+    ],
+    "by_month": [
+      {
+        "month": "2023-12",
+        "trades": 121,
+        "wins": 31,
+        "win_rate_pct": 25.6198,
+        "gross_pnl": -21.4,
+        "total_fees": 12.0883,
+        "slippage_cost": 0.0,
+        "net_pnl": -33.4883,
+        "profit_factor": 0.598
+      },
+      {
+        "month": "2024-01",
+        "trades": 158,
+        "wins": 51,
+        "win_rate_pct": 32.2785,
+        "gross_pnl": 5.8333,
+        "total_fees": 15.8064,
+        "slippage_cost": 0.0,
+        "net_pnl": -9.9731,
+        "profit_factor": 0.8964
+      },
+      {
+        "month": "2024-02",
+        "trades": 274,
+        "wins": 139,
+        "win_rate_pct": 50.7299,
+        "gross_pnl": 145.9,
+        "total_fees": 27.4811,
+        "slippage_cost": 0.0,
+        "net_pnl": 118.4189,
+        "profit_factor": 1.953
+      },
+      {
+        "month": "2024-03",
+        "trades": 124,
+        "wins": 44,
+        "win_rate_pct": 35.4839,
+        "gross_pnl": 11.1,
+        "total_fees": 12.3997,
+        "slippage_cost": 0.0,
+        "net_pnl": -1.2998,
+        "profit_factor": 0.982
+      },
+      {
+        "month": "2024-04",
+        "trades": 168,
+        "wins": 59,
+        "win_rate_pct": 35.119,
+        "gross_pnl": 22.2667,
+        "total_fees": 16.7832,
+        "slippage_cost": 0.0,
+        "net_pnl": 5.4834,
+        "profit_factor": 1.056
+      },
+      {
+        "month": "2024-05",
+        "trades": 169,
+        "wins": 49,
+        "win_rate_pct": 28.9941,
+        "gross_pnl": -7.7,
+        "total_fees": 16.9004,
+        "slippage_cost": 0.0,
+        "net_pnl": -24.6004,
+        "profit_factor": 0.7711
+      },
+      {
+        "month": "2024-06",
+        "trades": 160,
+        "wins": 63,
+        "win_rate_pct": 39.375,
+        "gross_pnl": 38.3333,
+        "total_fees": 15.9791,
+        "slippage_cost": 0.0,
+        "net_pnl": 22.3542,
+        "profit_factor": 1.2518
+      },
+      {
+        "month": "2024-07",
+        "trades": 275,
+        "wins": 128,
+        "win_rate_pct": 46.5455,
+        "gross_pnl": 117.4333,
+        "total_fees": 27.5042,
+        "slippage_cost": 0.0,
+        "net_pnl": 89.9291,
+        "profit_factor": 1.6624
+      },
+      {
+        "month": "2024-08",
+        "trades": 165,
+        "wins": 81,
+        "win_rate_pct": 49.0909,
+        "gross_pnl": 84.4667,
+        "total_fees": 16.4674,
+        "slippage_cost": 0.0,
+        "net_pnl": 67.9992,
+        "profit_factor": 1.8965
+      },
+      {
+        "month": "2024-09",
+        "trades": 134,
+        "wins": 49,
+        "win_rate_pct": 36.5672,
+        "gross_pnl": 20.2,
+        "total_fees": 13.405,
+        "slippage_cost": 0.0,
+        "net_pnl": 6.795,
+        "profit_factor": 1.09
+      },
+      {
+        "month": "2024-10",
+        "trades": 181,
+        "wins": 74,
+        "win_rate_pct": 40.884,
+        "gross_pnl": 46.1333,
+        "total_fees": 18.1038,
+        "slippage_cost": 0.0,
+        "net_pnl": 28.0295,
+        "profit_factor": 1.2827
+      },
+      {
+        "month": "2024-11",
+        "trades": 189,
+        "wins": 77,
+        "win_rate_pct": 40.7407,
+        "gross_pnl": 56.0667,
+        "total_fees": 18.9343,
+        "slippage_cost": 0.0,
+        "net_pnl": 37.1324,
+        "profit_factor": 1.3736
+      },
+      {
+        "month": "2024-12",
+        "trades": 124,
+        "wins": 51,
+        "win_rate_pct": 41.129,
+        "gross_pnl": 28.6333,
+        "total_fees": 12.4052,
+        "slippage_cost": 0.0,
+        "net_pnl": 16.2281,
+        "profit_factor": 1.2449
+      },
+      {
+        "month": "2025-01",
+        "trades": 165,
+        "wins": 51,
+        "win_rate_pct": 30.9091,
+        "gross_pnl": 3.9667,
+        "total_fees": 16.4898,
+        "slippage_cost": 0.0,
+        "net_pnl": -12.5231,
+        "profit_factor": 0.876
+      },
+      {
+        "month": "2025-02",
+        "trades": 198,
+        "wins": 70,
+        "win_rate_pct": 35.3535,
+        "gross_pnl": 22.3,
+        "total_fees": 19.7839,
+        "slippage_cost": 0.0,
+        "net_pnl": 2.516,
+        "profit_factor": 1.021
+      },
+      {
+        "month": "2025-03",
+        "trades": 120,
+        "wins": 44,
+        "win_rate_pct": 36.6667,
+        "gross_pnl": 22.3,
+        "total_fees": 11.9978,
+        "slippage_cost": 0.0,
+        "net_pnl": 10.3022,
+        "profit_factor": 1.1482
+      },
+      {
+        "month": "2025-04",
+        "trades": 141,
+        "wins": 53,
+        "win_rate_pct": 37.5887,
+        "gross_pnl": 25.5333,
+        "total_fees": 14.0993,
+        "slippage_cost": 0.0,
+        "net_pnl": 11.4341,
+        "profit_factor": 1.1428
+      },
+      {
+        "month": "2025-05",
+        "trades": 179,
+        "wins": 84,
+        "win_rate_pct": 46.9274,
+        "gross_pnl": 83.3,
+        "total_fees": 17.9495,
+        "slippage_cost": 0.0,
+        "net_pnl": 65.3505,
+        "profit_factor": 1.7819
+      },
+      {
+        "month": "2025-06",
+        "trades": 157,
+        "wins": 55,
+        "win_rate_pct": 35.0318,
+        "gross_pnl": 20.0333,
+        "total_fees": 15.6871,
+        "slippage_cost": 0.0,
+        "net_pnl": 4.3462,
+        "profit_factor": 1.0474
+      },
+      {
+        "month": "2025-07",
+        "trades": 211,
+        "wins": 80,
+        "win_rate_pct": 37.9147,
+        "gross_pnl": 47.6667,
+        "total_fees": 21.1261,
+        "slippage_cost": 0.0,
+        "net_pnl": 26.5406,
+        "profit_factor": 1.2296
+      },
+      {
+        "month": "2025-08",
+        "trades": 233,
+        "wins": 75,
+        "win_rate_pct": 32.1888,
+        "gross_pnl": 13.4667,
+        "total_fees": 23.2914,
+        "slippage_cost": 0.0,
+        "net_pnl": -9.8247,
+        "profit_factor": 0.9305
+      },
+      {
+        "month": "2025-09",
+        "trades": 141,
+        "wins": 51,
+        "win_rate_pct": 36.1702,
+        "gross_pnl": 20.1,
+        "total_fees": 14.11,
+        "slippage_cost": 0.0,
+        "net_pnl": 5.99,
+        "profit_factor": 1.073
+      },
+      {
+        "month": "2025-10",
+        "trades": 182,
+        "wins": 78,
+        "win_rate_pct": 42.8571,
+        "gross_pnl": 60.2333,
+        "total_fees": 18.2145,
+        "slippage_cost": 0.0,
+        "net_pnl": 42.0188,
+        "profit_factor": 1.443
+      },
+      {
+        "month": "2025-11",
+        "trades": 89,
+        "wins": 33,
+        "win_rate_pct": 37.0787,
+        "gross_pnl": 14.1667,
+        "total_fees": 8.8904,
+        "slippage_cost": 0.0,
+        "net_pnl": 5.2763,
+        "profit_factor": 1.104
+      },
+      {
+        "month": "2025-12",
+        "trades": 145,
+        "wins": 40,
+        "win_rate_pct": 27.5862,
+        "gross_pnl": -15.3333,
+        "total_fees": 14.5018,
+        "slippage_cost": 0.0,
+        "net_pnl": -29.8352,
+        "profit_factor": 0.6929
+      },
+      {
+        "month": "2026-01",
+        "trades": 253,
+        "wins": 109,
+        "win_rate_pct": 43.083,
+        "gross_pnl": 88.1,
+        "total_fees": 25.2474,
+        "slippage_cost": 0.0,
+        "net_pnl": 62.8526,
+        "profit_factor": 1.4854
+      },
+      {
+        "month": "2026-02",
+        "trades": 189,
+        "wins": 61,
+        "win_rate_pct": 32.2751,
+        "gross_pnl": 9.2667,
+        "total_fees": 18.8734,
+        "slippage_cost": 0.0,
+        "net_pnl": -9.6068,
+        "profit_factor": 0.9186
+      },
+      {
+        "month": "2026-03",
+        "trades": 168,
+        "wins": 67,
+        "win_rate_pct": 39.881,
+        "gross_pnl": 43.9667,
+        "total_fees": 16.809,
+        "slippage_cost": 0.0,
+        "net_pnl": 27.1576,
+        "profit_factor": 1.3003
+      },
+      {
+        "month": "2026-04",
+        "trades": 155,
+        "wins": 62,
+        "win_rate_pct": 40.0,
+        "gross_pnl": 36.3667,
+        "total_fees": 15.5271,
+        "slippage_cost": 0.0,
+        "net_pnl": 20.8396,
+        "profit_factor": 1.2501
+      },
+      {
+        "month": "2026-05",
+        "trades": 130,
+        "wins": 37,
+        "win_rate_pct": 28.4615,
+        "gross_pnl": -8.9,
+        "total_fees": 13.0025,
+        "slippage_cost": 0.0,
+        "net_pnl": -21.9025,
+        "profit_factor": 0.7387
+      },
+      {
+        "month": "2026-06",
+        "trades": 188,
+        "wins": 106,
+        "win_rate_pct": 56.383,
+        "gross_pnl": 122.2,
+        "total_fees": 18.7443,
+        "slippage_cost": 0.0,
+        "net_pnl": 103.4557,
+        "profit_factor": 2.3646
+      },
+      {
+        "month": "2026-07",
+        "trades": 167,
+        "wins": 46,
+        "win_rate_pct": 27.5449,
+        "gross_pnl": -7.7,
+        "total_fees": 16.7005,
+        "slippage_cost": 0.0,
+        "net_pnl": -24.4005,
+        "profit_factor": 0.7691
+      },
+      {
+        "month": "2026-08",
+        "trades": 220,
+        "wins": 94,
+        "win_rate_pct": 42.7273,
+        "gross_pnl": 71.0667,
+        "total_fees": 22.0512,
+        "slippage_cost": 0.0,
+        "net_pnl": 49.0155,
+        "profit_factor": 1.4247
+      },
+      {
+        "month": "2026-09",
+        "trades": 173,
+        "wins": 54,
+        "win_rate_pct": 31.2139,
+        "gross_pnl": 5.7,
+        "total_fees": 17.2984,
+        "slippage_cost": 0.0,
+        "net_pnl": -11.5985,
+        "profit_factor": 0.896
+      },
+      {
+        "month": "2026-10",
+        "trades": 138,
+        "wins": 53,
+        "win_rate_pct": 38.4058,
+        "gross_pnl": 32.1667,
+        "total_fees": 13.7639,
+        "slippage_cost": 0.0,
+        "net_pnl": 18.4027,
+        "profit_factor": 1.2383
+      }
+    ],
+    "exit_reasons": {
+      "SL": 3685,
+      "TP": 2299
+    },
+    "decision_reasons": {
+      "ACCEPTED|ACCEPTED": 5984
+    }
+  },
+  "ALL_SIGNALS__BASE": {
+    "by_symbol": [
+      {
+        "symbol": "BTC-USDT",
+        "trades": 2575,
+        "wins": 1083,
+        "win_rate_pct": 42.0583,
+        "gross_pnl": 603.5618,
+        "total_fees": 257.5902,
+        "slippage_cost": 103.0361,
+        "net_pnl": 345.9717,
+        "profit_factor": 1.2478
+      },
+      {
+        "symbol": "ETH-USDT",
+        "trades": 3409,
+        "wins": 1166,
+        "win_rate_pct": 34.2036,
+        "gross_pnl": 402.055,
+        "total_fees": 340.8077,
+        "slippage_cost": 136.3231,
+        "net_pnl": 61.2472,
+        "profit_factor": 1.0297
+      }
+    ],
+    "by_side": [
+      {
+        "side": "BUY",
+        "trades": 3478,
+        "wins": 1262,
+        "win_rate_pct": 36.2852,
+        "gross_pnl": 500.6925,
+        "total_fees": 348.0503,
+        "slippage_cost": 139.2202,
+        "net_pnl": 152.6421,
+        "profit_factor": 1.0756
+      },
+      {
+        "side": "SELL",
+        "trades": 2506,
+        "wins": 987,
+        "win_rate_pct": 39.3855,
+        "gross_pnl": 504.9243,
+        "total_fees": 250.3475,
+        "slippage_cost": 100.139,
+        "net_pnl": 254.5768,
+        "profit_factor": 1.1766
+      }
+    ],
+    "by_year": [
+      {
+        "year": "2023",
+        "trades": 121,
+        "wins": 31,
+        "win_rate_pct": 25.6198,
+        "gross_pnl": -23.8153,
+        "total_fees": 12.0881,
+        "slippage_cost": 4.8353,
+        "net_pnl": -35.9034,
+        "profit_factor": 0.5781
+      },
+      {
+        "year": "2024",
+        "trades": 2121,
+        "wins": 846,
+        "win_rate_pct": 39.8868,
+        "gross_pnl": 475.52,
+        "total_fees": 212.1618,
+        "slippage_cost": 84.8647,
+        "net_pnl": 263.3583,
+        "profit_factor": 1.2229
+      },
+      {
+        "year": "2025",
+        "trades": 1961,
+        "wins": 697,
+        "win_rate_pct": 35.5431,
+        "gross_pnl": 232.6326,
+        "total_fees": 196.1315,
+        "slippage_cost": 78.4526,
+        "net_pnl": 36.5011,
+        "profit_factor": 1.0313
+      },
+      {
+        "year": "2026",
+        "trades": 1781,
+        "wins": 675,
+        "win_rate_pct": 37.9001,
+        "gross_pnl": 321.2794,
+        "total_fees": 178.0164,
+        "slippage_cost": 71.2066,
+        "net_pnl": 143.263,
+        "profit_factor": 1.1398
+      }
+    ],
+    "by_month": [
+      {
+        "month": "2023-12",
+        "trades": 121,
+        "wins": 31,
+        "win_rate_pct": 25.6198,
+        "gross_pnl": -23.8153,
+        "total_fees": 12.0881,
+        "slippage_cost": 4.8353,
+        "net_pnl": -35.9034,
+        "profit_factor": 0.5781
+      },
+      {
+        "month": "2024-01",
+        "trades": 158,
+        "wins": 51,
+        "win_rate_pct": 32.2785,
+        "gross_pnl": 2.6708,
+        "total_fees": 15.8064,
+        "slippage_cost": 6.3226,
+        "net_pnl": -13.1357,
+        "profit_factor": 0.8665
+      },
+      {
+        "month": "2024-02",
+        "trades": 274,
+        "wins": 136,
+        "win_rate_pct": 49.635,
+        "gross_pnl": 132.3225,
+        "total_fees": 27.4745,
+        "slippage_cost": 10.9898,
+        "net_pnl": 104.848,
+        "profit_factor": 1.808
+      },
+      {
+        "month": "2024-03",
+        "trades": 124,
+        "wins": 42,
+        "win_rate_pct": 33.871,
+        "gross_pnl": 4.1199,
+        "total_fees": 12.3996,
+        "slippage_cost": 4.9598,
+        "net_pnl": -8.2797,
+        "profit_factor": 0.8909
+      },
+      {
+        "month": "2024-04",
+        "trades": 168,
+        "wins": 58,
+        "win_rate_pct": 34.5238,
+        "gross_pnl": 16.2128,
+        "total_fees": 16.7845,
+        "slippage_cost": 6.7138,
+        "net_pnl": -0.5716,
+        "profit_factor": 0.9943
+      },
+      {
+        "month": "2024-05",
+        "trades": 169,
+        "wins": 48,
+        "win_rate_pct": 28.4024,
+        "gross_pnl": -13.8796,
+        "total_fees": 16.898,
+        "slippage_cost": 6.7592,
+        "net_pnl": -30.7776,
+        "profit_factor": 0.7222
+      },
+      {
+        "month": "2024-06",
+        "trades": 160,
+        "wins": 60,
+        "win_rate_pct": 37.5,
+        "gross_pnl": 26.8411,
+        "total_fees": 15.9812,
+        "slippage_cost": 6.3925,
+        "net_pnl": 10.8599,
+        "profit_factor": 1.116
+      },
+      {
+        "month": "2024-07",
+        "trades": 275,
+        "wins": 127,
+        "win_rate_pct": 46.1818,
+        "gross_pnl": 109.2311,
+        "total_fees": 27.5056,
+        "slippage_cost": 11.0023,
+        "net_pnl": 81.7255,
+        "profit_factor": 1.5849
+      },
+      {
+        "month": "2024-08",
+        "trades": 165,
+        "wins": 78,
+        "win_rate_pct": 47.2727,
+        "gross_pnl": 73.0125,
+        "total_fees": 16.4697,
+        "slippage_cost": 6.5879,
+        "net_pnl": 56.5428,
+        "profit_factor": 1.7045
+      },
+      {
+        "month": "2024-09",
+        "trades": 134,
+        "wins": 48,
+        "win_rate_pct": 35.8209,
+        "gross_pnl": 14.8519,
+        "total_fees": 13.4035,
+        "slippage_cost": 5.3614,
+        "net_pnl": 1.4484,
+        "profit_factor": 1.0186
+      },
+      {
+        "month": "2024-10",
+        "trades": 181,
+        "wins": 71,
+        "win_rate_pct": 39.2265,
+        "gross_pnl": 34.1124,
+        "total_fees": 18.102,
+        "slippage_cost": 7.2408,
+        "net_pnl": 16.0104,
+        "profit_factor": 1.1539
+      },
+      {
+        "month": "2024-11",
+        "trades": 189,
+        "wins": 76,
+        "win_rate_pct": 40.2116,
+        "gross_pnl": 49.8734,
+        "total_fees": 18.9316,
+        "slippage_cost": 7.5726,
+        "net_pnl": 30.9419,
+        "profit_factor": 1.3023
+      },
+      {
+        "month": "2024-12",
+        "trades": 124,
+        "wins": 51,
+        "win_rate_pct": 41.129,
+        "gross_pnl": 26.1513,
+        "total_fees": 12.4051,
+        "slippage_cost": 4.962,
+        "net_pnl": 13.7461,
+        "profit_factor": 1.203
+      },
+      {
+        "month": "2025-01",
+        "trades": 165,
+        "wins": 49,
+        "win_rate_pct": 29.697,
+        "gross_pnl": -4.7292,
+        "total_fees": 16.4897,
+        "slippage_cost": 6.5959,
+        "net_pnl": -21.2189,
+        "profit_factor": 0.7986
+      },
+      {
+        "month": "2025-02",
+        "trades": 198,
+        "wins": 70,
+        "win_rate_pct": 35.3535,
+        "gross_pnl": 18.3464,
+        "total_fees": 19.7855,
+        "slippage_cost": 7.9142,
+        "net_pnl": -1.4391,
+        "profit_factor": 0.9882
+      },
+      {
+        "month": "2025-03",
+        "trades": 120,
+        "wins": 43,
+        "win_rate_pct": 35.8333,
+        "gross_pnl": 17.2347,
+        "total_fees": 11.997,
+        "slippage_cost": 4.7988,
+        "net_pnl": 5.2378,
+        "profit_factor": 1.0729
+      },
+      {
+        "month": "2025-04",
+        "trades": 141,
+        "wins": 53,
+        "win_rate_pct": 37.5887,
+        "gross_pnl": 22.7136,
+        "total_fees": 14.099,
+        "slippage_cost": 5.6396,
+        "net_pnl": 8.6147,
+        "profit_factor": 1.1053
+      },
+      {
+        "month": "2025-05",
+        "trades": 179,
+        "wins": 83,
+        "win_rate_pct": 46.3687,
+        "gross_pnl": 77.0007,
+        "total_fees": 17.9468,
+        "slippage_cost": 7.1787,
+        "net_pnl": 59.0539,
+        "profit_factor": 1.6828
+      },
+      {
+        "month": "2025-06",
+        "trades": 157,
+        "wins": 54,
+        "win_rate_pct": 34.3949,
+        "gross_pnl": 14.0979,
+        "total_fees": 15.6882,
+        "slippage_cost": 6.2753,
+        "net_pnl": -1.5903,
+        "profit_factor": 0.9832
+      },
+      {
+        "month": "2025-07",
+        "trades": 211,
+        "wins": 77,
+        "win_rate_pct": 36.4929,
+        "gross_pnl": 35.1712,
+        "total_fees": 21.12,
+        "slippage_cost": 8.448,
+        "net_pnl": 14.0512,
+        "profit_factor": 1.1163
+      },
+      {
+        "month": "2025-08",
+        "trades": 233,
+        "wins": 71,
+        "win_rate_pct": 30.4721,
+        "gross_pnl": -1.7555,
+        "total_fees": 23.2877,
+        "slippage_cost": 9.3151,
+        "net_pnl": -25.0433,
+        "profit_factor": 0.8307
+      },
+      {
+        "month": "2025-09",
+        "trades": 141,
+        "wins": 51,
+        "win_rate_pct": 36.1702,
+        "gross_pnl": 17.276,
+        "total_fees": 14.1099,
+        "slippage_cost": 5.6439,
+        "net_pnl": 3.1662,
+        "profit_factor": 1.0378
+      },
+      {
+        "month": "2025-10",
+        "trades": 182,
+        "wins": 76,
+        "win_rate_pct": 41.7582,
+        "gross_pnl": 51.1886,
+        "total_fees": 18.2111,
+        "slippage_cost": 7.2845,
+        "net_pnl": 32.9775,
+        "profit_factor": 1.3332
+      },
+      {
+        "month": "2025-11",
+        "trades": 89,
+        "wins": 30,
+        "win_rate_pct": 33.7079,
+        "gross_pnl": 4.3222,
+        "total_fees": 8.8947,
+        "slippage_cost": 3.5579,
+        "net_pnl": -4.5725,
+        "profit_factor": 0.9164
+      },
+      {
+        "month": "2025-12",
+        "trades": 145,
+        "wins": 40,
+        "win_rate_pct": 27.5862,
+        "gross_pnl": -18.2341,
+        "total_fees": 14.5019,
+        "slippage_cost": 5.8008,
+        "net_pnl": -32.736,
+        "profit_factor": 0.6701
+      },
+      {
+        "month": "2026-01",
+        "trades": 253,
+        "wins": 109,
+        "win_rate_pct": 43.083,
+        "gross_pnl": 83.061,
+        "total_fees": 25.2478,
+        "slippage_cost": 10.0991,
+        "net_pnl": 57.8133,
+        "profit_factor": 1.4367
+      },
+      {
+        "month": "2026-02",
+        "trades": 189,
+        "wins": 60,
+        "win_rate_pct": 31.746,
+        "gross_pnl": 2.7968,
+        "total_fees": 18.8757,
+        "slippage_cost": 7.5503,
+        "net_pnl": -16.079,
+        "profit_factor": 0.8677
+      },
+      {
+        "month": "2026-03",
+        "trades": 168,
+        "wins": 65,
+        "win_rate_pct": 38.6905,
+        "gross_pnl": 35.003,
+        "total_fees": 16.8089,
+        "slippage_cost": 6.7236,
+        "net_pnl": 18.1942,
+        "profit_factor": 1.193
+      },
+      {
+        "month": "2026-04",
+        "trades": 155,
+        "wins": 61,
+        "win_rate_pct": 39.3548,
+        "gross_pnl": 30.5897,
+        "total_fees": 15.5251,
+        "slippage_cost": 6.21,
+        "net_pnl": 15.0646,
+        "profit_factor": 1.1752
+      },
+      {
+        "month": "2026-05",
+        "trades": 130,
+        "wins": 35,
+        "win_rate_pct": 26.9231,
+        "gross_pnl": -15.7013,
+        "total_fees": 13.0036,
+        "slippage_cost": 5.2014,
+        "net_pnl": -28.7048,
+        "profit_factor": 0.6705
+      },
+      {
+        "month": "2026-06",
+        "trades": 188,
+        "wins": 105,
+        "win_rate_pct": 55.8511,
+        "gross_pnl": 116.4619,
+        "total_fees": 18.7464,
+        "slippage_cost": 7.4986,
+        "net_pnl": 97.7155,
+        "profit_factor": 2.2467
+      },
+      {
+        "month": "2026-07",
+        "trades": 167,
+        "wins": 45,
+        "win_rate_pct": 26.9461,
+        "gross_pnl": -13.8397,
+        "total_fees": 16.698,
+        "slippage_cost": 6.6792,
+        "net_pnl": -30.5376,
+        "profit_factor": 0.7198
+      },
+      {
+        "month": "2026-08",
+        "trades": 220,
+        "wins": 92,
+        "win_rate_pct": 41.8182,
+        "gross_pnl": 61.8463,
+        "total_fees": 22.0491,
+        "slippage_cost": 8.8197,
+        "net_pnl": 39.7972,
+        "profit_factor": 1.3321
+      },
+      {
+        "month": "2026-09",
+        "trades": 173,
+        "wins": 52,
+        "win_rate_pct": 30.0578,
+        "gross_pnl": -2.8584,
+        "total_fees": 17.2948,
+        "slippage_cost": 6.9179,
+        "net_pnl": -20.1532,
+        "profit_factor": 0.8258
+      },
+      {
+        "month": "2026-10",
+        "trades": 138,
+        "wins": 51,
+        "win_rate_pct": 36.9565,
+        "gross_pnl": 23.92,
+        "total_fees": 13.7671,
+        "slippage_cost": 5.5069,
+        "net_pnl": 10.1529,
+        "profit_factor": 1.1255
+      }
+    ],
+    "exit_reasons": {
+      "SL": 3735,
+      "TP": 2249
+    },
+    "decision_reasons": {
+      "ACCEPTED|ACCEPTED": 5984
+    }
+  },
+  "ALL_SIGNALS__STRESS": {
+    "by_symbol": [
+      {
+        "symbol": "BTC-USDT",
+        "trades": 2575,
+        "wins": 1038,
+        "win_rate_pct": 40.3107,
+        "gross_pnl": 410.8206,
+        "total_fees": 257.5831,
+        "slippage_cost": 257.5833,
+        "net_pnl": 153.2375,
+        "profit_factor": 1.1032
+      },
+      {
+        "symbol": "ETH-USDT",
+        "trades": 3409,
+        "wins": 1128,
+        "win_rate_pct": 33.0889,
+        "gross_pnl": 195.2518,
+        "total_fees": 340.8199,
+        "slippage_cost": 340.8201,
+        "net_pnl": -145.5681,
+        "profit_factor": 0.9328
+      }
+    ],
+    "by_side": [
+      {
+        "side": "BUY",
+        "trades": 3478,
+        "wins": 1228,
+        "win_rate_pct": 35.3076,
+        "gross_pnl": 306.0598,
+        "total_fees": 347.953,
+        "slippage_cost": 347.9532,
+        "net_pnl": -41.8932,
+        "profit_factor": 0.9802
+      },
+      {
+        "side": "SELL",
+        "trades": 2506,
+        "wins": 938,
+        "win_rate_pct": 37.4302,
+        "gross_pnl": 300.0125,
+        "total_fees": 250.45,
+        "slippage_cost": 250.4501,
+        "net_pnl": 49.5626,
+        "profit_factor": 1.0323
+      }
+    ],
+    "by_year": [
+      {
+        "year": "2023",
+        "trades": 121,
+        "wins": 31,
+        "win_rate_pct": 25.6198,
+        "gross_pnl": -27.4383,
+        "total_fees": 12.0879,
+        "slippage_cost": 12.0879,
+        "net_pnl": -39.5262,
+        "profit_factor": 0.5498
+      },
+      {
+        "year": "2024",
+        "trades": 2121,
+        "wins": 809,
+        "win_rate_pct": 38.1424,
+        "gross_pnl": 314.1552,
+        "total_fees": 212.1496,
+        "slippage_cost": 212.1497,
+        "net_pnl": 102.0056,
+        "profit_factor": 1.0812
+      },
+      {
+        "year": "2025",
+        "trades": 1961,
+        "wins": 676,
+        "win_rate_pct": 34.4722,
+        "gross_pnl": 117.4742,
+        "total_fees": 196.1339,
+        "slippage_cost": 196.134,
+        "net_pnl": -78.6597,
+        "profit_factor": 0.9358
+      },
+      {
+        "year": "2026",
+        "trades": 1781,
+        "wins": 650,
+        "win_rate_pct": 36.4964,
+        "gross_pnl": 201.8813,
+        "total_fees": 178.0316,
+        "slippage_cost": 178.0317,
+        "net_pnl": 23.8497,
+        "profit_factor": 1.022
+      }
+    ],
+    "by_month": [
+      {
+        "month": "2023-12",
+        "trades": 121,
+        "wins": 31,
+        "win_rate_pct": 25.6198,
+        "gross_pnl": -27.4383,
+        "total_fees": 12.0879,
+        "slippage_cost": 12.0879,
+        "net_pnl": -39.5262,
+        "profit_factor": 0.5498
+      },
+      {
+        "month": "2024-01",
+        "trades": 158,
+        "wins": 51,
+        "win_rate_pct": 32.2785,
+        "gross_pnl": -2.0731,
+        "total_fees": 15.8065,
+        "slippage_cost": 15.8065,
+        "net_pnl": -17.8796,
+        "profit_factor": 0.8241
+      },
+      {
+        "month": "2024-02",
+        "trades": 274,
+        "wins": 132,
+        "win_rate_pct": 48.1752,
+        "gross_pnl": 113.9593,
+        "total_fees": 27.4677,
+        "slippage_cost": 27.4678,
+        "net_pnl": 86.4916,
+        "profit_factor": 1.6264
+      },
+      {
+        "month": "2024-03",
+        "trades": 124,
+        "wins": 39,
+        "win_rate_pct": 31.4516,
+        "gross_pnl": -7.8016,
+        "total_fees": 12.4002,
+        "slippage_cost": 12.4002,
+        "net_pnl": -20.2018,
+        "profit_factor": 0.7519
+      },
+      {
+        "month": "2024-04",
+        "trades": 168,
+        "wins": 57,
+        "win_rate_pct": 33.9286,
+        "gross_pnl": 8.3835,
+        "total_fees": 16.7829,
+        "slippage_cost": 16.7829,
+        "net_pnl": -8.3994,
+        "profit_factor": 0.9203
+      },
+      {
+        "month": "2024-05",
+        "trades": 169,
+        "wins": 45,
+        "win_rate_pct": 26.6272,
+        "gross_pnl": -27.0449,
+        "total_fees": 16.8925,
+        "slippage_cost": 16.8925,
+        "net_pnl": -43.9375,
+        "profit_factor": 0.6262
+      },
+      {
+        "month": "2024-06",
+        "trades": 160,
+        "wins": 57,
+        "win_rate_pct": 35.625,
+        "gross_pnl": 13.8487,
+        "total_fees": 15.9865,
+        "slippage_cost": 15.9865,
+        "net_pnl": -2.1377,
+        "profit_factor": 0.9785
+      },
+      {
+        "month": "2024-07",
+        "trades": 275,
+        "wins": 121,
+        "win_rate_pct": 44.0,
+        "gross_pnl": 84.4778,
+        "total_fees": 27.5056,
+        "slippage_cost": 27.5056,
+        "net_pnl": 56.9722,
+        "profit_factor": 1.3794
+      },
+      {
+        "month": "2024-08",
+        "trades": 165,
+        "wins": 78,
+        "win_rate_pct": 47.2727,
+        "gross_pnl": 68.0811,
+        "total_fees": 16.4709,
+        "slippage_cost": 16.4709,
+        "net_pnl": 51.6103,
+        "profit_factor": 1.6227
+      },
+      {
+        "month": "2024-09",
+        "trades": 134,
+        "wins": 46,
+        "win_rate_pct": 34.3284,
+        "gross_pnl": 6.132,
+        "total_fees": 13.4008,
+        "slippage_cost": 13.4009,
+        "net_pnl": -7.2689,
+        "profit_factor": 0.9121
+      },
+      {
+        "month": "2024-10",
+        "trades": 181,
+        "wins": 68,
+        "win_rate_pct": 37.5691,
+        "gross_pnl": 20.2795,
+        "total_fees": 18.1027,
+        "slippage_cost": 18.1027,
+        "net_pnl": 2.1768,
+        "profit_factor": 1.0198
+      },
+      {
+        "month": "2024-11",
+        "trades": 189,
+        "wins": 73,
+        "win_rate_pct": 38.6243,
+        "gross_pnl": 35.9211,
+        "total_fees": 18.9252,
+        "slippage_cost": 18.9252,
+        "net_pnl": 16.9959,
+        "profit_factor": 1.1567
+      },
+      {
+        "month": "2024-12",
+        "trades": 124,
+        "wins": 42,
+        "win_rate_pct": 33.871,
+        "gross_pnl": -0.0083,
+        "total_fees": 12.4081,
+        "slippage_cost": 12.4081,
+        "net_pnl": -12.4164,
+        "profit_factor": 0.8418
+      },
+      {
+        "month": "2025-01",
+        "trades": 165,
+        "wins": 41,
+        "win_rate_pct": 24.8485,
+        "gross_pnl": -31.9455,
+        "total_fees": 16.4952,
+        "slippage_cost": 16.4952,
+        "net_pnl": -48.4407,
+        "profit_factor": 0.5835
+      },
+      {
+        "month": "2025-02",
+        "trades": 198,
+        "wins": 70,
+        "win_rate_pct": 35.3535,
+        "gross_pnl": 12.416,
+        "total_fees": 19.7878,
+        "slippage_cost": 19.7878,
+        "net_pnl": -7.3717,
+        "profit_factor": 0.9415
+      },
+      {
+        "month": "2025-03",
+        "trades": 120,
+        "wins": 43,
+        "win_rate_pct": 35.8333,
+        "gross_pnl": 13.6368,
+        "total_fees": 11.9977,
+        "slippage_cost": 11.9977,
+        "net_pnl": 1.6391,
+        "profit_factor": 1.0221
+      },
+      {
+        "month": "2025-04",
+        "trades": 141,
+        "wins": 52,
+        "win_rate_pct": 36.8794,
+        "gross_pnl": 15.8161,
+        "total_fees": 14.0998,
+        "slippage_cost": 14.0998,
+        "net_pnl": 1.7162,
+        "profit_factor": 1.0201
+      },
+      {
+        "month": "2025-05",
+        "trades": 179,
+        "wins": 83,
+        "win_rate_pct": 46.3687,
+        "gross_pnl": 71.6018,
+        "total_fees": 17.9447,
+        "slippage_cost": 17.9447,
+        "net_pnl": 53.6571,
+        "profit_factor": 1.6005
+      },
+      {
+        "month": "2025-06",
+        "trades": 157,
+        "wins": 52,
+        "win_rate_pct": 33.121,
+        "gross_pnl": 5.2941,
+        "total_fees": 15.6884,
+        "slippage_cost": 15.6884,
+        "net_pnl": -10.3943,
+        "profit_factor": 0.8953
+      },
+      {
+        "month": "2025-07",
+        "trades": 211,
+        "wins": 75,
+        "win_rate_pct": 35.545,
+        "gross_pnl": 23.4308,
+        "total_fees": 21.1144,
+        "slippage_cost": 21.1145,
+        "net_pnl": 2.3163,
+        "profit_factor": 1.0183
+      },
+      {
+        "month": "2025-08",
+        "trades": 233,
+        "wins": 69,
+        "win_rate_pct": 29.6137,
+        "gross_pnl": -14.2054,
+        "total_fees": 23.2861,
+        "slippage_cost": 23.2861,
+        "net_pnl": -37.4915,
+        "profit_factor": 0.7573
+      },
+      {
+        "month": "2025-09",
+        "trades": 141,
+        "wins": 51,
+        "win_rate_pct": 36.1702,
+        "gross_pnl": 13.04,
+        "total_fees": 14.1097,
+        "slippage_cost": 14.1097,
+        "net_pnl": -1.0696,
+        "profit_factor": 0.9876
+      },
+      {
+        "month": "2025-10",
+        "trades": 182,
+        "wins": 74,
+        "win_rate_pct": 40.6593,
+        "gross_pnl": 40.2216,
+        "total_fees": 18.2101,
+        "slippage_cost": 18.2101,
+        "net_pnl": 22.0115,
+        "profit_factor": 1.2114
+      },
+      {
+        "month": "2025-11",
+        "trades": 89,
+        "wins": 29,
+        "win_rate_pct": 32.5843,
+        "gross_pnl": -1.0458,
+        "total_fees": 8.8965,
+        "slippage_cost": 8.8965,
+        "net_pnl": -9.9423,
+        "profit_factor": 0.8271
+      },
+      {
+        "month": "2025-12",
+        "trades": 145,
+        "wins": 37,
+        "win_rate_pct": 25.5172,
+        "gross_pnl": -30.7865,
+        "total_fees": 14.5034,
+        "slippage_cost": 14.5034,
+        "net_pnl": -45.2899,
+        "profit_factor": 0.5705
+      },
+      {
+        "month": "2026-01",
+        "trades": 253,
+        "wins": 106,
+        "win_rate_pct": 41.8972,
+        "gross_pnl": 68.4991,
+        "total_fees": 25.2518,
+        "slippage_cost": 25.2518,
+        "net_pnl": 43.2473,
+        "profit_factor": 1.3104
+      },
+      {
+        "month": "2026-02",
+        "trades": 189,
+        "wins": 54,
+        "win_rate_pct": 28.5714,
+        "gross_pnl": -19.3636,
+        "total_fees": 18.8826,
+        "slippage_cost": 18.8826,
+        "net_pnl": -38.2461,
+        "profit_factor": 0.709
+      },
+      {
+        "month": "2026-03",
+        "trades": 168,
+        "wins": 65,
+        "win_rate_pct": 38.6905,
+        "gross_pnl": 29.9576,
+        "total_fees": 16.8086,
+        "slippage_cost": 16.8087,
+        "net_pnl": 13.149,
+        "profit_factor": 1.135
+      },
+      {
+        "month": "2026-04",
+        "trades": 155,
+        "wins": 58,
+        "win_rate_pct": 37.4194,
+        "gross_pnl": 17.6228,
+        "total_fees": 15.5255,
+        "slippage_cost": 15.5255,
+        "net_pnl": 2.0973,
+        "profit_factor": 1.0229
+      },
+      {
+        "month": "2026-05",
+        "trades": 130,
+        "wins": 32,
+        "win_rate_pct": 24.6154,
+        "gross_pnl": -27.8045,
+        "total_fees": 13.0054,
+        "slippage_cost": 13.0054,
+        "net_pnl": -40.8099,
+        "profit_factor": 0.5613
+      },
+      {
+        "month": "2026-06",
+        "trades": 188,
+        "wins": 99,
+        "win_rate_pct": 52.6596,
+        "gross_pnl": 94.8467,
+        "total_fees": 18.756,
+        "slippage_cost": 18.7561,
+        "net_pnl": 76.0907,
+        "profit_factor": 1.8768
+      },
+      {
+        "month": "2026-07",
+        "trades": 167,
+        "wins": 44,
+        "win_rate_pct": 26.3473,
+        "gross_pnl": -21.6477,
+        "total_fees": 16.6949,
+        "slippage_cost": 16.6949,
+        "net_pnl": -38.3426,
+        "profit_factor": 0.6624
+      },
+      {
+        "month": "2026-08",
+        "trades": 220,
+        "wins": 90,
+        "win_rate_pct": 40.9091,
+        "gross_pnl": 50.7181,
+        "total_fees": 22.0444,
+        "slippage_cost": 22.0444,
+        "net_pnl": 28.6737,
+        "profit_factor": 1.2282
+      },
+      {
+        "month": "2026-09",
+        "trades": 173,
+        "wins": 52,
+        "win_rate_pct": 30.0578,
+        "gross_pnl": -8.0459,
+        "total_fees": 17.2932,
+        "slippage_cost": 17.2932,
+        "net_pnl": -25.3391,
+        "profit_factor": 0.7876
+      },
+      {
+        "month": "2026-10",
+        "trades": 138,
+        "wins": 50,
+        "win_rate_pct": 36.2319,
+        "gross_pnl": 17.0986,
+        "total_fees": 13.7692,
+        "slippage_cost": 13.7692,
+        "net_pnl": 3.3294,
+        "profit_factor": 1.0394
+      }
+    ],
+    "exit_reasons": {
+      "SL": 3818,
+      "TP": 2166
+    },
+    "decision_reasons": {
+      "ACCEPTED|ACCEPTED": 5984
+    }
+  },
+  "ONE_TRADE_PER_COMBO__IDEAL": {
+    "by_symbol": [
+      {
+        "symbol": "BTC-USDT",
+        "trades": 1861,
+        "wins": 775,
+        "win_rate_pct": 41.6443,
+        "gross_pnl": 447.6,
+        "total_fees": 186.1612,
+        "slippage_cost": 0.0,
+        "net_pnl": 261.4388,
+        "profit_factor": 1.2689
+      },
+      {
+        "symbol": "ETH-USDT",
+        "trades": 2289,
+        "wins": 851,
+        "win_rate_pct": 37.1778,
+        "gross_pnl": 483.8333,
+        "total_fees": 228.9138,
+        "slippage_cost": 0.0,
+        "net_pnl": 254.9195,
+        "profit_factor": 1.1969
+      }
+    ],
+    "by_side": [
+      {
+        "side": "BUY",
+        "trades": 2389,
+        "wins": 924,
+        "win_rate_pct": 38.6773,
+        "gross_pnl": 540.6666,
+        "total_fees": 239.1703,
+        "slippage_cost": 0.0,
+        "net_pnl": 301.4962,
+        "profit_factor": 1.2346
+      },
+      {
+        "side": "SELL",
+        "trades": 1761,
+        "wins": 702,
+        "win_rate_pct": 39.8637,
+        "gross_pnl": 390.7667,
+        "total_fees": 175.9046,
+        "slippage_cost": 0.0,
+        "net_pnl": 214.862,
+        "profit_factor": 1.2188
+      }
+    ],
+    "by_year": [
+      {
+        "year": "2023",
+        "trades": 88,
+        "wins": 23,
+        "win_rate_pct": 26.1364,
+        "gross_pnl": -13.9,
+        "total_fees": 8.792,
+        "slippage_cost": 0.0,
+        "net_pnl": -22.692,
+        "profit_factor": 0.6147
+      },
+      {
+        "year": "2024",
+        "trades": 1505,
+        "wins": 618,
+        "win_rate_pct": 41.0631,
+        "gross_pnl": 404.9,
+        "total_fees": 150.5606,
+        "slippage_cost": 0.0,
+        "net_pnl": 254.3393,
+        "profit_factor": 1.3192
+      },
+      {
+        "year": "2025",
+        "trades": 1388,
+        "wins": 525,
+        "win_rate_pct": 37.8242,
+        "gross_pnl": 274.0,
+        "total_fees": 138.8219,
+        "slippage_cost": 0.0,
+        "net_pnl": 135.178,
+        "profit_factor": 1.1751
+      },
+      {
+        "year": "2026",
+        "trades": 1169,
+        "wins": 460,
+        "win_rate_pct": 39.3499,
+        "gross_pnl": 266.4333,
+        "total_fees": 116.9003,
+        "slippage_cost": 0.0,
+        "net_pnl": 149.533,
+        "profit_factor": 1.2339
+      }
+    ],
+    "by_month": [
+      {
+        "month": "2023-12",
+        "trades": 88,
+        "wins": 23,
+        "win_rate_pct": 26.1364,
+        "gross_pnl": -13.9,
+        "total_fees": 8.792,
+        "slippage_cost": 0.0,
+        "net_pnl": -22.692,
+        "profit_factor": 0.6147
+      },
+      {
+        "month": "2024-01",
+        "trades": 131,
+        "wins": 46,
+        "win_rate_pct": 35.1145,
+        "gross_pnl": 14.7333,
+        "total_fees": 13.1025,
+        "slippage_cost": 0.0,
+        "net_pnl": 1.6308,
+        "profit_factor": 1.0216
+      },
+      {
+        "month": "2024-02",
+        "trades": 169,
+        "wins": 80,
+        "win_rate_pct": 47.3373,
+        "gross_pnl": 77.5,
+        "total_fees": 16.9469,
+        "slippage_cost": 0.0,
+        "net_pnl": 60.5531,
+        "profit_factor": 1.7562
+      },
+      {
+        "month": "2024-03",
+        "trades": 109,
+        "wins": 43,
+        "win_rate_pct": 39.4495,
+        "gross_pnl": 20.7667,
+        "total_fees": 10.9055,
+        "slippage_cost": 0.0,
+        "net_pnl": 9.8612,
+        "profit_factor": 1.1657
+      },
+      {
+        "month": "2024-04",
+        "trades": 119,
+        "wins": 48,
+        "win_rate_pct": 40.3361,
+        "gross_pnl": 31.0333,
+        "total_fees": 11.894,
+        "slippage_cost": 0.0,
+        "net_pnl": 19.1393,
+        "profit_factor": 1.302
+      },
+      {
+        "month": "2024-05",
+        "trades": 115,
+        "wins": 36,
+        "win_rate_pct": 31.3043,
+        "gross_pnl": 0.5,
+        "total_fees": 11.508,
+        "slippage_cost": 0.0,
+        "net_pnl": -11.008,
+        "profit_factor": 0.8432
+      },
+      {
+        "month": "2024-06",
+        "trades": 105,
+        "wins": 37,
+        "win_rate_pct": 35.2381,
+        "gross_pnl": 11.5333,
+        "total_fees": 10.4907,
+        "slippage_cost": 0.0,
+        "net_pnl": 1.0427,
+        "profit_factor": 1.0166
+      },
+      {
+        "month": "2024-07",
+        "trades": 155,
+        "wins": 62,
+        "win_rate_pct": 40.0,
+        "gross_pnl": 37.0,
+        "total_fees": 15.4916,
+        "slippage_cost": 0.0,
+        "net_pnl": 21.5084,
+        "profit_factor": 1.2548
+      },
+      {
+        "month": "2024-08",
+        "trades": 127,
+        "wins": 63,
+        "win_rate_pct": 49.6063,
+        "gross_pnl": 64.9667,
+        "total_fees": 12.6756,
+        "slippage_cost": 0.0,
+        "net_pnl": 52.2911,
+        "profit_factor": 1.9056
+      },
+      {
+        "month": "2024-09",
+        "trades": 114,
+        "wins": 48,
+        "win_rate_pct": 42.1053,
+        "gross_pnl": 33.2333,
+        "total_fees": 11.4089,
+        "slippage_cost": 0.0,
+        "net_pnl": 21.8244,
+        "profit_factor": 1.3726
+      },
+      {
+        "month": "2024-10",
+        "trades": 109,
+        "wins": 46,
+        "win_rate_pct": 42.2018,
+        "gross_pnl": 32.2333,
+        "total_fees": 10.9028,
+        "slippage_cost": 0.0,
+        "net_pnl": 21.3305,
+        "profit_factor": 1.3725
+      },
+      {
+        "month": "2024-11",
+        "trades": 135,
+        "wins": 61,
+        "win_rate_pct": 45.1852,
+        "gross_pnl": 55.4667,
+        "total_fees": 13.5284,
+        "slippage_cost": 0.0,
+        "net_pnl": 41.9383,
+        "profit_factor": 1.6471
+      },
+      {
+        "month": "2024-12",
+        "trades": 117,
+        "wins": 48,
+        "win_rate_pct": 41.0256,
+        "gross_pnl": 25.9333,
+        "total_fees": 11.7058,
+        "slippage_cost": 0.0,
+        "net_pnl": 14.2275,
+        "profit_factor": 1.2274
+      },
+      {
+        "month": "2025-01",
+        "trades": 129,
+        "wins": 44,
+        "win_rate_pct": 34.1085,
+        "gross_pnl": 13.7333,
+        "total_fees": 12.8921,
+        "slippage_cost": 0.0,
+        "net_pnl": 0.8413,
+        "profit_factor": 1.0113
+      },
+      {
+        "month": "2025-02",
+        "trades": 139,
+        "wins": 47,
+        "win_rate_pct": 33.8129,
+        "gross_pnl": 10.4333,
+        "total_fees": 13.8905,
+        "slippage_cost": 0.0,
+        "net_pnl": -3.4572,
+        "profit_factor": 0.9595
+      },
+      {
+        "month": "2025-03",
+        "trades": 98,
+        "wins": 33,
+        "win_rate_pct": 33.6735,
+        "gross_pnl": 9.3667,
+        "total_fees": 9.8,
+        "slippage_cost": 0.0,
+        "net_pnl": -0.4334,
+        "profit_factor": 0.9927
+      },
+      {
+        "month": "2025-04",
+        "trades": 110,
+        "wins": 44,
+        "win_rate_pct": 40.0,
+        "gross_pnl": 27.3333,
+        "total_fees": 11.0024,
+        "slippage_cost": 0.0,
+        "net_pnl": 16.331,
+        "profit_factor": 1.2756
+      },
+      {
+        "month": "2025-05",
+        "trades": 122,
+        "wins": 48,
+        "win_rate_pct": 39.3443,
+        "gross_pnl": 33.2,
+        "total_fees": 12.224,
+        "slippage_cost": 0.0,
+        "net_pnl": 20.976,
+        "profit_factor": 1.3273
+      },
+      {
+        "month": "2025-06",
+        "trades": 116,
+        "wins": 45,
+        "win_rate_pct": 38.7931,
+        "gross_pnl": 25.8333,
+        "total_fees": 11.5966,
+        "slippage_cost": 0.0,
+        "net_pnl": 14.2367,
+        "profit_factor": 1.2261
+      },
+      {
+        "month": "2025-07",
+        "trades": 137,
+        "wins": 50,
+        "win_rate_pct": 36.4964,
+        "gross_pnl": 27.1667,
+        "total_fees": 13.7151,
+        "slippage_cost": 0.0,
+        "net_pnl": 13.4515,
+        "profit_factor": 1.1772
+      },
+      {
+        "month": "2025-08",
+        "trades": 141,
+        "wins": 52,
+        "win_rate_pct": 36.8794,
+        "gross_pnl": 24.3333,
+        "total_fees": 14.1035,
+        "slippage_cost": 0.0,
+        "net_pnl": 10.2298,
+        "profit_factor": 1.1306
+      },
+      {
+        "month": "2025-09",
+        "trades": 80,
+        "wins": 36,
+        "win_rate_pct": 45.0,
+        "gross_pnl": 28.6,
+        "total_fees": 8.0002,
+        "slippage_cost": 0.0,
+        "net_pnl": 20.5998,
+        "profit_factor": 1.5242
+      },
+      {
+        "month": "2025-10",
+        "trades": 136,
+        "wins": 61,
+        "win_rate_pct": 44.8529,
+        "gross_pnl": 52.6667,
+        "total_fees": 13.6101,
+        "slippage_cost": 0.0,
+        "net_pnl": 39.0565,
+        "profit_factor": 1.575
+      },
+      {
+        "month": "2025-11",
+        "trades": 84,
+        "wins": 33,
+        "win_rate_pct": 39.2857,
+        "gross_pnl": 18.2667,
+        "total_fees": 8.3915,
+        "slippage_cost": 0.0,
+        "net_pnl": 9.8751,
+        "profit_factor": 1.214
+      },
+      {
+        "month": "2025-12",
+        "trades": 96,
+        "wins": 32,
+        "win_rate_pct": 33.3333,
+        "gross_pnl": 3.0667,
+        "total_fees": 9.5957,
+        "slippage_cost": 0.0,
+        "net_pnl": -6.5291,
+        "profit_factor": 0.889
+      },
+      {
+        "month": "2026-01",
+        "trades": 156,
+        "wins": 76,
+        "win_rate_pct": 48.7179,
+        "gross_pnl": 75.4,
+        "total_fees": 15.5752,
+        "slippage_cost": 0.0,
+        "net_pnl": 59.8248,
+        "profit_factor": 1.8379
+      },
+      {
+        "month": "2026-02",
+        "trades": 124,
+        "wins": 44,
+        "win_rate_pct": 35.4839,
+        "gross_pnl": 15.3667,
+        "total_fees": 12.3876,
+        "slippage_cost": 0.0,
+        "net_pnl": 2.9791,
+        "profit_factor": 1.0401
+      },
+      {
+        "month": "2026-03",
+        "trades": 117,
+        "wins": 52,
+        "win_rate_pct": 44.4444,
+        "gross_pnl": 42.7667,
+        "total_fees": 11.7044,
+        "slippage_cost": 0.0,
+        "net_pnl": 31.0622,
+        "profit_factor": 1.5353
+      },
+      {
+        "month": "2026-04",
+        "trades": 116,
+        "wins": 55,
+        "win_rate_pct": 47.4138,
+        "gross_pnl": 47.7667,
+        "total_fees": 11.6302,
+        "slippage_cost": 0.0,
+        "net_pnl": 36.1365,
+        "profit_factor": 1.6579
+      },
+      {
+        "month": "2026-05",
+        "trades": 91,
+        "wins": 30,
+        "win_rate_pct": 32.967,
+        "gross_pnl": 3.7667,
+        "total_fees": 9.095,
+        "slippage_cost": 0.0,
+        "net_pnl": -5.3283,
+        "profit_factor": 0.903
+      },
+      {
+        "month": "2026-06",
+        "trades": 130,
+        "wins": 64,
+        "win_rate_pct": 49.2308,
+        "gross_pnl": 59.2,
+        "total_fees": 12.9811,
+        "slippage_cost": 0.0,
+        "net_pnl": 46.2189,
+        "profit_factor": 1.76
+      },
+      {
+        "month": "2026-07",
+        "trades": 115,
+        "wins": 33,
+        "win_rate_pct": 28.6957,
+        "gross_pnl": -2.4,
+        "total_fees": 11.502,
+        "slippage_cost": 0.0,
+        "net_pnl": -13.902,
+        "profit_factor": 0.8028
+      },
+      {
+        "month": "2026-08",
+        "trades": 128,
+        "wins": 43,
+        "win_rate_pct": 33.5938,
+        "gross_pnl": 10.3667,
+        "total_fees": 12.8166,
+        "slippage_cost": 0.0,
+        "net_pnl": -2.45,
+        "profit_factor": 0.9679
+      },
+      {
+        "month": "2026-09",
+        "trades": 98,
+        "wins": 40,
+        "win_rate_pct": 40.8163,
+        "gross_pnl": 29.3667,
+        "total_fees": 9.8175,
+        "slippage_cost": 0.0,
+        "net_pnl": 19.5492,
+        "profit_factor": 1.3632
+      },
+      {
+        "month": "2026-10",
+        "trades": 94,
+        "wins": 23,
+        "win_rate_pct": 24.4681,
+        "gross_pnl": -15.1667,
+        "total_fees": 9.3907,
+        "slippage_cost": 0.0,
+        "net_pnl": -24.5574,
+        "profit_factor": 0.6185
+      }
+    ],
+    "exit_reasons": {
+      "SL": 2524,
+      "TP": 1626
+    },
+    "decision_reasons": {
+      "ACCEPTED|ACCEPTED": 4150,
+      "SKIPPED|SKIPPED_BY_CONCURRENCY": 1834
+    }
+  },
+  "ONE_TRADE_PER_COMBO__BASE": {
+    "by_symbol": [
+      {
+        "symbol": "BTC-USDT",
+        "trades": 1862,
+        "wins": 757,
+        "win_rate_pct": 40.6552,
+        "gross_pnl": 365.8023,
+        "total_fees": 186.2572,
+        "slippage_cost": 74.5029,
+        "net_pnl": 179.5451,
+        "profit_factor": 1.1776
+      },
+      {
+        "symbol": "ETH-USDT",
+        "trades": 2295,
+        "wins": 834,
+        "win_rate_pct": 36.3399,
+        "gross_pnl": 387.9653,
+        "total_fees": 229.5004,
+        "slippage_cost": 91.8002,
+        "net_pnl": 158.4649,
+        "profit_factor": 1.1179
+      }
+    ],
+    "by_side": [
+      {
+        "side": "BUY",
+        "trades": 2396,
+        "wins": 903,
+        "win_rate_pct": 37.6878,
+        "gross_pnl": 434.5167,
+        "total_fees": 239.8173,
+        "slippage_cost": 95.9269,
+        "net_pnl": 194.6995,
+        "profit_factor": 1.1455
+      },
+      {
+        "side": "SELL",
+        "trades": 1761,
+        "wins": 688,
+        "win_rate_pct": 39.0687,
+        "gross_pnl": 319.2509,
+        "total_fees": 175.9404,
+        "slippage_cost": 70.3762,
+        "net_pnl": 143.3105,
+        "profit_factor": 1.1409
+      }
+    ],
+    "by_year": [
+      {
+        "year": "2023",
+        "trades": 89,
+        "wins": 23,
+        "win_rate_pct": 25.8427,
+        "gross_pnl": -16.4767,
+        "total_fees": 8.8913,
+        "slippage_cost": 3.5565,
+        "net_pnl": -25.368,
+        "profit_factor": 0.5849
+      },
+      {
+        "year": "2024",
+        "trades": 1507,
+        "wins": 603,
+        "win_rate_pct": 40.0133,
+        "gross_pnl": 334.0376,
+        "total_fees": 150.7525,
+        "slippage_cost": 60.301,
+        "net_pnl": 183.2851,
+        "profit_factor": 1.2209
+      },
+      {
+        "year": "2025",
+        "trades": 1388,
+        "wins": 512,
+        "win_rate_pct": 36.8876,
+        "gross_pnl": 212.4659,
+        "total_fees": 138.8166,
+        "slippage_cost": 55.5267,
+        "net_pnl": 73.6493,
+        "profit_factor": 1.0919
+      },
+      {
+        "year": "2026",
+        "trades": 1173,
+        "wins": 453,
+        "win_rate_pct": 38.6189,
+        "gross_pnl": 223.7407,
+        "total_fees": 117.2972,
+        "slippage_cost": 46.9189,
+        "net_pnl": 106.4435,
+        "profit_factor": 1.1604
+      }
+    ],
+    "by_month": [
+      {
+        "month": "2023-12",
+        "trades": 89,
+        "wins": 23,
+        "win_rate_pct": 25.8427,
+        "gross_pnl": -16.4767,
+        "total_fees": 8.8913,
+        "slippage_cost": 3.5565,
+        "net_pnl": -25.368,
+        "profit_factor": 0.5849
+      },
+      {
+        "month": "2024-01",
+        "trades": 131,
+        "wins": 46,
+        "win_rate_pct": 35.1145,
+        "gross_pnl": 12.1123,
+        "total_fees": 13.1024,
+        "slippage_cost": 5.241,
+        "net_pnl": -0.9901,
+        "profit_factor": 0.9872
+      },
+      {
+        "month": "2024-02",
+        "trades": 169,
+        "wins": 77,
+        "win_rate_pct": 45.5621,
+        "gross_pnl": 66.0362,
+        "total_fees": 16.9414,
+        "slippage_cost": 6.7766,
+        "net_pnl": 49.0948,
+        "profit_factor": 1.5799
+      },
+      {
+        "month": "2024-03",
+        "trades": 109,
+        "wins": 41,
+        "win_rate_pct": 37.6147,
+        "gross_pnl": 14.0843,
+        "total_fees": 10.9055,
+        "slippage_cost": 4.3622,
+        "net_pnl": 3.1788,
+        "profit_factor": 1.0506
+      },
+      {
+        "month": "2024-04",
+        "trades": 119,
+        "wins": 47,
+        "win_rate_pct": 39.4958,
+        "gross_pnl": 25.9552,
+        "total_fees": 11.8955,
+        "slippage_cost": 4.7582,
+        "net_pnl": 14.0597,
+        "profit_factor": 1.2136
+      },
+      {
+        "month": "2024-05",
+        "trades": 114,
+        "wins": 35,
+        "win_rate_pct": 30.7018,
+        "gross_pnl": -3.3834,
+        "total_fees": 11.4078,
+        "slippage_cost": 4.5631,
+        "net_pnl": -14.7912,
+        "profit_factor": 0.7927
+      },
+      {
+        "month": "2024-06",
+        "trades": 104,
+        "wins": 36,
+        "win_rate_pct": 34.6154,
+        "gross_pnl": 7.6567,
+        "total_fees": 10.3919,
+        "slippage_cost": 4.1567,
+        "net_pnl": -2.7352,
+        "profit_factor": 0.9573
+      },
+      {
+        "month": "2024-07",
+        "trades": 156,
+        "wins": 61,
+        "win_rate_pct": 39.1026,
+        "gross_pnl": 30.2826,
+        "total_fees": 15.5934,
+        "slippage_cost": 6.2374,
+        "net_pnl": 14.6892,
+        "profit_factor": 1.1664
+      },
+      {
+        "month": "2024-08",
+        "trades": 128,
+        "wins": 61,
+        "win_rate_pct": 47.6562,
+        "gross_pnl": 56.2496,
+        "total_fees": 12.7765,
+        "slippage_cost": 5.1106,
+        "net_pnl": 43.4731,
+        "profit_factor": 1.704
+      },
+      {
+        "month": "2024-09",
+        "trades": 114,
+        "wins": 47,
+        "win_rate_pct": 41.2281,
+        "gross_pnl": 28.2836,
+        "total_fees": 11.4074,
+        "slippage_cost": 4.563,
+        "net_pnl": 16.8762,
+        "profit_factor": 1.2782
+      },
+      {
+        "month": "2024-10",
+        "trades": 109,
+        "wins": 44,
+        "win_rate_pct": 40.367,
+        "gross_pnl": 24.4533,
+        "total_fees": 10.8997,
+        "slippage_cost": 4.3599,
+        "net_pnl": 13.5536,
+        "profit_factor": 1.2246
+      },
+      {
+        "month": "2024-11",
+        "trades": 135,
+        "wins": 60,
+        "win_rate_pct": 44.4444,
+        "gross_pnl": 50.3558,
+        "total_fees": 13.5261,
+        "slippage_cost": 5.4104,
+        "net_pnl": 36.8297,
+        "profit_factor": 1.5497
+      },
+      {
+        "month": "2024-12",
+        "trades": 119,
+        "wins": 48,
+        "win_rate_pct": 40.3361,
+        "gross_pnl": 21.9513,
+        "total_fees": 11.905,
+        "slippage_cost": 4.762,
+        "net_pnl": 10.0463,
+        "profit_factor": 1.1527
+      },
+      {
+        "month": "2025-01",
+        "trades": 129,
+        "wins": 42,
+        "win_rate_pct": 32.5581,
+        "gross_pnl": 5.7565,
+        "total_fees": 12.8919,
+        "slippage_cost": 5.1567,
+        "net_pnl": -7.1354,
+        "profit_factor": 0.9086
+      },
+      {
+        "month": "2025-02",
+        "trades": 139,
+        "wins": 47,
+        "win_rate_pct": 33.8129,
+        "gross_pnl": 7.6571,
+        "total_fees": 13.8915,
+        "slippage_cost": 5.5566,
+        "net_pnl": -6.2344,
+        "profit_factor": 0.9285
+      },
+      {
+        "month": "2025-03",
+        "trades": 99,
+        "wins": 33,
+        "win_rate_pct": 33.3333,
+        "gross_pnl": 6.7201,
+        "total_fees": 9.9001,
+        "slippage_cost": 3.96,
+        "net_pnl": -3.18,
+        "profit_factor": 0.9484
+      },
+      {
+        "month": "2025-04",
+        "trades": 110,
+        "wins": 44,
+        "win_rate_pct": 40.0,
+        "gross_pnl": 25.1324,
+        "total_fees": 11.0023,
+        "slippage_cost": 4.4009,
+        "net_pnl": 14.1301,
+        "profit_factor": 1.2332
+      },
+      {
+        "month": "2025-05",
+        "trades": 122,
+        "wins": 47,
+        "win_rate_pct": 38.5246,
+        "gross_pnl": 28.0509,
+        "total_fees": 12.2218,
+        "slippage_cost": 4.8887,
+        "net_pnl": 15.8292,
+        "profit_factor": 1.2378
+      },
+      {
+        "month": "2025-06",
+        "trades": 117,
+        "wins": 45,
+        "win_rate_pct": 38.4615,
+        "gross_pnl": 22.6945,
+        "total_fees": 11.6968,
+        "slippage_cost": 4.6787,
+        "net_pnl": 10.9977,
+        "profit_factor": 1.1684
+      },
+      {
+        "month": "2025-07",
+        "trades": 137,
+        "wins": 48,
+        "win_rate_pct": 35.0365,
+        "gross_pnl": 18.955,
+        "total_fees": 13.7112,
+        "slippage_cost": 5.4845,
+        "net_pnl": 5.2438,
+        "profit_factor": 1.0661
+      },
+      {
+        "month": "2025-08",
+        "trades": 140,
+        "wins": 48,
+        "win_rate_pct": 34.2857,
+        "gross_pnl": 12.666,
+        "total_fees": 14.0012,
+        "slippage_cost": 5.6005,
+        "net_pnl": -1.3352,
+        "profit_factor": 0.9838
+      },
+      {
+        "month": "2025-09",
+        "trades": 80,
+        "wins": 36,
+        "win_rate_pct": 45.0,
+        "gross_pnl": 26.9999,
+        "total_fees": 8.0001,
+        "slippage_cost": 3.2,
+        "net_pnl": 18.9999,
+        "profit_factor": 1.4729
+      },
+      {
+        "month": "2025-10",
+        "trades": 136,
+        "wins": 60,
+        "win_rate_pct": 44.1176,
+        "gross_pnl": 47.2432,
+        "total_fees": 13.6085,
+        "slippage_cost": 5.4434,
+        "net_pnl": 33.6347,
+        "profit_factor": 1.4775
+      },
+      {
+        "month": "2025-11",
+        "trades": 83,
+        "wins": 30,
+        "win_rate_pct": 36.1446,
+        "gross_pnl": 9.442,
+        "total_fees": 8.2954,
+        "slippage_cost": 3.3182,
+        "net_pnl": 1.1465,
+        "profit_factor": 1.0234
+      },
+      {
+        "month": "2025-12",
+        "trades": 96,
+        "wins": 32,
+        "win_rate_pct": 33.3333,
+        "gross_pnl": 1.1484,
+        "total_fees": 9.5959,
+        "slippage_cost": 3.8384,
+        "net_pnl": -8.4475,
+        "profit_factor": 0.8595
+      },
+      {
+        "month": "2026-01",
+        "trades": 159,
+        "wins": 76,
+        "win_rate_pct": 47.7987,
+        "gross_pnl": 69.8301,
+        "total_fees": 15.875,
+        "slippage_cost": 6.35,
+        "net_pnl": 53.9551,
+        "profit_factor": 1.7122
+      },
+      {
+        "month": "2026-02",
+        "trades": 124,
+        "wins": 43,
+        "win_rate_pct": 34.6774,
+        "gross_pnl": 10.1911,
+        "total_fees": 12.3899,
+        "slippage_cost": 4.9559,
+        "net_pnl": -2.1988,
+        "profit_factor": 0.9714
+      },
+      {
+        "month": "2026-03",
+        "trades": 119,
+        "wins": 52,
+        "win_rate_pct": 43.6975,
+        "gross_pnl": 38.7852,
+        "total_fees": 11.9033,
+        "slippage_cost": 4.7613,
+        "net_pnl": 26.8819,
+        "profit_factor": 1.4395
+      },
+      {
+        "month": "2026-04",
+        "trades": 114,
+        "wins": 55,
+        "win_rate_pct": 48.2456,
+        "gross_pnl": 46.941,
+        "total_fees": 11.4303,
+        "slippage_cost": 4.5721,
+        "net_pnl": 35.5107,
+        "profit_factor": 1.6523
+      },
+      {
+        "month": "2026-05",
+        "trades": 91,
+        "wins": 29,
+        "win_rate_pct": 31.8681,
+        "gross_pnl": 0.549,
+        "total_fees": 9.0943,
+        "slippage_cost": 3.6377,
+        "net_pnl": -8.5453,
+        "profit_factor": 0.8492
+      },
+      {
+        "month": "2026-06",
+        "trades": 130,
+        "wins": 63,
+        "win_rate_pct": 48.4615,
+        "gross_pnl": 54.6072,
+        "total_fees": 12.9828,
+        "slippage_cost": 5.1931,
+        "net_pnl": 41.6244,
+        "profit_factor": 1.6601
+      },
+      {
+        "month": "2026-07",
+        "trades": 116,
+        "wins": 33,
+        "win_rate_pct": 28.4483,
+        "gross_pnl": -5.5206,
+        "total_fees": 11.6008,
+        "slippage_cost": 4.6403,
+        "net_pnl": -17.1215,
+        "profit_factor": 0.7656
+      },
+      {
+        "month": "2026-08",
+        "trades": 127,
+        "wins": 41,
+        "win_rate_pct": 32.2835,
+        "gross_pnl": 4.02,
+        "total_fees": 12.7159,
+        "slippage_cost": 5.0864,
+        "net_pnl": -8.696,
+        "profit_factor": 0.8898
+      },
+      {
+        "month": "2026-09",
+        "trades": 99,
+        "wins": 38,
+        "win_rate_pct": 38.3838,
+        "gross_pnl": 21.3809,
+        "total_fees": 9.914,
+        "slippage_cost": 3.9656,
+        "net_pnl": 11.4668,
+        "profit_factor": 1.1986
+      },
+      {
+        "month": "2026-10",
+        "trades": 94,
+        "wins": 23,
+        "win_rate_pct": 24.4681,
+        "gross_pnl": -17.043,
+        "total_fees": 9.3909,
+        "slippage_cost": 3.7563,
+        "net_pnl": -26.4338,
+        "profit_factor": 0.5982
+      }
+    ],
+    "exit_reasons": {
+      "SL": 2566,
+      "TP": 1591
+    },
+    "decision_reasons": {
+      "ACCEPTED|ACCEPTED": 4157,
+      "SKIPPED|SKIPPED_BY_CONCURRENCY": 1827
+    }
+  },
+  "ONE_TRADE_PER_COMBO__STRESS": {
+    "by_symbol": [
+      {
+        "symbol": "BTC-USDT",
+        "trades": 1869,
+        "wins": 729,
+        "win_rate_pct": 39.0048,
+        "gross_pnl": 234.9936,
+        "total_fees": 186.9471,
+        "slippage_cost": 186.9472,
+        "net_pnl": 48.0465,
+        "profit_factor": 1.0446
+      },
+      {
+        "symbol": "ETH-USDT",
+        "trades": 2299,
+        "wins": 806,
+        "win_rate_pct": 35.0587,
+        "gross_pnl": 239.1256,
+        "total_fees": 229.9174,
+        "slippage_cost": 229.9175,
+        "net_pnl": 9.2082,
+        "profit_factor": 1.0065
+      }
+    ],
+    "by_side": [
+      {
+        "side": "BUY",
+        "trades": 2404,
+        "wins": 882,
+        "win_rate_pct": 36.6889,
+        "gross_pnl": 301.5889,
+        "total_fees": 240.5508,
+        "slippage_cost": 240.5509,
+        "net_pnl": 61.0381,
+        "profit_factor": 1.0433
+      },
+      {
+        "side": "SELL",
+        "trades": 1764,
+        "wins": 653,
+        "win_rate_pct": 37.0181,
+        "gross_pnl": 172.5303,
+        "total_fees": 176.3137,
+        "slippage_cost": 176.3138,
+        "net_pnl": -3.7834,
+        "profit_factor": 0.9965
+      }
+    ],
+    "by_year": [
+      {
+        "year": "2023",
+        "trades": 89,
+        "wins": 23,
+        "win_rate_pct": 25.8427,
+        "gross_pnl": -19.1416,
+        "total_fees": 8.8909,
+        "slippage_cost": 8.8909,
+        "net_pnl": -28.0325,
+        "profit_factor": 0.5556
+      },
+      {
+        "year": "2024",
+        "trades": 1513,
+        "wins": 579,
+        "win_rate_pct": 38.2683,
+        "gross_pnl": 221.5281,
+        "total_fees": 151.3469,
+        "slippage_cost": 151.347,
+        "net_pnl": 70.1812,
+        "profit_factor": 1.0792
+      },
+      {
+        "year": "2025",
+        "trades": 1389,
+        "wins": 494,
+        "win_rate_pct": 35.5652,
+        "gross_pnl": 122.1918,
+        "total_fees": 138.9204,
+        "slippage_cost": 138.9205,
+        "net_pnl": -16.7286,
+        "profit_factor": 0.9802
+      },
+      {
+        "year": "2026",
+        "trades": 1177,
+        "wins": 439,
+        "win_rate_pct": 37.2982,
+        "gross_pnl": 149.5409,
+        "total_fees": 117.7064,
+        "slippage_cost": 117.7064,
+        "net_pnl": 31.8346,
+        "profit_factor": 1.0453
+      }
+    ],
+    "by_month": [
+      {
+        "month": "2023-12",
+        "trades": 89,
+        "wins": 23,
+        "win_rate_pct": 25.8427,
+        "gross_pnl": -19.1416,
+        "total_fees": 8.8909,
+        "slippage_cost": 8.8909,
+        "net_pnl": -28.0325,
+        "profit_factor": 0.5556
+      },
+      {
+        "month": "2024-01",
+        "trades": 132,
+        "wins": 46,
+        "win_rate_pct": 34.8485,
+        "gross_pnl": 7.3312,
+        "total_fees": 13.2018,
+        "slippage_cost": 13.2018,
+        "net_pnl": -5.8706,
+        "profit_factor": 0.9273
+      },
+      {
+        "month": "2024-02",
+        "trades": 169,
+        "wins": 74,
+        "win_rate_pct": 43.787,
+        "gross_pnl": 53.5422,
+        "total_fees": 16.9375,
+        "slippage_cost": 16.9375,
+        "net_pnl": 36.6047,
+        "profit_factor": 1.4042
+      },
+      {
+        "month": "2024-03",
+        "trades": 109,
+        "wins": 38,
+        "win_rate_pct": 34.8624,
+        "gross_pnl": 2.6093,
+        "total_fees": 10.9062,
+        "slippage_cost": 10.9062,
+        "net_pnl": -8.2968,
+        "profit_factor": 0.8777
+      },
+      {
+        "month": "2024-04",
+        "trades": 119,
+        "wins": 47,
+        "win_rate_pct": 39.4958,
+        "gross_pnl": 22.388,
+        "total_fees": 11.8956,
+        "slippage_cost": 11.8956,
+        "net_pnl": 10.4923,
+        "profit_factor": 1.1544
+      },
+      {
+        "month": "2024-05",
+        "trades": 117,
+        "wins": 34,
+        "win_rate_pct": 29.0598,
+        "gross_pnl": -12.3557,
+        "total_fees": 11.7042,
+        "slippage_cost": 11.7042,
+        "net_pnl": -24.0598,
+        "profit_factor": 0.6912
+      },
+      {
+        "month": "2024-06",
+        "trades": 105,
+        "wins": 35,
+        "win_rate_pct": 33.3333,
+        "gross_pnl": 1.1234,
+        "total_fees": 10.494,
+        "slippage_cost": 10.494,
+        "net_pnl": -9.3706,
+        "profit_factor": 0.8621
+      },
+      {
+        "month": "2024-07",
+        "trades": 156,
+        "wins": 58,
+        "win_rate_pct": 37.1795,
+        "gross_pnl": 17.1051,
+        "total_fees": 15.5949,
+        "slippage_cost": 15.5949,
+        "net_pnl": 1.5102,
+        "profit_factor": 1.016
+      },
+      {
+        "month": "2024-08",
+        "trades": 126,
+        "wins": 61,
+        "win_rate_pct": 48.4127,
+        "gross_pnl": 54.1248,
+        "total_fees": 12.5765,
+        "slippage_cost": 12.5765,
+        "net_pnl": 41.5483,
+        "profit_factor": 1.6716
+      },
+      {
+        "month": "2024-09",
+        "trades": 113,
+        "wins": 45,
+        "win_rate_pct": 39.823,
+        "gross_pnl": 21.111,
+        "total_fees": 11.3053,
+        "slippage_cost": 11.3053,
+        "net_pnl": 9.8057,
+        "profit_factor": 1.1539
+      },
+      {
+        "month": "2024-10",
+        "trades": 111,
+        "wins": 41,
+        "win_rate_pct": 36.9369,
+        "gross_pnl": 11.0827,
+        "total_fees": 11.0998,
+        "slippage_cost": 11.0998,
+        "net_pnl": -0.0171,
+        "profit_factor": 0.9997
+      },
+      {
+        "month": "2024-11",
+        "trades": 135,
+        "wins": 59,
+        "win_rate_pct": 43.7037,
+        "gross_pnl": 43.6242,
+        "total_fees": 13.5231,
+        "slippage_cost": 13.5231,
+        "net_pnl": 30.1011,
+        "profit_factor": 1.4297
+      },
+      {
+        "month": "2024-12",
+        "trades": 121,
+        "wins": 41,
+        "win_rate_pct": 33.8843,
+        "gross_pnl": -0.1581,
+        "total_fees": 12.108,
+        "slippage_cost": 12.108,
+        "net_pnl": -12.2662,
+        "profit_factor": 0.8397
+      },
+      {
+        "month": "2025-01",
+        "trades": 127,
+        "wins": 35,
+        "win_rate_pct": 27.5591,
+        "gross_pnl": -15.8789,
+        "total_fees": 12.695,
+        "slippage_cost": 12.695,
+        "net_pnl": -28.5738,
+        "profit_factor": 0.6651
+      },
+      {
+        "month": "2025-02",
+        "trades": 139,
+        "wins": 47,
+        "win_rate_pct": 33.8129,
+        "gross_pnl": 3.4928,
+        "total_fees": 13.893,
+        "slippage_cost": 13.893,
+        "net_pnl": -10.4002,
+        "profit_factor": 0.8843
+      },
+      {
+        "month": "2025-03",
+        "trades": 100,
+        "wins": 33,
+        "win_rate_pct": 33.0,
+        "gross_pnl": 3.0339,
+        "total_fees": 10.0003,
+        "slippage_cost": 10.0003,
+        "net_pnl": -6.9663,
+        "profit_factor": 0.8919
+      },
+      {
+        "month": "2025-04",
+        "trades": 111,
+        "wins": 43,
+        "win_rate_pct": 38.7387,
+        "gross_pnl": 18.3134,
+        "total_fees": 11.1031,
+        "slippage_cost": 11.1031,
+        "net_pnl": 7.2103,
+        "profit_factor": 1.1121
+      },
+      {
+        "month": "2025-05",
+        "trades": 121,
+        "wins": 47,
+        "win_rate_pct": 38.843,
+        "gross_pnl": 25.227,
+        "total_fees": 12.1209,
+        "slippage_cost": 12.1209,
+        "net_pnl": 13.1061,
+        "profit_factor": 1.1931
+      },
+      {
+        "month": "2025-06",
+        "trades": 117,
+        "wins": 43,
+        "win_rate_pct": 36.7521,
+        "gross_pnl": 15.0856,
+        "total_fees": 11.6972,
+        "slippage_cost": 11.6972,
+        "net_pnl": 3.3885,
+        "profit_factor": 1.0491
+      },
+      {
+        "month": "2025-07",
+        "trades": 138,
+        "wins": 47,
+        "win_rate_pct": 34.058,
+        "gross_pnl": 11.2893,
+        "total_fees": 13.8077,
+        "slippage_cost": 13.8077,
+        "net_pnl": -2.5183,
+        "profit_factor": 0.97
+      },
+      {
+        "month": "2025-08",
+        "trades": 141,
+        "wins": 48,
+        "win_rate_pct": 34.0426,
+        "gross_pnl": 7.7479,
+        "total_fees": 14.1006,
+        "slippage_cost": 14.1006,
+        "net_pnl": -6.3527,
+        "profit_factor": 0.9263
+      },
+      {
+        "month": "2025-09",
+        "trades": 80,
+        "wins": 36,
+        "win_rate_pct": 45.0,
+        "gross_pnl": 24.5998,
+        "total_fees": 7.9998,
+        "slippage_cost": 7.9998,
+        "net_pnl": 16.6,
+        "profit_factor": 1.4001
+      },
+      {
+        "month": "2025-10",
+        "trades": 137,
+        "wins": 57,
+        "win_rate_pct": 41.6058,
+        "gross_pnl": 34.0073,
+        "total_fees": 13.7087,
+        "slippage_cost": 13.7087,
+        "net_pnl": 20.2986,
+        "profit_factor": 1.2649
+      },
+      {
+        "month": "2025-11",
+        "trades": 82,
+        "wins": 28,
+        "win_rate_pct": 34.1463,
+        "gross_pnl": 2.5026,
+        "total_fees": 8.1982,
+        "slippage_cost": 8.1982,
+        "net_pnl": -5.6955,
+        "profit_factor": 0.8897
+      },
+      {
+        "month": "2025-12",
+        "trades": 96,
+        "wins": 30,
+        "win_rate_pct": 31.25,
+        "gross_pnl": -7.229,
+        "total_fees": 9.5961,
+        "slippage_cost": 9.5961,
+        "net_pnl": -16.8252,
+        "profit_factor": 0.7373
+      },
+      {
+        "month": "2026-01",
+        "trades": 159,
+        "wins": 74,
+        "win_rate_pct": 46.5409,
+        "gross_pnl": 60.8731,
+        "total_fees": 15.8772,
+        "slippage_cost": 15.8773,
+        "net_pnl": 44.9958,
+        "profit_factor": 1.5628
+      },
+      {
+        "month": "2026-02",
+        "trades": 124,
+        "wins": 40,
+        "win_rate_pct": 32.2581,
+        "gross_pnl": -1.8264,
+        "total_fees": 12.3954,
+        "slippage_cost": 12.3954,
+        "net_pnl": -14.2218,
+        "profit_factor": 0.8272
+      },
+      {
+        "month": "2026-03",
+        "trades": 119,
+        "wins": 52,
+        "win_rate_pct": 43.6975,
+        "gross_pnl": 35.213,
+        "total_fees": 11.9028,
+        "slippage_cost": 11.9028,
+        "net_pnl": 23.3102,
+        "profit_factor": 1.369
+      },
+      {
+        "month": "2026-04",
+        "trades": 116,
+        "wins": 53,
+        "win_rate_pct": 45.6897,
+        "gross_pnl": 36.4023,
+        "total_fees": 11.6295,
+        "slippage_cost": 11.6295,
+        "net_pnl": 24.7729,
+        "profit_factor": 1.4129
+      },
+      {
+        "month": "2026-05",
+        "trades": 91,
+        "wins": 26,
+        "win_rate_pct": 28.5714,
+        "gross_pnl": -10.179,
+        "total_fees": 9.0957,
+        "slippage_cost": 9.0957,
+        "net_pnl": -19.2747,
+        "profit_factor": 0.687
+      },
+      {
+        "month": "2026-06",
+        "trades": 130,
+        "wins": 60,
+        "win_rate_pct": 46.1538,
+        "gross_pnl": 42.814,
+        "total_fees": 12.9879,
+        "slippage_cost": 12.9879,
+        "net_pnl": 29.8261,
+        "profit_factor": 1.4397
+      },
+      {
+        "month": "2026-07",
+        "trades": 116,
+        "wins": 33,
+        "win_rate_pct": 28.4483,
+        "gross_pnl": -9.0016,
+        "total_fees": 11.5998,
+        "slippage_cost": 11.5998,
+        "net_pnl": -20.6013,
+        "profit_factor": 0.7272
+      },
+      {
+        "month": "2026-08",
+        "trades": 127,
+        "wins": 40,
+        "win_rate_pct": 31.4961,
+        "gross_pnl": -1.5992,
+        "total_fees": 12.7138,
+        "slippage_cost": 12.7138,
+        "net_pnl": -14.313,
+        "profit_factor": 0.8264
+      },
+      {
+        "month": "2026-09",
+        "trades": 99,
+        "wins": 38,
+        "win_rate_pct": 38.3838,
+        "gross_pnl": 18.4022,
+        "total_fees": 9.9134,
+        "slippage_cost": 9.9134,
+        "net_pnl": 8.4888,
+        "profit_factor": 1.1425
+      },
+      {
+        "month": "2026-10",
+        "trades": 96,
+        "wins": 23,
+        "win_rate_pct": 23.9583,
+        "gross_pnl": -21.5574,
+        "total_fees": 9.5911,
+        "slippage_cost": 9.5911,
+        "net_pnl": -31.1485,
+        "profit_factor": 0.5539
+      }
+    ],
+    "exit_reasons": {
+      "SL": 2633,
+      "TP": 1535
+    },
+    "decision_reasons": {
+      "ACCEPTED|ACCEPTED": 4168,
+      "SKIPPED|SKIPPED_BY_CONCURRENCY": 1816
+    }
+  },
+  "BINGX_PORTFOLIO__IDEAL": {
+    "by_symbol": [
+      {
+        "symbol": "BTC-USDT",
+        "trades": 1861,
+        "wins": 792,
+        "win_rate_pct": 42.5578,
+        "gross_pnl": 447.6,
+        "total_fees": 186.1612,
+        "slippage_cost": 0.0,
+        "net_pnl": 261.4388,
+        "profit_factor": 1.2885
+      },
+      {
+        "symbol": "ETH-USDT",
+        "trades": 2289,
+        "wins": 866,
+        "win_rate_pct": 37.8331,
+        "gross_pnl": 483.8333,
+        "total_fees": 228.9138,
+        "slippage_cost": 0.0,
+        "net_pnl": 254.9195,
+        "profit_factor": 1.2056
+      }
+    ],
+    "by_side": [
+      {
+        "side": "BUY",
+        "trades": 2389,
+        "wins": 947,
+        "win_rate_pct": 39.64,
+        "gross_pnl": 540.6666,
+        "total_fees": 239.1703,
+        "slippage_cost": 0.0,
+        "net_pnl": 301.4962,
+        "profit_factor": 1.2518
+      },
+      {
+        "side": "SELL",
+        "trades": 1761,
+        "wins": 711,
+        "win_rate_pct": 40.3748,
+        "gross_pnl": 390.7667,
+        "total_fees": 175.9046,
+        "slippage_cost": 0.0,
+        "net_pnl": 214.862,
+        "profit_factor": 1.2265
+      }
+    ],
+    "by_year": [
+      {
+        "year": "2023",
+        "trades": 88,
+        "wins": 23,
+        "win_rate_pct": 26.1364,
+        "gross_pnl": -13.9,
+        "total_fees": 8.792,
+        "slippage_cost": 0.0,
+        "net_pnl": -22.692,
+        "profit_factor": 0.606
+      },
+      {
+        "year": "2024",
+        "trades": 1505,
+        "wins": 629,
+        "win_rate_pct": 41.794,
+        "gross_pnl": 404.9,
+        "total_fees": 150.5606,
+        "slippage_cost": 0.0,
+        "net_pnl": 254.3393,
+        "profit_factor": 1.3393
+      },
+      {
+        "year": "2025",
+        "trades": 1388,
+        "wins": 540,
+        "win_rate_pct": 38.9049,
+        "gross_pnl": 274.0,
+        "total_fees": 138.8219,
+        "slippage_cost": 0.0,
+        "net_pnl": 135.178,
+        "profit_factor": 1.1862
+      },
+      {
+        "year": "2026",
+        "trades": 1169,
+        "wins": 466,
+        "win_rate_pct": 39.8631,
+        "gross_pnl": 266.4333,
+        "total_fees": 116.9003,
+        "slippage_cost": 0.0,
+        "net_pnl": 149.533,
+        "profit_factor": 1.2442
+      }
+    ],
+    "by_month": [
+      {
+        "month": "2023-12",
+        "trades": 88,
+        "wins": 23,
+        "win_rate_pct": 26.1364,
+        "gross_pnl": -13.9,
+        "total_fees": 8.792,
+        "slippage_cost": 0.0,
+        "net_pnl": -22.692,
+        "profit_factor": 0.606
+      },
+      {
+        "month": "2024-01",
+        "trades": 131,
+        "wins": 46,
+        "win_rate_pct": 35.1145,
+        "gross_pnl": 14.7333,
+        "total_fees": 13.1025,
+        "slippage_cost": 0.0,
+        "net_pnl": 1.6308,
+        "profit_factor": 1.0226
+      },
+      {
+        "month": "2024-02",
+        "trades": 169,
+        "wins": 82,
+        "win_rate_pct": 48.5207,
+        "gross_pnl": 77.5,
+        "total_fees": 16.9469,
+        "slippage_cost": 0.0,
+        "net_pnl": 60.5531,
+        "profit_factor": 1.8884
+      },
+      {
+        "month": "2024-03",
+        "trades": 109,
+        "wins": 44,
+        "win_rate_pct": 40.367,
+        "gross_pnl": 19.9827,
+        "total_fees": 10.9055,
+        "slippage_cost": 0.0,
+        "net_pnl": 9.0772,
+        "profit_factor": 1.1611
+      },
+      {
+        "month": "2024-04",
+        "trades": 119,
+        "wins": 48,
+        "win_rate_pct": 40.3361,
+        "gross_pnl": 31.8173,
+        "total_fees": 11.894,
+        "slippage_cost": 0.0,
+        "net_pnl": 19.9233,
+        "profit_factor": 1.3354
+      },
+      {
+        "month": "2024-05",
+        "trades": 115,
+        "wins": 39,
+        "win_rate_pct": 33.913,
+        "gross_pnl": 0.5,
+        "total_fees": 11.508,
+        "slippage_cost": 0.0,
+        "net_pnl": -11.008,
+        "profit_factor": 0.8323
+      },
+      {
+        "month": "2024-06",
+        "trades": 105,
+        "wins": 37,
+        "win_rate_pct": 35.2381,
+        "gross_pnl": 9.834,
+        "total_fees": 10.4907,
+        "slippage_cost": 0.0,
+        "net_pnl": -0.6567,
+        "profit_factor": 0.9887
+      },
+      {
+        "month": "2024-07",
+        "trades": 155,
+        "wins": 63,
+        "win_rate_pct": 40.6452,
+        "gross_pnl": 37.8837,
+        "total_fees": 15.4916,
+        "slippage_cost": 0.0,
+        "net_pnl": 22.3921,
+        "profit_factor": 1.2834
+      },
+      {
+        "month": "2024-08",
+        "trades": 127,
+        "wins": 64,
+        "win_rate_pct": 50.3937,
+        "gross_pnl": 65.7823,
+        "total_fees": 12.6756,
+        "slippage_cost": 0.0,
+        "net_pnl": 53.1067,
+        "profit_factor": 1.9378
+      },
+      {
+        "month": "2024-09",
+        "trades": 114,
+        "wins": 50,
+        "win_rate_pct": 43.8596,
+        "gross_pnl": 33.2333,
+        "total_fees": 11.4089,
+        "slippage_cost": 0.0,
+        "net_pnl": 21.8244,
+        "profit_factor": 1.3796
+      },
+      {
+        "month": "2024-10",
+        "trades": 109,
+        "wins": 47,
+        "win_rate_pct": 43.1193,
+        "gross_pnl": 32.2333,
+        "total_fees": 10.9028,
+        "slippage_cost": 0.0,
+        "net_pnl": 21.3305,
+        "profit_factor": 1.3861
+      },
+      {
+        "month": "2024-11",
+        "trades": 135,
+        "wins": 61,
+        "win_rate_pct": 45.1852,
+        "gross_pnl": 55.4667,
+        "total_fees": 13.5284,
+        "slippage_cost": 0.0,
+        "net_pnl": 41.9383,
+        "profit_factor": 1.6801
+      },
+      {
+        "month": "2024-12",
+        "trades": 117,
+        "wins": 48,
+        "win_rate_pct": 41.0256,
+        "gross_pnl": 25.9333,
+        "total_fees": 11.7058,
+        "slippage_cost": 0.0,
+        "net_pnl": 14.2275,
+        "profit_factor": 1.2387
+      },
+      {
+        "month": "2025-01",
+        "trades": 129,
+        "wins": 46,
+        "win_rate_pct": 35.6589,
+        "gross_pnl": 13.7333,
+        "total_fees": 12.8921,
+        "slippage_cost": 0.0,
+        "net_pnl": 0.8413,
+        "profit_factor": 1.012
+      },
+      {
+        "month": "2025-02",
+        "trades": 139,
+        "wins": 47,
+        "win_rate_pct": 33.8129,
+        "gross_pnl": 10.4333,
+        "total_fees": 13.8905,
+        "slippage_cost": 0.0,
+        "net_pnl": -3.4572,
+        "profit_factor": 0.9587
+      },
+      {
+        "month": "2025-03",
+        "trades": 98,
+        "wins": 35,
+        "win_rate_pct": 35.7143,
+        "gross_pnl": 9.3667,
+        "total_fees": 9.8,
+        "slippage_cost": 0.0,
+        "net_pnl": -0.4334,
+        "profit_factor": 0.9924
+      },
+      {
+        "month": "2025-04",
+        "trades": 110,
+        "wins": 45,
+        "win_rate_pct": 40.9091,
+        "gross_pnl": 27.3333,
+        "total_fees": 11.0024,
+        "slippage_cost": 0.0,
+        "net_pnl": 16.331,
+        "profit_factor": 1.2893
+      },
+      {
+        "month": "2025-05",
+        "trades": 122,
+        "wins": 49,
+        "win_rate_pct": 40.1639,
+        "gross_pnl": 33.2,
+        "total_fees": 12.224,
+        "slippage_cost": 0.0,
+        "net_pnl": 20.976,
+        "profit_factor": 1.3478
+      },
+      {
+        "month": "2025-06",
+        "trades": 116,
+        "wins": 46,
+        "win_rate_pct": 39.6552,
+        "gross_pnl": 25.8333,
+        "total_fees": 11.5966,
+        "slippage_cost": 0.0,
+        "net_pnl": 14.2367,
+        "profit_factor": 1.245
+      },
+      {
+        "month": "2025-07",
+        "trades": 137,
+        "wins": 53,
+        "win_rate_pct": 38.6861,
+        "gross_pnl": 27.1667,
+        "total_fees": 13.7151,
+        "slippage_cost": 0.0,
+        "net_pnl": 13.4515,
+        "profit_factor": 1.1892
+      },
+      {
+        "month": "2025-08",
+        "trades": 141,
+        "wins": 56,
+        "win_rate_pct": 39.7163,
+        "gross_pnl": 24.3333,
+        "total_fees": 14.1035,
+        "slippage_cost": 0.0,
+        "net_pnl": 10.2298,
+        "profit_factor": 1.1498
+      },
+      {
+        "month": "2025-09",
+        "trades": 80,
+        "wins": 37,
+        "win_rate_pct": 46.25,
+        "gross_pnl": 28.6,
+        "total_fees": 8.0002,
+        "slippage_cost": 0.0,
+        "net_pnl": 20.5998,
+        "profit_factor": 1.5534
+      },
+      {
+        "month": "2025-10",
+        "trades": 136,
+        "wins": 61,
+        "win_rate_pct": 44.8529,
+        "gross_pnl": 52.6667,
+        "total_fees": 13.6101,
+        "slippage_cost": 0.0,
+        "net_pnl": 39.0565,
+        "profit_factor": 1.6344
+      },
+      {
+        "month": "2025-11",
+        "trades": 84,
+        "wins": 33,
+        "win_rate_pct": 39.2857,
+        "gross_pnl": 18.2667,
+        "total_fees": 8.3915,
+        "slippage_cost": 0.0,
+        "net_pnl": 9.8751,
+        "profit_factor": 1.214
+      },
+      {
+        "month": "2025-12",
+        "trades": 96,
+        "wins": 32,
+        "win_rate_pct": 33.3333,
+        "gross_pnl": 3.0667,
+        "total_fees": 9.5957,
+        "slippage_cost": 0.0,
+        "net_pnl": -6.5291,
+        "profit_factor": 0.8838
+      },
+      {
+        "month": "2026-01",
+        "trades": 156,
+        "wins": 76,
+        "win_rate_pct": 48.7179,
+        "gross_pnl": 75.3435,
+        "total_fees": 15.5752,
+        "slippage_cost": 0.0,
+        "net_pnl": 59.7683,
+        "profit_factor": 1.8639
+      },
+      {
+        "month": "2026-02",
+        "trades": 124,
+        "wins": 44,
+        "win_rate_pct": 35.4839,
+        "gross_pnl": 15.4232,
+        "total_fees": 12.3876,
+        "slippage_cost": 0.0,
+        "net_pnl": 3.0356,
+        "profit_factor": 1.0414
+      },
+      {
+        "month": "2026-03",
+        "trades": 117,
+        "wins": 52,
+        "win_rate_pct": 44.4444,
+        "gross_pnl": 42.7667,
+        "total_fees": 11.7044,
+        "slippage_cost": 0.0,
+        "net_pnl": 31.0622,
+        "profit_factor": 1.5487
+      },
+      {
+        "month": "2026-04",
+        "trades": 116,
+        "wins": 55,
+        "win_rate_pct": 47.4138,
+        "gross_pnl": 47.7667,
+        "total_fees": 11.6302,
+        "slippage_cost": 0.0,
+        "net_pnl": 36.1365,
+        "profit_factor": 1.6819
+      },
+      {
+        "month": "2026-05",
+        "trades": 91,
+        "wins": 31,
+        "win_rate_pct": 34.0659,
+        "gross_pnl": 3.3446,
+        "total_fees": 9.095,
+        "slippage_cost": 0.0,
+        "net_pnl": -5.7504,
+        "profit_factor": 0.8853
+      },
+      {
+        "month": "2026-06",
+        "trades": 130,
+        "wins": 66,
+        "win_rate_pct": 50.7692,
+        "gross_pnl": 59.6221,
+        "total_fees": 12.9811,
+        "slippage_cost": 0.0,
+        "net_pnl": 46.641,
+        "profit_factor": 1.8233
+      },
+      {
+        "month": "2026-07",
+        "trades": 115,
+        "wins": 33,
+        "win_rate_pct": 28.6957,
+        "gross_pnl": -2.9736,
+        "total_fees": 11.502,
+        "slippage_cost": 0.0,
+        "net_pnl": -14.4755,
+        "profit_factor": 0.7894
+      },
+      {
+        "month": "2026-08",
+        "trades": 128,
+        "wins": 43,
+        "win_rate_pct": 33.5938,
+        "gross_pnl": 10.9402,
+        "total_fees": 12.8166,
+        "slippage_cost": 0.0,
+        "net_pnl": -1.8764,
+        "profit_factor": 0.9745
+      },
+      {
+        "month": "2026-09",
+        "trades": 98,
+        "wins": 43,
+        "win_rate_pct": 43.8776,
+        "gross_pnl": 29.3667,
+        "total_fees": 9.8175,
+        "slippage_cost": 0.0,
+        "net_pnl": 19.5492,
+        "profit_factor": 1.4125
+      },
+      {
+        "month": "2026-10",
+        "trades": 94,
+        "wins": 23,
+        "win_rate_pct": 24.4681,
+        "gross_pnl": -15.1667,
+        "total_fees": 9.3907,
+        "slippage_cost": 0.0,
+        "net_pnl": -24.5574,
+        "profit_factor": 0.6154
+      }
+    ],
+    "exit_reasons": {
+      "SL": 2524,
+      "TP": 1626
+    },
+    "decision_reasons": {
+      "ACCEPTED|ACCEPTED": 4150,
+      "SKIPPED|SKIPPED_BY_CONCURRENCY": 1834
+    }
+  },
+  "BINGX_PORTFOLIO__BASE": {
+    "by_symbol": [
+      {
+        "symbol": "BTC-USDT",
+        "trades": 1862,
+        "wins": 776,
+        "win_rate_pct": 41.6756,
+        "gross_pnl": 365.8023,
+        "total_fees": 186.2572,
+        "slippage_cost": 74.5029,
+        "net_pnl": 179.5451,
+        "profit_factor": 1.1905
+      },
+      {
+        "symbol": "ETH-USDT",
+        "trades": 2295,
+        "wins": 849,
+        "win_rate_pct": 36.9935,
+        "gross_pnl": 387.9653,
+        "total_fees": 229.5004,
+        "slippage_cost": 91.8002,
+        "net_pnl": 158.4649,
+        "profit_factor": 1.1228
+      }
+    ],
+    "by_side": [
+      {
+        "side": "BUY",
+        "trades": 2396,
+        "wins": 928,
+        "win_rate_pct": 38.7312,
+        "gross_pnl": 434.5167,
+        "total_fees": 239.8173,
+        "slippage_cost": 95.9269,
+        "net_pnl": 194.6995,
+        "profit_factor": 1.1556
+      },
+      {
+        "side": "SELL",
+        "trades": 1761,
+        "wins": 697,
+        "win_rate_pct": 39.5798,
+        "gross_pnl": 319.2509,
+        "total_fees": 175.9404,
+        "slippage_cost": 70.3762,
+        "net_pnl": 143.3105,
+        "profit_factor": 1.1459
+      }
+    ],
+    "by_year": [
+      {
+        "year": "2023",
+        "trades": 89,
+        "wins": 23,
+        "win_rate_pct": 25.8427,
+        "gross_pnl": -16.4767,
+        "total_fees": 8.8913,
+        "slippage_cost": 3.5565,
+        "net_pnl": -25.368,
+        "profit_factor": 0.5759
+      },
+      {
+        "year": "2024",
+        "trades": 1507,
+        "wins": 615,
+        "win_rate_pct": 40.8096,
+        "gross_pnl": 334.0376,
+        "total_fees": 150.7525,
+        "slippage_cost": 60.301,
+        "net_pnl": 183.2851,
+        "profit_factor": 1.2342
+      },
+      {
+        "year": "2025",
+        "trades": 1388,
+        "wins": 527,
+        "win_rate_pct": 37.9683,
+        "gross_pnl": 212.4659,
+        "total_fees": 138.8166,
+        "slippage_cost": 55.5267,
+        "net_pnl": 73.6493,
+        "profit_factor": 1.0976
+      },
+      {
+        "year": "2026",
+        "trades": 1173,
+        "wins": 460,
+        "win_rate_pct": 39.2157,
+        "gross_pnl": 223.7407,
+        "total_fees": 117.2972,
+        "slippage_cost": 46.9189,
+        "net_pnl": 106.4435,
+        "profit_factor": 1.1674
+      }
+    ],
+    "by_month": [
+      {
+        "month": "2023-12",
+        "trades": 89,
+        "wins": 23,
+        "win_rate_pct": 25.8427,
+        "gross_pnl": -16.4767,
+        "total_fees": 8.8913,
+        "slippage_cost": 3.5565,
+        "net_pnl": -25.368,
+        "profit_factor": 0.5759
+      },
+      {
+        "month": "2024-01",
+        "trades": 131,
+        "wins": 46,
+        "win_rate_pct": 35.1145,
+        "gross_pnl": 12.1123,
+        "total_fees": 13.1024,
+        "slippage_cost": 5.241,
+        "net_pnl": -0.9901,
+        "profit_factor": 0.9866
+      },
+      {
+        "month": "2024-02",
+        "trades": 169,
+        "wins": 79,
+        "win_rate_pct": 46.7456,
+        "gross_pnl": 66.0362,
+        "total_fees": 16.9414,
+        "slippage_cost": 6.7766,
+        "net_pnl": 49.0948,
+        "profit_factor": 1.6694
+      },
+      {
+        "month": "2024-03",
+        "trades": 109,
+        "wins": 42,
+        "win_rate_pct": 38.5321,
+        "gross_pnl": 13.3003,
+        "total_fees": 10.9055,
+        "slippage_cost": 4.3622,
+        "net_pnl": 2.3948,
+        "profit_factor": 1.0403
+      },
+      {
+        "month": "2024-04",
+        "trades": 119,
+        "wins": 47,
+        "win_rate_pct": 39.4958,
+        "gross_pnl": 26.7392,
+        "total_fees": 11.8955,
+        "slippage_cost": 4.7582,
+        "net_pnl": 14.8437,
+        "profit_factor": 1.24
+      },
+      {
+        "month": "2024-05",
+        "trades": 114,
+        "wins": 38,
+        "win_rate_pct": 33.3333,
+        "gross_pnl": -3.3834,
+        "total_fees": 11.4078,
+        "slippage_cost": 4.5631,
+        "net_pnl": -14.7912,
+        "profit_factor": 0.7785
+      },
+      {
+        "month": "2024-06",
+        "trades": 104,
+        "wins": 36,
+        "win_rate_pct": 34.6154,
+        "gross_pnl": 5.9574,
+        "total_fees": 10.3919,
+        "slippage_cost": 4.1567,
+        "net_pnl": -4.4345,
+        "profit_factor": 0.9258
+      },
+      {
+        "month": "2024-07",
+        "trades": 156,
+        "wins": 63,
+        "win_rate_pct": 40.3846,
+        "gross_pnl": 31.1664,
+        "total_fees": 15.5934,
+        "slippage_cost": 6.2374,
+        "net_pnl": 15.5729,
+        "profit_factor": 1.1865
+      },
+      {
+        "month": "2024-08",
+        "trades": 128,
+        "wins": 62,
+        "win_rate_pct": 48.4375,
+        "gross_pnl": 57.0652,
+        "total_fees": 12.7765,
+        "slippage_cost": 5.1106,
+        "net_pnl": 44.2887,
+        "profit_factor": 1.7321
+      },
+      {
+        "month": "2024-09",
+        "trades": 114,
+        "wins": 49,
+        "win_rate_pct": 42.9825,
+        "gross_pnl": 28.2836,
+        "total_fees": 11.4074,
+        "slippage_cost": 4.563,
+        "net_pnl": 16.8762,
+        "profit_factor": 1.2834
+      },
+      {
+        "month": "2024-10",
+        "trades": 109,
+        "wins": 45,
+        "win_rate_pct": 41.2844,
+        "gross_pnl": 24.4533,
+        "total_fees": 10.8997,
+        "slippage_cost": 4.3599,
+        "net_pnl": 13.5536,
+        "profit_factor": 1.2324
+      },
+      {
+        "month": "2024-11",
+        "trades": 135,
+        "wins": 60,
+        "win_rate_pct": 44.4444,
+        "gross_pnl": 50.3558,
+        "total_fees": 13.5261,
+        "slippage_cost": 5.4104,
+        "net_pnl": 36.8297,
+        "profit_factor": 1.5843
+      },
+      {
+        "month": "2024-12",
+        "trades": 119,
+        "wins": 48,
+        "win_rate_pct": 40.3361,
+        "gross_pnl": 21.9513,
+        "total_fees": 11.905,
+        "slippage_cost": 4.762,
+        "net_pnl": 10.0463,
+        "profit_factor": 1.1599
+      },
+      {
+        "month": "2025-01",
+        "trades": 129,
+        "wins": 44,
+        "win_rate_pct": 34.1085,
+        "gross_pnl": 5.7565,
+        "total_fees": 12.8919,
+        "slippage_cost": 5.1567,
+        "net_pnl": -7.1354,
+        "profit_factor": 0.903
+      },
+      {
+        "month": "2025-02",
+        "trades": 139,
+        "wins": 47,
+        "win_rate_pct": 33.8129,
+        "gross_pnl": 7.6571,
+        "total_fees": 13.8915,
+        "slippage_cost": 5.5566,
+        "net_pnl": -6.2344,
+        "profit_factor": 0.9271
+      },
+      {
+        "month": "2025-03",
+        "trades": 99,
+        "wins": 34,
+        "win_rate_pct": 34.3434,
+        "gross_pnl": 6.7201,
+        "total_fees": 9.9001,
+        "slippage_cost": 3.96,
+        "net_pnl": -3.18,
+        "profit_factor": 0.9465
+      },
+      {
+        "month": "2025-04",
+        "trades": 110,
+        "wins": 45,
+        "win_rate_pct": 40.9091,
+        "gross_pnl": 25.1324,
+        "total_fees": 11.0023,
+        "slippage_cost": 4.4009,
+        "net_pnl": 14.1301,
+        "profit_factor": 1.2447
+      },
+      {
+        "month": "2025-05",
+        "trades": 122,
+        "wins": 48,
+        "win_rate_pct": 39.3443,
+        "gross_pnl": 28.0509,
+        "total_fees": 12.2218,
+        "slippage_cost": 4.8887,
+        "net_pnl": 15.8292,
+        "profit_factor": 1.2504
+      },
+      {
+        "month": "2025-06",
+        "trades": 117,
+        "wins": 46,
+        "win_rate_pct": 39.3162,
+        "gross_pnl": 22.6945,
+        "total_fees": 11.6968,
+        "slippage_cost": 4.6787,
+        "net_pnl": 10.9977,
+        "profit_factor": 1.182
+      },
+      {
+        "month": "2025-07",
+        "trades": 137,
+        "wins": 52,
+        "win_rate_pct": 37.9562,
+        "gross_pnl": 18.955,
+        "total_fees": 13.7112,
+        "slippage_cost": 5.4845,
+        "net_pnl": 5.2438,
+        "profit_factor": 1.0704
+      },
+      {
+        "month": "2025-08",
+        "trades": 140,
+        "wins": 52,
+        "win_rate_pct": 37.1429,
+        "gross_pnl": 12.666,
+        "total_fees": 14.0012,
+        "slippage_cost": 5.6005,
+        "net_pnl": -1.3352,
+        "profit_factor": 0.9818
+      },
+      {
+        "month": "2025-09",
+        "trades": 80,
+        "wins": 37,
+        "win_rate_pct": 46.25,
+        "gross_pnl": 26.9999,
+        "total_fees": 8.0001,
+        "slippage_cost": 3.2,
+        "net_pnl": 18.9999,
+        "profit_factor": 1.4989
+      },
+      {
+        "month": "2025-10",
+        "trades": 136,
+        "wins": 60,
+        "win_rate_pct": 44.1176,
+        "gross_pnl": 47.2432,
+        "total_fees": 13.6085,
+        "slippage_cost": 5.4434,
+        "net_pnl": 33.6347,
+        "profit_factor": 1.524
+      },
+      {
+        "month": "2025-11",
+        "trades": 83,
+        "wins": 30,
+        "win_rate_pct": 36.1446,
+        "gross_pnl": 9.442,
+        "total_fees": 8.2954,
+        "slippage_cost": 3.3182,
+        "net_pnl": 1.1465,
+        "profit_factor": 1.0237
+      },
+      {
+        "month": "2025-12",
+        "trades": 96,
+        "wins": 32,
+        "win_rate_pct": 33.3333,
+        "gross_pnl": 1.1484,
+        "total_fees": 9.5959,
+        "slippage_cost": 3.8384,
+        "net_pnl": -8.4475,
+        "profit_factor": 0.8505
+      },
+      {
+        "month": "2026-01",
+        "trades": 159,
+        "wins": 76,
+        "win_rate_pct": 47.7987,
+        "gross_pnl": 69.7736,
+        "total_fees": 15.875,
+        "slippage_cost": 6.35,
+        "net_pnl": 53.8986,
+        "profit_factor": 1.7329
+      },
+      {
+        "month": "2026-02",
+        "trades": 124,
+        "wins": 43,
+        "win_rate_pct": 34.6774,
+        "gross_pnl": 10.2476,
+        "total_fees": 12.3899,
+        "slippage_cost": 4.9559,
+        "net_pnl": -2.1423,
+        "profit_factor": 0.9718
+      },
+      {
+        "month": "2026-03",
+        "trades": 119,
+        "wins": 52,
+        "win_rate_pct": 43.6975,
+        "gross_pnl": 38.7852,
+        "total_fees": 11.9033,
+        "slippage_cost": 4.7613,
+        "net_pnl": 26.8819,
+        "profit_factor": 1.45
+      },
+      {
+        "month": "2026-04",
+        "trades": 114,
+        "wins": 56,
+        "win_rate_pct": 49.1228,
+        "gross_pnl": 46.941,
+        "total_fees": 11.4303,
+        "slippage_cost": 4.5721,
+        "net_pnl": 35.5107,
+        "profit_factor": 1.6836
+      },
+      {
+        "month": "2026-05",
+        "trades": 91,
+        "wins": 30,
+        "win_rate_pct": 32.967,
+        "gross_pnl": 0.1269,
+        "total_fees": 9.0943,
+        "slippage_cost": 3.6377,
+        "net_pnl": -8.9674,
+        "profit_factor": 0.8276
+      },
+      {
+        "month": "2026-06",
+        "trades": 130,
+        "wins": 65,
+        "win_rate_pct": 50.0,
+        "gross_pnl": 55.0293,
+        "total_fees": 12.9828,
+        "slippage_cost": 5.1931,
+        "net_pnl": 42.0465,
+        "profit_factor": 1.7171
+      },
+      {
+        "month": "2026-07",
+        "trades": 116,
+        "wins": 33,
+        "win_rate_pct": 28.4483,
+        "gross_pnl": -6.0942,
+        "total_fees": 11.6008,
+        "slippage_cost": 4.6403,
+        "net_pnl": -17.695,
+        "profit_factor": 0.7514
+      },
+      {
+        "month": "2026-08",
+        "trades": 127,
+        "wins": 41,
+        "win_rate_pct": 32.2835,
+        "gross_pnl": 4.5935,
+        "total_fees": 12.7159,
+        "slippage_cost": 5.0864,
+        "net_pnl": -8.1224,
+        "profit_factor": 0.8932
+      },
+      {
+        "month": "2026-09",
+        "trades": 99,
+        "wins": 41,
+        "win_rate_pct": 41.4141,
+        "gross_pnl": 21.3809,
+        "total_fees": 9.914,
+        "slippage_cost": 3.9656,
+        "net_pnl": 11.4668,
+        "profit_factor": 1.2222
+      },
+      {
+        "month": "2026-10",
+        "trades": 94,
+        "wins": 23,
+        "win_rate_pct": 24.4681,
+        "gross_pnl": -17.043,
+        "total_fees": 9.3909,
+        "slippage_cost": 3.7563,
+        "net_pnl": -26.4338,
+        "profit_factor": 0.595
+      }
+    ],
+    "exit_reasons": {
+      "SL": 2566,
+      "TP": 1591
+    },
+    "decision_reasons": {
+      "ACCEPTED|ACCEPTED": 4157,
+      "SKIPPED|SKIPPED_BY_CONCURRENCY": 1827
+    }
+  },
+  "BINGX_PORTFOLIO__STRESS": {
+    "by_symbol": [
+      {
+        "symbol": "BTC-USDT",
+        "trades": 1869,
+        "wins": 744,
+        "win_rate_pct": 39.8074,
+        "gross_pnl": 234.9936,
+        "total_fees": 186.9471,
+        "slippage_cost": 186.9472,
+        "net_pnl": 48.0465,
+        "profit_factor": 1.0478
+      },
+      {
+        "symbol": "ETH-USDT",
+        "trades": 2299,
+        "wins": 819,
+        "win_rate_pct": 35.6242,
+        "gross_pnl": 239.1256,
+        "total_fees": 229.9174,
+        "slippage_cost": 229.9175,
+        "net_pnl": 9.2082,
+        "profit_factor": 1.0068
+      }
+    ],
+    "by_side": [
+      {
+        "side": "BUY",
+        "trades": 2404,
+        "wins": 902,
+        "win_rate_pct": 37.5208,
+        "gross_pnl": 301.5889,
+        "total_fees": 240.5508,
+        "slippage_cost": 240.5509,
+        "net_pnl": 61.0381,
+        "profit_factor": 1.0464
+      },
+      {
+        "side": "SELL",
+        "trades": 1764,
+        "wins": 661,
+        "win_rate_pct": 37.4717,
+        "gross_pnl": 172.5303,
+        "total_fees": 176.3137,
+        "slippage_cost": 176.3138,
+        "net_pnl": -3.7834,
+        "profit_factor": 0.9964
+      }
+    ],
+    "by_year": [
+      {
+        "year": "2023",
+        "trades": 89,
+        "wins": 23,
+        "win_rate_pct": 25.8427,
+        "gross_pnl": -19.1416,
+        "total_fees": 8.8909,
+        "slippage_cost": 8.8909,
+        "net_pnl": -28.0325,
+        "profit_factor": 0.5463
+      },
+      {
+        "year": "2024",
+        "trades": 1513,
+        "wins": 588,
+        "win_rate_pct": 38.8632,
+        "gross_pnl": 221.5281,
+        "total_fees": 151.3469,
+        "slippage_cost": 151.347,
+        "net_pnl": 70.1812,
+        "profit_factor": 1.084
+      },
+      {
+        "year": "2025",
+        "trades": 1389,
+        "wins": 508,
+        "win_rate_pct": 36.5731,
+        "gross_pnl": 122.1918,
+        "total_fees": 138.9204,
+        "slippage_cost": 138.9205,
+        "net_pnl": -16.7286,
+        "profit_factor": 0.979
+      },
+      {
+        "year": "2026",
+        "trades": 1177,
+        "wins": 444,
+        "win_rate_pct": 37.723,
+        "gross_pnl": 149.5409,
+        "total_fees": 117.7064,
+        "slippage_cost": 117.7064,
+        "net_pnl": 31.8346,
+        "profit_factor": 1.0474
+      }
+    ],
+    "by_month": [
+      {
+        "month": "2023-12",
+        "trades": 89,
+        "wins": 23,
+        "win_rate_pct": 25.8427,
+        "gross_pnl": -19.1416,
+        "total_fees": 8.8909,
+        "slippage_cost": 8.8909,
+        "net_pnl": -28.0325,
+        "profit_factor": 0.5463
+      },
+      {
+        "month": "2024-01",
+        "trades": 132,
+        "wins": 46,
+        "win_rate_pct": 34.8485,
+        "gross_pnl": 7.3312,
+        "total_fees": 13.2018,
+        "slippage_cost": 13.2018,
+        "net_pnl": -5.8706,
+        "profit_factor": 0.9236
+      },
+      {
+        "month": "2024-02",
+        "trades": 169,
+        "wins": 76,
+        "win_rate_pct": 44.9704,
+        "gross_pnl": 53.5422,
+        "total_fees": 16.9375,
+        "slippage_cost": 16.9375,
+        "net_pnl": 36.6047,
+        "profit_factor": 1.4676
+      },
+      {
+        "month": "2024-03",
+        "trades": 109,
+        "wins": 39,
+        "win_rate_pct": 35.7798,
+        "gross_pnl": 1.8253,
+        "total_fees": 10.9062,
+        "slippage_cost": 10.9062,
+        "net_pnl": -9.0808,
+        "profit_factor": 0.8609
+      },
+      {
+        "month": "2024-04",
+        "trades": 119,
+        "wins": 47,
+        "win_rate_pct": 39.4958,
+        "gross_pnl": 23.172,
+        "total_fees": 11.8956,
+        "slippage_cost": 11.8956,
+        "net_pnl": 11.2763,
+        "profit_factor": 1.1762
+      },
+      {
+        "month": "2024-05",
+        "trades": 117,
+        "wins": 37,
+        "win_rate_pct": 31.6239,
+        "gross_pnl": -12.3557,
+        "total_fees": 11.7042,
+        "slippage_cost": 11.7042,
+        "net_pnl": -24.0598,
+        "profit_factor": 0.6701
+      },
+      {
+        "month": "2024-06",
+        "trades": 105,
+        "wins": 36,
+        "win_rate_pct": 34.2857,
+        "gross_pnl": -0.6002,
+        "total_fees": 10.494,
+        "slippage_cost": 10.494,
+        "net_pnl": -11.0942,
+        "profit_factor": 0.8255
+      },
+      {
+        "month": "2024-07",
+        "trades": 156,
+        "wins": 58,
+        "win_rate_pct": 37.1795,
+        "gross_pnl": 18.0131,
+        "total_fees": 15.5949,
+        "slippage_cost": 15.5949,
+        "net_pnl": 2.4182,
+        "profit_factor": 1.0269
+      },
+      {
+        "month": "2024-08",
+        "trades": 126,
+        "wins": 61,
+        "win_rate_pct": 48.4127,
+        "gross_pnl": 54.9404,
+        "total_fees": 12.5765,
+        "slippage_cost": 12.5765,
+        "net_pnl": 42.3639,
+        "profit_factor": 1.7077
+      },
+      {
+        "month": "2024-09",
+        "trades": 113,
+        "wins": 46,
+        "win_rate_pct": 40.708,
+        "gross_pnl": 21.111,
+        "total_fees": 11.3053,
+        "slippage_cost": 11.3053,
+        "net_pnl": 9.8057,
+        "profit_factor": 1.1559
+      },
+      {
+        "month": "2024-10",
+        "trades": 111,
+        "wins": 42,
+        "win_rate_pct": 37.8378,
+        "gross_pnl": 11.0827,
+        "total_fees": 11.0998,
+        "slippage_cost": 11.0998,
+        "net_pnl": -0.0171,
+        "profit_factor": 0.9997
+      },
+      {
+        "month": "2024-11",
+        "trades": 135,
+        "wins": 59,
+        "win_rate_pct": 43.7037,
+        "gross_pnl": 43.6242,
+        "total_fees": 13.5231,
+        "slippage_cost": 13.5231,
+        "net_pnl": 30.1011,
+        "profit_factor": 1.4603
+      },
+      {
+        "month": "2024-12",
+        "trades": 121,
+        "wins": 41,
+        "win_rate_pct": 33.8843,
+        "gross_pnl": -0.1581,
+        "total_fees": 12.108,
+        "slippage_cost": 12.108,
+        "net_pnl": -12.2662,
+        "profit_factor": 0.8324
+      },
+      {
+        "month": "2025-01",
+        "trades": 127,
+        "wins": 37,
+        "win_rate_pct": 29.1339,
+        "gross_pnl": -15.8789,
+        "total_fees": 12.695,
+        "slippage_cost": 12.695,
+        "net_pnl": -28.5738,
+        "profit_factor": 0.6503
+      },
+      {
+        "month": "2025-02",
+        "trades": 139,
+        "wins": 47,
+        "win_rate_pct": 33.8129,
+        "gross_pnl": 3.4928,
+        "total_fees": 13.893,
+        "slippage_cost": 13.893,
+        "net_pnl": -10.4002,
+        "profit_factor": 0.8822
+      },
+      {
+        "month": "2025-03",
+        "trades": 100,
+        "wins": 34,
+        "win_rate_pct": 34.0,
+        "gross_pnl": 3.0339,
+        "total_fees": 10.0003,
+        "slippage_cost": 10.0003,
+        "net_pnl": -6.9663,
+        "profit_factor": 0.888
+      },
+      {
+        "month": "2025-04",
+        "trades": 111,
+        "wins": 44,
+        "win_rate_pct": 39.6396,
+        "gross_pnl": 18.3134,
+        "total_fees": 11.1031,
+        "slippage_cost": 11.1031,
+        "net_pnl": 7.2103,
+        "profit_factor": 1.1173
+      },
+      {
+        "month": "2025-05",
+        "trades": 121,
+        "wins": 48,
+        "win_rate_pct": 39.6694,
+        "gross_pnl": 25.227,
+        "total_fees": 12.1209,
+        "slippage_cost": 12.1209,
+        "net_pnl": 13.1061,
+        "profit_factor": 1.2071
+      },
+      {
+        "month": "2025-06",
+        "trades": 117,
+        "wins": 44,
+        "win_rate_pct": 37.6068,
+        "gross_pnl": 15.0856,
+        "total_fees": 11.6972,
+        "slippage_cost": 11.6972,
+        "net_pnl": 3.3885,
+        "profit_factor": 1.0527
+      },
+      {
+        "month": "2025-07",
+        "trades": 138,
+        "wins": 49,
+        "win_rate_pct": 35.5072,
+        "gross_pnl": 11.2893,
+        "total_fees": 13.8077,
+        "slippage_cost": 13.8077,
+        "net_pnl": -2.5183,
+        "profit_factor": 0.9683
+      },
+      {
+        "month": "2025-08",
+        "trades": 141,
+        "wins": 53,
+        "win_rate_pct": 37.5887,
+        "gross_pnl": 7.7479,
+        "total_fees": 14.1006,
+        "slippage_cost": 14.1006,
+        "net_pnl": -6.3527,
+        "profit_factor": 0.9164
+      },
+      {
+        "month": "2025-09",
+        "trades": 80,
+        "wins": 37,
+        "win_rate_pct": 46.25,
+        "gross_pnl": 24.5998,
+        "total_fees": 7.9998,
+        "slippage_cost": 7.9998,
+        "net_pnl": 16.6,
+        "profit_factor": 1.4217
+      },
+      {
+        "month": "2025-10",
+        "trades": 137,
+        "wins": 57,
+        "win_rate_pct": 41.6058,
+        "gross_pnl": 34.0073,
+        "total_fees": 13.7087,
+        "slippage_cost": 13.7087,
+        "net_pnl": 20.2986,
+        "profit_factor": 1.289
+      },
+      {
+        "month": "2025-11",
+        "trades": 82,
+        "wins": 28,
+        "win_rate_pct": 34.1463,
+        "gross_pnl": 2.5026,
+        "total_fees": 8.1982,
+        "slippage_cost": 8.1982,
+        "net_pnl": -5.6955,
+        "profit_factor": 0.8891
+      },
+      {
+        "month": "2025-12",
+        "trades": 96,
+        "wins": 30,
+        "win_rate_pct": 31.25,
+        "gross_pnl": -7.229,
+        "total_fees": 9.5961,
+        "slippage_cost": 9.5961,
+        "net_pnl": -16.8252,
+        "profit_factor": 0.7205
+      },
+      {
+        "month": "2026-01",
+        "trades": 159,
+        "wins": 74,
+        "win_rate_pct": 46.5409,
+        "gross_pnl": 60.8166,
+        "total_fees": 15.8772,
+        "slippage_cost": 15.8773,
+        "net_pnl": 44.9393,
+        "profit_factor": 1.5777
+      },
+      {
+        "month": "2026-02",
+        "trades": 124,
+        "wins": 40,
+        "win_rate_pct": 32.2581,
+        "gross_pnl": -1.7699,
+        "total_fees": 12.3954,
+        "slippage_cost": 12.3954,
+        "net_pnl": -14.1653,
+        "profit_factor": 0.8258
+      },
+      {
+        "month": "2026-03",
+        "trades": 119,
+        "wins": 52,
+        "win_rate_pct": 43.6975,
+        "gross_pnl": 35.213,
+        "total_fees": 11.9028,
+        "slippage_cost": 11.9028,
+        "net_pnl": 23.3102,
+        "profit_factor": 1.3775
+      },
+      {
+        "month": "2026-04",
+        "trades": 116,
+        "wins": 54,
+        "win_rate_pct": 46.5517,
+        "gross_pnl": 35.3107,
+        "total_fees": 11.6295,
+        "slippage_cost": 11.6295,
+        "net_pnl": 23.6813,
+        "profit_factor": 1.4278
+      },
+      {
+        "month": "2026-05",
+        "trades": 91,
+        "wins": 27,
+        "win_rate_pct": 29.6703,
+        "gross_pnl": -9.5095,
+        "total_fees": 9.0957,
+        "slippage_cost": 9.0957,
+        "net_pnl": -18.6052,
+        "profit_factor": 0.6658
+      },
+      {
+        "month": "2026-06",
+        "trades": 130,
+        "wins": 61,
+        "win_rate_pct": 46.9231,
+        "gross_pnl": 43.2361,
+        "total_fees": 12.9879,
+        "slippage_cost": 12.9879,
+        "net_pnl": 30.2482,
+        "profit_factor": 1.4744
+      },
+      {
+        "month": "2026-07",
+        "trades": 116,
+        "wins": 33,
+        "win_rate_pct": 28.4483,
+        "gross_pnl": -9.5751,
+        "total_fees": 11.5998,
+        "slippage_cost": 11.5998,
+        "net_pnl": -21.1749,
+        "profit_factor": 0.7125
+      },
+      {
+        "month": "2026-08",
+        "trades": 127,
+        "wins": 40,
+        "win_rate_pct": 31.4961,
+        "gross_pnl": -1.0256,
+        "total_fees": 12.7138,
+        "slippage_cost": 12.7138,
+        "net_pnl": -13.7394,
+        "profit_factor": 0.8266
+      },
+      {
+        "month": "2026-09",
+        "trades": 99,
+        "wins": 40,
+        "win_rate_pct": 40.404,
+        "gross_pnl": 18.4022,
+        "total_fees": 9.9134,
+        "slippage_cost": 9.9134,
+        "net_pnl": 8.4888,
+        "profit_factor": 1.1582
+      },
+      {
+        "month": "2026-10",
+        "trades": 96,
+        "wins": 23,
+        "win_rate_pct": 23.9583,
+        "gross_pnl": -21.5574,
+        "total_fees": 9.5911,
+        "slippage_cost": 9.5911,
+        "net_pnl": -31.1485,
+        "profit_factor": 0.5505
+      }
+    ],
+    "exit_reasons": {
+      "SL": 2633,
+      "TP": 1535
+    },
+    "decision_reasons": {
+      "ACCEPTED|ACCEPTED": 4168,
+      "SKIPPED|SKIPPED_BY_CONCURRENCY": 1816
+    }
+  }
+}

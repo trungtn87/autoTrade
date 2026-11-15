@@ -49,6 +49,8 @@ class LegOutcome:
     intrabar_trailing_ambiguous: bool
     ambiguity_type: str = "NONE"
     ambiguity_policy: str = "LEGACY"
+    tp_price: float = 0.0
+    sl_price: float = 0.0
 
 
 @dataclass(frozen=True)

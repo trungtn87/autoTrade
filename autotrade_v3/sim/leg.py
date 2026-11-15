@@ -152,6 +152,8 @@ def _simulate_fixed_leg(
         intrabar_trailing_ambiguous=False,
         ambiguity_type=amb_type,
         ambiguity_policy=ambiguity_policy,
+        tp_price=tp_price,
+        sl_price=sl_price,
     )
 
 
