@@ -200,6 +200,30 @@ class MemoryStore:
                     and r.get("stage") in ("protected", "protection_incomplete")
                     and ((r.get("raw_protection") or {}).get("cleanup") or {}).get("status") != "done"]
 
+    def shared_allocation_for_cleanup(self, event_id: str) -> dict | None:
+        with self._lock:
+            ex = self.executions.get(event_id) or {}
+            finance = self.finances.get(ex.get("id")) or {}
+            raw = finance.get("raw") or {}
+            return (raw if finance.get("is_fully_closed") and
+                    raw.get("source") == "BingX exact close orders; logical shared-position allocation" else None)
+
+    def reconciliation_rows(self, since: datetime) -> tuple[list[dict], list[dict]]:
+        """V3 original executions/results in offline mode, including fully closed peers."""
+        self._maybe_fail("reconciliation_rows")
+        with self._lock:
+            entries = []
+            for ex in self.executions.values():
+                if not ex.get("entry_order_id") or not ex.get("executed_qty"):
+                    continue
+                row = dict(ex)
+                finance = self.finances.get(ex.get("id")) or {}
+                row["existing_open_fee"] = finance.get("open_fee")
+                entries.append(row)
+            events = {e["event_id"] for e in entries}
+            results = [dict(r) for r in self.results.values() if r.get("event_id") in events]
+            return entries, results
+
     def upsert_result(self, row: dict) -> None:
         self._maybe_fail("upsert_result")
         with self._lock:
@@ -283,6 +307,28 @@ class PostgresStore:
             f"SELECT * FROM {SCHEMA}.execution_orders WHERE entry_order_id IS NOT NULL AND executed_qty > 0"
             " AND stage IN ('protected','protection_incomplete') AND created_at >= %s"
             " AND COALESCE(raw_protection->'cleanup'->>'status','') <> 'done' ORDER BY id", (since,), fetch="all") or []
+
+    def shared_allocation_for_cleanup(self, event_id: str) -> dict | None:
+        got = self._exec(
+            f"SELECT raw FROM {SCHEMA}.execution_finances"
+            " WHERE event_id=%s AND is_fully_closed=true", (event_id,), fetch="one")
+        raw = got[0] if got else None
+        if isinstance(raw, dict) and raw.get("source") == "BingX exact close orders; logical shared-position allocation":
+            return raw
+        return None
+
+    def reconciliation_rows(self, since: datetime) -> tuple[list[dict], list[dict]]:
+        """Load source fills for *all* position peers, even ones marked fully closed."""
+        entries = self._exec(
+            f"SELECT e.*, f.open_fee AS existing_open_fee FROM {SCHEMA}.execution_orders e"
+            f" LEFT JOIN {SCHEMA}.execution_finances f ON f.execution_order_id=e.id"
+            " WHERE e.created_at >= %s AND e.entry_order_id IS NOT NULL AND e.executed_qty > 0",
+            (since,), fetch="all") or []
+        results = self._exec(
+            f"SELECT r.* FROM {SCHEMA}.execution_results r JOIN {SCHEMA}.execution_orders e"
+            " ON e.id=r.execution_order_id WHERE e.created_at >= %s",
+            (since,), fetch="all") or []
+        return entries, results
 
     def upsert_result(self, row: dict) -> None:
         self._exec(

@@ -225,6 +225,13 @@ class LeftoverCleaner:
         outcome = "open"
         if unproven:
             outcome = "unproven"
+        elif not active and self._verified_shared_close(ex, views, entry_qty):
+            # Each protection is already terminal; no exchange write is needed.
+            # The raw overfill remains in execution_results/cleanup history.
+            state["status"] = "done"
+            outcome = "shared_closed"
+            self._note(ex, "leftover_shared_closed",
+                       "Đã đối soát phân bổ đóng combo trên vị thế gộp; không hủy lệnh hoặc sửa dữ liệu khớp.")
         elif total > entry_qty:
             self._warn_once(ex, state, "LEFTOVER_FILL_OVER_ENTRY",
                             f"Tổng khớp của các chân ({total}) lớn hơn khối lượng Entry ({entry_qty}); không hủy gì")
@@ -247,6 +254,27 @@ class LeftoverCleaner:
         state["exit_qty"] = str(total)
         self._persist(ex, state)
         return outcome
+
+    def _verified_shared_close(self, ex: dict, views: dict, entry_qty: Decimal) -> bool:
+        """Accounting proof can mark a terminal-only combo done; it never authorizes DELETE."""
+        if not views or any(v.get("status") != "TERMINAL" for v in views.values()):
+            return False
+        try:
+            proof = self.store.shared_allocation_for_cleanup(ex["event_id"])
+            if not isinstance(proof, dict):
+                return False
+            entry = (ex.get("raw_entry") or {}).get("confirm") or {}
+            position = (entry.get("order") or {}).get("positionID")
+            if not position or str(position) != str(proof.get("position_id")):
+                return False
+            return (_dec(proof.get("allocated_closed_qty")) == entry_qty
+                    and _dec(proof.get("entry_qty")) == entry_qty
+                    and _dec(proof.get("all_known_v3_exits_qty")) == _dec(proof.get("all_known_v3_entries_qty"))
+                    and str(proof.get("exchange_position_closed")) == "NOT_PROVEN")
+        except Exception as exc:
+            log.warning("V3_LEFTOVER_SHARED_PROOF_UNAVAILABLE event_id=%s error=%s", ex.get("event_id"),
+                        type(exc).__name__)
+            return False
 
     def _close_out(self, ex, state, active: dict, legs: dict) -> str:
         if not active:
