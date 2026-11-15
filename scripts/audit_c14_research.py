@@ -17,7 +17,7 @@ from autotrade_v3.data_layer import DataLayer
 from autotrade_v3.lab.experiment import ExperimentRunner
 from autotrade_v3.lab.run_manager import RunManager, get_git_state
 from autotrade_v3.strategy_core.registry import StrategyCoreRegistry
-from autotrade_v3.validation.gates import ValidationGates
+from autotrade_v3.validation import ValidationGates
 from scripts.c14_filters import C14DisabledFilter, IchimokuAtrFilter, build_c14_1h_feature_table
 
 EXPECTED_DATASET_HASH = "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628"
