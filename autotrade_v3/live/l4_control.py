@@ -349,7 +349,14 @@ class HourlySync:
             # Accounting only: reconstruct shared-position allocations from already
             # persisted BingX order evidence. Never sends trade/cancel requests.
             from .l4_allocation import reconcile_shared_positions
-            allocated = reconcile_shared_positions(self.store, self.control)
+            try:
+                allocated = reconcile_shared_positions(self.store, self.control)
+            except Exception as exc:
+                # Derived finance must never interrupt the :07 handoff to cleanup.
+                self.control.report("L4", "shared_position_allocation",
+                                    f"Đối soát vị thế gộp không hoàn thành: {type(exc).__name__}: {exc}",
+                                    error_code="SHARED_ALLOCATION_STORE_ERROR")
+                allocated = {"state": "failed"}
             self.last = {"state": "waiting", "result": "completed", "finished_at": _now_iso(),
                          "v3_projection": counts, "shared_position_allocation": allocated}
         except Exception as exc:
