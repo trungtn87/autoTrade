@@ -45,7 +45,8 @@ class Runtime:
         self.reader = L4Reader(self.client, self.store, self.control)
         self.executor = L3Executor(s, self.client, self.store, self.reader, self.control, self.alert)
         self.l1 = L1Data(s, self.candles, self.control)
-        self.l2 = L2Strategy(self.store, self.control, self.alert, self.executor if s.execution_enabled else None)
+        self.l2 = L2Strategy(self.store, self.control, self.alert, self.executor if s.execution_enabled else None,
+                             eth_c1_h1_enabled=s.eth_c1_h1_l2_enabled)
         self.leftover = LeftoverCleaner(s, self.client, self.store, self.reader, self.control, self.alert,
                                         busy=v3_threads_busy)
         self.executor.on_settled = self.leftover.request
