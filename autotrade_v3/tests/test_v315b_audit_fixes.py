@@ -11,7 +11,7 @@ import pytest
 from autotrade_v3.dashboard.queries import get_run_summary, list_store_runs
 from autotrade_v3.runstore.index import StoreIndex
 from autotrade_v3.validation.context import VerifyContext
-from autotrade_v3.validation.gates_c import gate_c4
+from autotrade_v3.validation.gates_c import ARTIFACT_SCHEMA_VERSION_FIELD, gate_c4
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GOLDEN_V313_PORTFOLIO = REPO_ROOT / "runs" / "golden" / "v3-13" / "BINGX_PORTFOLIO"
@@ -143,10 +143,51 @@ def _run_c4(rdir: Path):
     return gate_c4(ctx)
 
 
+def _set_execution_mode(rdir: Path, mode: str) -> None:
+    """Make the synthetic ledger internally consistent for Mode A/B/C."""
+    manifest_path = rdir / "run_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["execution_mode"] = mode
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    if mode == "BINGX_PORTFOLIO":
+        return
+    df = pd.read_parquet(rdir / "trades.parquet")
+    df["notional"] = 100.5
+    df["gross_pnl_raw"] = 1.5
+    df["gross_pnl"] = 1.5
+    df["fee_entry"] = 0.05025
+    df["fee_exit"] = 0.051
+    df["fee_total"] = 0.10125
+    df["net_pnl"] = 1.39875
+    df["pnl_own_entry"] = 1.39875
+    df["pnl_vwap"] = 1.39875
+    df["return_pct"] = 1.39875 / 100.5
+    df.to_parquet(rdir / "trades.parquet", index=False)
+    events: list[dict[str, object]] = []
+    for row in df.to_dict(orient="records"):
+        events.extend(
+            [
+                {
+                    "event_type": "ENTRY", "leg_id": row["leg_id"],
+                    "realized_pnl": 0.0, "fee": row["fee_entry"],
+                    "price": row["entry_price"], "timestamp_ms": row["entry_time_ms"],
+                    "exit_reason": "",
+                },
+                {
+                    "event_type": "EXIT", "leg_id": row["leg_id"],
+                    "realized_pnl": row["net_pnl"], "fee": row["fee_exit"],
+                    "price": row["exit_price"], "timestamp_ms": row["exit_time_ms"],
+                    "exit_reason": row["exit_reason"],
+                },
+            ]
+        )
+    pd.DataFrame(events).to_parquet(rdir / "execution_events.parquet", index=False)
+
+
 def test_c4_mode_c_clean_baseline_passes(tmp_path: Path) -> None:
     rdir = _make_synthetic_mode_c_run(tmp_path)
     res = _run_c4(rdir)
-    assert res.status == "PASS", res.details
+    assert res.status == "PASS", (res.details, res.violations)
     sub = res.details["c4_subchecks"]
     assert sub == {
         "NET_COST_INVARIANT_OWN": "PASS",
@@ -243,18 +284,52 @@ def test_validation_json_is_single_source_of_truth(tmp_path: Path) -> None:
     assert list_store_runs(store_dir)[0]["validation_status"] == "UNVERIFIED"
 
 
-def test_c4_mode_c_legacy_schema_marks_na_and_note(tmp_path: Path) -> None:
-    """Mode C without itemized cost columns must mark c4_subchecks as N/A_LEGACY_SCHEMA and add a note."""
+@pytest.mark.parametrize(
+    ("mode", "column"),
+    [
+        (mode, column)
+        for mode in ("ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO")
+        for column in (
+            "gross_pnl_raw", "fee_entry", "fee_exit", "spread_cost",
+            "slippage_cost", "funding_cost", "pnl_own_entry",
+        )
+    ] + [("BINGX_PORTFOLIO", "pnl_vwap")],
+)
+def test_c4_missing_each_v313_cost_column_fails_all_modes(tmp_path: Path, mode: str, column: str) -> None:
+    """Every V3-13 cost column fails closed in Mode A/B/C when no legacy marker exists."""
     rdir = _make_synthetic_mode_c_run(tmp_path)
+    _set_execution_mode(rdir, mode)
+    df = pd.read_parquet(rdir / "trades.parquet").drop(columns=[column])
+    df.to_parquet(rdir / "trades.parquet", index=False)
+
+    res = _run_c4(rdir)
+    assert res.status == "FAIL", (mode, column, res.details)
+    assert any(
+        isinstance(v, dict)
+        and v.get("kind") == "MISSING_V313_COST_COLUMN"
+        and v.get("column") == column
+        for v in res.violations
+    ), res.violations
+
+
+@pytest.mark.parametrize("mode", ["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"])
+def test_c4_explicit_pre_v313_legacy_schema_marks_na_and_note(tmp_path: Path, mode: str) -> None:
+    """Only an explicit artifact_schema_version older than V3-13 enables legacy N/A."""
+    rdir = _make_synthetic_mode_c_run(tmp_path)
+    _set_execution_mode(rdir, mode)
+    manifest_path = rdir / "run_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest[ARTIFACT_SCHEMA_VERSION_FIELD] = "V3-12"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     drop_cols = ["gross_pnl_raw", "fee_entry", "fee_exit", "spread_cost", "slippage_cost", "funding_cost", "pnl_own_entry", "pnl_vwap"]
     df = pd.read_parquet(rdir / "trades.parquet").drop(columns=drop_cols)
     df.to_parquet(rdir / "trades.parquet", index=False)
 
     res = _run_c4(rdir)
-    assert res.status == "PASS", res.details
+    assert res.status == "PASS", (res.details, res.violations)
     assert res.details["c4_subchecks"] == {
         "NET_COST_INVARIANT_OWN": "N/A_LEGACY_SCHEMA",
         "NET_IS_VWAP_BASIS": "N/A_LEGACY_SCHEMA",
         "BASIS_SHIFT_CONSERVATION": "N/A_LEGACY_SCHEMA",
     }
-    assert any("N/A_LEGACY_SCHEMA" in n for n in res.details["notes"])
+    assert any(ARTIFACT_SCHEMA_VERSION_FIELD in n and "V3-12" in n for n in res.details["notes"])

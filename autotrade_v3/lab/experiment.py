@@ -89,7 +89,7 @@ class ExperimentRunner:
     ) -> ExperimentResult:
         """Execute a full research experiment and persist artifacts."""
         from autotrade_v3.sim.ambiguity import normalize_ambiguity_policy
-        from autotrade_v3.sim.costs import CostModel
+        from autotrade_v3.sim.costs import CostModel, cost_profiles_provenance_at_commit
 
         resolved_policy = normalize_ambiguity_policy(ambiguity_policy)
         if not smoke_test and not cost_profile:
@@ -106,6 +106,12 @@ class ExperimentRunner:
         end_ms = to_utc_ms(end)
 
         code_sha, code_dirty, diff_sha256 = get_git_state()
+        cost_profiles_sha256, cost_profile_file_dirty = cost_profiles_provenance_at_commit(code_sha)
+        if not smoke_test and cost_profile_file_dirty:
+            raise RuntimeError(
+                "Real-data run rejected: autotrade_v3/sim/cost_profiles.json is not the version "
+                f"stored in code_sha={code_sha}. Commit the profile before running."
+            )
         if is_golden:
             if code_dirty or code_sha == "UNKNOWN_COMMIT" or not code_sha:
                 raise RuntimeError(
@@ -378,6 +384,8 @@ class ExperimentRunner:
             spec_hash=full_spec_hash,
             cost_profile=cost_model.profile.name,
             cost_profile_hash=cost_model.profile.profile_hash,
+            cost_profile_canonical_json_sha256=cost_profiles_sha256,
+            cost_profile_file_dirty=cost_profile_file_dirty,
             ambiguity_policy=resolved_policy,
             simulation_limits=sim_result.summary_dict.get("simulation_limits"),
             liquidation_status=str(sim_result.summary_dict.get("status", "OK")),

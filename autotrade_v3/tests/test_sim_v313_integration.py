@@ -29,6 +29,8 @@ def test_synthetic_pipeline_with_test_only_and_verify_c2_c3_c4(tmp_path, policy)
     )
     assert res.manifest.cost_profile == "TEST_ONLY"
     assert res.manifest.cost_profile_hash
+    assert res.manifest.cost_profile_canonical_json_sha256
+    assert isinstance(res.manifest.cost_profile_file_dirty, bool)
     assert res.manifest.ambiguity_policy == policy
 
     # Stage matching synthetic M1 parquet + dataset_manifest.json so C3 replays independently
@@ -78,3 +80,35 @@ def test_synthetic_uncertainty_analysis():
     assert out["cost_profile"] == "TEST_ONLY"
     assert out["net_pnl_optimistic"] >= out["net_pnl_conservative"] - 1e-9
     assert isinstance(out["changed_signal_ids"], list)
+
+
+def test_cost_profile_registry_provenance_matches_commit(monkeypatch, tmp_path):
+    from autotrade_v3.sim import costs
+
+    profile_path = tmp_path / "cost_profiles.json"
+    profile_path.write_text(json.dumps({"BASE": {"name": "BASE", "values": {"default": {}}}}), encoding="utf-8")
+    committed = profile_path.read_bytes()
+    monkeypatch.setattr(costs.subprocess, "check_output", lambda *args, **kwargs: committed)
+
+    digest, dirty = costs.cost_profiles_provenance_at_commit(
+        "abc123", repo_root=tmp_path, path=profile_path
+    )
+    assert len(digest) == 64
+    assert dirty is False
+
+
+def test_cost_profile_registry_provenance_fails_closed_on_mismatch(monkeypatch, tmp_path):
+    from autotrade_v3.sim import costs
+
+    profile_path = tmp_path / "cost_profiles.json"
+    profile_path.write_text(json.dumps({"BASE": {"name": "BASE", "values": {"default": {}}}}), encoding="utf-8")
+    monkeypatch.setattr(
+        costs.subprocess,
+        "check_output",
+        lambda *args, **kwargs: json.dumps({"BASE": {"name": "BASE", "values": {"changed": {}}}}).encode(),
+    )
+
+    _, dirty = costs.cost_profiles_provenance_at_commit(
+        "abc123", repo_root=tmp_path, path=profile_path
+    )
+    assert dirty is True

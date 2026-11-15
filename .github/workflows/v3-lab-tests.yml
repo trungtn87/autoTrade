@@ -27,7 +27,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r autotrade_v3/requirements-replay.txt pyarrow pytest ruff pandas
+          python -m pip install -r autotrade_v3/requirements-replay.txt pyarrow pytest ruff pandas mypy
 
       - name: Prepare Artifacts Directory
         run: |
@@ -45,6 +45,10 @@ jobs:
       - name: Ruff Lint Check
         run: |
           ruff check autotrade_v3 scripts
+
+      - name: Mypy Baseline Check (No Increase)
+        run: |
+          python -m autotrade_v3.tools.check_mypy_baseline
 
       - name: Python Compileall Check
         run: |

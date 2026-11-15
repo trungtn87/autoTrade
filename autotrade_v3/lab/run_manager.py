@@ -135,6 +135,8 @@ class RunManifest:
     spec_hash: str = ""
     cost_profile: str = ""
     cost_profile_hash: str = ""
+    cost_profile_canonical_json_sha256: str = ""
+    cost_profile_file_dirty: bool = True
     ambiguity_policy: str = ""
     simulation_limits: dict[str, str] | None = None
     liquidation_status: str = "OK"

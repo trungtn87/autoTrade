@@ -23,7 +23,7 @@
   "BASE": {
     "name": "BASE",
     "status": "CONFIRMED",
-    "source": "Owner duyệt 2026-11-15. Giả định, chưa hiệu chỉnh từ lệnh live. TP tạm tính taker.",
+    "source": "Owner-approved assumption 2026-11-15: 0.05% taker fee plus 2 bps adverse slippage on entry and exit; not calibrated from live orders; TP treated as taker.",
     "values": {
       "default": {
         "fee_taker": 0.0005,
@@ -44,7 +44,7 @@
   "STRESS": {
     "name": "STRESS",
     "status": "CONFIRMED",
-    "source": "Owner duyệt 2026-11-15. Giả định, chưa hiệu chỉnh từ lệnh live. TP tạm tính taker.",
+    "source": "Owner-approved assumption 2026-11-15: 0.05% taker fee plus 5 bps adverse slippage on entry and exit; not calibrated from live orders; TP treated as taker.",
     "values": {
       "default": {
         "fee_taker": 0.0005,

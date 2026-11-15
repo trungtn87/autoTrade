@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 from typing import Any, Mapping
 
 import pandas as pd
@@ -87,6 +88,45 @@ def compute_cost_profile_hash(profile_data: Mapping[str, Any]) -> str:
     """Compute canonical SHA256 hex digest of a cost profile definition."""
     payload = json.dumps(profile_data, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def canonical_cost_profiles_json_sha256(path: Path | str | None = None) -> str:
+    """Hash the whole cost-profile registry as canonical JSON."""
+    p = Path(path) if path is not None else DEFAULT_COST_PROFILES_PATH
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    payload = json.dumps(raw, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def cost_profiles_provenance_at_commit(
+    code_sha: str,
+    *,
+    repo_root: Path | str | None = None,
+    path: Path | str | None = None,
+) -> tuple[str, bool]:
+    """Return (canonical hash, dirty) against cost_profiles.json stored at code_sha.
+
+    This is deliberately fail-closed: an unknown/unreadable commit is dirty.
+    """
+    root = Path(repo_root) if repo_root is not None else Path(__file__).resolve().parents[2]
+    current_path = Path(path) if path is not None else DEFAULT_COST_PROFILES_PATH
+    current_hash = canonical_cost_profiles_json_sha256(current_path)
+    if not code_sha or code_sha == "UNKNOWN_COMMIT":
+        return current_hash, True
+    try:
+        committed_bytes = subprocess.check_output(
+            ["git", "show", f"{code_sha}:autotrade_v3/sim/cost_profiles.json"],
+            cwd=root,
+            stderr=subprocess.DEVNULL,
+        )
+        committed_raw = json.loads(committed_bytes.decode("utf-8-sig"))
+        committed_payload = json.dumps(
+            committed_raw, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        )
+        committed_hash = hashlib.sha256(committed_payload.encode("utf-8")).hexdigest()
+    except Exception:  # noqa: BLE001 - provenance must fail closed
+        return current_hash, True
+    return current_hash, current_hash != committed_hash
 
 
 def load_cost_profiles(path: Path | str | None = None) -> dict[str, CostProfile]:

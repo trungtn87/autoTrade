@@ -38,6 +38,35 @@ LEDGER_COLS = (
     "return_pct",
 )
 
+# Explicit provenance marker for the ledger/artifact schema.  Only values older
+# than V3-13 may use the legacy C4 path when itemized cost columns are absent.
+ARTIFACT_SCHEMA_VERSION_FIELD = "artifact_schema_version"
+V313_COST_COLUMNS = {
+    "gross_pnl_raw", "fee_entry", "fee_exit", "spread_cost",
+    "slippage_cost", "funding_cost", "pnl_own_entry",
+}
+
+
+def _legacy_schema_before_v313(manifest: dict[str, Any]) -> tuple[bool, str]:
+    """Return whether an explicit artifact_schema_version is older than V3-13."""
+    raw = manifest.get(ARTIFACT_SCHEMA_VERSION_FIELD)
+    if raw is None or isinstance(raw, bool):
+        return False, ""
+    text = str(raw).strip().upper().removeprefix("V")
+    try:
+        # Accepted examples: 12, "12", "3.12", "V3-12".
+        if "-" in text:
+            major, minor = text.split("-", 1)
+            version = (int(major), int(minor))
+        elif "." in text:
+            major, minor = text.split(".", 1)
+            version = (int(major), int(minor))
+        else:
+            version = (3, int(text))
+    except (TypeError, ValueError):
+        return False, ""
+    return version < (3, 13), str(raw)
+
 
 # ------------------------------------------------------------------------------------------
 # shared preparation
@@ -579,9 +608,36 @@ def gate_c4(ctx: VerifyContext) -> GateResult:
         if len(bad):
             viol.add_many(len(bad), [{"leg_id": lid[i], "kind": "NET_NE_GROSS_MINUS_FEE"} for i in bad[:20]])
 
-        # V3-13 itemized cost invariant & Mode C dual-basis checks
-        cost_cols = {"gross_pnl_raw", "fee_entry", "fee_exit", "spread_cost", "slippage_cost", "funding_cost"}
-        if cost_cols <= set(trades.columns):
+        # V3-13 itemized cost invariant & Mode C dual-basis checks. Missing
+        # columns fail closed for every mode unless the manifest explicitly
+        # identifies an artifact schema older than V3-13.
+        required_cost_cols = set(V313_COST_COLUMNS)
+        if portfolio:
+            required_cost_cols.add("pnl_vwap")
+        missing_cost_cols = sorted(required_cost_cols - set(trades.columns))
+        is_explicit_legacy, legacy_version = _legacy_schema_before_v313(manifest)
+        if missing_cost_cols and is_explicit_legacy:
+            c4_subchecks = {
+                "NET_COST_INVARIANT_OWN": "N/A_LEGACY_SCHEMA",
+                "NET_IS_VWAP_BASIS": "N/A_LEGACY_SCHEMA",
+                "BASIS_SHIFT_CONSERVATION": "N/A_LEGACY_SCHEMA",
+            }
+            notes.append(
+                f"Legacy schema explicitly declared by {ARTIFACT_SCHEMA_VERSION_FIELD}={legacy_version}; "
+                f"V3-13 C4 checks N/A; missing columns: {missing_cost_cols}."
+            )
+        elif missing_cost_cols:
+            for col in missing_cost_cols:
+                viol.add({"kind": "MISSING_V313_COST_COLUMN", "column": col, "mode": ctx.mode})
+            c4_subchecks = {
+                "NET_COST_INVARIANT_OWN": "FAIL",
+                "NET_IS_VWAP_BASIS": "FAIL" if portfolio else "N/A",
+                "BASIS_SHIFT_CONSERVATION": "FAIL" if portfolio else "N/A",
+            }
+            notes.append(
+                f"V3-13+ or unversioned ledger is missing required cost columns: {missing_cost_cols}."
+            )
+        else:
             raw_recomp = (
                 trades["gross_pnl_raw"].to_numpy(dtype=float)
                 - trades["fee_entry"].to_numpy(dtype=float)
@@ -591,74 +647,62 @@ def gate_c4(ctx: VerifyContext) -> GateResult:
                 - trades["funding_cost"].to_numpy(dtype=float)
             )
             if portfolio:
-                if "pnl_own_entry" not in trades.columns:
-                    viol.add({"kind": "MISSING_PNL_OWN_ENTRY", "detail": "Mode C requires pnl_own_entry"})
+                own_arr = trades["pnl_own_entry"].to_numpy(dtype=float)
+                bad_inv = np.nonzero(np.abs(own_arr - raw_recomp) > 1e-9)[0]
+                if len(bad_inv):
+                    viol.add_many(len(bad_inv), [{"leg_id": lid[i], "kind": "NET_COST_INVARIANT_OWN"} for i in bad_inv[:20]])
                     c4_subchecks["NET_COST_INVARIANT_OWN"] = "FAIL"
                 else:
-                    own_arr = trades["pnl_own_entry"].to_numpy(dtype=float)
-                    bad_inv = np.nonzero(np.abs(own_arr - raw_recomp) > 1e-9)[0]
-                    if len(bad_inv):
-                        viol.add_many(len(bad_inv), [{"leg_id": lid[i], "kind": "NET_COST_INVARIANT_OWN"} for i in bad_inv[:20]])
-                        c4_subchecks["NET_COST_INVARIANT_OWN"] = "FAIL"
-                    else:
-                        c4_subchecks["NET_COST_INVARIANT_OWN"] = "PASS"
+                    c4_subchecks["NET_COST_INVARIANT_OWN"] = "PASS"
 
-                if "pnl_vwap" not in trades.columns:
-                    viol.add({"kind": "MISSING_PNL_VWAP", "detail": "Mode C requires pnl_vwap"})
+                vwap_arr = trades["pnl_vwap"].to_numpy(dtype=float)
+                bad_vwap = np.nonzero(np.abs(led_net - vwap_arr) > 1e-9)[0]
+                if len(bad_vwap):
+                    viol.add_many(len(bad_vwap), [{"leg_id": lid[i], "kind": "NET_IS_VWAP_BASIS"} for i in bad_vwap[:20]])
                     c4_subchecks["NET_IS_VWAP_BASIS"] = "FAIL"
                 else:
-                    vwap_arr = trades["pnl_vwap"].to_numpy(dtype=float)
-                    bad_vwap = np.nonzero(np.abs(led_net - vwap_arr) > 1e-9)[0]
-                    if len(bad_vwap):
-                        viol.add_many(len(bad_vwap), [{"leg_id": lid[i], "kind": "NET_IS_VWAP_BASIS"} for i in bad_vwap[:20]])
-                        c4_subchecks["NET_IS_VWAP_BASIS"] = "FAIL"
-                    else:
-                        c4_subchecks["NET_IS_VWAP_BASIS"] = "PASS"
+                    c4_subchecks["NET_IS_VWAP_BASIS"] = "PASS"
 
-                if "pnl_own_entry" in trades.columns and "pnl_vwap" in trades.columns:
-                    basis_shift = trades["pnl_vwap"].to_numpy(dtype=float) - trades["pnl_own_entry"].to_numpy(dtype=float)
-                    bs_ok = True
-                    run_bs = float(np.sum(basis_shift))
-                    if abs(run_bs) > 1e-6:
-                        viol.add({"kind": "BASIS_SHIFT_CONSERVATION", "scope": "run", "basis_shift_sum": run_bs})
+                basis_shift = trades["pnl_vwap"].to_numpy(dtype=float) - trades["pnl_own_entry"].to_numpy(dtype=float)
+                bs_ok = True
+                run_bs = float(np.sum(basis_shift))
+                if abs(run_bs) > 1e-6:
+                    viol.add({"kind": "BASIS_SHIFT_CONSERVATION", "scope": "run", "basis_shift_sum": run_bs})
+                    bs_ok = False
+                bs_df = trades[["symbol", "side", "entry_time_ms", "exit_time_ms"]].copy()
+                bs_df["_basis_shift"] = basis_shift
+                for sym, sym_sum in bs_df.groupby("symbol")["_basis_shift"].sum().items():
+                    if abs(float(sym_sum)) > 1e-6:
+                        viol.add({"kind": "BASIS_SHIFT_CONSERVATION", "scope": f"symbol:{sym}", "basis_shift_sum": float(sym_sum)})
                         bs_ok = False
-                    bs_df = trades[["symbol", "side", "entry_time_ms", "exit_time_ms"]].copy()
-                    bs_df["_basis_shift"] = basis_shift
-                    for sym, sym_sum in bs_df.groupby("symbol")["_basis_shift"].sum().items():
-                        if abs(float(sym_sum)) > 1e-6:
-                            viol.add({"kind": "BASIS_SHIFT_CONSERVATION", "scope": f"symbol:{sym}", "basis_shift_sum": float(sym_sum)})
-                            bs_ok = False
-                    for (sym, side), grp in bs_df.groupby(["symbol", "side"]):
-                        g = grp.sort_values(["entry_time_ms", "exit_time_ms"])
-                        cur_end = -1
-                        cur_sum = 0.0
-                        for row_en, row_ex, row_bs in zip(
-                            g["entry_time_ms"].astype("int64"),
-                            g["exit_time_ms"].astype("int64"),
-                            g["_basis_shift"].astype(float),
-                        ):
-                            if cur_end < 0 or row_en <= cur_end:
-                                cur_end = max(cur_end, row_ex)
-                                cur_sum += row_bs
-                            else:
-                                if abs(cur_sum) > 1e-6:
-                                    viol.add({"kind": "BASIS_SHIFT_CONSERVATION", "scope": f"position:{sym}:{side}", "basis_shift_sum": cur_sum})
-                                    bs_ok = False
-                                cur_end = row_ex
-                                cur_sum = row_bs
-                        if cur_end >= 0 and abs(cur_sum) > 1e-6:
-                            viol.add({"kind": "BASIS_SHIFT_CONSERVATION", "scope": f"position:{sym}:{side}", "basis_shift_sum": cur_sum})
-                            bs_ok = False
-                    c4_subchecks["BASIS_SHIFT_CONSERVATION"] = "PASS" if bs_ok else "FAIL"
-                else:
-                    c4_subchecks["BASIS_SHIFT_CONSERVATION"] = "FAIL"
+                for (sym, side), grp in bs_df.groupby(["symbol", "side"]):
+                    g = grp.sort_values(["entry_time_ms", "exit_time_ms"])
+                    cur_end = -1
+                    cur_sum = 0.0
+                    for row_en, row_ex, row_bs in zip(
+                        g["entry_time_ms"].astype("int64"),
+                        g["exit_time_ms"].astype("int64"),
+                        g["_basis_shift"].astype(float),
+                    ):
+                        if cur_end < 0 or row_en <= cur_end:
+                            cur_end = max(cur_end, row_ex)
+                            cur_sum += row_bs
+                        else:
+                            if abs(cur_sum) > 1e-6:
+                                viol.add({"kind": "BASIS_SHIFT_CONSERVATION", "scope": f"position:{sym}:{side}", "basis_shift_sum": cur_sum})
+                                bs_ok = False
+                            cur_end = row_ex
+                            cur_sum = row_bs
+                    if cur_end >= 0 and abs(cur_sum) > 1e-6:
+                        viol.add({"kind": "BASIS_SHIFT_CONSERVATION", "scope": f"position:{sym}:{side}", "basis_shift_sum": cur_sum})
+                        bs_ok = False
+                c4_subchecks["BASIS_SHIFT_CONSERVATION"] = "PASS" if bs_ok else "FAIL"
             else:
-                target_net = trades["pnl_own_entry"].to_numpy(dtype=float) if "pnl_own_entry" in trades.columns else led_net
+                target_net = trades["pnl_own_entry"].to_numpy(dtype=float)
                 bad_inv = np.nonzero(np.abs(target_net - raw_recomp) > 1e-9)[0]
-                if "pnl_own_entry" in trades.columns:
-                    bad_net = np.nonzero(np.abs(led_net - raw_recomp) > 1e-9)[0]
-                    if len(bad_net):
-                        viol.add_many(len(bad_net), [{"leg_id": lid[i], "kind": "NET_COST_INVARIANT"} for i in bad_net[:20]])
+                bad_net = np.nonzero(np.abs(led_net - raw_recomp) > 1e-9)[0]
+                if len(bad_net):
+                    viol.add_many(len(bad_net), [{"leg_id": lid[i], "kind": "NET_COST_INVARIANT"} for i in bad_net[:20]])
                 if len(bad_inv):
                     viol.add_many(len(bad_inv), [{"leg_id": lid[i], "kind": "NET_COST_INVARIANT_OWN"} for i in bad_inv[:20]])
                     c4_subchecks["NET_COST_INVARIANT_OWN"] = "FAIL"
@@ -672,14 +716,6 @@ def gate_c4(ctx: VerifyContext) -> GateResult:
             )[0]
             if len(bad_fe):
                 viol.add_many(len(bad_fe), [{"leg_id": lid[i], "kind": "FEE_SUM_MISMATCH"} for i in bad_fe[:20]])
-        elif portfolio:
-            c4_subchecks = {
-                "NET_COST_INVARIANT_OWN": "N/A_LEGACY_SCHEMA",
-                "NET_IS_VWAP_BASIS": "N/A_LEGACY_SCHEMA",
-                "BASIS_SHIFT_CONSERVATION": "N/A_LEGACY_SCHEMA",
-            }
-            notes.append("Mode C legacy schema: itemized cost columns missing; dual-basis C4 subchecks marked N/A_LEGACY_SCHEMA.")
-
         # leg totals vs execution events
         ev = run.events
         if ev is not None and len(ev):
