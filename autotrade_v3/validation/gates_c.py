@@ -263,7 +263,10 @@ def gate_c1(ctx: VerifyContext) -> GateResult:
     blocked = _m1_available(ctx)
     if blocked:
         return inconclusive("C1", name, blocked, total=n)
-    slip = float(manifest.get("slippage_rate", 0.0))
+    cost_spec = _load_cost_spec(ctx, manifest)
+    half_sp = float(cost_spec["half_spread_bps"])
+    entry_slip_bps = float(cost_spec["slippage_bps"].get("entry_market", 0.0))
+    slip = (half_sp + entry_slip_bps) / 10000.0
     ent = _entry_arrays(trades, signals, ctx, manifest)
     viol = ViolationCollector()
     sid = trades["signal_id"].to_numpy()
