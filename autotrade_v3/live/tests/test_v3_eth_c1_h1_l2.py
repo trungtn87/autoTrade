@@ -258,3 +258,31 @@ def test_paged_warmup_spreads_12000_bars_over_passes_without_bursts():
             assert passes < 10
     assert passes == 3 and hist.calls == 12          # 12 pages of 1000 bars, 4 per pass
     assert cache._frame is not None and len(cache._frame) == BARS
+
+
+def test_failed_page_keeps_loaded_pages_and_reports_the_cause():
+    """A BingX error on one page must not restart the warm-up; the control message carries the cause."""
+    from autotrade_v3.live.eth_c1_history import HistoryNotReady
+    _l2, hist, _ctl, big = _setup()
+    cache = EthC1History(hist, bars=BARS, page_bars=1000, pages_per_pass=4, retry_sec=0.0)
+    hist.end = 12_000
+    real = hist.fetch_window
+    state = {"n": 0}
+
+    def flaky(symbol, start, end, limit):
+        state["n"] += 1
+        if state["n"] == 6:
+            raise RuntimeError("BingX error status=429 code=100410 msg=rate limited")
+        return real(symbol, start, end, limit)
+    hist.fetch_window = flaky
+    with pytest.raises(HistoryNotReady):
+        cache.frame_for(_m15(big, 12_000))             # pass 1: pages 1-4 loaded, incomplete
+    assert len(cache._parts) == 4
+    with pytest.raises(HistoryNotReady) as err:
+        cache.frame_for(_m15(big, 12_000))             # pass 2: page 5 ok, page 6 fails with the BingX code
+    assert "100410" in str(err.value) and "6/12" in str(err.value)
+    assert len(cache._parts) == 5                      # progress kept, not restarted
+    with pytest.raises(HistoryNotReady):
+        cache.frame_for(_m15(big, 12_000))             # pass 3 continues from page 6
+    cache.frame_for(_m15(big, 12_000))                 # rest of the pages load
+    assert cache._frame is not None and len(cache._frame) == BARS

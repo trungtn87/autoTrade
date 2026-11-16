@@ -93,8 +93,12 @@ class EthC1History:
             try:
                 part = self.client.fetch_window(ETH, start, end + STEP_15M_MS - 1, count)
             except Exception as exc:
-                self._reset()
-                raise HistoryNotReady(f"không tải được lịch sử ETH M15 ({type(exc).__name__})") from exc
+                # Keep the pages already loaded: a failed page only delays the warm-up, it never restarts it.
+                # The BingX code and message are kept (bounded) so the control log shows the real cause.
+                detail = " ".join(str(exc).split())[:300]
+                raise HistoryNotReady(
+                    f"không tải được đợt lịch sử ETH M15 {len(self._parts) + 1}/"
+                    f"{-(-self.bars // self.page_bars)} ({type(exc).__name__}: {detail})") from exc
             self._parts.append(part[COLS])
             self._next_open = end + STEP_15M_MS
         if self._next_open <= self._stop_open:
@@ -115,7 +119,7 @@ class EthC1History:
                 self._reset()
 
             now = int(self.now_ms())
-            if self._last_attempt_ms is not None and now - self._last_attempt_ms < self.retry_ms and self._next_open is None:
+            if self._last_attempt_ms is not None and now - self._last_attempt_ms < self.retry_ms:
                 raise HistoryNotReady("đang chờ lần warm-up lịch sử ETH kế tiếp")
             self._last_attempt_ms = now
             self._page(latest_open)
