@@ -21,6 +21,7 @@ def main() -> None:
         st.Page("pages/p02_strategies.py", title="1. Strategy Config", icon="🧬"),
         st.Page("pages/p06_compare.py", title="2. Walk-Forward Lab", icon="↗️"),
         st.Page("pages/p04_run_detail.py", title="3. Run Detail", icon="📊", default=True),
+        st.Page("pages/p11_run_catalog.py", title="Kho backtest · Tất cả run", icon="🗂️"),
         st.Page("pages/p05_signal_explorer.py", title="4. Signal Explorer", icon="🔎"),
         st.Page("pages/p08_live_guard.py", title="5. Live / Paper Guard", icon="🛡️"),
         st.Page("pages/p01_datasets.py", title="Admin · Datasets", icon="🗄️"),
