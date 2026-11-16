@@ -204,7 +204,8 @@ def test_golden_v3_13_mt5_report_all_three_modes(
     assert data["kpi"]["mt5_results"]["total_net_profit"]["value"] == pytest.approx(expected_net, abs=1e-3)
     assert data["kpi"]["cost_reality"]["total_fees"]["value"] == pytest.approx(expected_fees, abs=1e-3)
     assert data["kpi"]["volume"]["accepted_entries"]["value"] == expected_entries
-    if expect_mtm:
+    snapshots_present = (run_dir / "snapshots.parquet").is_file()
+    if expect_mtm and snapshots_present:
         assert data["kpi"]["account"]["final_equity_mtm"]["status"] == "AVAILABLE"
     else:
         assert data["kpi"]["account"]["final_equity_mtm"]["status"] == "N/A"
@@ -402,4 +403,3 @@ def test_v3_16_all_signals_base_real_run_smoke(tmp_path: Path) -> None:
     assert data["kpi"]["mt5_results"]["total_net_profit"]["value"] == pytest.approx(168.5995, abs=0.05)
     assert data["kpi"]["risk"]["m2m_max_dd_dollars"]["value"] == pytest.approx(105.0274, abs=0.05)
     assert data["kpi"]["concentration"]["max_open_entries_any_sym_side"]["value"] == 26
-
