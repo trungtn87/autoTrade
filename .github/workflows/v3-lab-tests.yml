@@ -46,6 +46,13 @@ jobs:
         run: |
           ruff check autotrade_v3 scripts
 
+      - name: Run Test Suite (pytest)
+        run: |
+          set -euo pipefail
+          pytest autotrade_v3/tests \
+            --junitxml=evidence/ci_artifacts/junit.xml \
+            2>&1 | tee evidence/ci_artifacts/pytest_full.log
+
       - name: Mypy Baseline Check (No Increase)
         run: |
           python -m autotrade_v3.tools.check_mypy_baseline
@@ -65,13 +72,6 @@ jobs:
             cd runs/golden/v3-08
             sha256sum --check SHA256SUMS.txt
           ) | tee evidence/ci_artifacts/golden_parity.log
-
-      - name: Run Test Suite (pytest)
-        run: |
-          set -euo pipefail
-          pytest autotrade_v3/tests \
-            --junitxml=evidence/ci_artifacts/junit.xml \
-            2>&1 | tee evidence/ci_artifacts/pytest_full.log
 
       - name: Upload CI Evidence Artifacts
         uses: actions/upload-artifact@v4
