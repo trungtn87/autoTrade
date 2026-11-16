@@ -9,7 +9,7 @@
   "scripts/c1_sell_corrected_strategy.py": "da4ef22578709942564da1b8bdb354acf04e6c4379d75f38e6bb1c06d51f6a73"
  },
  "live_exit_policy": "FIXED_TP_SL",
- "new6_signal_mode": "every_bar",
+ "new6_signal_mode": "virtual_position",
  "h1_both_1": {
   "buy_max_slope_4h_pct": 1.5,
   "sell_min_dist_ema150_4h_pct": -6.0,
@@ -556,5 +556,6 @@
     "force_close_on_window_end": false
    }
   }
- ]
+ ],
+ "new6_signal_mode_note": "Owner 2026-11-16 (PR #129): keep 20FINAL live NEW6 single-virtual-position rule; lab baseline emits every bar (not accepted for live)."
 }

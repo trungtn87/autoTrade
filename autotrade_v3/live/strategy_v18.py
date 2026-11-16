@@ -5,10 +5,11 @@ Every rule below reuses the frozen 20FINAL indicator code in
 
 * FINAL14 combos: the same ``precompute``/``entry_variants``/``approved`` path
   as ``final14_exact_strategy.scan_latest``.
-* NEW6 combos: same raw indicator signals + SMC/OB approval. With
-  ``new6_signal_mode == "every_bar"`` a signal is emitted on every confirmed 1H
-  bar where the approved condition holds (lab ``Final20`` batch semantics);
-  ``"virtual_position"`` keeps the 20FINAL live single-virtual-position rule.
+* NEW6 combos: same raw indicator signals + SMC/OB approval. Registry
+  V3_LIVE_18_H1_V2 uses ``"virtual_position"`` = the unchanged 20FINAL live rule
+  (``_new6_latest_action``: a new signal only when the combo's own virtual hard
+  TP/SL position is flat). ``"every_bar"`` (lab batch semantics) is NOT approved
+  for live and only kept for the parity tooling.
 * ETH-USDT/C1 = H1_BOTH_1: port of ``P3C1ResearchStrategy(variant_id="H1_BOTH_1",
   buy_max_slope_4h_pct=1.5, sell_min_dist_ema150_4h_pct=-6.0, pre_edge_h1=True)``
   — the path ``ExperimentRunner`` really calls (``generate_signals``): BUY =
@@ -28,7 +29,7 @@ import numpy as np
 import pandas as pd
 
 from autotrade_v2.app.strategy.final14_exact_strategy import (
-    MIN_LIVE_15M_BARS, _new6_latest_action, _new6_raw_signals, _research_frame, hard_tp_sl)
+    MIN_LIVE_15M_BARS, _new6_filtered_signals, _new6_latest_action, _new6_raw_signals, _research_frame, hard_tp_sl)
 from autotrade_v2.app.strategy.final14_research.indicators import (
     atr, cci, dmi, edge_event, ema, mfi, rsi, sma, stochastic)
 from autotrade_v2.app.strategy.final14_research.layer3_long import entry_variants, precompute
@@ -110,6 +111,38 @@ def h1_both_1_events(d15: pd.DataFrame, params: dict) -> tuple[pd.Series, pd.Ser
     smc1 = smc_direction(d1, 50, False)
     ob1 = ob_context(d1, OB_CFG)
     return ev_l.fillna(False).astype(bool), ev_s.fillna(False).astype(bool), smc1, ob1
+
+
+def _new6_virtual_entries(d15, d1, c: ComboSpec, smc1, ob1) -> list[tuple[int, str, int]]:
+    """Batch form of ``_new6_latest_action``: every bar where that function would return a direction.
+
+    Same state machine (exits first, stop-first on ambiguous bars, entry at the 15m close,
+    no exit on the entry bar), run once over the frame instead of once per latest bar.
+    """
+    cfg = c.as_case()
+    long1, short1 = _new6_filtered_signals(d1, c.combo_id, cfg, smc1, ob1)
+    event_index = d1.index + pd.Timedelta("45min")
+    long15 = pd.Series(long1.to_numpy(bool), index=event_index).reindex(d15.index, fill_value=False).to_numpy(bool)
+    short15 = pd.Series(short1.to_numpy(bool), index=event_index).reindex(d15.index, fill_value=False).to_numpy(bool)
+    high, low, close = (d15[k].to_numpy(float) for k in ("high", "low", "close"))
+    tp_pct, sl_pct = float(cfg["tp_pct"]), float(cfg["sl_pct"])
+    out: list[tuple[int, str, int]] = []
+    pos, tp, sl = 0, 0.0, 0.0
+    for i in range(len(d15)):
+        if pos == 1 and (low[i] <= sl or high[i] >= tp):
+            pos = 0
+        elif pos == -1 and (high[i] >= sl or low[i] <= tp):
+            pos = 0
+        if pos != 0 or long15[i] == short15[i]:
+            continue
+        ot = d15.index[i] - pd.Timedelta("45min")
+        sd = int(smc1.loc[ot]) if ot in smc1.index else 0
+        out.append((i, "L" if long15[i] else "S", sd))
+        entry = float(close[i])
+        pos = 1 if long15[i] else -1
+        tp = entry * (1 + pos * tp_pct)
+        sl = entry * (1 - pos * sl_pct)
+    return out
 
 
 class V18Engine:
@@ -206,11 +239,13 @@ class V18Engine:
         # NEW6 -------------------------------------------------------------------
         for c in (x for x in combos if x.is_new6):
             if self.registry.new6_signal_mode == "virtual_position":
-                if not latest_only:
-                    raise NotImplementedError("virtual_position NEW6 is defined only for the latest bar")
-                direction, sd = _new6_latest_action(d, d1, c.combo_id, c.as_case(), smc1, ob1)
-                if direction:
-                    emit(c, "L" if direction == 1 else "S", len(d) - 1, sd)
+                if latest_only:   # live: exact 20FINAL function
+                    direction, sd = _new6_latest_action(d, d1, c.combo_id, c.as_case(), smc1, ob1)
+                    if direction:
+                        emit(c, "L" if direction == 1 else "S", len(d) - 1, sd)
+                else:
+                    for pos, side_code, sd in _new6_virtual_entries(d, d1, c, smc1, ob1):
+                        emit(c, side_code, pos, sd)
                 continue
             raw_l, raw_s = _new6_raw_signals(d1, c.combo_id)
             lv = raw_l.to_numpy(bool)

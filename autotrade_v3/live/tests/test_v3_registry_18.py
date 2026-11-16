@@ -32,7 +32,7 @@ REG_JSON = ROOT / "autotrade_v3" / "live" / "registries" / "V3_LIVE_18_H1_V2.jso
 BTC_18 = {1, 2, 4, 6, 7, 10, 11, 101, 106}
 ETH_18 = {1, 3, 4, 7, 10, 101, 102, 103, 105}
 # Frozen identity of the deployed registry. Changing any combo/threshold/TP/SL changes it.
-V18_SPEC_HASH = "1734b04740e97bccdd250a8220e8cca40e9eec3e23021629c9eb6dd4f9c74009"
+V18_SPEC_HASH = "c09830666c3d50a31baed1312f9474203a5c8f1c3792b26e8a0f1f9319ddddcd"
 
 
 def _candles(seed: int, n: int, start: int = 1_700_000_100_000 // 900_000 * 900_000) -> pd.DataFrame:
@@ -319,4 +319,20 @@ def test_status_exposes_active_registry():
 
 def test_registry_json_is_not_edited_by_hand():
     digest = hashlib.sha256(REG_JSON.read_bytes()).hexdigest()
-    assert digest == "833654ace9b207678f50f78d568484734d6c74d08a756a133568147bbe7e1c91"
+    assert digest == "01b8d187928e28d0c584d0d26f0f9b3791cd4d9f3ddfb108828eba89510e2753"
+
+
+def test_new6_keeps_20final_virtual_position_rule():
+    """Owner 2026-11-16: NEW6 keeps the live single-virtual-position rule (not the lab every-bar rule)."""
+    reg = load_registry(REGISTRY_V18)
+    assert reg.new6_signal_mode == "virtual_position"
+    eng = V18Engine(reg)
+    full = _candles(4, 3600)
+    for end in range(3400, 3600, 4):
+        m15 = full.iloc[end - 3400:end].reset_index(drop=True)
+        for symbol in ("BTC-USDT", "ETH-USDT"):
+            mine = {(s.event_id, s.entry, s.tp, s.sl) for s in eng.calculate(symbol, m15) if s.combo > 100}
+            legacy = {(x.event_id, x.entry, x.tp, x.sl) for x in scan_latest(symbol, m15)
+                      if x.combo > 100 and reg.get(symbol, x.combo) is not None}
+            assert legacy <= mine            # every shared NEW6 combo fires exactly as in 20FINAL
+            assert {e for e in mine if e not in legacy} <= {e for e in mine if e[0].startswith("ETH-USDT|1h|C11|")}
