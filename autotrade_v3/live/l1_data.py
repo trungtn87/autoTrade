@@ -86,6 +86,11 @@ class L1Data:
                     continue
                 if state["count"] and now_ms - state["last_ms"] < RECOVERY_RETRY_MS:
                     continue
+                if state["count"] == 0:
+                    # First miss for this candle: alert once, before REST recovery runs.
+                    self.control.report("L1", "candle_stale",
+                                        f"Thiếu nến 15m {symbol} open={expected}, đang khôi phục từ REST",
+                                        symbol=symbol, details={"expected_open_time": expected})
                 self._attempts[key] = {"count": state["count"] + 1, "last_ms": now_ms}
                 try:
                     snap, missing = self.recover(symbol, now_ms)
