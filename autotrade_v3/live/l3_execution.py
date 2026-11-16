@@ -53,6 +53,24 @@ class V3Signal:
     entry: float
     tp: float
     sl: float
+    # Strategy identity (registry version + per-combo spec hash). Optional so signals
+    # created by older code paths/tests stay valid; TP/SL pct come from the registry.
+    tp_pct: float | None = None
+    sl_pct: float | None = None
+    registry_version: str | None = None
+    spec_hash: str | None = None
+    signal_variant: str | None = None
+
+    def case(self) -> dict | None:
+        """TP/SL config: the signal's own registry spec, else the frozen 20FINAL table."""
+        if self.tp_pct is not None and self.sl_pct is not None:
+            return {"tp_pct": float(self.tp_pct), "sl_pct": float(self.sl_pct)}
+        return get_case(self.symbol, self.combo)
+
+    def identity(self) -> dict:
+        return {"registry_version": self.registry_version, "spec_hash": self.spec_hash,
+                "signal_variant": self.signal_variant, "combo_id": self.combo, "combo": self.combo_name,
+                "symbol": self.symbol, "timeframe": self.timeframe, "tp_pct": self.tp_pct, "sl_pct": self.sl_pct}
 
 
 def client_order_id(event_id: str, purpose: str) -> str:
@@ -144,7 +162,7 @@ class L3Executor:
     def execute(self, sig: V3Signal) -> dict:
         side = sig.side.upper()
         coid = client_order_id(sig.event_id, "entry")
-        cfg = get_case(sig.symbol, sig.combo)
+        cfg = sig.case()
         qty = round(float(self.settings.notional_usdt) / float(sig.entry), 4) if sig.entry else 0.0
         out: dict[str, Any] = {"event_id": sig.event_id, "symbol": sig.symbol, "combo": sig.combo_name, "side": side,
                                "client_order_id": coid, "leverage": self.settings.leverage, "requested_qty": qty}
@@ -201,7 +219,7 @@ class L3Executor:
         # 4. L4 mechanism 2: confirm exact Entry --------------------------------
         ev = self.reader.confirm_entry(sig.symbol, event_id=sig.event_id, order_id=entry_order_id, client_order_id=coid)
         entry_order_id = ev.order_id or entry_order_id
-        raw_entry = {"post": post_outcome, "confirm": ev.as_dict()}
+        raw_entry = {"post": post_outcome, "confirm": ev.as_dict(), "strategy": sig.identity()}
         out.update(entry_order_id=entry_order_id, entry_status=ev.status)
 
         if not (ev.executed_qty > 0 and ev.avg_price > 0):

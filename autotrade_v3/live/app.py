@@ -45,7 +45,8 @@ class Runtime:
         self.reader = L4Reader(self.client, self.store, self.control)
         self.executor = L3Executor(s, self.client, self.store, self.reader, self.control, self.alert)
         self.l1 = L1Data(s, self.candles, self.control)
-        self.l2 = L2Strategy(self.store, self.control, self.alert, self.executor if s.execution_enabled else None)
+        self.l2 = L2Strategy(self.store, self.control, self.alert, self.executor if s.execution_enabled else None,
+                             registry=s.strategy_registry)
         self.leftover = LeftoverCleaner(s, self.client, self.store, self.reader, self.control, self.alert,
                                         busy=v3_threads_busy)
         self.executor.on_settled = self.leftover.request
@@ -98,7 +99,8 @@ class Runtime:
         try:
             signals = self.l2.calculate(snapshot)
         except Exception as exc:
-            self.control.report("L2", "strategy_calculate", f"20FINAL không tính được cho {symbol}: {exc}", symbol=symbol,
+            version = self.l2.registry.version if self.l2.registry else "registry"
+            self.control.report("L2", "strategy_calculate", f"{version} không tính được cho {symbol}: {exc}", symbol=symbol,
                                 details={"latest_open_time": getattr(snapshot, "latest_open_time", None)})
             self.last_run = {"ok": False, "symbol": symbol, "stage": "strategy", "error": str(exc)}
             return
@@ -123,8 +125,14 @@ class Runtime:
     # ---- lifecycle ------------------------------------------------------
     def start(self) -> None:
         s = self.settings
-        log.info("V3_START execution_enabled=%s websocket_enabled=%s symbols=%s", s.execution_enabled,
-                 s.websocket_enabled, s.symbols)
+        reg = self.l2.registry_view()
+        log.info("V3_START execution_enabled=%s websocket_enabled=%s symbols=%s registry=%s count=%s spec_hash=%s",
+                 s.execution_enabled, s.websocket_enabled, s.symbols, reg.get("version"), reg.get("count"),
+                 reg.get("spec_hash"))
+        if self.l2.registry is None:
+            self.control.report("L2", "strategy_registry",
+                                f"Registry chiến lược không hợp lệ, KHÔNG mở lệnh mới (vị thế cũ vẫn được L4 quản lý): "
+                                f"{self.l2.registry_error}", details={"V3_STRATEGY_REGISTRY": s.strategy_registry})
         if s.is_postgres:
             self.hourly.start()
             if s.execution_enabled:
@@ -166,6 +174,7 @@ class Runtime:
             "runtime": {"status": self.status, "execution_enabled": s.execution_enabled,
                         "websocket_enabled": s.websocket_enabled, "symbols": list(s.symbols),
                         "store": type(self.store).__name__, "candle_backend": self.candles.backend},
+            "strategy_registry": self.l2.registry_view(),
             "data_health": self.l1.health,
             "websocket": self.stream.status() if self.stream is not None else None,
             "last_run": self.last_run,
@@ -203,7 +212,10 @@ def create_app(runtime: Runtime | None = None) -> FastAPI:
     def health():
         r = rt()
         ok_data = all(v.get("ok") for v in r.l1.health.values()) if r.l1.health else not r.settings.websocket_enabled
+        reg = r.l2.registry_view()
         body = {"engine": ENGINE_NAME, "ok": bool(ok_data), "status": r.status,
+                "strategy_registry": {"version": reg.get("version"), "count": reg.get("count"),
+                                      "spec_hash": reg.get("spec_hash")},
                 "execution_enabled": r.settings.execution_enabled, "data_health": clean(r.l1.health)}
         # Liveness is always 200 so a platform health check never restarts the
         # process between an Entry and its protection; data health is in the body.

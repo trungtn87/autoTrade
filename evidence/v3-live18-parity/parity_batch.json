@@ -1,0 +1,209 @@
+{
+ "mode": "batch",
+ "registry": {
+  "version": "V3_LIVE_18_H1_V2",
+  "count": 18,
+  "spec_hash": "1734b04740e97bccdd250a8220e8cca40e9eec3e23021629c9eb6dd4f9c74009",
+  "new6_signal_mode": "every_bar",
+  "exit_policy": "FIXED_TP_SL",
+  "combos": {
+   "BTC-USDT": [
+    "C1",
+    "C2",
+    "C4",
+    "C6",
+    "C7",
+    "C10",
+    "TIER",
+    "C11",
+    "C16"
+   ],
+   "ETH-USDT": [
+    "C1[H1_BOTH_1]",
+    "C3",
+    "C4",
+    "C7",
+    "C10",
+    "C11",
+    "C12",
+    "C13",
+    "C15"
+   ]
+  }
+ },
+ "lab_signals": 6814,
+ "live_signals": 6814,
+ "matched": 6814,
+ "lab_only": 0,
+ "live_only": 0,
+ "max_abs_entry_diff": 0.0,
+ "max_abs_tp_diff": 1.4551915228366852e-11,
+ "max_abs_sl_diff": 1.4551915228366852e-11,
+ "timeframe_mismatch": 0,
+ "live_duplicates": 0,
+ "lab_duplicates": 0,
+ "per_combo": [
+  {
+   "symbol": "BTC-USDT",
+   "combo_id": 1,
+   "lab": 245,
+   "live": 245,
+   "matched": 245,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "BTC-USDT",
+   "combo_id": 2,
+   "lab": 84,
+   "live": 84,
+   "matched": 84,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "BTC-USDT",
+   "combo_id": 4,
+   "lab": 278,
+   "live": 278,
+   "matched": 278,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "BTC-USDT",
+   "combo_id": 6,
+   "lab": 114,
+   "live": 114,
+   "matched": 114,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "BTC-USDT",
+   "combo_id": 7,
+   "lab": 227,
+   "live": 227,
+   "matched": 227,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "BTC-USDT",
+   "combo_id": 10,
+   "lab": 46,
+   "live": 46,
+   "matched": 46,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "BTC-USDT",
+   "combo_id": 11,
+   "lab": 193,
+   "live": 193,
+   "matched": 193,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "BTC-USDT",
+   "combo_id": 101,
+   "lab": 828,
+   "live": 828,
+   "matched": 828,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "BTC-USDT",
+   "combo_id": 106,
+   "lab": 168,
+   "live": 168,
+   "matched": 168,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 1,
+   "lab": 358,
+   "live": 358,
+   "matched": 358,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 3,
+   "lab": 95,
+   "live": 95,
+   "matched": 95,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 4,
+   "lab": 268,
+   "live": 268,
+   "matched": 268,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 7,
+   "lab": 288,
+   "live": 288,
+   "matched": 288,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 10,
+   "lab": 13,
+   "live": 13,
+   "matched": 13,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 101,
+   "lab": 1211,
+   "live": 1211,
+   "matched": 1211,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 102,
+   "lab": 455,
+   "live": 455,
+   "matched": 455,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 103,
+   "lab": 297,
+   "live": 297,
+   "matched": 297,
+   "lab_only": 0,
+   "live_only": 0
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 105,
+   "lab": 1646,
+   "live": 1646,
+   "matched": 1646,
+   "lab_only": 0,
+   "live_only": 0
+  }
+ ]
+}

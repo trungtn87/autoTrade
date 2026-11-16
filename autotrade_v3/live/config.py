@@ -48,6 +48,10 @@ class V3Settings:
     sl_resize_mode: str = field(default_factory=lambda: os.getenv("V3_SL_RESIZE_MODE", "shadow").strip().lower())
     sl_resize_poll_sec: int = field(default_factory=lambda: max(20, int(os.getenv("V3_SL_RESIZE_POLL_SEC", "30"))))
 
+    # L2 strategy registry (immutable versions): V3_LIVE_18_H1_V2 (18 combo-symbols, default)
+    # or 20FINAL (rollback). Switching never touches open positions or their protection.
+    strategy_registry: str = field(default_factory=lambda: os.getenv("V3_STRATEGY_REGISTRY", "V3_LIVE_18_H1_V2").strip().upper())
+
     log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO").upper())
 
     @property
