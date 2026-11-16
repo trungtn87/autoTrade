@@ -176,8 +176,10 @@ def test_l2_eth_c1_goes_through_h1_both_1_on_the_real_call_path(monkeypatch):
     m15 = _candles(5, 3400)
     l2.calculate(_snap("BTC-USDT", m15))
     assert calls == []
+    # ETH C1 H1_BOTH_1 is not computed by V18Engine any more: the 12000-bar generator owns it.
     l2.calculate(_snap("ETH-USDT", m15))
-    assert len(calls) == 1 and calls[0]["buy_max_slope_4h_pct"] == 1.5 and calls[0]["sell_min_dist_ema150_4h_pct"] == -6.0
+    assert calls == []
+    assert all(c.signal_variant != "H1_BOTH_1" for c in l2.v18.registry.combos)
 
 
 def test_h1_both_1_sell_uses_corrected_cci_and_filters_before_edge():

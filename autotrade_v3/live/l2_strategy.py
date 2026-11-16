@@ -42,10 +42,9 @@ class L2Strategy:
                  registry: str | StrategyRegistry | None = None, eth_c1_h1_enabled: bool = True, historical=None):
         """``registry=None`` keeps the 20FINAL engine (tests / rollback default).
 
-        ETH-USDT/C1 H1_BOTH_1 always comes from the PR #128 generator on the 12000-bar ETH history
-        (EMA150 4H needs it to converge). Under 20FINAL it replaces the V2 C1 unless
-        ``eth_c1_h1_enabled`` is False (V3_ETH_C1_H1_L2=off). Under a JSON registry whose ETH C1 spec is
-        H1_BOTH_1 it is mandatory: the flag cannot turn ETH C1 back into the V2 baseline.
+        ETH-USDT/C1 H1_BOTH_1 uses the PR #128 generator on the 12000-bar ETH history, unless
+        ``eth_c1_h1_enabled`` is False (V3_ETH_C1_H1_L2=off) under 20FINAL. Under a JSON registry whose
+        ETH C1 spec is H1_BOTH_1 it is always on: the flag cannot turn ETH C1 back into the baseline.
         """
         self.store = store
         self.control = control
@@ -73,14 +72,23 @@ class L2Strategy:
                 if (float(reg.h1_both_1.get("buy_max_slope_4h_pct")) != H1_BUY_MAX_SLOPE_4H_PCT
                         or float(reg.h1_both_1.get("sell_min_dist_ema150_4h_pct")) != H1_SELL_MIN_DIST_EMA150_4H_PCT
                         or reg.h1_both_1.get("pre_edge_h1") is not True):
-                    raise ValueError(f"registry {reg.version}: H1_BOTH_1 params differ from the live generator")
-            self.v18 = V18Engine(dataclasses.replace(
-                reg, combos=tuple(c for c in reg.combos if c.signal_variant != "H1_BOTH_1")))
-            eth_c1_h1_enabled = self.eth_c1_spec is not None
+                    # Fail closed: never trade an ETH C1 that is not the approved spec.
+                    self.registry_error = f"registry {reg.version}: H1_BOTH_1 params differ from the live generator"
+                    self.registry = reg = None
+            if reg is not None:
+                # Registry path: ETH C1 H1_BOTH_1 comes from the PR #128 generator on the 12000-bar ETH
+                # history (paged warm-up in L1). V18Engine computes every other combo on the 3400-bar snapshot.
+                self.v18 = V18Engine(dataclasses.replace(
+                    reg, combos=tuple(c for c in reg.combos if c.signal_variant != "H1_BOTH_1")))
+            eth_c1_h1_enabled = self.eth_c1_spec is not None and reg is not None
         self.last_signals: list[dict] = []
         # ETH-USDT/C1 only: H1_BOTH_1 generator (Lab P3 semantics). False = pure V2 output (rollback).
         self.eth_c1_gen = EthC1H1Both1Strategy(enable_eth_c1_h1_l2=True) if eth_c1_h1_enabled else None
         self.eth_history = EthC1History(historical) if (eth_c1_h1_enabled and historical is not None) else None
+
+    def _report(self, kind: str, message: str, symbol: str = ETH) -> None:
+        if self.control is not None:  # tests and offline tools run without a control log
+            self.control.report("L2", kind, message, symbol=symbol)
 
     def registry_view(self) -> dict:
         if self.registry is None:
@@ -118,16 +126,46 @@ class L2Strategy:
             history = self.eth_history.frame_for(snapshot.candles)
             c1 = self._eth_c1_latest(snapshot, history)
         except HistoryNotReady as exc:  # not enough trusted history: no unconfirmed ETH C1, other combos run
-            self.control.report("L2", "eth_c1_h1",
+            self._report("eth_c1_h1",
                                 f"ETH C1 H1 tạm dừng lượt này, chưa đủ lịch sử 12000 nến M15: {exc}", symbol=ETH)
             return others
         except Exception as exc:  # missing indicator: emit no unconfirmed ETH C1, keep the other combos
-            self.control.report("L2", "eth_c1_h1",
+            self._report("eth_c1_h1",
                                 f"Thiếu dữ liệu chỉ báo ETH C1 H1, không phát tín hiệu ETH C1 lượt này: {exc}",
                                 symbol=ETH)
             log.error("V3_L2_ETH_C1_H1_ERROR error_class=%s", type(exc).__name__)
             return others
         return others + c1
+
+    def _eth_c1_latest(self, snapshot, history) -> list[V3Signal]:
+        """Latest closed M15 bar only, the same way V2 emits C1 at the 1H boundary."""
+        gen = self.eth_c1_gen
+        gen.last_l2_rejections = []
+        feats = compute_eth_c1_l2_features(history)
+        buys = gen._generate_eth_c1_side(feats, side="BUY", only_approved=True, only_warmup_ready=True)
+        sells = gen._generate_eth_c1_side(feats, side="SELL", only_approved=True, only_warmup_ready=True)
+        latest_open_ms = int(feats["d15"].index[-1].value // 1_000_000)
+        latest_close_ms = latest_open_ms + M15_MS - 1
+        for rej in gen.last_l2_rejections:
+            if rej["signal_close_ms"] == latest_close_ms:
+                log.info("V3_L2_ETH_C1_H1_REJECT side=%s reason=%s slope_4h=%s dist_4h=%s close_ms=%s",
+                         rej["side"], rej["reason"], rej["ema150_4h_slope_10bar_pct"], rej["dist_ema150_4h_pct"],
+                         latest_close_ms)
+        close_time = int(snapshot.candles.iloc[-1]["close_time"]) if "close_time" in snapshot.candles.columns \
+            else latest_close_ms
+        entry = float(feats["d15"]["close"].iloc[-1])
+        cfg = get_case(ETH, 1)
+        out: list[V3Signal] = []
+        for sig in [s for s in buys + sells if s.signal_close_ms == latest_close_ms]:
+            direction = 1 if sig.side == "BUY" else -1
+            tp, sl = hard_tp_sl(entry, direction, cfg)
+            spec = self.registry.get(ETH, 1) if self.registry is not None else None
+            out.append(V3Signal(event_id=f"{ETH}|1h|C1|{sig.side}|{close_time}", symbol=ETH, combo=1,
+                                combo_name="C1", side=sig.side, timeframe="1h", close_time=close_time,
+                                tp_pct=spec.tp_pct if spec else None, sl_pct=spec.sl_pct if spec else None,
+                                registry_version=self.registry.version if self.registry is not None else None,
+                                spec_hash=spec.spec_hash if spec else None, signal_variant="H1_BOTH_1",
+                                entry=entry, tp=float(tp), sl=float(sl)))
         return out
 
     def dispatch(self, signals: list[V3Signal]) -> list:
