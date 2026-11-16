@@ -27,7 +27,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r autotrade_v3/requirements-replay.txt pyarrow pytest ruff pandas mypy
+          python -m pip install -r autotrade_v3/requirements-dashboard.txt pyarrow pytest ruff pandas mypy
 
       - name: Prepare Artifacts Directory
         run: |
