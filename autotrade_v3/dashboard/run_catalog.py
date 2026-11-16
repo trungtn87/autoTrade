@@ -107,20 +107,20 @@ def _analysis_integrity(run_dir: Path) -> tuple[bool, str]:
 
 
 def _float(value: object) -> float | None:
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
         return None
     try:
-        number = float(value) if value is not None else None
+        number = float(value)
     except (TypeError, ValueError):
         return None
     return number if number is not None and abs(number) != float("inf") and number == number else None
 
 
 def _int(value: object) -> int | None:
-    if isinstance(value, bool):
+    if isinstance(value, bool) or not isinstance(value, (str, int, float)):
         return None
     try:
-        return int(value) if value is not None else None
+        return int(value)
     except (TypeError, ValueError, OverflowError):
         return None
 
@@ -139,9 +139,8 @@ def _load_run(manifest_path: Path) -> CatalogRun | None:
     strategy_ref = f"{strategy}@{version}" if version and "@" not in strategy else strategy
     symbols_raw = manifest.get("symbols") or []
     symbols = tuple(str(s) for s in symbols_raw) if isinstance(symbols_raw, list) else ()
-    report_path: Path | None = run_dir / "report.md"
-    if not report_path.is_file():
-        report_path = None
+    report_candidate = run_dir / "report.md"
+    report_path: Path | None = report_candidate if report_candidate.is_file() else None
 
     analysis = _json(run_dir / "analysis.json")
     integrity_ok, integrity_note = _analysis_integrity(run_dir) if analysis is not None else (False, "Thiếu analysis.json")
