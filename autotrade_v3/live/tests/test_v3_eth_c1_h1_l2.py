@@ -45,6 +45,15 @@ class FakeHistory:
             raise RuntimeError("mock REST down")
         return self.big.iloc[self.end - bars:self.end].reset_index(drop=True)
 
+    def fetch_window(self, symbol, start_time, end_time, limit):
+        """MOCK one klines page: closed bars with open_time in [start, end_time - 15m]."""
+        self.calls += 1
+        if self.fail:
+            raise RuntimeError("mock REST down")
+        rows = self.big[(self.big.open_time >= start_time) & (self.big.open_time <= end_time - 899_999)]
+        assert len(rows) <= limit <= 1000
+        return rows.reset_index(drop=True)
+
 
 def _snap(symbol, m15):
     return MarketSnapshot(symbol, "15m", m15, int(m15.iloc[-1].open_time), int(m15.iloc[-1].close_time), {})
@@ -56,7 +65,7 @@ def _setup(seed=0, end=12_000, n=12_600):
     hist.end = end
     ctl = Control()
     l2 = L2Strategy(MemoryStore(), control=ctl, eth_c1_h1_enabled=True, historical=hist)
-    l2.eth_history = EthC1History(hist, bars=BARS, retry_sec=0.0)
+    l2.eth_history = EthC1History(hist, bars=BARS, retry_sec=0.0, pages_per_pass=100)
     return l2, hist, ctl, big
 
 
@@ -165,10 +174,16 @@ def test_rest_warmup_is_rate_limited_and_not_called_per_signal():
     hist.fail = False
     hist.calls = 0
     l2.eth_history._last_attempt_ms = None
-    for end in range(12_000, 12_020):
+    hist.end = 12_000
+    l2.calculate(_snap("ETH-USDT", _m15(big, 12_000)))   # paged warm-up: all pages in this pass
+    assert l2.eth_history._frame is not None
+    warm = hist.calls
+    hist.calls = 0
+    for end in range(12_001, 12_020):
         hist.end = end
         l2.calculate(_snap("ETH-USDT", _m15(big, end)))
-    assert hist.calls <= 1, "ready cache must not call REST on each closed bar"
+    assert warm >= 1
+    assert hist.calls == 0, "ready cache must not call REST on each closed bar"
 
 
 def test_gap_in_live_bars_resets_history_and_waits():
@@ -223,3 +238,23 @@ def test_dispatch_hands_signals_to_l3_once_per_signal():
     l2.dispatch(sigs)
     assert ex.seen == [s.event_id for s in sigs]
     assert len(set(ex.seen)) == len(ex.seen)
+
+
+def test_paged_warmup_spreads_12000_bars_over_passes_without_bursts():
+    """Owner 2026-11-16: load 12000 bars in several passes so one L1 pass never sends a REST burst."""
+    from autotrade_v3.live.eth_c1_history import HistoryNotReady
+    _l2, hist, _ctl, big = _setup()
+    cache = EthC1History(hist, bars=BARS, page_bars=1000, pages_per_pass=4, retry_sec=0.0)
+    hist.end = 12_000
+    passes = 0
+    while True:
+        passes += 1
+        before = hist.calls
+        try:
+            cache.frame_for(_m15(big, 12_000))
+            break
+        except HistoryNotReady:
+            assert hist.calls - before <= 4, "one pass sent more than pages_per_pass requests"
+            assert passes < 10
+    assert passes == 3 and hist.calls == 12          # 12 pages of 1000 bars, 4 per pass
+    assert cache._frame is not None and len(cache._frame) == BARS

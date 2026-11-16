@@ -1,0 +1,80 @@
+{
+ "note": "NEW6: live virtual_position vs audit BINGX_PORTFOLIO decisions (one open trade per combo-symbol, exit on M1 TP/SL)",
+ "per_combo": [
+  {
+   "symbol": "BTC-USDT",
+   "combo_id": 101,
+   "lab_signals": 828,
+   "lab_accepted": 241,
+   "live": 242,
+   "accepted_and_live": 237,
+   "accepted_not_live": 4,
+   "skipped_but_live": 5,
+   "skipped_not_live": 582
+  },
+  {
+   "symbol": "BTC-USDT",
+   "combo_id": 106,
+   "lab_signals": 168,
+   "lab_accepted": 163,
+   "live": 164,
+   "accepted_and_live": 163,
+   "accepted_not_live": 0,
+   "skipped_but_live": 1,
+   "skipped_not_live": 4
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 101,
+   "lab_signals": 1211,
+   "lab_accepted": 461,
+   "live": 460,
+   "accepted_and_live": 453,
+   "accepted_not_live": 8,
+   "skipped_but_live": 7,
+   "skipped_not_live": 743
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 102,
+   "lab_signals": 455,
+   "lab_accepted": 452,
+   "live": 452,
+   "accepted_and_live": 452,
+   "accepted_not_live": 0,
+   "skipped_but_live": 0,
+   "skipped_not_live": 3
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 103,
+   "lab_signals": 297,
+   "lab_accepted": 256,
+   "live": 254,
+   "accepted_and_live": 254,
+   "accepted_not_live": 2,
+   "skipped_but_live": 0,
+   "skipped_not_live": 41
+  },
+  {
+   "symbol": "ETH-USDT",
+   "combo_id": 105,
+   "lab_signals": 1646,
+   "lab_accepted": 630,
+   "live": 626,
+   "accepted_and_live": 610,
+   "accepted_not_live": 20,
+   "skipped_but_live": 16,
+   "skipped_not_live": 1000
+  }
+ ],
+ "total": {
+  "lab_signals": 4605,
+  "lab_accepted": 2203,
+  "live": 2198,
+  "accepted_and_live": 2169,
+  "accepted_not_live": 34,
+  "skipped_but_live": 29,
+  "skipped_not_live": 2373
+ }
+}
