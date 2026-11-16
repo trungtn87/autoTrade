@@ -27,7 +27,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r autotrade_v3/requirements-replay.txt pyarrow pytest ruff pandas mypy
+          python -m pip install -r autotrade_v3/requirements-dashboard.txt pyarrow pytest ruff mypy
 
       - name: Prepare Artifacts Directory
         run: |
@@ -61,10 +61,24 @@ jobs:
       - name: Verify Golden Invariants & Hashes
         run: |
           set -euo pipefail
-          (
-            cd runs/golden/v3-08
-            sha256sum --check SHA256SUMS.txt
-          ) | tee evidence/ci_artifacts/golden_parity.log
+          : > evidence/ci_artifacts/golden_parity.log
+          for manifest in runs/golden/*/SHA256SUMS.txt; do
+            (
+              cd "$(dirname "$manifest")"
+              sha256sum --check SHA256SUMS.txt
+            ) | tee -a evidence/ci_artifacts/golden_parity.log
+          done
+
+      - name: Verify Forbidden Scope Is Unchanged
+        run: |
+          set -euo pipefail
+          test -z "$(git diff 7cbe662..HEAD -- \
+            autotrade_v3/live \
+            unified_app.py \
+            autotrade_v2 \
+            dashboard \
+            runs/golden \
+            autotrade_v3/strategy_core)"
 
       - name: Run Test Suite (pytest)
         run: |
