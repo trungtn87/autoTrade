@@ -153,7 +153,7 @@ def closed_message(r: dict) -> str:
     return "\n".join(lines)
 
 
-def error_message(rec: dict, log_id: int | None) -> str:
+def error_message(rec: dict, log_id: int | None, repeats: int = 0) -> str:
     layer = str(rec.get("layer") or "?")
     lines = [
         f"🚨 **LỖI {LAYER_NAMES.get(layer, layer)}** — bước `{_fmt(rec.get('step'))}`",
@@ -162,14 +162,20 @@ def error_message(rec: dict, log_id: int | None) -> str:
     for label, key in (("Symbol", "symbol"), ("Event ID", "event_id"), ("Order ID", "order_id"), ("Mã lỗi", "error_code")):
         if rec.get(key):
             lines.append(f"{label}: `{_fmt(rec.get(key))}`")
+    if repeats:
+        lines.append(f"Đã gộp {repeats} cảnh báo cùng bước và mã lỗi trong giờ trước.")
     lines.append(f"control_logs id: {log_id if log_id is not None else 'không ghi được DB'}")
     return "\n".join(lines)
 
 
 class L5Alert:
     def __init__(self, *, enabled: bool, webhook_btc: str, webhook_eth: str, webhook_error: str,
-                 store=None, sender: Callable[[str, str], tuple[bool, str]] | None = None, synchronous: bool = False):
+                 store=None, sender: Callable[[str, str], tuple[bool, str]] | None = None, synchronous: bool = False,
+                 error_window_sec: float = 3600.0, clock: Callable[[], float] = time.monotonic):
         self.enabled = bool(enabled)
+        self.error_window_sec = float(error_window_sec)
+        self.clock = clock
+        self._error_seen: dict[tuple, dict] = {}  # (layer, step, symbol, error_code) -> {"at", "suppressed"}
         self.webhooks = {"BTC": webhook_btc or "", "ETH": webhook_eth or "", "ERROR": webhook_error or ""}
         self.store = store
         self.sender = sender or default_sender
@@ -200,7 +206,24 @@ class L5Alert:
         self._submit(self.channel_for_symbol(row["symbol"]), closed_message(row), kind="closed", ref=row["event_id"])
 
     def error(self, rec: dict, log_id: int | None) -> None:
-        self._submit("ERROR", error_message(rec, log_id), kind="error", ref=rec.get("event_id"), log_id=log_id)
+        """Send an error at once; repeats of the same step and error code are merged for one window.
+
+        The first occurrence is sent immediately. Later repeats are counted and not sent. The next
+        occurrence after the window is sent with the merged count. A changed error code is a new key
+        and is sent at once. The control log keeps every row either way.
+        """
+        key = (rec.get("layer"), rec.get("step"), rec.get("symbol"), rec.get("error_code"))
+        now = float(self.clock())
+        seen = self._error_seen.get(key)
+        if seen is not None and now - seen["at"] < self.error_window_sec:
+            seen["suppressed"] += 1
+            return
+        repeats = seen["suppressed"] if seen is not None else 0
+        self._error_seen[key] = {"at": now, "suppressed": 0}
+        if len(self._error_seen) > 500:  # bounded: drop expired windows
+            for k in [k for k, v in self._error_seen.items() if now - v["at"] >= self.error_window_sec]:
+                del self._error_seen[k]
+        self._submit("ERROR", error_message(rec, log_id, repeats), kind="error", ref=rec.get("event_id"), log_id=log_id)
 
     # ---- delivery ------------------------------------------------------
     def _submit(self, channel: str, content: str, *, kind: str, ref=None, log_id: int | None = None) -> None:

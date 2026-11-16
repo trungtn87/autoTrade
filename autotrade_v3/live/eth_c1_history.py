@@ -9,7 +9,9 @@ Rules:
 - Other combos and V2 keep the 3400-bar snapshot. This cache is ETH C1 only.
 - Warm-up loads the history in pages of `page_bars` (one BingX public klines
   request each, paced by the client's own rate limit), at most `pages_per_pass`
-  pages per L2 pass, so no single pass sends a burst of requests. While the
+  pages per L2 pass (default 1: one request per 15m pass, about 12 passes =
+  about 3 hours to a full 12000 bars). Raise it only after the BingX error code
+  of a failed page is known from the control log. While the
   warm-up is incomplete no ETH C1 is emitted; other combos keep running.
   The cache is in memory and is refreshed from the closed M15 bars of each L1
   snapshot. No REST call happens per signal.
@@ -20,6 +22,7 @@ Rules:
 from __future__ import annotations
 
 import logging
+import re
 import threading
 import time
 
@@ -33,7 +36,9 @@ COLS = ["open_time", "open", "high", "low", "close", "volume"]
 
 
 class HistoryNotReady(RuntimeError):
-    pass
+    def __init__(self, message: str, *, error_code: str | None = None):
+        super().__init__(message)
+        self.error_code = error_code  # BingX `code` of a failed page, for the L5 alert ("Mã lỗi")
 
 
 def _contiguous(frame: pd.DataFrame, bars: int) -> bool:
@@ -44,7 +49,7 @@ def _contiguous(frame: pd.DataFrame, bars: int) -> bool:
 
 
 class EthC1History:
-    def __init__(self, client, *, bars: int = 12_000, page_bars: int = 1000, pages_per_pass: int = 4,
+    def __init__(self, client, *, bars: int = 12_000, page_bars: int = 1000, pages_per_pass: int = 1,
                  retry_sec: float = 60.0, now_ms=None):
         self.client = client
         self.bars = int(bars)
@@ -93,8 +98,14 @@ class EthC1History:
             try:
                 part = self.client.fetch_window(ETH, start, end + STEP_15M_MS - 1, count)
             except Exception as exc:
-                self._reset()
-                raise HistoryNotReady(f"không tải được lịch sử ETH M15 ({type(exc).__name__})") from exc
+                # Keep the pages already loaded: a failed page only delays the warm-up, it never restarts it.
+                # The BingX code and message are kept (bounded) so the control log shows the real cause.
+                detail = " ".join(str(exc).split())[:300]
+                code = re.search(r"\bcode=(\S+)", str(exc))
+                raise HistoryNotReady(
+                    f"không tải được đợt lịch sử ETH M15 {len(self._parts) + 1}/"
+                    f"{-(-self.bars // self.page_bars)} ({type(exc).__name__}: {detail})",
+                    error_code=code.group(1) if code else None) from exc
             self._parts.append(part[COLS])
             self._next_open = end + STEP_15M_MS
         if self._next_open <= self._stop_open:
@@ -115,7 +126,7 @@ class EthC1History:
                 self._reset()
 
             now = int(self.now_ms())
-            if self._last_attempt_ms is not None and now - self._last_attempt_ms < self.retry_ms and self._next_open is None:
+            if self._last_attempt_ms is not None and now - self._last_attempt_ms < self.retry_ms:
                 raise HistoryNotReady("đang chờ lần warm-up lịch sử ETH kế tiếp")
             self._last_attempt_ms = now
             self._page(latest_open)
