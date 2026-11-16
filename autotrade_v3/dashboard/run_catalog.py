@@ -139,16 +139,16 @@ def _load_run(manifest_path: Path) -> CatalogRun | None:
     strategy_ref = f"{strategy}@{version}" if version and "@" not in strategy else strategy
     symbols_raw = manifest.get("symbols") or []
     symbols = tuple(str(s) for s in symbols_raw) if isinstance(symbols_raw, list) else ()
-    report_path = run_dir / "report.md"
+    report_path: Path | None = run_dir / "report.md"
     if not report_path.is_file():
         report_path = None
 
     analysis = _json(run_dir / "analysis.json")
     integrity_ok, integrity_note = _analysis_integrity(run_dir) if analysis is not None else (False, "Thiếu analysis.json")
     visible = validation is not None and status in METRIC_STATUSES and integrity_ok and analysis is not None
-    pnl = analysis.get("pnl") if visible else None
-    accounting = analysis.get("accounting") if visible else None
-    combos = analysis.get("combos") if visible else None
+    pnl = analysis.get("pnl") if visible and analysis is not None else None
+    accounting = analysis.get("accounting") if visible and analysis is not None else None
+    combos = analysis.get("combos") if visible and analysis is not None else None
     pnl = pnl if isinstance(pnl, dict) else {}
     accounting = accounting if isinstance(accounting, dict) else {}
     combo_rows = tuple(item for item in combos if isinstance(item, dict)) if isinstance(combos, list) else ()
