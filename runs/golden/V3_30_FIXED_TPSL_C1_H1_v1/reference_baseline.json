@@ -1,0 +1,35 @@
+{
+  "baseline_id": "V3_30_FIXED_TPSL_C1_H1",
+  "version": "1.0.0",
+  "v3_lab_head": "5c471903090f174c349f062c0de8b555cadd2895",
+  "pr_124_ancestor": "c99e4529ac1761614ccfd1fdbed8a92315e7a5d7",
+  "dataset": "3Y_BTC_ETH_M1_HYBRID_PARQUET",
+  "window_utc": ["2023-11-01", "2026-11-01"],
+  "cost_profile": "BASE",
+  "initial_equity": 1000.0,
+  "notional_per_trade": 100.0,
+  "reference_runs": {
+    "BINGX_PORTFOLIO": {
+      "run_id": "RUN_20261116_132654_20FINAL_CROSS_SYMBOL_30_BINGX_PORTFOLIO_20231101_20261101",
+      "signals": 10356,
+      "trades": 6649,
+      "skipped": 3707,
+      "net_pnl": 148.56,
+      "roi_pct": 14.86,
+      "profit_factor": 1.04,
+      "win_rate_pct": 36.98,
+      "m2m_max_dd": 101.3912,
+      "closed_max_dd": 99.1307
+    },
+    "ALL_SIGNALS": {
+      "run_id": "RUN_20261116_124847_20FINAL_CROSS_SYMBOL_30_ALL_SIGNALS_20231101_20261101",
+      "signals": 10356,
+      "trades": 10356,
+      "net_pnl": 373.52,
+      "roi_pct": 37.35,
+      "profit_factor": 1.06,
+      "win_rate_pct": 36.55,
+      "closed_max_dd": 208.6623
+    }
+  }
+}
