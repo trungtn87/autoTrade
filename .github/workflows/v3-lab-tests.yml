@@ -46,6 +46,10 @@ jobs:
         run: |
           ruff check autotrade_v3 scripts
 
+      # TEMP_DIAGNOSTIC_RUN_CATALOG (remove after diagnosing, gate unchanged)
+      - name: Print new catalog mypy diagnostics
+        run: mypy --no-error-summary autotrade_v3/dashboard/run_catalog.py || true
+
       - name: Mypy Baseline Check (No Increase)
         run: |
           python -m autotrade_v3.tools.check_mypy_baseline
