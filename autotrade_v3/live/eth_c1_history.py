@@ -22,6 +22,7 @@ Rules:
 from __future__ import annotations
 
 import logging
+import re
 import threading
 import time
 
@@ -35,7 +36,9 @@ COLS = ["open_time", "open", "high", "low", "close", "volume"]
 
 
 class HistoryNotReady(RuntimeError):
-    pass
+    def __init__(self, message: str, *, error_code: str | None = None):
+        super().__init__(message)
+        self.error_code = error_code  # BingX `code` of a failed page, for the L5 alert ("Mã lỗi")
 
 
 def _contiguous(frame: pd.DataFrame, bars: int) -> bool:
@@ -98,9 +101,11 @@ class EthC1History:
                 # Keep the pages already loaded: a failed page only delays the warm-up, it never restarts it.
                 # The BingX code and message are kept (bounded) so the control log shows the real cause.
                 detail = " ".join(str(exc).split())[:300]
+                code = re.search(r"\bcode=(\S+)", str(exc))
                 raise HistoryNotReady(
                     f"không tải được đợt lịch sử ETH M15 {len(self._parts) + 1}/"
-                    f"{-(-self.bars // self.page_bars)} ({type(exc).__name__}: {detail})") from exc
+                    f"{-(-self.bars // self.page_bars)} ({type(exc).__name__}: {detail})",
+                    error_code=code.group(1) if code else None) from exc
             self._parts.append(part[COLS])
             self._next_open = end + STEP_15M_MS
         if self._next_open <= self._stop_open:

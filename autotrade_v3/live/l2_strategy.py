@@ -86,9 +86,9 @@ class L2Strategy:
         self.eth_c1_gen = EthC1H1Both1Strategy(enable_eth_c1_h1_l2=True) if eth_c1_h1_enabled else None
         self.eth_history = EthC1History(historical) if (eth_c1_h1_enabled and historical is not None) else None
 
-    def _report(self, kind: str, message: str, symbol: str = ETH) -> None:
+    def _report(self, kind: str, message: str, symbol: str = ETH, error_code: str | None = None) -> None:
         if self.control is not None:  # tests and offline tools run without a control log
-            self.control.report("L2", kind, message, symbol=symbol)
+            self.control.report("L2", kind, message, symbol=symbol, error_code=error_code)
 
     def registry_view(self) -> dict:
         if self.registry is None:
@@ -127,7 +127,8 @@ class L2Strategy:
             c1 = self._eth_c1_latest(snapshot, history)
         except HistoryNotReady as exc:  # not enough trusted history: no unconfirmed ETH C1, other combos run
             self._report("eth_c1_h1",
-                                f"ETH C1 H1 tạm dừng lượt này, chưa đủ lịch sử 12000 nến M15: {exc}", symbol=ETH)
+                                f"ETH C1 H1 tạm dừng lượt này, chưa đủ lịch sử 12000 nến M15: {exc}", symbol=ETH,
+                                error_code=getattr(exc, "error_code", None))
             return others
         except Exception as exc:  # missing indicator: emit no unconfirmed ETH C1, keep the other combos
             self._report("eth_c1_h1",

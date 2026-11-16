@@ -25,9 +25,11 @@ BARS = 12_000
 class Control:
     def __init__(self):
         self.calls = []
+        self.kwargs = []
 
     def report(self, layer, step, message, **kw):
         self.calls.append((layer, step, message))
+        self.kwargs.append(kw)
 
 
 class FakeHistory:
@@ -281,6 +283,7 @@ def test_failed_page_keeps_loaded_pages_and_reports_the_cause():
     with pytest.raises(HistoryNotReady) as err:
         cache.frame_for(_m15(big, 12_000))             # pass 2: page 5 ok, page 6 fails with the BingX code
     assert "100410" in str(err.value) and "6/12" in str(err.value)
+    assert err.value.error_code == "100410"            # the code is kept as a field for the L5 alert
     assert len(cache._parts) == 5                      # progress kept, not restarted
     with pytest.raises(HistoryNotReady):
         cache.frame_for(_m15(big, 12_000))             # pass 3 continues from page 6
