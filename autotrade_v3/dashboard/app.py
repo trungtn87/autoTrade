@@ -20,6 +20,7 @@ def main() -> None:
 
     pages = [
         st.Page("pages/p09_all_signals_runs.py", title=vi("dashboard_runs_nav"), icon="📋", default=True),
+        st.Page("pages/p11_run_catalog.py", title=vi("catalog_nav"), icon="🗂️"),
         st.Page("pages/p10_mt5_report.py", title=vi("dashboard_report_nav"), icon="📊"),
     ]
     nav = st.navigation(pages)
