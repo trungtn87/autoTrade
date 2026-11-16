@@ -198,7 +198,8 @@ def test_mock_same_error_twice_gives_two_logs_and_two_alerts():
     _, store, client, sender, alert, control, *_ = build()
     for _ in range(2):
         control.report("L3", "sl_place", "cùng một lỗi", symbol="BTC-USDT", event_id="E1")
-    assert len(store.control_logs) == 2 and sender.channels() == ["error", "error"]
+    # Both rows stay in the control log; the second alert is merged into the first for one hour.
+    assert len(store.control_logs) == 2 and sender.channels() == ["error"]
 
 
 def test_mock_discord_and_db_log_failure_never_block_independent_entry():
