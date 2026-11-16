@@ -1,8 +1,11 @@
 """L2 strategy registry: which combo-symbols the live engine may trade, and how.
 
-Two immutable registry versions exist, chosen by ``V3_STRATEGY_REGISTRY``:
+Immutable registry versions, chosen by ``V3_STRATEGY_REGISTRY``:
 
-* ``V3_LIVE_18_H1_V2`` (default): the 18 combo-symbols of baseline
+* ``V3_LIVE_20_POSITIVE_FIXED_V1`` (default): the 20 positive combo-symbols of
+  Owner audit ``AUDIT_20_POSITIVE_FIXED_TPSL_20261116`` (Fixed TP/SL, lab
+  ``v3_lab`` 5c471903) = the 18 below + BTC-USDT/C9 + ETH-USDT/C6.
+* ``V3_LIVE_18_H1_V2``: the 18 combo-symbols of baseline
   ``V3_18_COMBO_H1_BASELINE_V1`` (Owner lab ``runs/v3_18_baseline_v2``), with
   ETH-USDT/C1 = H1_BOTH_1. Spec data is the frozen JSON next to this module.
 * ``20FINAL``: the previous 20 combos, computed by the untouched V2 engine
@@ -23,10 +26,16 @@ from typing import Any
 
 from autotrade_v2.app.strategy.final14_config import case_name, enabled_combos, enabled_new6_combos, get_case
 
+REGISTRY_V20 = "V3_LIVE_20_POSITIVE_FIXED_V1"
 REGISTRY_V18 = "V3_LIVE_18_H1_V2"
 REGISTRY_20FINAL = "20FINAL"
-DEFAULT_REGISTRY = REGISTRY_V18
-KNOWN_REGISTRIES = (REGISTRY_V18, REGISTRY_20FINAL)
+DEFAULT_REGISTRY = REGISTRY_V20
+JSON_REGISTRIES = (REGISTRY_V20, REGISTRY_V18)
+KNOWN_REGISTRIES = (REGISTRY_V20, REGISTRY_V18, REGISTRY_20FINAL)
+_PROVENANCE_KEYS = ("baseline_id", "baseline_source", "baseline_registry_sha256", "baseline_signals_sha256",
+                    "c1_eth_research_source_sha256", "audit_id", "audit_source", "audit_source_run",
+                    "audit_repro_run", "lab_git_sha", "audit_sha256", "audit_signal_spec_hash",
+                    "parent_registry", "added_vs_parent")
 
 _DIR = Path(__file__).resolve().parent / "registries"
 
@@ -108,19 +117,24 @@ class StrategyRegistry:
         for c in sorted(self.combos, key=lambda x: (x.symbol, x.combo_id)):
             out.setdefault(c.symbol, []).append(c.token + (f"[{c.signal_variant}]" if c.signal_variant != "BASELINE" else ""))
         return {"version": self.version, "count": len(self.combos), "spec_hash": self.spec_hash,
-                "new6_signal_mode": self.new6_signal_mode, "exit_policy": "FIXED_TP_SL", "combos": out}
+                "new6_signal_mode": self.new6_signal_mode, "exit_policy": "FIXED_TP_SL", "combos": out,
+                "signal_variants": {c.key: c.signal_variant for c in self.combos if c.signal_variant != "BASELINE"}}
 
 
-def _load_v18() -> StrategyRegistry:
-    raw = json.loads((_DIR / f"{REGISTRY_V18}.json").read_text(encoding="utf-8"))
+def _load_json(version: str) -> StrategyRegistry:
+    raw = json.loads((_DIR / f"{version}.json").read_text(encoding="utf-8"))
+    if raw["registry_version"] != version:
+        raise ValueError(f"registry file {version}.json declares {raw['registry_version']!r}")
     combos = tuple(
         ComboSpec(symbol=c["symbol"], combo_id=int(c["combo_id"]), native_timeframe=c["native_timeframe"],
                   is_new6=bool(c["is_new6"]), entry_variant=c["entry_variant"], entry=dict(c["entry"]),
                   layer2=c["layer2"], tp_pct=float(c["tp_pct"]), sl_pct=float(c["sl_pct"]),
                   signal_variant=c.get("signal_variant", "BASELINE"))
         for c in raw["combos"])
-    prov = {k: raw[k] for k in ("baseline_id", "baseline_source", "baseline_registry_sha256",
-                                "baseline_signals_sha256", "c1_eth_research_source_sha256") if k in raw}
+    keys = [(c.symbol, c.combo_id) for c in combos]
+    if len(set(keys)) != len(keys):
+        raise ValueError(f"registry {version}: duplicate (symbol, combo_id)")
+    prov = {k: raw[k] for k in _PROVENANCE_KEYS if k in raw}
     return StrategyRegistry(version=raw["registry_version"], combos=combos,
                             new6_signal_mode=raw["new6_signal_mode"], h1_both_1=dict(raw["h1_both_1"]),
                             provenance=prov)
@@ -152,7 +166,7 @@ def load_registry(version: str | None = None) -> StrategyRegistry:
     if v not in KNOWN_REGISTRIES:
         raise ValueError(f"V3_STRATEGY_REGISTRY không hợp lệ: {version!r} (chỉ nhận {', '.join(KNOWN_REGISTRIES)})")
     if v not in _CACHE:
-        _CACHE[v] = _load_v18() if v == REGISTRY_V18 else _load_20final()
+        _CACHE[v] = _load_json(v) if v in JSON_REGISTRIES else _load_20final()
     return _CACHE[v]
 
 

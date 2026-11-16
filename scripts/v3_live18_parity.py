@@ -1,4 +1,7 @@
-"""Signal parity: live registry V3_LIVE_18_H1_V2 vs lab baseline V3_18_COMBO_H1_BASELINE_V1.
+"""Signal parity: a live L2 registry (default V3_LIVE_20_POSITIVE_FIXED_V1) vs a lab signals.csv.
+
+Used for V3_LIVE_18_H1_V2 vs V3_18_COMBO_H1_BASELINE_V1 and for V3_LIVE_20_POSITIVE_FIXED_V1 vs
+audit AUDIT_20_POSITIVE_FIXED_TPSL_20261116 (lab rows outside the registry are dropped first).
 
 Offline only (no BingX, no DB). Inputs are the Owner's local lab artifacts:
   --m15-btc / --m15-eth : closed M15 candles (parquet, UTC DatetimeIndex) built by the lab
@@ -20,7 +23,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from autotrade_v3.live.strategy_registry import REGISTRY_V18, load_registry
+from autotrade_v3.live.strategy_registry import REGISTRY_V20, load_registry
 from autotrade_v3.live.strategy_v18 import V18Engine
 
 WINDOW = 3400
@@ -33,8 +36,11 @@ def _rows(sigs) -> list[dict]:
              "spec_hash": s.spec_hash, "registry_version": s.registry_version} for s in sigs]
 
 
+REGISTRY = REGISTRY_V20
+
+
 def batch(paths: dict[str, str]) -> pd.DataFrame:
-    eng = V18Engine(load_registry(REGISTRY_V18))
+    eng = V18Engine(load_registry(REGISTRY))
     out = []
     for sym, p in paths.items():
         d = pd.read_parquet(p)
@@ -44,8 +50,8 @@ def batch(paths: dict[str, str]) -> pd.DataFrame:
 
 
 def _rolling_chunk(args) -> list[dict]:
-    sym, path, lo, hi = args
-    reg = load_registry(REGISTRY_V18)
+    sym, path, lo, hi, version = args
+    reg = load_registry(version)
     full = V18Engine(reg)
     # 1H combos can only fire on the bar closing at HH:59; other bars only need the 15m combos.
     m15_only = V18Engine(dataclasses.replace(reg, combos=tuple(c for c in reg.combos if c.native_timeframe == "15m")))
@@ -65,7 +71,7 @@ def rolling(paths: dict[str, str], workers: int) -> pd.DataFrame:
     tasks = []
     for sym, p in paths.items():
         n = len(pd.read_parquet(p))
-        tasks += [(sym, p, lo, min(lo + 2000, n)) for lo in range(WINDOW - 1, n, 2000)]
+        tasks += [(sym, p, lo, min(lo + 2000, n), REGISTRY) for lo in range(WINDOW - 1, n, 2000)]
     out: list[dict] = []
     with mp.Pool(workers) as pool:
         for part in pool.imap_unordered(_rolling_chunk, tasks):
@@ -101,14 +107,20 @@ def main() -> None:
     ap.add_argument("--mode", choices=["batch", "rolling"], default="batch")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--registry", default=REGISTRY_V20)
     a = ap.parse_args()
+    global REGISTRY
+    REGISTRY = a.registry.upper()
     paths = {"BTC-USDT": a.m15_btc, "ETH-USDT": a.m15_eth}
     lab = pd.read_csv(a.lab_signals)
+    allowed = load_registry(REGISTRY).allowed()
+    lab = lab[[(s, int(c)) in allowed for s, c in zip(lab["symbol"], lab["combo_id"])]].reset_index(drop=True)
     live = batch(paths) if a.mode == "batch" else rolling(paths, a.workers)
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     live.sort_values(KEY).to_csv(out / f"live_signals_{a.mode}.csv", index=False)
-    rep = {"mode": a.mode, "registry": load_registry(REGISTRY_V18).summary(), **compare(lab, live)}
+    rep = {"mode": a.mode, "lab_signals_file": Path(a.lab_signals).name, "registry": load_registry(REGISTRY).summary(),
+           **compare(lab, live)}
     (out / f"parity_{a.mode}.json").write_text(json.dumps(rep, indent=1), encoding="utf-8")
     print(json.dumps({k: v for k, v in rep.items() if k not in ("per_combo", "registry")}, indent=1))
 

@@ -215,7 +215,9 @@ def create_app(runtime: Runtime | None = None) -> FastAPI:
         reg = r.l2.registry_view()
         body = {"engine": ENGINE_NAME, "ok": bool(ok_data), "status": r.status,
                 "strategy_registry": {"version": reg.get("version"), "count": reg.get("count"),
-                                      "spec_hash": reg.get("spec_hash")},
+                                      "spec_hash": reg.get("spec_hash"), "exit_policy": reg.get("exit_policy"),
+                                      "signal_variants": reg.get("signal_variants"), "combos": reg.get("combos"),
+                                      "error": reg.get("error")},
                 "execution_enabled": r.settings.execution_enabled, "data_health": clean(r.l1.health)}
         # Liveness is always 200 so a platform health check never restarts the
         # process between an Entry and its protection; data health is in the body.

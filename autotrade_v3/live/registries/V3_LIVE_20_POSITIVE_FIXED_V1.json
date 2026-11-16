@@ -1,0 +1,377 @@
+{
+ "registry_version": "V3_LIVE_20_POSITIVE_FIXED_V1",
+ "audit_id": "AUDIT_20_POSITIVE_FIXED_TPSL_20261116",
+ "audit_source": "Owner local D:/AutoTrade/runs/lab/audits/AUDIT_20_POSITIVE_FIXED_TPSL_20261116",
+ "audit_source_run": "RUN_20261116_125134_20FINAL_CROSS_SYMBOL_30_BINGX_PORTFOLIO_20231101_20261101",
+ "audit_repro_run": "RUN_20261116_132654_20FINAL_CROSS_SYMBOL_30_BINGX_PORTFOLIO_20231101_20261101",
+ "lab_git_sha": "5c471903090f174c349f062c0de8b555cadd2895",
+ "audit_sha256": {
+  "AUDIT_30_TO_20_RECONCILIATION.csv": "467c225293cd0132ab860fdc364c7e1778768398827b8f1633f0270d3c2bac1f",
+  "repro_run/signals.csv": "c876551c0ab664977993d32b31d6f563ab7b0f5baea6a7b633bb5c2800a37ae3",
+  "repro_run/signals.parquet": "1ba90229727d20c050b686843cd8467b435c88cc0ec8b27a40cf00a063eeafbf",
+  "repro_run/run_manifest.json": "ccd41ba99a616b5f8e44b3a5b94f94feae01c16288ecc80bb879052d4ef8b734",
+  "scripts/run_20final_cross_symbol_30.py": "1f369dc140c653b274878d7d42265e74e1126772eef604174a62e716015e2210"
+ },
+ "audit_signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
+ "parent_registry": "V3_LIVE_18_H1_V2",
+ "added_vs_parent": [
+  "BTC-USDT/9",
+  "ETH-USDT/6"
+ ],
+ "live_exit_policy": "FIXED_TP_SL",
+ "new6_signal_mode": "virtual_position",
+ "new6_signal_mode_note": "Owner 2026-11-16 (PR #129): keep 20FINAL live NEW6 single-virtual-position rule; lab baseline emits every bar (not accepted for live). Kept for V3_LIVE_20_POSITIVE_FIXED_V1 (Owner 2026-11-16 13:48 UTC).",
+ "h1_both_1": {
+  "buy_max_slope_4h_pct": 1.5,
+  "sell_min_dist_ema150_4h_pct": -6.0,
+  "pre_edge_h1": true,
+  "sell_cci_corrected": true
+ },
+ "combos": [
+  {
+   "combo_key": "BTC-USDT/1",
+   "symbol": "BTC-USDT",
+   "combo_id": 1,
+   "combo_name": "C1",
+   "native_timeframe": "1h",
+   "is_new6": false,
+   "entry_variant": "MFI_L50_S50",
+   "entry": {
+    "mfi_long": 50.0,
+    "mfi_short": 50.0
+   },
+   "layer2": "SMC_STRICT",
+   "tp_pct": 0.02,
+   "sl_pct": 0.008,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "BTC-USDT/2",
+   "symbol": "BTC-USDT",
+   "combo_id": 2,
+   "combo_name": "C2",
+   "native_timeframe": "1h",
+   "is_new6": false,
+   "entry_variant": "ADX_20",
+   "entry": {
+    "adx": 20.0
+   },
+   "layer2": "SMC_VETO_OB",
+   "tp_pct": 0.012,
+   "sl_pct": 0.008,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "BTC-USDT/4",
+   "symbol": "BTC-USDT",
+   "combo_id": 4,
+   "combo_name": "C4",
+   "native_timeframe": "1h",
+   "is_new6": false,
+   "entry_variant": "ADX_23",
+   "entry": {
+    "adx": 23.0
+   },
+   "layer2": "SMC_VETO",
+   "tp_pct": 0.018,
+   "sl_pct": 0.009,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "BTC-USDT/6",
+   "symbol": "BTC-USDT",
+   "combo_id": 6,
+   "combo_name": "C6",
+   "native_timeframe": "1h",
+   "is_new6": false,
+   "entry_variant": "BODY_1.4",
+   "entry": {
+    "body_atr": 1.4
+   },
+   "layer2": "SMC_VETO_OB",
+   "tp_pct": 0.02,
+   "sl_pct": 0.00666667,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "BTC-USDT/7",
+   "symbol": "BTC-USDT",
+   "combo_id": 7,
+   "combo_name": "C7",
+   "native_timeframe": "15m",
+   "is_new6": false,
+   "entry_variant": "BODY1.6_VOL2.0",
+   "entry": {
+    "body_atr": 1.6,
+    "volume_mult": 2.0
+   },
+   "layer2": "OFF",
+   "tp_pct": 0.02,
+   "sl_pct": 0.008,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "BTC-USDT/9",
+   "symbol": "BTC-USDT",
+   "combo_id": 9,
+   "combo_name": "C9",
+   "native_timeframe": "15m",
+   "is_new6": false,
+   "entry_variant": "RSI45_FIXST",
+   "entry": {
+    "rsi_long_max": 45.0,
+    "rsi_short_min": 55.0,
+    "fix_short_supertrend": true
+   },
+   "layer2": "SMC_VETO",
+   "tp_pct": 0.01,
+   "sl_pct": 0.004,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "BTC-USDT/10",
+   "symbol": "BTC-USDT",
+   "combo_id": 10,
+   "combo_name": "C10",
+   "native_timeframe": "15m",
+   "is_new6": false,
+   "entry_variant": "ADX_22",
+   "entry": {
+    "adx": 22.0
+   },
+   "layer2": "SMC_VETO",
+   "tp_pct": 0.01,
+   "sl_pct": 0.008,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "BTC-USDT/11",
+   "symbol": "BTC-USDT",
+   "combo_id": 11,
+   "combo_name": "TIER",
+   "native_timeframe": "1h",
+   "is_new6": false,
+   "entry_variant": "ADX30_T27_T35_V1.3",
+   "entry": {
+    "adx": 30.0,
+    "tier2_score": 7.0,
+    "tier3_score": 5.0,
+    "volume_mult": 1.3
+   },
+   "layer2": "OFF",
+   "tp_pct": 0.018,
+   "sl_pct": 0.009,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "BTC-USDT/101",
+   "symbol": "BTC-USDT",
+   "combo_id": 101,
+   "combo_name": "C11",
+   "native_timeframe": "1h",
+   "is_new6": true,
+   "entry_variant": "trend_n60_0.25_0.75",
+   "entry": {
+    "indicator": "DeMarker",
+    "period": 60,
+    "short_max": 0.25,
+    "long_min": 0.75
+   },
+   "layer2": "SMC_STRICT_OB",
+   "tp_pct": 0.018,
+   "sl_pct": 0.009,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "BTC-USDT/106",
+   "symbol": "BTC-USDT",
+   "combo_id": 106,
+   "combo_name": "C16",
+   "native_timeframe": "1h",
+   "is_new6": true,
+   "entry_variant": "cross_n14_r1.2",
+   "entry": {
+    "indicator": "Vortex",
+    "period": 14,
+    "ratio": 1.2
+   },
+   "layer2": "OB",
+   "tp_pct": 0.011,
+   "sl_pct": 0.009,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "ETH-USDT/1",
+   "symbol": "ETH-USDT",
+   "combo_id": 1,
+   "combo_name": "C1",
+   "native_timeframe": "1h",
+   "is_new6": false,
+   "entry_variant": "MFI_L50_S50",
+   "entry": {
+    "mfi_long": 50.0,
+    "mfi_short": 50.0
+   },
+   "layer2": "SMC_VETO",
+   "tp_pct": 0.02,
+   "sl_pct": 0.00666667,
+   "signal_variant": "H1_BOTH_1"
+  },
+  {
+   "combo_key": "ETH-USDT/3",
+   "symbol": "ETH-USDT",
+   "combo_id": 3,
+   "combo_name": "C3",
+   "native_timeframe": "1h",
+   "is_new6": false,
+   "entry_variant": "ADX_34",
+   "entry": {
+    "adx": 34.0
+   },
+   "layer2": "SMC_STRICT",
+   "tp_pct": 0.018,
+   "sl_pct": 0.006,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "ETH-USDT/4",
+   "symbol": "ETH-USDT",
+   "combo_id": 4,
+   "combo_name": "C4",
+   "native_timeframe": "1h",
+   "is_new6": false,
+   "entry_variant": "ADX_23",
+   "entry": {
+    "adx": 23.0
+   },
+   "layer2": "SMC_VETO",
+   "tp_pct": 0.02,
+   "sl_pct": 0.008,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "ETH-USDT/6",
+   "symbol": "ETH-USDT",
+   "combo_id": 6,
+   "combo_name": "C6",
+   "native_timeframe": "1h",
+   "is_new6": false,
+   "entry_variant": "BODY_1.8",
+   "entry": {
+    "body_atr": 1.8
+   },
+   "layer2": "SMC_VETO",
+   "tp_pct": 0.02,
+   "sl_pct": 0.00666667,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "ETH-USDT/7",
+   "symbol": "ETH-USDT",
+   "combo_id": 7,
+   "combo_name": "C7",
+   "native_timeframe": "15m",
+   "is_new6": false,
+   "entry_variant": "BODY1.3_VOL1.5",
+   "entry": {
+    "body_atr": 1.3,
+    "volume_mult": 1.5
+   },
+   "layer2": "OB",
+   "tp_pct": 0.018,
+   "sl_pct": 0.009,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "ETH-USDT/10",
+   "symbol": "ETH-USDT",
+   "combo_id": 10,
+   "combo_name": "C10",
+   "native_timeframe": "15m",
+   "is_new6": false,
+   "entry_variant": "ADX_28",
+   "entry": {
+    "adx": 28.0
+   },
+   "layer2": "SMC_STRICT",
+   "tp_pct": 0.018,
+   "sl_pct": 0.009,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "ETH-USDT/101",
+   "symbol": "ETH-USDT",
+   "combo_id": 101,
+   "combo_name": "C11",
+   "native_timeframe": "1h",
+   "is_new6": true,
+   "entry_variant": "trend_n60_0.25_0.75",
+   "entry": {
+    "indicator": "DeMarker",
+    "period": 60,
+    "short_max": 0.25,
+    "long_min": 0.75
+   },
+   "layer2": "SMC_STRICT_OB",
+   "tp_pct": 0.018,
+   "sl_pct": 0.009,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "ETH-USDT/102",
+   "symbol": "ETH-USDT",
+   "combo_id": 102,
+   "combo_name": "C12",
+   "native_timeframe": "1h",
+   "is_new6": true,
+   "entry_variant": "cross_n40_t70",
+   "entry": {
+    "indicator": "Aroon",
+    "period": 40,
+    "threshold": 70.0
+   },
+   "layer2": "SMC_VETO_OB",
+   "tp_pct": 0.018,
+   "sl_pct": 0.009,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "ETH-USDT/103",
+   "symbol": "ETH-USDT",
+   "combo_id": 103,
+   "combo_name": "C13",
+   "native_timeframe": "1h",
+   "is_new6": true,
+   "entry_variant": "momcross_n40_t40",
+   "entry": {
+    "indicator": "CMO",
+    "period": 40,
+    "threshold": 40.0
+   },
+   "layer2": "OFF",
+   "tp_pct": 0.02,
+   "sl_pct": 0.008,
+   "signal_variant": "BASELINE"
+  },
+  {
+   "combo_key": "ETH-USDT/105",
+   "symbol": "ETH-USDT",
+   "combo_id": 105,
+   "combo_name": "C15",
+   "native_timeframe": "1h",
+   "is_new6": true,
+   "entry_variant": "state_e40_s40_t0.4",
+   "entry": {
+    "indicator": "KAMA_ER",
+    "er_len": 40,
+    "fast_len": 2,
+    "slow_len": 40,
+    "er_min": 0.4
+   },
+   "layer2": "OB",
+   "tp_pct": 0.02,
+   "sl_pct": 0.008,
+   "signal_variant": "BASELINE"
+  }
+ ]
+}

@@ -1,7 +1,7 @@
 """L2 STRATEGY: run the active strategy registry; persist and hand off every signal.
 
-Registry ``V3_LIVE_18_H1_V2`` (18 combo-symbols) is computed by
-``strategy_v18.V18Engine``; registry ``20FINAL`` (rollback) is the untouched pure
+Registries ``V3_LIVE_20_POSITIVE_FIXED_V1`` (20 combo-symbols, default) and
+``V3_LIVE_18_H1_V2`` (18) are computed by ``strategy_v18.V18Engine``; registry ``20FINAL`` (rollback) is the untouched pure
 V2 engine (``autotrade_v2.app.strategy``: FINAL14 + NEW6). This module only converts its output, stores the
 9 agreed fields in ``strategy_signals`` and dispatches to L3 (execution). L5 emits a signal-only note when
 execution is disabled; live execution emits only the BingX-confirmed L3 result.

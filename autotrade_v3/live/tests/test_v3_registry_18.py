@@ -22,7 +22,7 @@ from autotrade_v3.live.config import V3Settings
 from autotrade_v3.live.l2_strategy import L2Strategy
 from autotrade_v3.live.l3_execution import V3Signal
 from autotrade_v3.live.store import MemoryStore
-from autotrade_v3.live.strategy_registry import (REGISTRY_20FINAL, REGISTRY_V18, case_for, load_registry)
+from autotrade_v3.live.strategy_registry import (REGISTRY_20FINAL, REGISTRY_V18, REGISTRY_V20, case_for, load_registry)
 from autotrade_v3.live.strategy_v18 import V18Engine
 from autotrade_v3.live.tests.fakes import PRICE, build
 
@@ -124,7 +124,7 @@ def test_unknown_registry_blocks_new_entries_only():
 
 def test_settings_default_registry_and_env_override(monkeypatch):
     monkeypatch.delenv("V3_STRATEGY_REGISTRY", raising=False)
-    assert V3Settings().strategy_registry == REGISTRY_V18
+    assert V3Settings().strategy_registry == REGISTRY_V20
     monkeypatch.setenv("V3_STRATEGY_REGISTRY", "20final")
     assert V3Settings().strategy_registry == REGISTRY_20FINAL
 
