@@ -135,6 +135,16 @@ class Runtime:
             self.control.report("L2", "strategy_registry",
                                 f"Registry chiến lược không hợp lệ, KHÔNG mở lệnh mới (vị thế cũ vẫn được L4 quản lý): "
                                 f"{self.l2.registry_error}", details={"V3_STRATEGY_REGISTRY": s.strategy_registry})
+        if not s.discord_enabled or not (s.discord_webhook_btc and s.discord_webhook_eth and s.discord_webhook_error):
+            log.warning("V3_DISCORD_CONFIG_INCOMPLETE enabled=%s btc=%s eth=%s error=%s", s.discord_enabled,
+                        bool(s.discord_webhook_btc), bool(s.discord_webhook_eth), bool(s.discord_webhook_error))
+        else:
+            self.alert.notice("Engine V3 khởi động", [
+                f"Symbols: {', '.join(s.symbols)}",
+                f"Registry: {reg.get('version')} ({reg.get('count')} combo)",
+                f"Execution: {'bật' if s.execution_enabled else 'tắt (chỉ tín hiệu)'}",
+                f"WebSocket: {'bật' if s.websocket_enabled else 'tắt'}",
+            ])
         if s.is_postgres:
             self.hourly.start()
             if s.execution_enabled:

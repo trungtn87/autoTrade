@@ -205,6 +205,11 @@ class L5Alert:
     def trade_closed(self, row: dict) -> None:
         self._submit(self.channel_for_symbol(row["symbol"]), closed_message(row), kind="closed", ref=row["event_id"])
 
+    def notice(self, title: str, lines: list[str]) -> None:
+        """Startup/status notice to the ERROR channel. Carries no secrets."""
+        content = "\n".join([f"ℹ️ **{clean_text(title, 120)}**"] + [clean_text(x, 300) for x in lines])
+        self._submit("ERROR", content, kind="notice", ref=None)
+
     def error(self, rec: dict, log_id: int | None) -> None:
         """Send an error at once; repeats of the same step and error code are merged for one window.
 
