@@ -304,7 +304,7 @@ def test_mock_l2_output_identical_to_20final_scan_latest():
     from autotrade_v2.app.contracts import MarketSnapshot
     from autotrade_v2.app.strategy.final14_config import case_name
     from autotrade_v2.app.strategy.final14_exact_strategy import scan_latest
-    l2 = L2Strategy(MemoryStore(), control=None)
+    l2 = L2Strategy(MemoryStore(), control=None, eth_c1_h1_enabled=False)   # rollback path = pure V2
     total = 0
     # windows chosen so that the fixture produces real 20FINAL signals, plus quiet windows
     for seed, ends in ((0, (3400, 3415)), (1, (3403, 3427, 3430))):
