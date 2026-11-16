@@ -1,0 +1,84 @@
+{
+  "audit_git_sha": "4794acb69e171b719549455ee8da7eb14de4c8db",
+  "audit_code_dirty": true,
+  "real_data_lookahead_signals_checked": 12,
+  "real_data_lookahead_max_abs_err": 0.0,
+  "clean_tree_repro": [
+    {
+      "variant": "LOO-19",
+      "mode": "BINGX_PORTFOLIO",
+      "cost_profile": "BASE",
+      "run_id": "RUN_20261116_033154_20FINAL_FIXED_V1_BINGX_PORTFOLIO_20231101_20261101",
+      "code_sha": "4794acb69e171b719549455ee8da7eb14de4c8db",
+      "code_dirty": true,
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "net_pnl": 331.9564,
+      "expected_net_pnl": 331.9564,
+      "repro_diff": 0.0,
+      "full_val_overall": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    },
+    {
+      "variant": "LOO-19",
+      "mode": "BINGX_PORTFOLIO",
+      "cost_profile": "STRESS",
+      "run_id": "RUN_20261116_033541_20FINAL_FIXED_V1_BINGX_PORTFOLIO_20231101_20261101",
+      "code_sha": "4794acb69e171b719549455ee8da7eb14de4c8db",
+      "code_dirty": true,
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "net_pnl": 68.6206,
+      "expected_net_pnl": 68.6206,
+      "repro_diff": 0.0,
+      "full_val_overall": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    },
+    {
+      "variant": "H2b",
+      "mode": "BINGX_PORTFOLIO",
+      "cost_profile": "BASE",
+      "run_id": "RUN_20261116_033938_20FINAL_FIXED_V1_BINGX_PORTFOLIO_20231101_20261101",
+      "code_sha": "4794acb69e171b719549455ee8da7eb14de4c8db",
+      "code_dirty": true,
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "net_pnl": 348.2177,
+      "expected_net_pnl": 348.2177,
+      "repro_diff": 0.0,
+      "full_val_overall": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    },
+    {
+      "variant": "H2b",
+      "mode": "BINGX_PORTFOLIO",
+      "cost_profile": "STRESS",
+      "run_id": "RUN_20261116_034334_20FINAL_FIXED_V1_BINGX_PORTFOLIO_20231101_20261101",
+      "code_sha": "4794acb69e171b719549455ee8da7eb14de4c8db",
+      "code_dirty": true,
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "net_pnl": 66.7973,
+      "expected_net_pnl": 66.7973,
+      "repro_diff": 0.0,
+      "full_val_overall": "FAILED",
+      "gates": {
+        "GATE_A_DATA": "INCONCLUSIVE",
+        "GATE_B_STRATEGY": "INCONCLUSIVE",
+        "GATE_C_EXECUTION": "INCONCLUSIVE",
+        "GATE_D_RESULT": "FAIL"
+      }
+    }
+  ]
+}

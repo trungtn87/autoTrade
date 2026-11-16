@@ -1,0 +1,34 @@
+{
+  "signals_19_combos": {
+    "h0_count": 5668,
+    "loo19_count": 5668,
+    "h2b_count": 5668,
+    "h0_vs_loo_diff": 0,
+    "h0_vs_h2b_diff": 0
+  },
+  "decisions_19_combos": {
+    "h0_accepted": 3863,
+    "h0_skipped": 1805,
+    "loo_accepted": 3863,
+    "loo_skipped": 1805,
+    "h2b_accepted": 3863,
+    "h2b_skipped": 1805,
+    "mismatched_status_h0_vs_loo": 0,
+    "mismatched_status_h0_vs_h2b": 0
+  },
+  "trades_19_combos": {
+    "h0_count": 3863,
+    "loo_count": 3863,
+    "h2b_count": 3863,
+    "h0_own_pnl": 331.9564,
+    "loo_own_pnl": 331.9564,
+    "h2b_own_pnl": 331.9564,
+    "entry_time_mismatches_h0_vs_loo": 0,
+    "entry_time_mismatches_h0_vs_h2b": 0
+  },
+  "c14_admissions_delta": {
+    "h0_c14_trades": 294,
+    "loo_c14_trades": 0,
+    "h2b_c14_trades": 220
+  }
+}

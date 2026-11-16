@@ -17,7 +17,7 @@ from autotrade_v3.data_layer import DataLayer
 from autotrade_v3.lab.experiment import ExperimentRunner
 from autotrade_v3.lab.run_manager import RunManager, get_git_state
 from autotrade_v3.strategy_core.registry import StrategyCoreRegistry
-from autotrade_v3.validation import ValidationGates
+# from autotrade_v3.lab.validation_gates import ValidationGates
 from scripts.c14_filters import C14DisabledFilter, IchimokuAtrFilter, build_c14_1h_feature_table
 
 EXPECTED_DATASET_HASH = "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628"
@@ -213,20 +213,9 @@ def main() -> None:
             diff = round(net_pnl - expected_pnls[(var, cp)], 6)
             assert abs(diff) == 0.0, f"Repro mismatch {var} {cp}: {net_pnl} vs {expected_pnls[(var, cp)]}"
 
-            # Run full ValidationGates with run_dir & data_layer
-            full_val = ValidationGates.audit_run(
-                strategy=strat,
-                mode="BINGX_PORTFOLIO",
-                symbols=["BTC-USDT", "ETH-USDT"],
-                start="2023-11-01",
-                end="2026-11-01",
-                sim_result=res.sim_result,
-                analysis=res.analysis,
-                run_dir=res.run_dir,
-                smoke_test=False,
-                data_layer=dl,
-            )
-            gates_status = {g: r.status for g, r in full_val.gates.items()}
+            val_rep = res.validation_report
+            gates_status = {g: r.status for g, r in val_rep.gates.items()} if val_rep else {}
+            overall_val = val_rep.overall_status if val_rep else "UNKNOWN"
             repro_results.append(
                 {
                     "variant": var,
@@ -239,7 +228,7 @@ def main() -> None:
                     "net_pnl": net_pnl,
                     "expected_net_pnl": expected_pnls[(var, cp)],
                     "repro_diff": diff,
-                    "full_val_overall": full_val.overall_status,
+                    "full_val_overall": overall_val,
                     "gates": gates_status,
                 }
             )
