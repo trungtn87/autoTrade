@@ -34,6 +34,8 @@ class V3Settings:
     # one fixed SL on the full real fill. No trailing, no split, no breakeven.
     notional_usdt: float = 100.0
     leverage: int = 50
+    # ETH-USDT/C1 only: H1_BOTH_1 L2 filter (Lab P3). off = pure V2 output (rollback).
+    eth_c1_h1_l2_enabled: bool = field(default_factory=lambda: _bool("V3_ETH_C1_H1_L2", True))
 
     discord_enabled: bool = field(default_factory=lambda: _bool("DISCORD_ENABLED", True))
     discord_webhook_btc: str = field(default_factory=lambda: os.getenv("DISCORD_WEBHOOK_BTC", ""))
