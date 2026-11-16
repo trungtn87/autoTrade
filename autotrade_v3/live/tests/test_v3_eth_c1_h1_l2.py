@@ -256,7 +256,7 @@ def test_paged_warmup_spreads_12000_bars_over_passes_without_bursts():
         except HistoryNotReady:
             assert hist.calls - before <= 4, "one pass sent more than pages_per_pass requests"
             assert passes < 10
-    assert passes == 3 and hist.calls == 12          # 12 pages of 1000 bars, 4 per pass
+    assert passes == 3 and hist.calls == 12          # 12 pages of 1000 bars, 4 per pass (explicit)
     assert cache._frame is not None and len(cache._frame) == BARS
 
 
@@ -286,3 +286,23 @@ def test_failed_page_keeps_loaded_pages_and_reports_the_cause():
         cache.frame_for(_m15(big, 12_000))             # pass 3 continues from page 6
     cache.frame_for(_m15(big, 12_000))                 # rest of the pages load
     assert cache._frame is not None and len(cache._frame) == BARS
+
+
+def test_default_warmup_is_one_request_per_pass():
+    """Default pacing: one BingX klines request per L2 pass (15m), so the warm-up never bursts."""
+    _l2, hist, _ctl, big = _setup()
+    cache = EthC1History(hist, bars=BARS, retry_sec=0.0)
+    assert cache.pages_per_pass == 1
+    hist.end = 12_000
+    from autotrade_v3.live.eth_c1_history import HistoryNotReady
+    passes = 0
+    while True:
+        passes += 1
+        before = hist.calls
+        try:
+            cache.frame_for(_m15(big, 12_000))
+            break
+        except HistoryNotReady:
+            assert hist.calls - before <= 1
+            assert passes < 20
+    assert passes == 12 and hist.calls == 12

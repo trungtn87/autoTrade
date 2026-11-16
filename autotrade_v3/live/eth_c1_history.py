@@ -9,7 +9,9 @@ Rules:
 - Other combos and V2 keep the 3400-bar snapshot. This cache is ETH C1 only.
 - Warm-up loads the history in pages of `page_bars` (one BingX public klines
   request each, paced by the client's own rate limit), at most `pages_per_pass`
-  pages per L2 pass, so no single pass sends a burst of requests. While the
+  pages per L2 pass (default 1: one request per 15m pass, about 12 passes =
+  about 3 hours to a full 12000 bars). Raise it only after the BingX error code
+  of a failed page is known from the control log. While the
   warm-up is incomplete no ETH C1 is emitted; other combos keep running.
   The cache is in memory and is refreshed from the closed M15 bars of each L1
   snapshot. No REST call happens per signal.
@@ -44,7 +46,7 @@ def _contiguous(frame: pd.DataFrame, bars: int) -> bool:
 
 
 class EthC1History:
-    def __init__(self, client, *, bars: int = 12_000, page_bars: int = 1000, pages_per_pass: int = 4,
+    def __init__(self, client, *, bars: int = 12_000, page_bars: int = 1000, pages_per_pass: int = 1,
                  retry_sec: float = 60.0, now_ms=None):
         self.client = client
         self.bars = int(bars)
