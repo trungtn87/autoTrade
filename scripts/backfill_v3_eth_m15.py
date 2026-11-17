@@ -29,6 +29,10 @@ SYMBOL = "ETH-USDT"
 FRAME = "15m"
 
 
+class HistoryWindowEmpty(RuntimeError):
+    """BingX supplied no candles in the requested window; not a DB failure."""
+
+
 def utc(ms: int | None) -> str:
     if ms is None:
         return "None"
@@ -57,7 +61,13 @@ def validate_existing(n: int, first: int | None, last: int | None) -> None:
         raise RuntimeError(f"Existing ETH 15m span has gaps: rows={n}, expected={expected_count}; repair first")
 
 
-def extract(payload: dict, first: int, bars: int) -> list[tuple]:
+def extract(payload: dict, first: int, bars: int, *, allow_suffix: bool = False) -> list[tuple]:
+    """Only allow shorter responses if they form an exact contiguous suffix.
+
+    BingX may return fewer candles than requested at its oldest available
+    history boundary. Never accept a prefix, hole, duplicate, or different
+    end timestamp: the last returned candle must join the stored oldest bar.
+    """
     data = payload.get("data")
     if isinstance(data, dict):
         data = data.get("data") or data.get("list") or data.get("rows")
@@ -86,11 +96,16 @@ def extract(payload: dict, first: int, bars: int) -> list[tuple]:
             raise RuntimeError(f"Duplicate BingX opening timestamp {t}")
         parsed[t] = (SYMBOL, FRAME, t, o, h, lo, c, vol, ct)
     expected = list(range(first, first + bars * STEP, STEP))
-    if sorted(parsed) != expected:
-        low = min(parsed) if parsed else None
-        high = max(parsed) if parsed else None
+    if not parsed:
+        raise HistoryWindowEmpty(
+            f"BingX returned ZERO ETH swap M15 candles for {utc(expected[0])}..{utc(expected[-1])}"
+        )
+    accepted = expected[-len(parsed):] if allow_suffix and len(parsed) <= bars else expected
+    if sorted(parsed) != accepted:
+        low = min(parsed)
+        high = max(parsed)
         raise RuntimeError(f"BingX window mismatch: expected={utc(expected[0])}..{utc(expected[-1])} ({bars}); got={len(parsed)}, {utc(low)}..{utc(high)}")
-    return [parsed[t] for t in expected]
+    return [parsed[t] for t in accepted]
 
 
 def fetch(client: httpx.Client, first: int, bars: int, *, attempts: int) -> list[tuple]:
@@ -103,7 +118,7 @@ def fetch(client: httpx.Client, first: int, bars: int, *, attempts: int) -> list
             body = response.json()
             code = body.get("code") if isinstance(body, dict) else None
             if response.status_code == 200 and code in (0, "0"):
-                return extract(body, first, bars)
+                return extract(body, first, bars, allow_suffix=True)
             message = str(body.get("msg", ""))[:120] if isinstance(body, dict) else "bad JSON"
             retriable = response.status_code in (429, 500, 502, 503, 504) or str(code) in ("100410", "109425", "109429", "100500")
             if not retriable:
@@ -166,14 +181,35 @@ def main() -> int:
             while first > wanted_first:
                 bars = min(args.limit, (first - wanted_first) // STEP)
                 batch_first = first - bars * STEP
-                rows = fetch(client, batch_first, bars, attempts=args.attempts)
+                try:
+                    rows = fetch(client, batch_first, bars, attempts=args.attempts)
+                except HistoryWindowEmpty as exc:
+                    # A large-window zero might be endpoint windowing rather
+                    # than exhausted retention. Probe exactly the NEXT bar.
+                    # If even that is unavailable, do not invent older prices.
+                    probe_open = first - STEP
+                    print(f"WINDOW_EMPTY: testing one adjacent older ETH swap candle at {utc(probe_open)}", flush=True)
+                    time.sleep(args.request_gap)
+                    try:
+                        rows = fetch(client, probe_open, 1, attempts=args.attempts)
+                    except HistoryWindowEmpty:
+                        raise RuntimeError(
+                            f"INSUFFICIENT_BINGX_HISTORY: no swap M15 candles before {utc(first)}; "
+                            f"DB currently has {n}/{KEEP} contiguous bars. "
+                            "The BingX swap API may enforce a history cutoff. "
+                            "Do not replace missing futures candles with spot, mark price, or Binance."
+                        ) from exc
+                if len(rows) < bars:
+                    print(f"PARTIAL_BINGX_HISTORY: received {len(rows)}/{bars} contiguous suffix candles "
+                          f"{utc(rows[0][2])}..{utc(rows[-1][2])}; preserving valid bars", flush=True)
                 inserted = insert_rows(conn, rows)
                 done += inserted
-                print(f"Committed {inserted:4d} / {bars:4d} ETH M15 candles | oldest now {utc(batch_first)} | total inserted {done}", flush=True)
                 # Re-read DB because the live L1 writer may concurrently add newer closed candles.
                 n, first, last = stats(conn)
                 validate_existing(n, first, last)
                 assert first is not None and last is not None
+                print(f"Committed {inserted:4d} / {bars:4d} ETH M15 candles | oldest now {utc(first)} "
+                      f"| DB count {n} | total inserted {done}", flush=True)
                 wanted_first = last - (KEEP - 1) * STEP
                 if n >= KEEP:
                     break
