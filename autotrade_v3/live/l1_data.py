@@ -12,8 +12,8 @@ import threading
 import time
 from typing import Callable
 
-from autotrade_v2.app.data.historical import HistoricalKlineClient
-from autotrade_v2.app.data.service import DataService
+from .candles.historical import HistoricalKlineClient
+from .candles.service import DataService
 
 log = logging.getLogger("autotrade_v3.l1")
 
@@ -22,6 +22,7 @@ CANDLE_GRACE_MS = 30_000
 WATCHDOG_POLL_SEC = 5.0
 RECOVERY_RETRY_MS = 60_000
 RECOVERY_MAX_ATTEMPTS = 2
+BACKFILL_RETRY_SEC = 60.0
 
 
 def expected_closed_open(now_ms: int) -> int:
@@ -36,23 +37,27 @@ class L1Data:
         self.historical = historical or HistoricalKlineClient(
             base_url=settings.bingx_base_url, min_interval_sec=settings.historical_min_interval_ms / 1000.0,
             request_limit=settings.historical_request_limit)
-        self.service = DataService(self.historical, candle_store, keep=settings.candle_keep_15m,
-                                   required=settings.required_15m)
+        # One V3-owned service per symbol: ETH keeps 12000 bars (ETH C1), BTC keeps 3400.
+        self.services = {
+            symbol: DataService(self.historical, candle_store, keep=settings.candle_keep_for(symbol),
+                                required=settings.required_15m, recover_window=settings.candle_keep_for(symbol))
+            for symbol in settings.symbols
+        }
         self.health: dict[str, dict] = {}
         self._stop = threading.Event()
         self._attempts: dict[tuple[str, int], dict] = {}
 
     def ingest(self, symbol: str, frame):
-        return self.service.ingest_closed_candle(symbol, frame)
+        return self.services[symbol.upper()].ingest_closed_candle(symbol, frame)
 
     def recover(self, symbol: str, now_ms: int | None = None):
-        return self.service.recover_missing_closed(symbol, now_ms)
+        return self.services[symbol.upper()].recover_missing_closed(symbol, now_ms)
 
     def set_health(self, symbol: str, ok: bool, **details) -> None:
         self.health[symbol] = {"ok": bool(ok), "checked_at_ms": int(time.time() * 1000), **details}
 
     def startup_sync(self) -> None:
-        """Fill the small gap between the copied candles and now (bounded REST)."""
+        """Fill the gap between the stored candles and now (bounded REST), then keep backfilling."""
         for symbol in self.settings.symbols:
             try:
                 snap, missing = self.recover(symbol)
@@ -60,8 +65,26 @@ class L1Data:
                                 source="startup")
             except Exception as exc:
                 self.set_health(symbol, False, error=str(exc), source="startup")
-                self.control.report("L1", "startup_candles", f"Nến {symbol} chưa sẵn sàng khi khởi động: {exc}",
-                                    symbol=symbol, details={"stats": self._safe_stats(symbol)})
+                log.warning("V3_L1_STARTUP_WAIT symbol=%s error=%s", symbol, exc)
+            if self._stats_count(symbol) < self.settings.candle_keep_for(symbol):
+                threading.Thread(target=self.backfill_loop, args=(symbol,),
+                                 name=f"v3-candle-backfill-{symbol}", daemon=True).start()
+
+    def _stats_count(self, symbol: str) -> int:
+        return int(self.store.stats(symbol, "15m").get("count", 0))
+
+    def backfill_loop(self, symbol: str) -> None:
+        """Repair the missing bars of the keep window until full. The service's REST budget paces each try."""
+        keep = self.settings.candle_keep_for(symbol)
+        while not self._stop.is_set():
+            try:
+                if self._stats_count(symbol) >= keep:
+                    log.info("V3_L1_BACKFILL_DONE symbol=%s bars=%s", symbol, keep)
+                    return
+                self.recover(symbol)
+            except Exception as exc:  # budget/cooldown or transport: retry later, never stop trading
+                log.warning("V3_L1_BACKFILL_RETRY symbol=%s error=%s", symbol, exc)
+            self._stop.wait(BACKFILL_RETRY_SEC)
 
     def _safe_stats(self, symbol: str) -> dict:
         try:

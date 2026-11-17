@@ -17,8 +17,13 @@ from autotrade_v2.app.strategy.engine import StrategyEngine
 from autotrade_v2.app.strategy.final14_config import case_name, get_case
 from autotrade_v2.app.strategy.final14_exact_strategy import hard_tp_sl
 
-from .eth_c1_history import EthC1History, HistoryNotReady
 from .l3_execution import V3Signal
+
+class HistoryNotReady(RuntimeError):
+    """ETH C1 needs ETH_C1_BARS closed M15 bars in DB; other combos keep running."""
+
+ETH_C1_BARS = 12_000
+V18_WINDOW_BARS = 3_400  # other combos keep the 3400-bar window (20FINAL semantics unchanged)
 from .lab_h1.eth_c1_h1 import (H1_BUY_MAX_SLOPE_4H_PCT, H1_SELL_MIN_DIST_EMA150_4H_PCT, M15_MS,
                               EthC1H1Both1Strategy, compute_eth_c1_l2_features)
 from .store import ms_to_dt
@@ -84,7 +89,6 @@ class L2Strategy:
         self.last_signals: list[dict] = []
         # ETH-USDT/C1 only: H1_BOTH_1 generator (Lab P3 semantics). False = pure V2 output (rollback).
         self.eth_c1_gen = EthC1H1Both1Strategy(enable_eth_c1_h1_l2=True) if eth_c1_h1_enabled else None
-        self.eth_history = EthC1History(historical) if (eth_c1_h1_enabled and historical is not None) else None
 
     def _report(self, kind: str, message: str, symbol: str = ETH, error_code: str | None = None) -> None:
         if self.control is not None:  # tests and offline tools run without a control log
@@ -105,10 +109,11 @@ class L2Strategy:
                                 side=s.side, timeframe=s.timeframe, close_time=s.close_time, entry=s.entry, tp=s.tp,
                                 sl=s.sl, tp_pct=s.tp_pct, sl_pct=s.sl_pct, registry_version=s.registry_version,
                                 spec_hash=s.spec_hash, signal_variant=s.signal_variant)
-                       for s in self.v18.calculate(snapshot.symbol, snapshot.candles)]
+                       for s in self.v18.calculate(snapshot.symbol, snapshot.candles.tail(V18_WINDOW_BARS))]
         else:
             signals = []
-            for i in self.engine.calculate(snapshot):
+            window = dataclasses.replace(snapshot, candles=snapshot.candles.tail(V18_WINDOW_BARS))
+            for i in self.engine.calculate(window):
                 spec = reg.get(i.symbol, int(i.combo))
                 signals.append(V3Signal(event_id=i.event_id, symbol=i.symbol, combo=int(i.combo),
                                         combo_name=case_name(i.combo), side=i.side, timeframe=i.timeframe,
@@ -121,14 +126,12 @@ class L2Strategy:
         # ETH C1 is replaced, not filtered: H1 must sit before edge detection (P3 pre_edge_h1=True).
         others = [s for s in signals if not (s.symbol == ETH and s.combo == 1)]
         try:
-            if self.eth_history is None:
-                raise HistoryNotReady("nguồn lịch sử ETH M15 chưa được gắn")
-            history = self.eth_history.frame_for(snapshot.candles)
+            history = snapshot.candles
+            if len(history) < ETH_C1_BARS:
+                raise HistoryNotReady(f"ETH M15 trong DB {len(history)}/{ETH_C1_BARS} nến")
             c1 = self._eth_c1_latest(snapshot, history)
         except HistoryNotReady as exc:  # not enough trusted history: no unconfirmed ETH C1, other combos run
-            self._report("eth_c1_h1",
-                                f"ETH C1 H1 tạm dừng lượt này, chưa đủ lịch sử 12000 nến M15: {exc}", symbol=ETH,
-                                error_code=getattr(exc, "error_code", None))
+            log.info("V3_L2_ETH_C1_WAIT %s", exc)
             return others
         except Exception as exc:  # missing indicator: emit no unconfirmed ETH C1, keep the other combos
             self._report("eth_c1_h1",
