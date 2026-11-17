@@ -101,6 +101,25 @@ def aggregate_month(records: list[list[str]], month: str) -> list[tuple]:
     return result
 
 
+def strip_verified_header(rows: list[list[str]]) -> list[list[str]]:
+    """Binance monthly Futures CSVs may include a single column-header row.
+
+    Ignore only the exact seven expected OHLCV/time header names; no arbitrary
+    record is discarded. Every subsequent row still must pass strict M1 checks.
+    """
+    if not rows:
+        raise RuntimeError("Empty Binance Futures monthly CSV")
+    if rows[0] and rows[0][0].strip().isdigit():
+        return rows
+    if len(rows[0]) < 7:
+        raise RuntimeError("Unexpected Binance CSV first row")
+    normalized=[value.strip().lower().replace("_","").replace(" ","") for value in rows[0][:7]]
+    if normalized != ["opentime","open","high","low","close","volume","closetime"]:
+        raise RuntimeError(f"Unexpected Binance CSV header: {normalized}")
+    print("RECOGNIZED verified Binance Futures OHLCV CSV header",flush=True)
+    return rows[1:]
+
+
 def fetch_month(month: str) -> tuple[list[tuple], str]:
     filename=f"ETHUSDT-1m-{month}.zip"
     url=f"{ARCHIVE_ROOT}/{filename}"
@@ -114,7 +133,7 @@ def fetch_month(month: str) -> tuple[list[tuple], str]:
         if members != [filename[:-4]+".csv"] or z.getinfo(members[0]).file_size>30*1024*1024:
             raise RuntimeError("Invalid Binance ZIP CSV structure/size")
         csv_text=z.read(members[0]).decode("utf-8-sig")
-    rows=list(csv.reader(io.StringIO(csv_text)))
+    rows=strip_verified_header(list(csv.reader(io.StringIO(csv_text))))
     candles=aggregate_month(rows,month)
     print(f"CHECKSUM PASS {filename} sha256={digest[:16]} M1={len(rows)} M15={len(candles)}",flush=True)
     return candles,digest

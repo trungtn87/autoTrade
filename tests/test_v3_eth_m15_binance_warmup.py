@@ -1,7 +1,7 @@
 """Offline regression for the Binance USD-M M1 -> ETH M15 warm-up importer."""
 import unittest
 from datetime import datetime, timezone
-from scripts.import_v3_eth_m15_binance_warmup import MINUTE, STEP, aggregate_month, check_overlap
+from scripts.import_v3_eth_m15_binance_warmup import MINUTE, STEP, aggregate_month, check_overlap, strip_verified_header
 
 
 def month_rows():
@@ -20,6 +20,22 @@ class SeedTests(unittest.TestCase):
         self.assertEqual(len(out),2976)
         self.assertEqual(out[0][1:6],(100.0,110.0,90.0,105.0,30.0))
         self.assertEqual(out[0][-1]-out[0][0],STEP-1)
+
+    def test_known_binance_header_is_skipped_only_once(self):
+        header=["open_time","open","high","low","close","volume","close_time",
+                "quote_asset_volume","number_of_trades","taker_buy_base_asset_volume",
+                "taker_buy_quote_asset_volume","ignore"]
+        self.assertEqual(strip_verified_header([header,*self.rows]),self.rows)
+        candles=aggregate_month(strip_verified_header([header,*self.rows]),"2026-07")
+        self.assertEqual(len(candles),2976)
+
+    def test_unknown_header_and_duplicate_header_are_rejected(self):
+        header=["created_at","open","high","low","close","volume","close_time"]
+        with self.assertRaisesRegex(RuntimeError,"Unexpected Binance CSV header"):
+            strip_verified_header([header,*self.rows])
+        valid=["open_time","open","high","low","close","volume","close_time"]
+        with self.assertRaisesRegex(RuntimeError,"incomplete futures M1"):
+            aggregate_month(strip_verified_header([valid,valid,*self.rows]),"2026-07")
 
     def test_missing_m1_fails(self):
         with self.assertRaisesRegex(RuntimeError,"incomplete"):
