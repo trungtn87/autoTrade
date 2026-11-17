@@ -26,8 +26,11 @@ class V3Settings:
     database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", ""))
 
     candle_keep_15m: int = 3400
-    # ETH-USDT keeps 12000 M15 bars in DB for ETH C1 H1_BOTH_1 (needs EMA150 4H convergence).
-    candle_keep_eth_15m: int = 12000
+    # Rolling ETH history: set V3_CANDLE_KEEP_ETH_15M to increase the retention
+    # target later without changing the backfill logic. Keep >= 3400 for live strategies.
+    candle_keep_eth_15m: int = field(
+        default_factory=lambda: max(3400, int(os.getenv("V3_CANDLE_KEEP_ETH_15M", "12000")))
+    )
     required_15m: int = 3400
 
     def candle_keep_for(self, symbol: str) -> int:

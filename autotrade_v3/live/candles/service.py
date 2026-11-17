@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 import threading
+import math
 from collections import deque
 
 import pandas as pd
@@ -99,7 +100,7 @@ class DataService:
             )
         except DataLayerError as exc:
             msg=str(exc)
-            if "109425" in msg or "109429" in msg:
+            if any(f"code={code}" in msg for code in ("100410", "109425", "109429")):
                 with self._recovery_rest_lock:
                     self._recovery_rest_cooldown_until=max(
                         self._recovery_rest_cooldown_until,
@@ -121,6 +122,69 @@ class DataService:
                     0,int(self._recovery_rest_cooldown_until-now)
                 ),
             }
+
+
+    @staticmethod
+    def _validate_recovery_page(symbol: str, frame: pd.DataFrame, expected: list[int]) -> None:
+        """Reject empty, malformed or shifted REST pages before any DB write."""
+        got = [int(x) for x in frame["open_time"].tolist()] if frame is not None and not frame.empty else []
+        if got != expected:
+            raise DataLayerError(
+                f"{symbol} recovery mismatch expected={expected[0]}..{expected[-1]} "
+                f"count={len(expected)} got_count={len(got)}"
+            )
+        for row in frame.itertuples(index=False):
+            open_ms = int(row.open_time)
+            if open_ms % STEP_15M_MS or int(row.close_time) != open_ms + STEP_15M_MS - 1:
+                raise DataLayerError(f"{symbol} REST candle timestamps invalid: open={open_ms}")
+            o, h, l, c, v = (float(row.open), float(row.high), float(row.low),
+                             float(row.close), float(row.volume))
+            if (not all(math.isfinite(x) for x in (o, h, l, c, v))
+                    or min(o, h, l, c) <= 0 or v < 0
+                    or h < max(o, c, l) or l > min(o, c)):
+                raise DataLayerError(f"{symbol} REST candle OHLCV invalid: open={open_ms}")
+
+    def backfill_complete(self, symbol: str, now_ms: int | None = None) -> bool:
+        """A full, strictly contiguous and current keep-window is present in DB."""
+        try:
+            return len(self.snapshot_from_store(symbol, now_ms).candles) == self.keep
+        except (DataLayerError, StrategyInsufficientCandlesError):
+            return False
+
+    def backfill_one_page(self, symbol: str, now_ms: int | None = None) -> int:
+        """Fetch and durably save at most ONE 1000-bar REST page per invocation.
+
+        Work backward from the newest missing bar so each successful page extends
+        the contiguous live tail. Partial progress survives rate limits, crashes
+        and process restarts; L2 continues to use the valid latest window.
+        """
+        symbol = symbol.upper()
+        now_ms = int(now_ms or time.time() * 1000)
+        latest = (now_ms // STEP_15M_MS) * STEP_15M_MS - STEP_15M_MS
+        oldest = latest - (self.keep - 1) * STEP_15M_MS
+        current = self.store.load(symbol, "15m", None)
+        existing = set(int(x) for x in current["open_time"].tolist()) if not current.empty else set()
+        missing_end = next(
+            (t for t in range(latest, oldest - STEP_15M_MS, -STEP_15M_MS) if t not in existing),
+            None,
+        )
+        if missing_end is None:
+            return 0
+
+        start = missing_end
+        take = 1
+        while (take < self.historical.request_limit and start > oldest
+               and start - STEP_15M_MS not in existing):
+            start -= STEP_15M_MS
+            take += 1
+        frame = self._recovery_fetch_window(
+            symbol, start, missing_end + STEP_15M_MS - 1, take,
+        )
+        expected = list(range(start, missing_end + STEP_15M_MS, STEP_15M_MS))
+        self._validate_recovery_page(symbol, frame, expected)
+        self.store.upsert(symbol, "15m", frame)
+        self.store.trim(symbol, "15m", self.keep)
+        return len(frame)
 
     def ingest_closed_candle(
         self,
@@ -146,7 +210,9 @@ class DataService:
         symbol=symbol.upper()
         now_ms=int(now_ms or time.time()*1000)
         expected_latest=(now_ms//STEP_15M_MS)*STEP_15M_MS-STEP_15M_MS
-        first_required=expected_latest-(self.recover_window-1)*STEP_15M_MS
+        # Urgent WebSocket/watchdog repair only needs the live 3400-bar window.
+        # Older ETH history is loaded separately, ONE persisted page per backfill cycle.
+        first_required=expected_latest-(self.required-1)*STEP_15M_MS
 
         current=self.store.load(symbol,"15m",None)
         existing={
@@ -160,7 +226,6 @@ class DataService:
         if not missing:
             return self.snapshot_from_store(symbol,now_ms),[]
 
-        recovered_frames=[]
         cursor_idx=0
         while cursor_idx<len(missing):
             start=missing[cursor_idx]
@@ -182,18 +247,11 @@ class DataService:
                     take,
                 )
                 expected=list(range(chunk_start,chunk_end+STEP_15M_MS,STEP_15M_MS))
-                got=[int(x) for x in frame["open_time"].tolist()] if not frame.empty else []
-                if got!=expected:
-                    raise DataLayerError(
-                        f"{symbol} recovery mismatch expected={expected[0]}..{expected[-1]} "
-                        f"count={len(expected)} got_count={len(got)}"
-                    )
-                recovered_frames.append(frame)
+                self._validate_recovery_page(symbol, frame, expected)
+                # Do not discard earlier successfully repaired pages on later errors.
+                self.store.upsert(symbol,"15m",frame)
+                self.store.trim(symbol,"15m",self.keep)
                 chunk_start=chunk_end+STEP_15M_MS
-
-        recovered=pd.concat(recovered_frames,ignore_index=True)
-        self.store.upsert(symbol,"15m",recovered)
-        self.store.trim(symbol,"15m",self.keep)
 
         snapshot=self.snapshot_from_store(symbol,now_ms)
         return snapshot,missing

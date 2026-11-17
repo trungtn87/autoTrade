@@ -22,7 +22,7 @@ CANDLE_GRACE_MS = 30_000
 WATCHDOG_POLL_SEC = 5.0
 RECOVERY_RETRY_MS = 60_000
 RECOVERY_MAX_ATTEMPTS = 2
-BACKFILL_RETRY_SEC = 60.0
+BACKFILL_RETRY_SEC = 15 * 60.0  # one persisted page per 15-minute backfill cycle
 
 
 def expected_closed_open(now_ms: int) -> int:
@@ -66,7 +66,7 @@ class L1Data:
             except Exception as exc:
                 self.set_health(symbol, False, error=str(exc), source="startup")
                 log.warning("V3_L1_STARTUP_WAIT symbol=%s error=%s", symbol, exc)
-            if self._stats_count(symbol) < self.settings.candle_keep_for(symbol):
+            if not self.services[symbol].backfill_complete(symbol):
                 threading.Thread(target=self.backfill_loop, args=(symbol,),
                                  name=f"v3-candle-backfill-{symbol}", daemon=True).start()
 
@@ -74,15 +74,19 @@ class L1Data:
         return int(self.store.stats(symbol, "15m").get("count", 0))
 
     def backfill_loop(self, symbol: str) -> None:
-        """Repair the missing bars of the keep window until full. The service's REST budget paces each try."""
+        """Fetch at most one page, persist, then wait 15 minutes; resume after restart."""
         keep = self.settings.candle_keep_for(symbol)
+        service = self.services[symbol]
         while not self._stop.is_set():
             try:
-                if self._stats_count(symbol) >= keep:
+                if service.backfill_complete(symbol):
                     log.info("V3_L1_BACKFILL_DONE symbol=%s bars=%s", symbol, keep)
                     return
-                self.recover(symbol)
-            except Exception as exc:  # budget/cooldown or transport: retry later, never stop trading
+                saved = service.backfill_one_page(symbol)
+                total = self._stats_count(symbol)
+                log.info("V3_L1_BACKFILL_SAVED symbol=%s page_bars=%s total=%s target=%s",
+                         symbol, saved, total, keep)
+            except Exception as exc:  # API/cooldown/validation: keep all prior pages, retry next cycle
                 log.warning("V3_L1_BACKFILL_RETRY symbol=%s error=%s", symbol, exc)
             self._stop.wait(BACKFILL_RETRY_SEC)
 
