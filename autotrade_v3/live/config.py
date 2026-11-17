@@ -26,7 +26,12 @@ class V3Settings:
     database_url: str = field(default_factory=lambda: os.getenv("DATABASE_URL", ""))
 
     candle_keep_15m: int = 3400
+    # ETH-USDT keeps 12000 M15 bars in DB for ETH C1 H1_BOTH_1 (needs EMA150 4H convergence).
+    candle_keep_eth_15m: int = 12000
     required_15m: int = 3400
+
+    def candle_keep_for(self, symbol: str) -> int:
+        return self.candle_keep_eth_15m if str(symbol).upper() == "ETH-USDT" else self.candle_keep_15m
     historical_request_limit: int = 1000
     historical_min_interval_ms: int = 1100
 

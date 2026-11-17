@@ -8,7 +8,6 @@ from autotrade_v2.app.contracts import MarketSnapshot
 from autotrade_v2.app.strategy.final14_config import case_name
 from autotrade_v2.app.strategy.final14_exact_strategy import scan_latest
 from autotrade_v3.live import l2_strategy as l2mod
-from autotrade_v3.live.eth_c1_history import EthC1History
 from autotrade_v3.live.l2_strategy import L2Strategy
 from autotrade_v3.live.lab_h1.eth_c1_h1 import (
     H1_BUY_MAX_SLOPE_4H_PCT,
@@ -67,7 +66,6 @@ def _setup(seed=0, end=12_000, n=12_600):
     hist.end = end
     ctl = Control()
     l2 = L2Strategy(MemoryStore(), control=ctl, eth_c1_h1_enabled=True, historical=hist)
-    l2.eth_history = EthC1History(hist, bars=BARS, retry_sec=0.0, pages_per_pass=100)
     return l2, hist, ctl, big
 
 
@@ -157,49 +155,15 @@ def test_eth_c1_signals_use_latest_closed_bar_and_live_tp_sl_formula():
 
 def test_history_not_ready_emits_no_eth_c1_but_other_combos_run():
     l2, hist, ctl, big = _setup()
-    hist.fail = True
     m15 = _m15(big, 12_000)
-    got = l2.calculate(_snap("ETH-USDT", m15))
+    short = m15.iloc[-3400:].reset_index(drop=True)   # DB holds fewer than 12000 ETH bars
+    got = l2.calculate(_snap("ETH-USDT", short))
     assert all(s.combo_name != "C1" for s in got)
     want = [x.event_id for x in scan_latest("ETH-USDT", m15) if case_name(x.combo) != "C1"]
     assert [s.event_id for s in got] == want
-    assert any(step == "eth_c1_h1" for _, step, _ in ctl.calls)
+    assert not any(step == "eth_c1_h1" for _, step, _ in ctl.calls)   # warm-up notifications removed
 
 
-def test_rest_warmup_is_rate_limited_and_not_called_per_signal():
-    l2, hist, ctl, big = _setup()
-    hist.fail = True
-    l2.eth_history.retry_ms = 60_000   # production default is 60 s
-    for _ in range(3):
-        l2.calculate(_snap("ETH-USDT", _m15(big, 12_000)))
-    assert hist.calls == 1
-    hist.fail = False
-    hist.calls = 0
-    l2.eth_history._last_attempt_ms = None
-    hist.end = 12_000
-    l2.calculate(_snap("ETH-USDT", _m15(big, 12_000)))   # paged warm-up: all pages in this pass
-    assert l2.eth_history._frame is not None
-    warm = hist.calls
-    hist.calls = 0
-    for end in range(12_001, 12_020):
-        hist.end = end
-        l2.calculate(_snap("ETH-USDT", _m15(big, end)))
-    assert warm >= 1
-    assert hist.calls == 0, "ready cache must not call REST on each closed bar"
-
-
-def test_gap_in_live_bars_resets_history_and_waits():
-    """A lost closed bar must not be bridged: the cache resets and stays not ready while REST is down."""
-    from autotrade_v3.live.eth_c1_history import HistoryNotReady
-    l2, hist, ctl, big = _setup()
-    hist.end = 12_000
-    l2.eth_history.frame_for(_m15(big, 12_000))
-    assert l2.eth_history._frame is not None
-    gapped = big.iloc[12_000:12_100].drop(index=[12_050]).reset_index(drop=True)
-    hist.fail = True
-    with pytest.raises(HistoryNotReady):
-        l2.eth_history.frame_for(gapped)
-    assert l2.eth_history._frame is None
 
 
 def test_eth_c1_formula_matches_live_v2_config():
@@ -218,9 +182,10 @@ def test_missing_indicator_skips_only_eth_c1_and_reports(monkeypatch):
 
     monkeypatch.setattr(l2mod, "compute_eth_c1_l2_features", boom)
     m15 = _m15(big, 12_000)
-    got = l2.calculate(_snap("ETH-USDT", m15))
+    short = m15.iloc[-3400:].reset_index(drop=True)   # DB holds fewer than 12000 ETH bars
+    got = l2.calculate(_snap("ETH-USDT", short))
     assert all(s.combo_name != "C1" for s in got)
-    assert any(step == "eth_c1_h1" for _, step, _ in ctl.calls)
+    assert not any(step == "eth_c1_h1" for _, step, _ in ctl.calls)   # warm-up notifications removed
     want = [x.event_id for x in scan_latest("ETH-USDT", m15) if case_name(x.combo) != "C1"]
     assert [s.event_id for s in got] == want
 
@@ -242,70 +207,5 @@ def test_dispatch_hands_signals_to_l3_once_per_signal():
     assert len(set(ex.seen)) == len(ex.seen)
 
 
-def test_paged_warmup_spreads_12000_bars_over_passes_without_bursts():
-    """Owner 2026-11-16: load 12000 bars in several passes so one L1 pass never sends a REST burst."""
-    from autotrade_v3.live.eth_c1_history import HistoryNotReady
-    _l2, hist, _ctl, big = _setup()
-    cache = EthC1History(hist, bars=BARS, page_bars=1000, pages_per_pass=4, retry_sec=0.0)
-    hist.end = 12_000
-    passes = 0
-    while True:
-        passes += 1
-        before = hist.calls
-        try:
-            cache.frame_for(_m15(big, 12_000))
-            break
-        except HistoryNotReady:
-            assert hist.calls - before <= 4, "one pass sent more than pages_per_pass requests"
-            assert passes < 10
-    assert passes == 3 and hist.calls == 12          # 12 pages of 1000 bars, 4 per pass (explicit)
-    assert cache._frame is not None and len(cache._frame) == BARS
 
 
-def test_failed_page_keeps_loaded_pages_and_reports_the_cause():
-    """A BingX error on one page must not restart the warm-up; the control message carries the cause."""
-    from autotrade_v3.live.eth_c1_history import HistoryNotReady
-    _l2, hist, _ctl, big = _setup()
-    cache = EthC1History(hist, bars=BARS, page_bars=1000, pages_per_pass=4, retry_sec=0.0)
-    hist.end = 12_000
-    real = hist.fetch_window
-    state = {"n": 0}
-
-    def flaky(symbol, start, end, limit):
-        state["n"] += 1
-        if state["n"] == 6:
-            raise RuntimeError("BingX error status=429 code=100410 msg=rate limited")
-        return real(symbol, start, end, limit)
-    hist.fetch_window = flaky
-    with pytest.raises(HistoryNotReady):
-        cache.frame_for(_m15(big, 12_000))             # pass 1: pages 1-4 loaded, incomplete
-    assert len(cache._parts) == 4
-    with pytest.raises(HistoryNotReady) as err:
-        cache.frame_for(_m15(big, 12_000))             # pass 2: page 5 ok, page 6 fails with the BingX code
-    assert "100410" in str(err.value) and "6/12" in str(err.value)
-    assert err.value.error_code == "100410"            # the code is kept as a field for the L5 alert
-    assert len(cache._parts) == 5                      # progress kept, not restarted
-    with pytest.raises(HistoryNotReady):
-        cache.frame_for(_m15(big, 12_000))             # pass 3 continues from page 6
-    cache.frame_for(_m15(big, 12_000))                 # rest of the pages load
-    assert cache._frame is not None and len(cache._frame) == BARS
-
-
-def test_default_warmup_is_one_request_per_pass():
-    """Default pacing: one BingX klines request per L2 pass (15m), so the warm-up never bursts."""
-    _l2, hist, _ctl, big = _setup()
-    cache = EthC1History(hist, bars=BARS, retry_sec=0.0)
-    assert cache.pages_per_pass == 1
-    hist.end = 12_000
-    from autotrade_v3.live.eth_c1_history import HistoryNotReady
-    passes = 0
-    while True:
-        passes += 1
-        before = hist.calls
-        try:
-            cache.frame_for(_m15(big, 12_000))
-            break
-        except HistoryNotReady:
-            assert hist.calls - before <= 1
-            assert passes < 20
-    assert passes == 12 and hist.calls == 12
