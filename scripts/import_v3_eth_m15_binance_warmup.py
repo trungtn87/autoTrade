@@ -90,7 +90,8 @@ def aggregate_month(records: list[list[str]], month: str) -> list[tuple]:
         minute_group.append((timestamp,o,h,l,c,v))
         if len(minute_group)==15:
             t=minute_group[0][0]
-            if t%STEP: raise RuntimeError("Unaligned M15 aggregation")
+            if t%STEP:
+                raise RuntimeError("Unaligned M15 aggregation")
             result.append((t,minute_group[0][1],max(x[2] for x in minute_group),
                            min(x[3] for x in minute_group),minute_group[-1][4],
                            sum(x[5] for x in minute_group),t+STEP-1))
@@ -141,7 +142,8 @@ def check_overlap(conn, history: dict[int, tuple], first: int) -> dict:
 
 
 def insert_batch(conn, bars: list[tuple], sha: dict, overlap: dict) -> int:
-    if not bars: return 0
+    if not bars:
+        return 0
     records=[(SYMBOL,FRAME,*row) for row in bars]
     placeholders=",".join(["(%s,%s,%s,%s,%s,%s,%s,%s,%s)"]*len(records))
     with conn.transaction():
