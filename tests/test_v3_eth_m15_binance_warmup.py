@@ -34,7 +34,7 @@ class SeedTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,"Unexpected Binance CSV header"):
             strip_verified_header([header,*self.rows])
         valid=["open_time","open","high","low","close","volume","close_time"]
-        with self.assertRaisesRegex(RuntimeError,"Invalid futures M1 values"):
+        with self.assertRaisesRegex(RuntimeError,"incomplete futures M1"):
             aggregate_month(strip_verified_header([valid,valid,*self.rows]),"2026-07")
 
     def test_missing_m1_fails(self):
