@@ -222,3 +222,30 @@ def test_backfill_loop_calls_one_page_then_sleeps_15_minutes():
     l1.backfill_loop("ETH-USDT")
     assert l1.services["ETH-USDT"].calls == 1
     assert l1._stop.waits == [BACKFILL_RETRY_SEC]
+
+def test_rolling_window_trims_oldest_bar_after_target_is_full():
+    bars = _bars(12_000)
+    store = CandleStore()
+    store.upsert("ETH-USDT", "15m", bars)
+    service = svc.DataService(FakeHistory(bars), store,
+                              keep=12_000, required=3400, recover_window=12_000)
+    first_before = int(store.load("ETH-USDT", "15m").iloc[0].open_time)
+    next_open = LATEST + STEP
+    candle = pd.DataFrame({
+        "open_time": [next_open], "open": [1.0], "high": [1.0],
+        "low": [1.0], "close": [1.0], "volume": [1.0],
+        "close_time": [next_open + STEP - 1],
+    })
+    snapshot = service.ingest_closed_candle("ETH-USDT", candle, now_ms=next_open + STEP + 1)
+    assert len(snapshot.candles) == 12_000
+    assert store.stats("ETH-USDT", "15m")["count"] == 12_000
+    assert int(store.load("ETH-USDT", "15m").iloc[0].open_time) == first_before + STEP
+
+
+def test_eth_retention_target_is_environment_configurable(monkeypatch):
+    from autotrade_v3.live.config import V3Settings
+
+    monkeypatch.setenv("V3_CANDLE_KEEP_ETH_15M", "14000")
+    settings = V3Settings()
+    assert settings.candle_keep_for("ETH-USDT") == 14_000
+    assert settings.candle_keep_for("BTC-USDT") == 3400
