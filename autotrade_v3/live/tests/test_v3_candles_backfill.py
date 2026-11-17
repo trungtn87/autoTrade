@@ -54,7 +54,9 @@ def _initial(n: int = 12_000, keep: int = 12_000):
     return store, hist, service
 
 
-def test_each_backfill_call_saves_one_page_and_keeps_snapshot_contiguous():
+def test_each_backfill_call_saves_one_page_and_keeps_snapshot_contiguous(monkeypatch):
+    # Simulate nine 15-minute cycles without real waiting or the rolling REST budget.
+    monkeypatch.setattr(svc, "RECOVERY_REST_MAX_REQUESTS", 20)
     store, hist, service = _initial()
     first_existing = int(store.load("ETH-USDT", "15m").iloc[0].open_time)
     assert not service.backfill_complete("ETH-USDT", NOW)
