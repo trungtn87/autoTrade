@@ -1,0 +1,68 @@
+name: V3 ETH M15 - backfill 12000 candles
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "audit = kiem tra; apply = ghi bu tung dot tu BingX"
+        required: true
+        default: audit
+        type: choice
+        options:
+          - audit
+          - apply
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v3-eth-m15-production-backfill
+  cancel-in-progress: false
+
+jobs:
+  eth-m15:
+    # Only approved main can access production DB. Never use unreviewed branch code.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout approved main SHA
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install only public-market-data and PostgreSQL dependencies
+        run: python -m pip install --disable-pip-version-check 'httpx==0.28.1' 'psycopg[binary]==3.2.10'
+      - name: Verify backfill safety unit tests (no network)
+        run: python -m unittest discover -s tests -p 'test_v3_eth_m15_backfill.py' -v
+      - name: Check DB connection secret is configured
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo 'ERROR: Missing repository Actions secret DATABASE_URL (Supabase PostgreSQL connection string).'
+            exit 1
+          fi
+      - name: Audit or backfill ETH-USDT (BingX public M15 only)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: '1'
+          MODE: ${{ inputs.mode }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Workflow: ${GITHUB_WORKFLOW}; SHA: ${GITHUB_SHA}; mode: ${MODE}"
+          case "$MODE" in
+            audit)
+              python scripts/backfill_v3_eth_m15.py
+              ;;
+            apply)
+              python scripts/backfill_v3_eth_m15.py --apply --limit 1000 --request-gap 4 --attempts 4
+              ;;
+            *)
+              echo 'Unsupported mode'; exit 1
+              ;;
+          esac
