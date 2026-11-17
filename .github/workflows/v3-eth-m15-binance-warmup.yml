@@ -1,0 +1,73 @@
+name: V3 ETH M15 - verified Binance futures warmup
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "audit = validate only; apply = insert missing older M15"
+        required: true
+        default: audit
+        type: choice
+        options:
+          - audit
+          - apply
+  push:
+    branches: [main]
+    paths:
+      # One-shot approved import when this importer is added to main.
+      - 'scripts/import_v3_eth_m15_binance_warmup.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v3-eth-m15-binance-warmup-prod
+  cancel-in-progress: false
+
+jobs:
+  verify-and-seed:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PostgreSQL driver
+        run: python -m pip install --disable-pip-version-check 'psycopg[binary]==3.2.10'
+      - name: Run offline safety tests
+        run: python -m unittest discover -s tests -p 'test_v3_eth_m15_binance_warmup.py' -v
+      - name: Verify database secret
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo 'ERROR: GitHub Actions secret DATABASE_URL is required'
+            exit 1
+          fi
+      - name: Check Binance USD-M archives, SHA256, M1 continuity and BingX overlap (no writes)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: '1'
+        run: python scripts/import_v3_eth_m15_binance_warmup.py
+      - name: Seed only validated missing ETH M15 historical prefix
+        shell: bash
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: '1'
+          RUN_MODE: ${{ github.event_name == 'push' && 'apply' || inputs.mode }}
+        run: |
+          set -euo pipefail
+          echo "commit=$GITHUB_SHA mode=$RUN_MODE"
+          if [ "$RUN_MODE" = 'apply' ]; then
+            python scripts/import_v3_eth_m15_binance_warmup.py --apply
+          elif [ "$RUN_MODE" = 'audit' ]; then
+            echo 'Read-only audit completed; no inserts requested'
+          else
+            echo 'Invalid mode'; exit 1
+          fi
