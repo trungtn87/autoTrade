@@ -38,6 +38,7 @@ from autotrade_v2.app.strategy.final14_research.smc_ob import OBConfig, ob_conte
 from autotrade_v2.app.strategy.final14_research.smc_structure import smc_direction
 from autotrade_v2.app.strategy.final14_research.two_trail_layer12 import approved
 
+from .c14_h3a import h3a_keep, h3a_kumo_pct, h3a_spec_matches, is_h3a_combo
 from .strategy_registry import ComboSpec, StrategyRegistry
 
 M15_MS = 15 * 60_000
@@ -150,6 +151,10 @@ class V18Engine:
 
     def __init__(self, registry: StrategyRegistry):
         self.registry = registry
+        # BTC-USDT/C14 H3a: fail closed if a registry carries C14 with parameters other than the locked H3a spec.
+        for c in registry.combos:
+            if is_h3a_combo(c.symbol, c.combo_id) and not h3a_spec_matches(c):
+                raise ValueError(f"registry {registry.version}: {c.key} không khớp đặc tả H3a (không nạp)")
 
     # ------------------------------------------------------------------
     def frame_signals(self, symbol: str, m15: pd.DataFrame, *, latest_only: bool = True) -> list[LiveSignal]:
@@ -198,12 +203,14 @@ class V18Engine:
         # FINAL14 (unchanged 20FINAL logic) -------------------------------------
         if f14:
             selected = entry_variants(pc, wanted)
+            h3a_kumo = h3a_kumo_pct(d1) if any(is_h3a_combo(c.symbol, c.combo_id) for c in f14) else None
             for c in f14:
                 matches = [x for x in selected[c.token] if x[0] == c.entry_variant]
                 if len(matches) != 1:
                     raise RuntimeError(f"registry variant mismatch {c.key} {c.entry_variant}: {len(matches)}")
                 _, L, S = matches[0]
                 one_h = c.native_timeframe == "1h"
+                h3a = is_h3a_combo(c.symbol, c.combo_id)
                 for side_code, series in (("L", L), ("S", S)):
                     hits = series.index[series.fillna(False).astype(bool)]
                     if latest_only:
@@ -212,6 +219,8 @@ class V18Engine:
                     for ot in hits:
                         pos = bar_ok(ot + (pd.Timedelta(minutes=45) if one_h else pd.Timedelta(0)))
                         if pos is None:
+                            continue
+                        if h3a and not h3a_keep(h3a_kumo.get(ot)):  # H3a band admission (C14 only)
                             continue
                         sd = int((smc1 if one_h else smc15).loc[ot])
                         ob = (ob1 if one_h else ob15).loc[ot]
