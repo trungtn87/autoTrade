@@ -2,13 +2,14 @@
 
 Configuration:
 - Base 30 combos: 20FINAL_FIXED_V1@1 (20 base + 10 cloned cross-symbol pairs, all Fixed TP/SL)
-- 5 finalized upgraded combos:
+- 6 finalized upgraded combos:
   1. ETH-USDT/C1  (combo_id=1):   H1_BOTH_1 (TP=2.0%, SL=0.666667%)
   2. BTC-USDT/C14 (combo_id=104): BTC-USDT_C14_H3a_KUMO_BAND_V1 (TP=2.0%, SL=0.666667%, LOCKED)
   3. ETH-USDT/C15 (combo_id=105): H3_ASYMMETRIC (BUY dist_kama_atr<=2.0; SELL 60m post-TP cooldown via controller)
   4. ETH-USDT/C10 (combo_id=10):  H3_ASYMMETRIC (BUY: ADX>28 + SMC_VETO; SELL: ADX>28 + SMC_STRICT; TP=1.8%, SL=0.9%)
   5. ETH-USDT/C11 (combo_id=101): H3_B1_DEMARKER (DeMarker(60) BUY>0.78 / SELL<0.20, SMC_STRICT_OB, TP=1.8%, SL=0.9%)
-- BTC-USDT/C10 (combo_id=10) and remaining 24 combos: unchanged 20FINAL_FIXED_V1@1 H0.
+  6. ETH-USDT/C12 (combo_id=102): H7_SELL_4H_TREND_ONLY (Aroon(40)>=70, SMC_VETO_OB, SELL close_4h<ema100_4h, TP=1.8%, SL=0.9%)
+- BTC-USDT/C10 (combo_id=10), BTC-USDT/C12 (combo_id=102) and remaining 22 combos: unchanged 20FINAL_FIXED_V1@1 H0.
 """
 from __future__ import annotations
 
@@ -17,14 +18,17 @@ import dataclasses
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
+from autotrade_v3.engine.candle_loader import datetime_index_to_ms
 from autotrade_v3.filters.base import FilterContext
 from autotrade_v3.filters.c14_h3a_kumo_band import C14H3aKumoBandFilter
 from autotrade_v3.strategy.base import ExitPolicy
 from autotrade_v3.strategy.baseline_20final import Baseline20FinalStrategy
 from autotrade_v3.strategy_core.api import ComboSpec, StrategySpec
 from autotrade_v3.strategy_core.hashing import canonical_json_sha256, compute_spec_hash
+from autotrade_v3.strategy_core.indicators.indicators import ema
 from autotrade_v3.strategy_core.indicators.signals import ensure_dt, resample_ohlcv
 from autotrade_v3.strategy_core.indicators.smc_structure import smc_direction
 from autotrade_v3.strategy_core.registry import StrategyCoreRegistry
@@ -163,6 +167,7 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
                 "eth_c15_override": "H3_ASYMMETRIC(buy_dist_kama_atr<=2.0,sell_post_tp_cooldown_60m)",
                 "eth_c10_override": "H3_ASYMMETRIC(adx>28,buy=SMC_VETO,sell=SMC_STRICT,tp=0.018,sl=0.009)",
                 "eth_c11_override": "H3_B1_DEMARKER(period=60,long_min=0.78,short_max=0.20,layer2=SMC_STRICT_OB,tp=0.018,sl=0.009)",
+                "eth_c12_override": "H7_SELL_4H_TREND_ONLY(aroon=40,th=70,layer2=SMC_VETO_OB,sell_4h_filter=close_4h<ema100_4h,tp=0.018,sl=0.009)",
             }
         )
 
@@ -192,6 +197,34 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
             out.append(s)
         return out
 
+    @staticmethod
+    def _filter_eth_c12_h7_sell_4h_trend(signals: list[Any], eth_m15: pd.DataFrame | None) -> list[Any]:
+        """Enforce closed-4H downtrend (close_4h < ema100_4h) on ETH-USDT/C12 SELL while keeping BUY unchanged."""
+        if eth_m15 is None or eth_m15.empty:
+            return signals
+        d15 = ensure_dt(eth_m15)
+        d4 = resample_ohlcv(d15, "4h")
+        if d4.empty:
+            return [s for s in signals if not (s.symbol == "ETH-USDT" and int(s.combo_id) == 102 and s.side == "SELL")]
+        ema100_4h = ema(d4["close"], 100)
+        d4_close_ms = datetime_index_to_ms(d4.index) + 14_400_000 - 1
+        d4_closes = d4["close"].to_numpy(float)
+        d4_emas = ema100_4h.to_numpy(float)
+
+        out = []
+        for s in signals:
+            if s.symbol == "ETH-USDT" and int(s.combo_id) == 102 and s.side == "SELL":
+                sig_c_ms = int(s.signal_close_ms)
+                idx4 = int(np.searchsorted(d4_close_ms, sig_c_ms, side="right")) - 1
+                if idx4 < 0:
+                    continue
+                c4 = float(d4_closes[idx4])
+                e4 = float(d4_emas[idx4])
+                if not (np.isfinite(c4) and np.isfinite(e4) and (c4 < e4)):
+                    continue
+            out.append(s)
+        return out
+
     def generate_signals(
         self,
         df_m15_by_symbol: dict[str, pd.DataFrame],
@@ -214,6 +247,7 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
             kept_base = [s for s in base_sigs if not (s.symbol == "ETH-USDT" and int(s.combo_id) == 1)]
 
         kept_base = self._filter_eth_c10_asymmetric(kept_base, df_m15_by_symbol.get("ETH-USDT"))
+        kept_base = self._filter_eth_c12_h7_sell_4h_trend(kept_base, df_m15_by_symbol.get("ETH-USDT"))
 
         eth_kwargs = dict(kwargs)
         eth_kwargs["symbols"] = ["ETH-USDT"]
