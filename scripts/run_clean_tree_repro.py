@@ -128,7 +128,7 @@ def main() -> None:
                     baseline_signals_df = pd.read_parquet(res.run_dir / "signals.parquet")
 
                 # Run full standard 12-gate validation with dataset_manifest.json present
-                std_rep = run_validation(res.run_dir, write_result=True)
+                std_rep = run_validation(res.run_dir, n_cutoffs=3, write_result=True)
                 # Run independent Filter-Aware validation (FA1..FA5)
                 fa_rep = validate_filtered_run(
                     res.run_dir,
