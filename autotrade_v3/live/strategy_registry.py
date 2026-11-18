@@ -29,9 +29,10 @@ from autotrade_v2.app.strategy.final14_config import case_name, enabled_combos, 
 REGISTRY_V20 = "V3_LIVE_20_POSITIVE_FIXED_V1"
 REGISTRY_V18 = "V3_LIVE_18_H1_V2"
 REGISTRY_20FINAL = "20FINAL"
+REGISTRY_V3_LAB_2 = "V3_LIVE_V3_LAB_2_V1"
 DEFAULT_REGISTRY = REGISTRY_V20
-JSON_REGISTRIES = (REGISTRY_V20, REGISTRY_V18)
-KNOWN_REGISTRIES = (REGISTRY_V20, REGISTRY_V18, REGISTRY_20FINAL)
+JSON_REGISTRIES = (REGISTRY_V20, REGISTRY_V18, REGISTRY_V3_LAB_2)
+KNOWN_REGISTRIES = (REGISTRY_V20, REGISTRY_V18, REGISTRY_20FINAL, REGISTRY_V3_LAB_2)
 _PROVENANCE_KEYS = ("baseline_id", "baseline_source", "baseline_registry_sha256", "baseline_signals_sha256",
                     "c1_eth_research_source_sha256", "audit_id", "audit_source", "audit_source_run",
                     "audit_repro_run", "lab_git_sha", "audit_sha256", "audit_signal_spec_hash",
