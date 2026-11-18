@@ -204,3 +204,24 @@ def test_negative_unexplained_d2_violation(tmp_path: Path) -> None:
     rep = validate_filtered_run(rdir, variant="H2b", baseline_signals_df=base_sigs)
     assert rep.overall_status == "FAIL"
     assert rep.gates["FA5"]["status"] == "FAIL"
+
+
+def test_negative_boundary_tolerance_enforcement(tmp_path: Path) -> None:
+    """Verify tight boundary enforcement: 2e-4 net_pnl error and 1.1e-3 combo sum error MUST fail."""
+    rdir, base_sigs = _make_valid_run_dir(tmp_path)
+    an = json.loads((rdir / "analysis.json").read_text(encoding="utf-8"))
+    an["pnl"]["net_pnl"] = 1.2002  # 2e-4 > tol (1e-4)
+    (rdir / "analysis.json").write_text(json.dumps(an), encoding="utf-8")
+    rep = validate_filtered_run(rdir, variant="H2b", baseline_signals_df=base_sigs)
+    assert rep.overall_status == "FAIL"
+    assert rep.gates["FA4"]["status"] == "FAIL"
+
+    # Reset net_pnl, inject 1.1e-3 combo sum mismatch (> 1e-3)
+    rdir2, base_sigs2 = _make_valid_run_dir(tmp_path / "b2")
+    an2 = json.loads((rdir2 / "analysis.json").read_text(encoding="utf-8"))
+    an2["combos"] = [{"combo_id": i, "net_pnl": 0.06} for i in range(20)]
+    an2["combos"][0]["net_pnl"] = 0.0611  # sum = 1.2011 vs net_pnl 1.2 -> diff 1.1e-3 > 1e-3
+    (rdir2 / "analysis.json").write_text(json.dumps(an2), encoding="utf-8")
+    rep2 = validate_filtered_run(rdir2, variant="H2b", baseline_signals_df=base_sigs2)
+    assert rep2.overall_status == "FAIL"
+    assert rep2.gates["FA4"]["status"] == "FAIL"
