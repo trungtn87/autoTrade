@@ -258,12 +258,16 @@ def validate_filtered_run(
     if abs(tr_dd - an_dd) > 1e-3:
         fa4_viols.append({"kind": "CLOSED_DD_MISMATCH", "recomputed": tr_dd, "analysis": an_dd})
 
-    # Symbol & combo PnL sums in analysis.json
+    # Symbol & combo PnL sums in analysis.json (each symbol/combo net_pnl is rounded to 4 decimals)
+    n_syms = max(1, len(analysis.get("symbols", {})))
+    n_combos = max(1, len(analysis.get("combos", [])))
+    sym_tol = max(tol, n_syms * 1e-4)
+    combo_tol = max(tol, n_combos * 0.5e-4)
     sym_pnl_sum = sum(float(v["net_pnl"]) for v in analysis.get("symbols", {}).values())
     combo_pnl_sum = sum(float(c["net_pnl"]) for c in analysis.get("combos", []))
-    if abs(sym_pnl_sum - an_net) > tol:
+    if abs(sym_pnl_sum - an_net) > sym_tol:
         fa4_viols.append({"kind": "SYMBOL_PNL_SUM_MISMATCH", "sum": sym_pnl_sum, "analysis": an_net})
-    if abs(combo_pnl_sum - an_net) > tol:
+    if abs(combo_pnl_sum - an_net) > combo_tol:
         fa4_viols.append({"kind": "COMBO_PNL_SUM_MISMATCH", "sum": combo_pnl_sum, "analysis": an_net})
 
     gates["FA4"] = FilterAwareGateResult(
