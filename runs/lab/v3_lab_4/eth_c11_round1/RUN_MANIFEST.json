@@ -1,0 +1,42 @@
+{
+  "research_id": "V3_LAB_4_ETH_C11_ROUND1",
+  "created_at_utc": "2026-11-18T14:06:21.173150+00:00",
+  "v3_lab_4_config_hash": "ffd0cc4d0ef5f034b1ae0b4146c1921c03d7c2eed80dec12a2013c13cd66c288",
+  "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+  "period": {
+    "start": "2023-11-01",
+    "end": "2026-11-01"
+  },
+  "symbols": [
+    "BTC-USDT",
+    "ETH-USDT"
+  ],
+  "initial_equity": 1000.0,
+  "notional_per_trade": 100.0,
+  "ambiguity_policy": "CONSERVATIVE",
+  "variants": [
+    "H0",
+    "H1",
+    "H2",
+    "H3",
+    "H4"
+  ],
+  "cost_profiles": {
+    "IDEAL": "c670e9dc806a8b0477846bebd36486bad7ecf3917f21096febda5c913563bf5b",
+    "BASE": "a6c0d5e2643abfce5643d1e788d05c9891ea278c33e42dc7fced1739411cac31",
+    "STRESS": "11cde69eb3c042674c379c66c3e1f736ce58eb58a005b38916f425ae0975361c"
+  },
+  "git_state": {
+    "sha": "97e4c55476521548ac09c2c976f4d08acea97239",
+    "dirty": true
+  },
+  "env_versions": {
+    "python_version": "3.12.8",
+    "pandas_version": "2.3.2",
+    "numpy_version": "2.3.3",
+    "duckdb_version": "1.4.2",
+    "pyarrow_version": "26.0.1"
+  },
+  "runner_script": "scripts/run_v3_lab_4_eth_c11_round1.py",
+  "runner_sha256": "92335c96f5354b323d663abacc52e5e13be42a51fd9b4dce6265d92e1952c713"
+}
