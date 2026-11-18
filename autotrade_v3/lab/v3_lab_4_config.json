@@ -4,14 +4,15 @@
   "inherits_from": "V3_LAB_2@2.0.0 + 30-combo cross-symbol expansion",
   "live_eligible": false,
   "top20_live_modified": false,
-  "purpose": "V3_LAB_4 30-combo research standard with 4 finalized upgraded combos (ETH/C1, BTC/C14, ETH/C15, ETH/C10)",
+  "purpose": "V3_LAB_4 30-combo research standard with 5 finalized upgraded combos (ETH/C1, BTC/C14, ETH/C15, ETH/C10, ETH/C11)",
   "base_strategy": "20FINAL_FIXED_V1@1",
   "total_combos": 30,
   "upgraded_combos": {
     "ETH-USDT/C1": "H1_BOTH_1",
     "BTC-USDT/C14": "BTC-USDT_C14_H3a_KUMO_BAND_V1",
     "ETH-USDT/C15": "H3_ASYMMETRIC",
-    "ETH-USDT/C10": "H3_ASYMMETRIC"
+    "ETH-USDT/C10": "H3_ASYMMETRIC",
+    "ETH-USDT/C11": "H3_B1_DEMARKER"
   },
   "btc_c10_policy": {
     "version": "H0",
@@ -135,6 +136,58 @@
       "live_ineligible_reason": "Below 30-trade verification threshold (23 < 30)",
       "reference_script": "scripts/run_v3_lab_2_eth_c10_h3_asymmetric.py",
       "reference_zip": "exports/V3_LAB_2_ETH_C10_H3_ASYMMETRIC.zip",
+      "source": "autotrade_v3/strategy/v3_lab_4.py"
+    },
+    "ETH-USDT/C11": {
+      "execution_version": "H3_B1_DEMARKER",
+      "combo_id": 101,
+      "timeframe": "1h",
+      "entry": {
+        "indicator": "DeMarker",
+        "period": 60,
+        "long_min": 0.78,
+        "short_max": 0.2
+      },
+      "layer2": "SMC_STRICT_OB",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "owner_approved_for_lab": true,
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "live_ineligible_reason": "Lab research configuration only; not approved for Live; historical backtest only (out-of-sample not yet independently proven)",
+      "baseline_h0": {
+        "trades_base": 461,
+        "trades_stress": 467,
+        "own_net_pnl_base": 10.3875,
+        "own_net_pnl_stress": -17.8424,
+        "closed_max_dd_base": 23.1114
+      },
+      "upgraded_b1": {
+        "trades_base": 242,
+        "buy_base": 92,
+        "sell_base": 150,
+        "own_net_pnl_base": 33.9645,
+        "pf_base": 1.2413,
+        "closed_max_dd_base": 12.0053,
+        "trades_stress": 245,
+        "buy_stress": 93,
+        "sell_stress": 152,
+        "own_net_pnl_stress": 18.1548,
+        "pf_stress": 1.1209,
+        "closed_max_dd_stress": 13.8087
+      },
+      "provenance": {
+        "branch": "lab/v3-lab-4-eth-c11-r1",
+        "round2_commit": "1d5bf09",
+        "round1_zip": "exports/V3_LAB_4_ETH_C11_ROUND1.zip",
+        "round2_zip": "exports/V3_LAB_4_ETH_C11_ROUND2.zip",
+        "round2_report": "runs/lab/v3_lab_4/eth_c11_round2/ETH_C11_R2_REPORT.md",
+        "round2_scripts": [
+          "scripts/run_v3_lab_4_eth_c11_round2.py",
+          "scripts/run_v3_lab_4_eth_c11_round2_buy.py"
+        ]
+      },
       "source": "autotrade_v3/strategy/v3_lab_4.py"
     }
   },
@@ -699,7 +752,7 @@
       "combo_name": "C11",
       "combo_key": "ETH-USDT/C11",
       "timeframe": "1h",
-      "execution_version": "20FINAL_FIXED_V1@1",
+      "execution_version": "H3_B1_DEMARKER",
       "exit_mode": "FIXED_TP_SL",
       "tp_pct": 0.018,
       "sl_pct": 0.009,
@@ -707,9 +760,60 @@
       "split_legs": false,
       "auto_breakeven": false,
       "layer2": "SMC_STRICT_OB",
-      "research_status": "H0_BASELINE",
-      "live_eligible": null,
-      "override_details": null
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "override_details": {
+        "execution_version": "H3_B1_DEMARKER",
+        "combo_id": 101,
+        "timeframe": "1h",
+        "entry": {
+          "indicator": "DeMarker",
+          "period": 60,
+          "long_min": 0.78,
+          "short_max": 0.2
+        },
+        "layer2": "SMC_STRICT_OB",
+        "tp_pct": 0.018,
+        "sl_pct": 0.009,
+        "trailing_enabled": false,
+        "owner_approved_for_lab": true,
+        "research_status": "RESEARCH_ACCEPTED",
+        "live_eligible": false,
+        "live_ineligible_reason": "Lab research configuration only; not approved for Live; historical backtest only (out-of-sample not yet independently proven)",
+        "baseline_h0": {
+          "trades_base": 461,
+          "trades_stress": 467,
+          "own_net_pnl_base": 10.3875,
+          "own_net_pnl_stress": -17.8424,
+          "closed_max_dd_base": 23.1114
+        },
+        "upgraded_b1": {
+          "trades_base": 242,
+          "buy_base": 92,
+          "sell_base": 150,
+          "own_net_pnl_base": 33.9645,
+          "pf_base": 1.2413,
+          "closed_max_dd_base": 12.0053,
+          "trades_stress": 245,
+          "buy_stress": 93,
+          "sell_stress": 152,
+          "own_net_pnl_stress": 18.1548,
+          "pf_stress": 1.1209,
+          "closed_max_dd_stress": 13.8087
+        },
+        "provenance": {
+          "branch": "lab/v3-lab-4-eth-c11-r1",
+          "round2_commit": "1d5bf09",
+          "round1_zip": "exports/V3_LAB_4_ETH_C11_ROUND1.zip",
+          "round2_zip": "exports/V3_LAB_4_ETH_C11_ROUND2.zip",
+          "round2_report": "runs/lab/v3_lab_4/eth_c11_round2/ETH_C11_R2_REPORT.md",
+          "round2_scripts": [
+            "scripts/run_v3_lab_4_eth_c11_round2.py",
+            "scripts/run_v3_lab_4_eth_c11_round2_buy.py"
+          ]
+        },
+        "source": "autotrade_v3/strategy/v3_lab_4.py"
+      }
     },
     {
       "order": 26,
@@ -808,14 +912,14 @@
     }
   ],
   "strategy_hashes": {
-    "signal_spec_hash": "d26d7e4e6fb6cef107625b6be353cd90b10a2136698098df60fa429e8ad59527",
+    "signal_spec_hash": "80263837e0deb4bb163c2e1f583b92b8cbd1d8e9c5e89049bd7b9fdf57edac4a",
     "exit_spec_hash": "451883a51503a3f4b3c2dd286f9e96246ddbc3732efc46cfe6a1e63ae998abcd",
-    "spec_hash": "5d52cf887835d6a6f2954952a8bd465fdd8023a0efb4588f0d914a5a70ace9d2"
+    "spec_hash": "638a620cd3694aa3c138ccbfc496a74ce28b46f7ec5768cb972064726d7e4941"
   },
   "source_hashes": {
     "v3_lab_4_strategy": {
       "path": "autotrade_v3/strategy/v3_lab_4.py",
-      "sha256": "6988024055b0d5bde04e51df17c38fe53831924d0417cfab97575730cc4f9ef3"
+      "sha256": "7a347d5eddb12f1a0f93645478ca7dd453b865143b90d13c9cc43ab636c72315"
     },
     "v3_lab_4_loader": {
       "path": "autotrade_v3/lab/v3_lab_4_loader.py",
@@ -828,7 +932,21 @@
     "eth_c10_h3_zip": {
       "path": "exports/V3_LAB_2_ETH_C10_H3_ASYMMETRIC.zip",
       "sha256": "710933a845e8fbad7148a0e7c1586f5291b1dc76a53f5eb289c3d3af26ea472f"
+    },
+    "eth_c11_r2_zip": {
+      "path": "exports/V3_LAB_4_ETH_C11_ROUND2.zip",
+      "sha256": "bd9a8c8b8226aaa3eeb9b716c26303ad2a19833de26aef60401ba21528c3e20b"
     }
   },
-  "config_hash": "ffd0cc4d0ef5f034b1ae0b4146c1921c03d7c2eed80dec12a2013c13cd66c288"
+  "config_hash": "a4ff58d0072ab11a1f33aa431b2ba57b358fff61ca22a6ad7ed5b310c59fe934",
+  "eth_c11_policy": {
+    "version": "H3_B1_DEMARKER",
+    "owner_approved_for_lab": true,
+    "research_status": "RESEARCH_ACCEPTED",
+    "live_eligible": false,
+    "sample_size": "242 trades BASE / 245 trades STRESS (3 years)",
+    "baseline_h0": "BASE +.3875 / STRESS -.8424",
+    "upgraded_b1": "BASE +.9645 / STRESS +.1548",
+    "note": "Historical backtest only; out-of-sample performance not yet independently proven"
+  }
 }

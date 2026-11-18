@@ -2,12 +2,13 @@
 
 Configuration:
 - Base 30 combos: 20FINAL_FIXED_V1@1 (20 base + 10 cloned cross-symbol pairs, all Fixed TP/SL)
-- 4 finalized upgraded combos:
+- 5 finalized upgraded combos:
   1. ETH-USDT/C1  (combo_id=1):   H1_BOTH_1 (TP=2.0%, SL=0.666667%)
   2. BTC-USDT/C14 (combo_id=104): BTC-USDT_C14_H3a_KUMO_BAND_V1 (TP=2.0%, SL=0.666667%, LOCKED)
   3. ETH-USDT/C15 (combo_id=105): H3_ASYMMETRIC (BUY dist_kama_atr<=2.0; SELL 60m post-TP cooldown via controller)
   4. ETH-USDT/C10 (combo_id=10):  H3_ASYMMETRIC (BUY: ADX>28 + SMC_VETO; SELL: ADX>28 + SMC_STRICT; TP=1.8%, SL=0.9%)
-- BTC-USDT/C10 (combo_id=10) and remaining 25 combos: unchanged 20FINAL_FIXED_V1@1 H0.
+  5. ETH-USDT/C11 (combo_id=101): H3_B1_DEMARKER (DeMarker(60) BUY>0.78 / SELL<0.20, SMC_STRICT_OB, TP=1.8%, SL=0.9%)
+- BTC-USDT/C10 (combo_id=10) and remaining 24 combos: unchanged 20FINAL_FIXED_V1@1 H0.
 """
 from __future__ import annotations
 
@@ -67,12 +68,19 @@ def _build_v3_lab_4_core(params_dir: Path | None = None) -> Any:
     if len(combos) != 30:
         raise RuntimeError(f"Expected 30 combos in V3_LAB_4 core, got {len(combos)}")
 
-    # Configure ETH-USDT/C10 base layer2=SMC_VETO so BUY uses SMC_VETO;
-    # V3Lab4Strategy.generate_signals enforces SMC_STRICT on ETH-USDT/C10 SELL.
+    # Configure ETH-USDT/C10 base layer2=SMC_VETO (SELL SMC_STRICT enforced in generate_signals)
+    # and ETH-USDT/C11 H3_B1_DEMARKER (DeMarker(60) BUY>0.78 / SELL<0.20, SMC_STRICT_OB kept).
     updated: list[ComboSpec] = []
     for c in combos:
         if c.symbol == "ETH-USDT" and int(c.combo_id) == 10:
             c = dataclasses.replace(c, layer2="SMC_VETO")
+        elif c.symbol == "ETH-USDT" and int(c.combo_id) == 101:
+            new_entry = dict(c.entry)
+            new_entry["indicator"] = "DeMarker"
+            new_entry["period"] = 60
+            new_entry["long_min"] = 0.78
+            new_entry["short_max"] = 0.20
+            c = dataclasses.replace(c, entry=new_entry)
         updated.append(c)
 
     class V3Lab4Core:
@@ -154,6 +162,7 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
                 "btc_c14_override": "BTC-USDT_C14_H3a_KUMO_BAND_V1(0.005<=abs(span_a-span_b)/close<0.010,locked=True)",
                 "eth_c15_override": "H3_ASYMMETRIC(buy_dist_kama_atr<=2.0,sell_post_tp_cooldown_60m)",
                 "eth_c10_override": "H3_ASYMMETRIC(adx>28,buy=SMC_VETO,sell=SMC_STRICT,tp=0.018,sl=0.009)",
+                "eth_c11_override": "H3_B1_DEMARKER(period=60,long_min=0.78,short_max=0.20,layer2=SMC_STRICT_OB,tp=0.018,sl=0.009)",
             }
         )
 
