@@ -44,8 +44,11 @@ def _make_valid_run_dir(tmp_path: Path) -> tuple[Path, pd.DataFrame]:
                 "entry_time_ms": 1001 + 1000,
                 "exit_time_ms": 2500,
                 "exit_reason": "TP",
+                "gross_pnl": 2.0,
                 "net_pnl": 1.9,
                 "fee_total": 0.1,
+                "fee_entry": 0.05,
+                "fee_exit": 0.05,
                 "pnl_own_entry": 1.9,
                 "pnl_vwap": 1.5,
             },
@@ -56,8 +59,11 @@ def _make_valid_run_dir(tmp_path: Path) -> tuple[Path, pd.DataFrame]:
                 "entry_time_ms": 3001,
                 "exit_time_ms": 3500,
                 "exit_reason": "SL",
+                "gross_pnl": -0.6,
                 "net_pnl": -0.7,
                 "fee_total": 0.1,
+                "fee_entry": 0.05,
+                "fee_exit": 0.05,
                 "pnl_own_entry": -0.7,
                 "pnl_vwap": -0.3,
             },
@@ -71,12 +77,12 @@ def _make_valid_run_dir(tmp_path: Path) -> tuple[Path, pd.DataFrame]:
         "pnl": {"net_pnl": 1.2, "total_fees": 0.2},
         "risk": {"closed_trade_max_drawdown_dollars": 0.7},
         "symbols": {
-            "BTC-USDT": {"net_pnl": 1.9},
-            "ETH-USDT": {"net_pnl": -0.7},
+            "BTC-USDT": {"net_pnl": 1.9, "total_fees": 0.1},
+            "ETH-USDT": {"net_pnl": -0.7, "total_fees": 0.1},
         },
         "combos": [
-            {"combo_id": 104, "net_pnl": 1.9},
-            {"combo_id": 1, "net_pnl": -0.7},
+            {"symbol": "BTC-USDT", "combo_id": 104, "net_pnl": 1.9, "fees": 0.1, "pnl_own_entry": 1.9},
+            {"symbol": "ETH-USDT", "combo_id": 1, "net_pnl": -0.7, "fees": 0.1, "pnl_own_entry": -0.7},
         ],
     }
     # Simulate expected D2 filter-reconciliation mismatch (only allowed D2 violations)
@@ -225,3 +231,42 @@ def test_negative_boundary_tolerance_enforcement(tmp_path: Path) -> None:
     rep2 = validate_filtered_run(rdir2, variant="H2b", baseline_signals_df=base_sigs2)
     assert rep2.overall_status == "FAIL"
     assert rep2.gates["FA4"]["status"] == "FAIL"
+
+
+def test_negative_replaced_signal_id_in_run_signals(tmp_path: Path) -> None:
+    """Nhiệm vụ 1: Replace a signal_id in signals.parquet with a brand-new non-overlapping ID."""
+    rdir, base_sigs = _make_valid_run_dir(tmp_path)
+    sigs = pd.read_parquet(rdir / "signals.parquet")
+    sigs.loc[0, "signal_id"] = "S_FAKE_999"
+    sigs.to_parquet(rdir / "signals.parquet", index=False)
+    rep = validate_filtered_run(rdir, variant="H2b", baseline_signals_df=base_sigs)
+    assert rep.overall_status == "FAIL"
+    assert rep.gates["FA1"]["status"] == "FAIL"
+
+
+def test_negative_offsetting_combo_pnl_error(tmp_path: Path) -> None:
+    """Nhiệm vụ 2: Inject +$1 / -$1 offsetting error between two combos (portfolio sum unchanged)."""
+    rdir, base_sigs = _make_valid_run_dir(tmp_path)
+    an = json.loads((rdir / "analysis.json").read_text(encoding="utf-8"))
+    an["combos"][0]["net_pnl"] += 1.0
+    an["combos"][1]["net_pnl"] -= 1.0
+    (rdir / "analysis.json").write_text(json.dumps(an), encoding="utf-8")
+    rep = validate_filtered_run(rdir, variant="H2b", baseline_signals_df=base_sigs)
+    assert rep.overall_status == "FAIL"
+    assert rep.gates["FA4"]["status"] == "FAIL"
+
+
+def test_negative_d2_valid_path_abnormal_magnitude(tmp_path: Path) -> None:
+    """Nhiệm vụ 3: Valid D2 path with abnormal expected/actual magnitude MUST fail FA5."""
+    rdir, base_sigs = _make_valid_run_dir(tmp_path)
+    vj = json.loads((rdir / "validation.json").read_text(encoding="utf-8"))
+    vj["gates"]["D2"]["violations"][0] = {
+        "path": "analysis.symbols.BTC-USDT.signals",
+        "kind": "VALUE_MISMATCH",
+        "expected": 2,
+        "actual": 999,
+    }
+    (rdir / "validation.json").write_text(json.dumps(vj), encoding="utf-8")
+    rep = validate_filtered_run(rdir, variant="H2b", baseline_signals_df=base_sigs)
+    assert rep.overall_status == "FAIL"
+    assert rep.gates["FA5"]["status"] == "FAIL"

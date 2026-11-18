@@ -56,6 +56,69 @@ def _closed_dd_dollars(trades_df: pd.DataFrame) -> float:
     return float(np.max(dd)) if len(dd) else 0.0
 
 
+def _check_d2_filter_violation(
+    viol: dict[str, Any],
+    *,
+    n_orig: int,
+    n_dropped: int,
+    target_symbol: str,
+) -> tuple[str, dict[str, Any] | None]:
+    """Classify a single standard-D2 violation with strict magnitude & reason checks.
+
+    Returns ``("filter_recon", None)`` or ``("m2m_1e4", None)`` when the violation
+    strictly matches expected filter/rounding behavior, or ``("unexplained", detail)``.
+    """
+    p = str(viol.get("path", ""))
+    line = str(viol.get("line", ""))
+    exp = viol.get("expected")
+    act = viol.get("actual")
+
+    if p == "analysis.risk.m2m_max_drawdown_dollars":
+        try:
+            if abs(float(exp) - float(act)) <= 2e-4:
+                return "m2m_1e4", None
+        except (TypeError, ValueError):
+            pass
+        return "unexplained", {"kind": "M2M_DD_MISMATCH_GT_TOL", "violation": viol}
+
+    # Any filter-reconciliation exemption requires n_dropped > 0
+    if n_dropped <= 0:
+        return "unexplained", {"kind": "FILTER_VIOLATION_WITH_ZERO_DROPPED", "violation": viol}
+
+    if p in (
+        "analysis.accounting.three_level_reconciliation_pass",
+        "analysis.reconciliation.reconciliation_pass",
+    ) or line == "reconciliation_parity":
+        if exp is True and act is False:
+            return "filter_recon", None
+        return "unexplained", {"kind": "ABNORMAL_RECON_PASS_FLAG", "violation": viol}
+
+    if p == "analysis.reconciliation.signals.max_absolute_diff":
+        if exp == 0 and act == n_dropped:
+            return "filter_recon", None
+        return "unexplained", {"kind": "D2_FILTER_MAX_DIFF_MISMATCH", "expected_dropped": n_dropped, "violation": viol}
+
+    if p in (
+        "analysis.reconciliation.signals.sum_by_symbol",
+        "analysis.reconciliation.signals.sum_by_combo",
+    ):
+        if exp == n_orig and act == (n_orig - n_dropped):
+            return "filter_recon", None
+        return "unexplained", {"kind": "D2_FILTER_SUM_MISMATCH", "expected_orig": n_orig, "expected_kept": n_orig - n_dropped, "violation": viol}
+
+    if p == f"analysis.symbols.{target_symbol}.signals" or (
+        p.startswith("analysis.combos[") and p.endswith("].signals")
+    ):
+        try:
+            if (int(exp) - int(act)) == n_dropped and int(act) >= 0:
+                return "filter_recon", None
+        except (TypeError, ValueError):
+            pass
+        return "unexplained", {"kind": "D2_FILTER_TARGET_SIGNAL_MISMATCH", "expected_delta": n_dropped, "violation": viol}
+
+    return "unexplained", {"kind": "UNEXPLAINED_D2_VIOLATION", "violation": viol}
+
+
 def validate_filtered_run(
     run_dir: str | Path,
     variant: str,
@@ -67,13 +130,7 @@ def validate_filtered_run(
     expected_dataset_hash: str = EXPECTED_DATASET_HASH,
     tol: float = 1e-4,
 ) -> FilterAwareValidationReport:
-    """Validate a persisted Lab run with optional signal filtering.
-
-    Never compares filtered signal counts to unfiltered baseline counts as an error;
-    instead verifies exact conservation: Original Signals == Kept + Dropped,
-    non-target combo invariance, full order-chain integrity, Own/VWAP accounting
-    conservation, and classifies any standard D2 violations.
-    """
+    """Validate a persisted Lab run with optional signal filtering."""
     rdir = Path(run_dir)
     manifest = json.loads((rdir / "run_manifest.json").read_text(encoding="utf-8"))
     analysis = json.loads((rdir / "analysis.json").read_text(encoding="utf-8"))
@@ -85,7 +142,7 @@ def validate_filtered_run(
     run_id = str(manifest.get("run_id", rdir.name))
     gates: dict[str, FilterAwareGateResult] = {}
 
-    # --- FA-1: Signal Conservation & No Spurious/Duplicate Signals ---
+    # --- FA-1: Signal Conservation & Full 3-Way signal_id Alignment ---
     fa1_viols: list[dict[str, Any]] = []
     base_ids = baseline_signals_df["signal_id"].astype(str).tolist()
     run_ids = signals_df["signal_id"].astype(str).tolist() if not signals_df.empty else []
@@ -99,7 +156,16 @@ def validate_filtered_run(
         fa1_viols.append({"kind": "DUPLICATE_DECISION_SIGNAL", "count": len(dec_ids) - len(set(dec_ids))})
 
     base_set = set(base_ids)
+    run_set = set(run_ids)
     dec_set = set(dec_ids)
+
+    missing_in_run = sorted(base_set - run_set)
+    extra_in_run = sorted(run_set - base_set)
+    if missing_in_run:
+        fa1_viols.append({"kind": "MISSING_SIGNAL_IN_RUN_SIGNALS", "count": len(missing_in_run), "sample": missing_in_run[:3]})
+    if extra_in_run:
+        fa1_viols.append({"kind": "SPURIOUS_SIGNAL_IN_RUN_SIGNALS", "count": len(extra_in_run), "sample": extra_in_run[:3]})
+
     missing_in_dec = sorted(base_set - dec_set)
     extra_in_dec = sorted(dec_set - base_set)
     if missing_in_dec:
@@ -115,10 +181,10 @@ def validate_filtered_run(
 
     gates["FA1"] = FilterAwareGateResult(
         gate_id="FA1",
-        name="Signal Conservation (Original = Kept + Dropped)",
+        name="Signal Conservation & 3-Way Alignment (Original = Kept + Dropped)",
         status="PASS" if not fa1_viols else "FAIL",
-        checks_passed=5 - min(5, len(fa1_viols)),
-        checks_total=5,
+        checks_passed=8 - min(8, len(fa1_viols)),
+        checks_total=8,
         violation_count=len(fa1_viols),
         violations=fa1_viols,
         notes=f"orig={n_orig}, kept={n_kept}, dropped={n_dropped}",
@@ -237,8 +303,19 @@ def validate_filtered_run(
         violations=fa3_viols,
     )
 
-    # --- FA-4: Accounting, Fees, Slippage, Own vs VWAP Conservation, & Drawdown ---
+    # --- FA-4: Per-Trade, Per-Combo, Per-Symbol & Portfolio Accounting Conservation ---
     fa4_viols: list[dict[str, Any]] = []
+    if not trades_df.empty:
+        # Per-trade internal invariants
+        if {"fee_entry", "fee_exit", "fee_total"}.issubset(trades_df.columns):
+            fee_diff = (trades_df["fee_entry"].astype(float) + trades_df["fee_exit"].astype(float) - trades_df["fee_total"].astype(float)).abs()
+            if (fee_diff > tol).any():
+                fa4_viols.append({"kind": "PER_TRADE_FEE_MISMATCH", "max_diff": float(fee_diff.max())})
+        if {"gross_pnl", "fee_total", "net_pnl"}.issubset(trades_df.columns):
+            net_diff = ((trades_df["gross_pnl"].astype(float) - trades_df["fee_total"].astype(float)) - trades_df["net_pnl"].astype(float)).abs()
+            if (net_diff > tol).any():
+                fa4_viols.append({"kind": "PER_TRADE_NET_PNL_MISMATCH", "max_diff": float(net_diff.max())})
+
     tr_net = float(trades_df["net_pnl"].sum()) if not trades_df.empty else 0.0
     tr_fees = float(trades_df["fee_total"].sum()) if not trades_df.empty else 0.0
     tr_own = float(trades_df["pnl_own_entry"].sum()) if (not trades_df.empty and "pnl_own_entry" in trades_df.columns) else tr_net
@@ -258,7 +335,65 @@ def validate_filtered_run(
     if abs(tr_dd - an_dd) > 1e-3:
         fa4_viols.append({"kind": "CLOSED_DD_MISMATCH", "recomputed": tr_dd, "analysis": an_dd})
 
-    # Symbol & combo PnL sums in analysis.json (each symbol/combo net_pnl is rounded to 4 decimals)
+    # Per-combo independent reconciliation (trades.parquet vs analysis["combos"])
+    if not trades_df.empty and "symbol" in trades_df.columns and "combo_id" in trades_df.columns:
+        tr_by_combo = {
+            (str(sym), int(cid)): g
+            for (sym, cid), g in trades_df.groupby(["symbol", "combo_id"], sort=False)
+        }
+        an_combos = analysis.get("combos", [])
+        seen_keys: set[tuple[str, int]] = set()
+        for c in an_combos:
+            sym_c = str(c.get("symbol", ""))
+            cid_c = int(c["combo_id"])
+            if not sym_c and len(tr_by_combo) > 0:
+                # Fallback for minimal synthetic fixtures without symbol in analysis["combos"]
+                matches = [g for (_, k_cid), g in tr_by_combo.items() if k_cid == cid_c]
+                g = pd.concat(matches) if matches else pd.DataFrame()
+            else:
+                g = tr_by_combo.get((sym_c, cid_c), pd.DataFrame())
+                seen_keys.add((sym_c, cid_c))
+
+            g_net = float(g["net_pnl"].sum()) if not g.empty else 0.0
+            c_net = float(c.get("net_pnl_unrounded", c["net_pnl"]))
+            c_tol = tol if "net_pnl_unrounded" in c else max(tol, 1e-4)
+            if abs(g_net - c_net) > c_tol:
+                fa4_viols.append({"kind": "PER_COMBO_PNL_MISMATCH", "symbol": sym_c, "combo_id": cid_c, "trades": g_net, "analysis": c_net})
+
+            if "fees" in c or "fees_unrounded" in c:
+                g_fee = float(g["fee_total"].sum()) if not g.empty else 0.0
+                c_fee = float(c.get("fees_unrounded", c.get("fees", 0.0)))
+                if abs(g_fee - c_fee) > c_tol:
+                    fa4_viols.append({"kind": "PER_COMBO_FEE_MISMATCH", "symbol": sym_c, "combo_id": cid_c, "trades": g_fee, "analysis": c_fee})
+
+            if ("pnl_own_entry" in c or "pnl_own_entry_unrounded" in c) and not g.empty and "pnl_own_entry" in g.columns:
+                g_own = float(g["pnl_own_entry"].sum())
+                c_own = float(c.get("pnl_own_entry_unrounded", c["pnl_own_entry"]))
+                if abs(g_own - c_own) > c_tol:
+                    fa4_viols.append({"kind": "PER_COMBO_OWN_PNL_MISMATCH", "symbol": sym_c, "combo_id": cid_c, "trades": g_own, "analysis": c_own})
+
+        # Ensure no trade belongs to a combo missing from analysis["combos"] when symbol is present
+        if an_combos and all("symbol" in c for c in an_combos):
+            missing_combos = set(tr_by_combo.keys()) - seen_keys
+            if missing_combos:
+                fa4_viols.append({"kind": "MISSING_COMBO_IN_ANALYSIS", "combos": sorted(list(missing_combos))[:5]})
+
+    # Per-symbol independent reconciliation (trades.parquet vs analysis["symbols"])
+    if not trades_df.empty and "symbol" in trades_df.columns:
+        tr_by_sym = {str(s): g for s, g in trades_df.groupby("symbol", sort=False)}
+        for sym, sv in analysis.get("symbols", {}).items():
+            g = tr_by_sym.get(str(sym), pd.DataFrame())
+            g_net = float(g["net_pnl"].sum()) if not g.empty else 0.0
+            s_net = float(sv.get("net_pnl_unrounded", sv["net_pnl"]))
+            if abs(g_net - s_net) > tol:
+                fa4_viols.append({"kind": "PER_SYMBOL_PNL_MISMATCH", "symbol": sym, "trades": g_net, "analysis": s_net})
+            if "total_fees" in sv or "total_fees_unrounded" in sv:
+                g_fee = float(g["fee_total"].sum()) if not g.empty else 0.0
+                s_fee = float(sv.get("total_fees_unrounded", sv.get("total_fees", 0.0)))
+                if abs(g_fee - s_fee) > tol:
+                    fa4_viols.append({"kind": "PER_SYMBOL_FEE_MISMATCH", "symbol": sym, "trades": g_fee, "analysis": s_fee})
+
+    # Portfolio sum checks (explicit 4-decimal rounding bound)
     n_syms = max(1, len(analysis.get("symbols", {})))
     n_combos = max(1, len(analysis.get("combos", [])))
     sym_tol = max(tol, n_syms * 1e-4)
@@ -272,15 +407,15 @@ def validate_filtered_run(
 
     gates["FA4"] = FilterAwareGateResult(
         gate_id="FA4",
-        name="Accounting, Fees, Own/VWAP Conservation & Closed DD",
+        name="Per-Trade, Per-Combo, Per-Symbol & VWAP Accounting Conservation",
         status="PASS" if not fa4_viols else "FAIL",
-        checks_passed=6 - min(6, len(fa4_viols)),
-        checks_total=6,
+        checks_passed=10 - min(10, len(fa4_viols)),
+        checks_total=10,
         violation_count=len(fa4_viols),
         violations=fa4_viols,
     )
 
-    # --- FA-5: Dataset Hash & Non-Filter D2 Audit ---
+    # --- FA-5: Dataset Hash & Strict Filter-Magnitude D2 Audit ---
     fa5_viols: list[dict[str, Any]] = []
     if str(manifest.get("dataset_hash", "")) != expected_dataset_hash:
         fa5_viols.append(
@@ -295,18 +430,17 @@ def validate_filtered_run(
     filter_recon_count = 0
     m2m_rounding_count = 0
     for v in d2_viols:
-        p = v.get("path", "")
-        line = v.get("line", "")
-        if p in FILTER_RECON_PATHS or line == "reconciliation_parity":
+        cls, err = _check_d2_filter_violation(v, n_orig=n_orig, n_dropped=n_dropped, target_symbol=target_symbol)
+        if cls == "filter_recon":
             filter_recon_count += 1
-        elif p == "analysis.risk.m2m_max_drawdown_dollars" and abs(float(v.get("expected", 0)) - float(v.get("actual", 0))) <= 2e-4:
+        elif cls == "m2m_1e4":
             m2m_rounding_count += 1
-        else:
-            fa5_viols.append({"kind": "UNEXPLAINED_D2_VIOLATION", "violation": v})
+        elif err is not None:
+            fa5_viols.append(err)
 
     gates["FA5"] = FilterAwareGateResult(
         gate_id="FA5",
-        name="Dataset Hash & Non-Filter D2 Violation Audit",
+        name="Dataset Hash & Strict Filter-Magnitude D2 Audit",
         status="PASS" if not fa5_viols else "FAIL",
         checks_passed=2 - min(2, len(fa5_viols)),
         checks_total=2,
