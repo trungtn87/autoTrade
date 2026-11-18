@@ -18,6 +18,7 @@ from autotrade_v3.live.c14_h3a import (
     H3A_SL_PCT,
     H3A_TP_PCT,
     h3a_keep,
+    h3a_keep_mask,
     h3a_kumo_pct,
     h3a_spec_matches,
     is_h3a_combo,
@@ -89,3 +90,8 @@ def test_kumo_pct_matches_manual_formula_on_last_bar():
     assert got.index.equals(idx)
     # warm-up bars without full Ichimoku history are NaN and fail closed
     assert h3a_keep(got.iloc[0]) is False
+
+
+def test_keep_mask_matches_scalar_rule():
+    vals = pd.Series([0.0049, 0.005, 0.0099, 0.01, float("nan")])
+    assert list(h3a_keep_mask(vals)) == [h3a_keep(v) for v in vals]

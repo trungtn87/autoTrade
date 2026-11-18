@@ -38,7 +38,7 @@ from autotrade_v2.app.strategy.final14_research.smc_ob import OBConfig, ob_conte
 from autotrade_v2.app.strategy.final14_research.smc_structure import smc_direction
 from autotrade_v2.app.strategy.final14_research.two_trail_layer12 import approved
 
-from .c14_h3a import h3a_keep, h3a_kumo_pct, h3a_spec_matches, is_h3a_combo
+from .c14_h3a import h3a_keep, h3a_keep_mask, h3a_kumo_pct, h3a_spec_matches, is_h3a_combo
 from .strategy_registry import ComboSpec, StrategyRegistry
 
 M15_MS = 15 * 60_000
@@ -114,14 +114,20 @@ def h1_both_1_events(d15: pd.DataFrame, params: dict) -> tuple[pd.Series, pd.Ser
     return ev_l.fillna(False).astype(bool), ev_s.fillna(False).astype(bool), smc1, ob1
 
 
-def _new6_virtual_entries(d15, d1, c: ComboSpec, smc1, ob1) -> list[tuple[int, str, int]]:
+def _new6_virtual_entries(d15, d1, c: ComboSpec, smc1, ob1, keep1: pd.Series | None = None) -> list[tuple[int, str, int]]:
     """Batch form of ``_new6_latest_action``: every bar where that function would return a direction.
 
     Same state machine (exits first, stop-first on ambiguous bars, entry at the 15m close,
     no exit on the entry bar), run once over the frame instead of once per latest bar.
+    ``keep1`` (1H-indexed bool) is an admission filter applied to the signals before the
+    state machine (used by BTC-USDT/C14 H3a only; ``None`` = unchanged 20FINAL rule).
     """
     cfg = c.as_case()
     long1, short1 = _new6_filtered_signals(d1, c.combo_id, cfg, smc1, ob1)
+    if keep1 is not None:
+        keep = keep1.reindex(d1.index).fillna(False).astype(bool).to_numpy()
+        long1 = pd.Series(long1.to_numpy(bool) & keep, index=d1.index)
+        short1 = pd.Series(short1.to_numpy(bool) & keep, index=d1.index)
     event_index = d1.index + pd.Timedelta("45min")
     long15 = pd.Series(long1.to_numpy(bool), index=event_index).reindex(d15.index, fill_value=False).to_numpy(bool)
     short15 = pd.Series(short1.to_numpy(bool), index=event_index).reindex(d15.index, fill_value=False).to_numpy(bool)
@@ -248,7 +254,14 @@ class V18Engine:
         # NEW6 -------------------------------------------------------------------
         for c in (x for x in combos if x.is_new6):
             if self.registry.new6_signal_mode == "virtual_position":
-                if latest_only:   # live: exact 20FINAL function
+                if is_h3a_combo(c.symbol, c.combo_id):   # C14 H3a: admission mask before the virtual state machine
+                    keep1 = h3a_keep_mask(h3a_kumo_pct(d1))
+                    entries = _new6_virtual_entries(d, d1, c, smc1, ob1, keep1=keep1)
+                    if latest_only:
+                        entries = [e for e in entries if e[0] == len(d) - 1]
+                    for pos, side_code, sd in entries:
+                        emit(c, side_code, pos, sd)
+                elif latest_only:   # live: exact 20FINAL function
                     direction, sd = _new6_latest_action(d, d1, c.combo_id, c.as_case(), smc1, ob1)
                     if direction:
                         emit(c, "L" if direction == 1 else "S", len(d) - 1, sd)

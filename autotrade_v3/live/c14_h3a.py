@@ -49,7 +49,6 @@ def h3a_spec_matches(c) -> bool:
         and c.layer2 == H3A_LAYER2
         and math.isclose(c.tp_pct, H3A_TP_PCT, rel_tol=0, abs_tol=1e-12)
         and math.isclose(c.sl_pct, H3A_SL_PCT, rel_tol=0, abs_tol=1e-12)
-        and not c.is_new6
         and c.signal_variant == "BASELINE"
         and str(c.entry.get("indicator", "Ichimoku")) == "Ichimoku"
     )
@@ -68,6 +67,11 @@ def h3a_kumo_pct(d1: pd.DataFrame) -> pd.Series:
     with np.errstate(divide="ignore", invalid="ignore"):
         kumo = np.where(c > 0.0, np.abs(span_a - span_b) / c, np.nan)
     return pd.Series(kumo, index=d1.index, dtype=float)
+
+
+def h3a_keep_mask(kumo: pd.Series) -> pd.Series:
+    """Vectorised band test over a per-1H-bar kumo series; NaN fails closed."""
+    return ((kumo >= H3A_MIN_KUMO_INCLUSIVE) & (kumo < H3A_MAX_KUMO_EXCLUSIVE)).fillna(False).astype(bool)
 
 
 def h3a_keep(kumo_pct: float | None) -> bool:
