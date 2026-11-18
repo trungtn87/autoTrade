@@ -84,7 +84,12 @@ class StrategyRegistry:
 
     @classmethod
     def _register_defaults(cls) -> None:
+        from autotrade_v3.strategy.v3_lab_2 import V3Lab2Strategy
+        from autotrade_v3.strategy.v3_lab_4 import V3Lab4Strategy
+
         cls.register(Baseline20FinalStrategy())
+        cls.register(V3Lab2Strategy())
+        cls.register(V3Lab4Strategy())
 
 
 # Initialize defaults
