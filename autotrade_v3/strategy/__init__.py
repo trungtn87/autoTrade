@@ -5,6 +5,8 @@ from autotrade_v3.strategy.eth_c1_h1_both_1 import EthC1H1Both1Strategy
 from autotrade_v3.strategy.registry import StrategyRegistry
 from autotrade_v3.strategy.v3_lab_2 import V3Lab2Strategy
 from autotrade_v3.strategy.v3_lab_5 import V3Lab5Strategy
+from autotrade_v3.strategy.v3_lab_6 import V3Lab6Strategy
+from autotrade_v3.strategy.v3_lab_7 import V3Lab7Strategy
 
 __all__ = [
     "BaseStrategy",
@@ -14,4 +16,6 @@ __all__ = [
     "StrategyRegistry",
     "V3Lab2Strategy",
     "V3Lab5Strategy",
+    "V3Lab6Strategy",
+    "V3Lab7Strategy",
 ]
