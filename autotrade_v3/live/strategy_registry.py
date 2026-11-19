@@ -8,6 +8,8 @@ Immutable registry versions, chosen by ``V3_STRATEGY_REGISTRY``:
 * ``V3_LIVE_18_H1_V2``: the 18 combo-symbols of baseline
   ``V3_18_COMBO_H1_BASELINE_V1`` (Owner lab ``runs/v3_18_baseline_v2``), with
   ETH-USDT/C1 = H1_BOTH_1. Spec data is the frozen JSON next to this module.
+* ``V3_LIVE_23_LAB_5_V1``: the 23 positive combo-symbols of lab ``V3_LAB_5@5.0.0`` (Owner decision
+  2026-11-19). Signals come from the lab strategy (``l2_lab5.Lab5Engine``), not from ``V18Engine``.
 * ``20FINAL``: the previous 20 combos, computed by the untouched V2 engine
   (``autotrade_v2.app.strategy``). Rollback = set the variable to ``20FINAL``
   and restart; no order, position or protection is touched by switching.
@@ -29,9 +31,10 @@ from autotrade_v2.app.strategy.final14_config import case_name, enabled_combos, 
 REGISTRY_V20 = "V3_LIVE_20_POSITIVE_FIXED_V1"
 REGISTRY_V18 = "V3_LIVE_18_H1_V2"
 REGISTRY_20FINAL = "20FINAL"
+REGISTRY_LAB5_23 = "V3_LIVE_23_LAB_5_V1"
 DEFAULT_REGISTRY = REGISTRY_V20
 JSON_REGISTRIES = (REGISTRY_V20, REGISTRY_V18)
-KNOWN_REGISTRIES = (REGISTRY_V20, REGISTRY_V18, REGISTRY_20FINAL)
+KNOWN_REGISTRIES = (REGISTRY_V20, REGISTRY_V18, REGISTRY_20FINAL, REGISTRY_LAB5_23)
 _PROVENANCE_KEYS = ("baseline_id", "baseline_source", "baseline_registry_sha256", "baseline_signals_sha256",
                     "c1_eth_research_source_sha256", "audit_id", "audit_source", "audit_source_run",
                     "audit_repro_run", "lab_git_sha", "audit_sha256", "audit_signal_spec_hash",
@@ -140,6 +143,24 @@ def _load_json(version: str) -> StrategyRegistry:
                             provenance=prov)
 
 
+def _load_lab5_23() -> StrategyRegistry:
+    """23 combo-symbols of V3_LAB_5@5.0.0 (file ``V3_LIVE_23_LAB_5_V1.json``); signals come from the lab."""
+    raw = json.loads((_DIR / f"{REGISTRY_LAB5_23}.json").read_text(encoding="utf-8"))
+    if raw["registry_version"] != REGISTRY_LAB5_23:
+        raise ValueError(f"registry file declares {raw['registry_version']!r}")
+    combos = tuple(
+        ComboSpec(symbol=c["symbol"], combo_id=int(c["combo_id"]), native_timeframe=c["timeframe"],
+                  is_new6=False, entry_variant=str(c["execution_version"]), entry={}, layer2=str(c["layer2"]),
+                  tp_pct=float(c["tp_pct"]), sl_pct=float(c["sl_pct"]), signal_variant="LAB_5")
+        for c in raw["combos"])
+    if len(combos) != 23 or len({(c.symbol, c.combo_id) for c in combos}) != 23:
+        raise ValueError(f"{REGISTRY_LAB5_23} phải có đúng 23 combo-symbol duy nhất")
+    return StrategyRegistry(version=f"{REGISTRY_LAB5_23}@1.0.0", combos=combos, new6_signal_mode="virtual_position",
+                            provenance={"source": "autotrade_v3.lab.v3_lab_5_loader (V3_LAB_5@5.0.0)",
+                                        "lab_config_hash": raw["parent_source"]["config_hash"],
+                                        "lab_merge_commit": raw["parent_source"]["lab_merge_commit"]})
+
+
 def _load_20final() -> StrategyRegistry:
     from autotrade_v2.app.strategy.final14_research.layer3_long import NATIVE
     combos = []
@@ -166,7 +187,10 @@ def load_registry(version: str | None = None) -> StrategyRegistry:
     if v not in KNOWN_REGISTRIES:
         raise ValueError(f"V3_STRATEGY_REGISTRY không hợp lệ: {version!r} (chỉ nhận {', '.join(KNOWN_REGISTRIES)})")
     if v not in _CACHE:
-        _CACHE[v] = _load_json(v) if v in JSON_REGISTRIES else _load_20final()
+        if v == REGISTRY_LAB5_23:
+            _CACHE[v] = _load_lab5_23()
+        else:
+            _CACHE[v] = _load_json(v) if v in JSON_REGISTRIES else _load_20final()
     return _CACHE[v]
 
 

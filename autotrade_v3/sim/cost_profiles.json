@@ -1,0 +1,86 @@
+{
+  "IDEAL": {
+    "name": "IDEAL",
+    "status": "CONFIRMED",
+    "source": "Golden V3-08/V3-12 baseline (0.05% taker fee, zero spread/slippage/funding)",
+    "values": {
+      "default": {
+        "fee_taker": 0.0005,
+        "fee_maker": 0.0,
+        "maker_order_types": [],
+        "half_spread_bps": 0.0,
+        "slippage_bps": {
+          "entry_market": 0.0,
+          "tp": 0.0,
+          "stop": 0.0,
+          "trailing_stop": 0.0
+        },
+        "funding": "NOT_MODELED",
+        "funding_bps_per_8h": null
+      }
+    }
+  },
+  "BASE": {
+    "name": "BASE",
+    "status": "CONFIRMED",
+    "source": "Owner-approved assumption 2026-11-15: 0.05% taker fee plus 2 bps adverse slippage on entry and exit; not calibrated from live orders; TP treated as taker.",
+    "values": {
+      "default": {
+        "fee_taker": 0.0005,
+        "fee_maker": 0.0,
+        "maker_order_types": [],
+        "half_spread_bps": 0.0,
+        "slippage_bps": {
+          "entry_market": 2.0,
+          "tp": 2.0,
+          "stop": 2.0,
+          "trailing_stop": 2.0
+        },
+        "funding": "NOT_MODELED",
+        "funding_bps_per_8h": null
+      }
+    }
+  },
+  "STRESS": {
+    "name": "STRESS",
+    "status": "CONFIRMED",
+    "source": "Owner-approved assumption 2026-11-15: 0.05% taker fee plus 5 bps adverse slippage on entry and exit; not calibrated from live orders; TP treated as taker.",
+    "values": {
+      "default": {
+        "fee_taker": 0.0005,
+        "fee_maker": 0.0,
+        "maker_order_types": [],
+        "half_spread_bps": 0.0,
+        "slippage_bps": {
+          "entry_market": 5.0,
+          "tp": 5.0,
+          "stop": 5.0,
+          "trailing_stop": 5.0
+        },
+        "funding": "NOT_MODELED",
+        "funding_bps_per_8h": null
+      }
+    }
+  },
+  "TEST_ONLY": {
+    "name": "TEST_ONLY",
+    "status": "TEST_ONLY",
+    "source": "Synthetic unit and integration tests only; rejected on real M1 data",
+    "values": {
+      "default": {
+        "fee_taker": 0.0005,
+        "fee_maker": 0.0002,
+        "maker_order_types": ["tp"],
+        "half_spread_bps": 1.5,
+        "slippage_bps": {
+          "entry_market": 2.0,
+          "tp": 0.5,
+          "stop": 4.0,
+          "trailing_stop": 3.0
+        },
+        "funding": "NOT_MODELED",
+        "funding_bps_per_8h": null
+      }
+    }
+  }
+}

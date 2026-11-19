@@ -1,7 +1,8 @@
 """Standard 20FINAL baseline strategy implementation for AutoTrade V3 Research Lab.
 
-Encapsulates all 20 combos (14 FINAL14 M15 combos + 6 NEW6 H1 combos) exactly as frozen
-in V2/V3-02 with no parameter tweaking or overfitting.
+Delegates all indicator computation, signal generation, and hashing to the independent
+`autotrade_v3.strategy_core` package while preserving full 23-column `Signal` schema
+compatibility for the V3 execution simulator and run ledger.
 """
 from __future__ import annotations
 
@@ -11,26 +12,102 @@ import pandas as pd
 
 from autotrade_v3.engine.signal_engine import Signal, SignalEngine
 from autotrade_v3.strategy.base import BaseStrategy, ExitPolicy
+from autotrade_v3.strategy_core.api import SignalEvent, Strategy, StrategySpec
+from autotrade_v3.strategy_core.registry import StrategyCoreRegistry
 
 
 class Baseline20FinalStrategy(BaseStrategy):
-    """20FINAL Baseline Strategy (Strategy ID: '20FINAL_BASELINE', Version: '1.0.0')."""
+    """20FINAL Strategy adapter bridging Strategy Core to the V3 Research Lab."""
 
-    def __init__(self, config: dict[str, Any] | None = None):
-        super().__init__(config=config or {})
-        self._engine = SignalEngine()
+    def __init__(
+        self,
+        config: dict[str, Any] | None = None,
+        core_strategy: Strategy | None = None,
+        strategy_id_override: str | None = None,
+        version_override: str | None = None,
+    ):
+        self._core = core_strategy or StrategyCoreRegistry.get("20FINAL", "1")
+        spec = self._core.spec()
+        merged_cfg = dict(config or {})
+        if not merged_cfg:
+            merged_cfg = {
+                "combos": [c.to_dict() for c in spec.combos],
+                "warmup_bars": spec.warmup_bars,
+                "timeframes": list(spec.timeframes),
+            }
+        super().__init__(config=merged_cfg)
+        self._engine = SignalEngine(core_strategy=self._core)
+        self._strategy_id_override = strategy_id_override
+        self._version_override = version_override
+
+    @property
+    def core_strategy(self) -> Strategy:
+        return self._core
+
+    def spec(self) -> StrategySpec:
+        return self._core.spec()
+
+    def generate(
+        self,
+        bars: dict[str, pd.DataFrame] | pd.DataFrame,
+        symbols: list[str] | None = None,
+        only_approved: bool = True,
+        only_warmup_ready: bool = True,
+    ) -> list[SignalEvent]:
+        return self._core.generate(
+            bars=bars,
+            symbols=symbols,
+            only_approved=only_approved,
+            only_warmup_ready=only_warmup_ready,
+        )
+
+    def on_bar_close(
+        self,
+        state: Any,
+        bar: Any,
+        only_approved: bool = True,
+        only_warmup_ready: bool = True,
+    ) -> list[SignalEvent]:
+        return self._core.on_bar_close(
+            state=state,
+            bar=bar,
+            only_approved=only_approved,
+            only_warmup_ready=only_warmup_ready,
+        )
 
     @property
     def strategy_id(self) -> str:
-        return "20FINAL_BASELINE"
+        if self._strategy_id_override is not None:
+            return self._strategy_id_override
+        sp = self._core.spec()
+        if sp.strategy_id == "20FINAL" and sp.version == "1":
+            return "20FINAL_BASELINE"
+        return sp.strategy_id
 
     @property
     def version(self) -> str:
-        return "1.0.0"
+        if self._version_override is not None:
+            return self._version_override
+        sp = self._core.spec()
+        if sp.strategy_id == "20FINAL" and sp.version == "1" and self._strategy_id_override != "20FINAL":
+            return "1.0.0"
+        return sp.version
 
     @property
     def required_timeframes(self) -> list[str]:
-        return ["15m", "1h"]
+        return list(self._core.spec().timeframes)
+
+    def get_signal_spec_hash(self) -> str:
+        return self._core.spec().signal_spec_hash
+
+    def get_exit_spec_hash(self) -> str:
+        return self._core.spec().exit_spec_hash
+
+    def get_spec_hash(self) -> str:
+        return self._core.spec().spec_hash
+
+    def get_config_hash(self) -> str:
+        return self._core.spec().spec_hash
 
     def calculate_indicators(self, data: dict[str, pd.DataFrame]) -> dict[str, Any]:
         """Indicator pass-through; indicators are evaluated dynamically during signal replay."""
@@ -40,16 +117,17 @@ class Baseline20FinalStrategy(BaseStrategy):
         return self._engine.get_combo_config(symbol, combo_id)
 
     def get_exit_policy(self, symbol: str, combo_id: int) -> ExitPolicy:
-        cfg = self.get_combo_config(symbol, combo_id)
-        is_new6 = cfg.get("is_new6", False)
-        # FINAL14 uses 50% TP + 50% Trailing. NEW6 uses 100% hard single leg.
+        c_spec = self._engine.get_combo_spec(symbol, combo_id)
+        ep = c_spec.exit_policy
         return ExitPolicy(
-            tp_pct=float(cfg["tp_pct"]),
-            sl_pct=float(cfg["sl_pct"]),
-            split_legs=not is_new6,
-            trailing_act_pct=0.005,
-            trailing_cb_pct=0.005,
-            leg_weights=(0.5, 0.5) if not is_new6 else (1.0,),
+            tp_pct=float(ep.tp_pct),
+            sl_pct=float(ep.sl_pct),
+            split_legs=bool(ep.split_legs),
+            trailing_act_pct=float(ep.trailing_act_pct),
+            trailing_cb_pct=float(ep.trailing_cb_pct),
+            leg_weights=tuple(float(w) for w in ep.leg_weights),
+            max_bars_held=ep.max_bars_held,
+            force_close_on_window_end=bool(ep.force_close_on_window_end),
         )
 
     def generate_signals(
@@ -59,14 +137,7 @@ class Baseline20FinalStrategy(BaseStrategy):
         only_approved: bool = True,
         only_warmup_ready: bool = True,
     ) -> list[Signal]:
-        """Generate signals across provided symbols.
-        
-        Args:
-            data: dict mapping symbol (e.g. 'BTC-USDT') to M15 DataFrame.
-            symbols: optional subset of symbols to evaluate.
-            only_approved: filter for Layer 2 approved signals (SMC/OB/Veto).
-            only_warmup_ready: filter for signals after 3,400 M15 bar warmup.
-        """
+        """Generate signals across provided symbols."""
         target_symbols = symbols or list(data.keys())
         all_signals: list[Signal] = []
 

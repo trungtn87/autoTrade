@@ -27,7 +27,7 @@ V18_WINDOW_BARS = 3_400  # other combos keep the 3400-bar window (20FINAL semant
 from .lab_h1.eth_c1_h1 import (H1_BUY_MAX_SLOPE_4H_PCT, H1_SELL_MIN_DIST_EMA150_4H_PCT, M15_MS,
                               EthC1H1Both1Strategy, compute_eth_c1_l2_features)
 from .store import ms_to_dt
-from .strategy_registry import REGISTRY_20FINAL, StrategyRegistry, load_registry
+from .strategy_registry import REGISTRY_20FINAL, REGISTRY_LAB5_23, StrategyRegistry, load_registry
 from .strategy_v18 import V18Engine
 
 log = logging.getLogger("autotrade_v3.l2")
@@ -68,9 +68,15 @@ class L2Strategy:
                 # so open positions stay protected and reconciled.
                 self.registry, self.registry_error = None, str(exc)
         self.v18: V18Engine | None = None
+        self.lab5 = None  # V3_LIVE_23_LAB_5_V1: lab V3_LAB_5 strategy called directly (l2_lab5.py)
+        self._lab5_frames: dict = {}
         self.eth_c1_spec = None
         reg = self.registry
-        if reg is not None and reg.version != REGISTRY_20FINAL:
+        if reg is not None and reg.version.startswith(REGISTRY_LAB5_23):
+            from .l2_lab5 import Lab5Engine
+            self.lab5 = Lab5Engine(reg)
+            eth_c1_h1_enabled = False  # ETH-C1 H1_BOTH_1 is computed inside the lab strategy
+        elif reg is not None and reg.version != REGISTRY_20FINAL:
             spec = reg.get(ETH, 1)
             if spec is not None and spec.signal_variant == "H1_BOTH_1":
                 self.eth_c1_spec = spec
@@ -104,6 +110,11 @@ class L2Strategy:
             raise RuntimeError(self.registry_error or "registry chưa nạp được")
         reg = self.registry
         signals: list[V3Signal]
+        if self.lab5 is not None:
+            from .l2_lab5 import LAB5_WINDOW_BARS
+            sym = str(snapshot.symbol).upper()
+            self._lab5_frames[sym] = snapshot.candles.tail(LAB5_WINDOW_BARS)
+            return self.lab5.calculate(sym, self._lab5_frames)
         if self.v18 is not None:
             signals = [V3Signal(event_id=s.event_id, symbol=s.symbol, combo=s.combo, combo_name=s.combo_name,
                                 side=s.side, timeframe=s.timeframe, close_time=s.close_time, entry=s.entry, tp=s.tp,
