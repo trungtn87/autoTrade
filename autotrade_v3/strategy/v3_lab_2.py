@@ -16,6 +16,7 @@ from typing import Any
 
 import pandas as pd
 
+from autotrade_v3.engine.signal_engine import Signal
 from autotrade_v3.filters.base import FilterContext
 from autotrade_v3.filters.c14_h3a_kumo_band import C14H3aKumoBandFilter
 from autotrade_v3.strategy.base import ExitPolicy
@@ -54,7 +55,7 @@ class V3Lab2Strategy(Baseline20FinalStrategy):
             strategy_id=self.STRATEGY_ID,
             version=self.VERSION,
         )
-        core_strat._spec = spec_v2
+        setattr(core_strat, "_spec", spec_v2)
 
         super().__init__(
             core_strategy=core_strat,
@@ -98,14 +99,21 @@ class V3Lab2Strategy(Baseline20FinalStrategy):
 
     def generate_signals(
         self,
-        df_m15_by_symbol: dict[str, pd.DataFrame],
-        **kwargs: Any,
-    ):
+        data: dict[str, Any],
+        symbols: list[str] | None = None,
+        only_approved: bool = True,
+        only_warmup_ready: bool = True,
+    ) -> list[Signal]:
         # 1. Generate base 20FINAL_FIXED_V1 signals for all combos except ETH-USDT/C1
-        base_sigs = super().generate_signals(df_m15_by_symbol, **kwargs)
+        base_sigs = super().generate_signals(
+            data,
+            symbols=symbols,
+            only_approved=only_approved,
+            only_warmup_ready=only_warmup_ready,
+        )
 
         # 2. Apply H3a V1 Kumo Band filter to BTC-USDT/C14 signals
-        btc_m15 = df_m15_by_symbol.get("BTC-USDT")
+        btc_m15 = data.get("BTC-USDT")
         if btc_m15 is not None and not btc_m15.empty:
             btc_1h = resample_ohlcv(ensure_dt(btc_m15), "1h")
             h3a_flt = self.build_c14_h3a_filter(btc_1h)
@@ -120,9 +128,12 @@ class V3Lab2Strategy(Baseline20FinalStrategy):
             kept_base = [s for s in base_sigs if not (s.symbol == "ETH-USDT" and int(s.combo_id) == 1)]
 
         # 3. Generate ETH-USDT/C1 signals via H1_BOTH_1
-        eth_kwargs = dict(kwargs)
-        eth_kwargs["symbols"] = ["ETH-USDT"]
-        h1_sigs = self._h1_both_1.generate_signals(df_m15_by_symbol, **eth_kwargs)
+        h1_sigs = self._h1_both_1.generate_signals(
+            data,
+            symbols=["ETH-USDT"],
+            only_approved=only_approved,
+            only_warmup_ready=only_warmup_ready,
+        )
         eth_c1_sigs = [s for s in h1_sigs if s.symbol == "ETH-USDT" and int(s.combo_id) == 1]
 
         combined = kept_base + eth_c1_sigs

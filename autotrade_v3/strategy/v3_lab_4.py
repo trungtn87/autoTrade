@@ -33,7 +33,7 @@ import numpy as np
 import pandas as pd
 
 from autotrade_v3.engine.candle_loader import datetime_index_to_ms
-from autotrade_v3.engine.signal_engine import signal_from_event
+from autotrade_v3.engine.signal_engine import Signal, signal_from_event
 from autotrade_v3.filters.base import FilterContext
 from autotrade_v3.filters.c14_h3a_kumo_band import C14H3aKumoBandFilter
 from autotrade_v3.strategy.base import ExitPolicy
@@ -402,13 +402,20 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
 
     def generate_signals(
         self,
-        df_m15_by_symbol: dict[str, pd.DataFrame],
-        **kwargs: Any,
-    ):
-        base_sigs = super().generate_signals(df_m15_by_symbol, **kwargs)
+        data: dict[str, Any],
+        symbols: list[str] | None = None,
+        only_approved: bool = True,
+        only_warmup_ready: bool = True,
+    ) -> list[Signal]:
+        base_sigs = super().generate_signals(
+            data,
+            symbols=symbols,
+            only_approved=only_approved,
+            only_warmup_ready=only_warmup_ready,
+        )
 
-        btc_m15 = df_m15_by_symbol.get("BTC-USDT")
-        eth_m15 = df_m15_by_symbol.get("ETH-USDT")
+        btc_m15 = data.get("BTC-USDT")
+        eth_m15 = data.get("ETH-USDT")
         if btc_m15 is not None and not btc_m15.empty:
             btc_1h = resample_ohlcv(ensure_dt(btc_m15), "1h")
             h3a_flt = self.build_c14_h3a_filter(btc_1h)
@@ -429,21 +436,22 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
         kept_base = self._filter_4h_sell_downtrend(kept_base, eth_m15, "ETH-USDT", 103)
         kept_base = self._filter_btc_c16_vortex_ratio(kept_base, btc_m15, min_ratio=1.22)
 
-        only_app = bool(kwargs.get("only_approved", True))
-        only_warm = bool(kwargs.get("only_warmup_ready", True))
-        req_syms = set(kwargs.get("symbols") or ["BTC-USDT", "ETH-USDT"])
+        req_syms = set(symbols or ["BTC-USDT", "ETH-USDT"])
 
         if "BTC-USDT" in req_syms and btc_m15 is not None and not btc_m15.empty:
             kept_base = [s for s in kept_base if not (s.symbol == "BTC-USDT" and int(s.combo_id) == 1 and s.side == "BUY")]
-            kept_base.extend(self._regenerate_buy_with_vol_mult("BTC-USDT", 1, btc_m15, 1.8, only_app, only_warm))
+            kept_base.extend(self._regenerate_buy_with_vol_mult("BTC-USDT", 1, btc_m15, 1.8, only_approved, only_warmup_ready))
 
         if "ETH-USDT" in req_syms and eth_m15 is not None and not eth_m15.empty:
             kept_base = [s for s in kept_base if not (s.symbol == "ETH-USDT" and int(s.combo_id) == 7 and s.side == "BUY")]
-            kept_base.extend(self._regenerate_buy_with_vol_mult("ETH-USDT", 7, eth_m15, 1.7, only_app, only_warm))
+            kept_base.extend(self._regenerate_buy_with_vol_mult("ETH-USDT", 7, eth_m15, 1.7, only_approved, only_warmup_ready))
 
-        eth_kwargs = dict(kwargs)
-        eth_kwargs["symbols"] = ["ETH-USDT"]
-        h1_sigs = self._h1_both_1.generate_signals(df_m15_by_symbol, **eth_kwargs)
+        h1_sigs = self._h1_both_1.generate_signals(
+            data,
+            symbols=["ETH-USDT"],
+            only_approved=only_approved,
+            only_warmup_ready=only_warmup_ready,
+        )
         eth_c1_sigs = [s for s in h1_sigs if s.symbol == "ETH-USDT" and int(s.combo_id) == 1]
 
         combined = kept_base + eth_c1_sigs

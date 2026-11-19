@@ -43,7 +43,7 @@ def test_before_4h_close_never_uses_developing_4h_bar() -> None:
     for hr in ["00:00:00", "01:00:00", "02:00:00"]:
         c_ms = int(pd.Timestamp(f"2024-01-21 {hr}", tz="UTC").timestamp() * 1000) + 3_600_000 - 1
         sig = _DummySig("ETH-USDT", 102, "SELL", c_ms)
-        kept = V3Lab4Strategy._filter_eth_c12_h7_sell_4h_trend([sig], df)
+        kept = V3Lab4Strategy._filter_4h_sell_downtrend([sig], df, "ETH-USDT", 102)
         assert kept == [], f"Look-ahead leak at {hr}!"
 
 
@@ -55,7 +55,7 @@ def test_exact_4h_close_and_immediately_after() -> None:
     for hr in ["03:00:00", "04:00:00"]:
         c_ms = int(pd.Timestamp(f"2024-01-21 {hr}", tz="UTC").timestamp() * 1000) + 3_600_000 - 1
         sig = _DummySig("ETH-USDT", 102, "SELL", c_ms)
-        kept = V3Lab4Strategy._filter_eth_c12_h7_sell_4h_trend([sig], df)
+        kept = V3Lab4Strategy._filter_4h_sell_downtrend([sig], df, "ETH-USDT", 102)
         assert len(kept) == 1
 
 
@@ -65,7 +65,7 @@ def test_buy_and_other_combos_always_kept() -> None:
     c_ms = int(pd.Timestamp("2024-01-21 00:00:00", tz="UTC").timestamp() * 1000) + 3_600_000 - 1
     buy_eth = _DummySig("ETH-USDT", 102, "BUY", c_ms)
     sell_btc = _DummySig("BTC-USDT", 102, "SELL", c_ms)
-    kept = V3Lab4Strategy._filter_eth_c12_h7_sell_4h_trend([buy_eth, sell_btc], df)
+    kept = V3Lab4Strategy._filter_4h_sell_downtrend([buy_eth, sell_btc], df, "ETH-USDT", 102)
     assert kept == [buy_eth, sell_btc]
 
 
@@ -81,7 +81,7 @@ def test_missing_4h_bar_falls_back_to_prior_closed_bar() -> None:
 
     c_ms = int(pd.Timestamp("2024-01-21 04:00:00", tz="UTC").timestamp() * 1000) + 3_600_000 - 1
     sig = _DummySig("ETH-USDT", 102, "SELL", c_ms)
-    assert V3Lab4Strategy._filter_eth_c12_h7_sell_4h_trend([sig], df) == []
+    assert V3Lab4Strategy._filter_4h_sell_downtrend([sig], df, "ETH-USDT", 102) == []
 
 
 def test_insufficient_ema100_4h_warmup_rejects_sell() -> None:
@@ -89,4 +89,4 @@ def test_insufficient_ema100_4h_warmup_rejects_sell() -> None:
     df_short = _make_m15("2024-01-01 00:00:00", 800, slope=-0.1)
     c_ms = int(df_short.index[-1].timestamp() * 1000) + 900_000 - 1
     sig = _DummySig("ETH-USDT", 102, "SELL", c_ms)
-    assert V3Lab4Strategy._filter_eth_c12_h7_sell_4h_trend([sig], df_short) == []
+    assert V3Lab4Strategy._filter_4h_sell_downtrend([sig], df_short, "ETH-USDT", 102) == []
