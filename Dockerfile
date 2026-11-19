@@ -10,6 +10,7 @@ COPY unified_app.py /app/unified_app.py
 # V3 live engine (five layers). The offline V3 research lab is not copied.
 COPY autotrade_v3/__init__.py /app/autotrade_v3/__init__.py
 COPY autotrade_v3/live/ /app/autotrade_v3/live/
+COPY autotrade_v3/l2_core/ /app/autotrade_v3/l2_core/
 # V2 modules reused by V3 unchanged (BingX transport, kline stream, 20FINAL
 # strategy, hourly archive) plus the AI page. V2's engine is not started.
 COPY autotrade_v2/app/ /app/autotrade_v2/app/
