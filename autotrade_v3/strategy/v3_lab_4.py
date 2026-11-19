@@ -16,7 +16,11 @@ Configuration:
  10. BTC-USDT/C13 (combo_id=103): H4_SELL_ONLY_4H_TREND (BUY disabled, SELL CMO(40) cross_down -40 + close_4h<ema100_4h, 1H, TP=2.0%, SL=0.8%)
  11. ETH-USDT/C13 (combo_id=103): H5_SELL_ONLY_4H_TREND (BUY disabled, SELL CMO(40) cross_down -40 + close_4h<ema100_4h, 1H, TP=2.0%, SL=0.8%)
  12. BTC-USDT/C16 (combo_id=106): H3_VORTEX_RATIO_1_22 (Vortex(14) ratio=1.22 both sides, Layer2=OB, 1H, TP=1.1%, SL=0.9%)
-- Remaining 18 combos (including BTC-USDT/C10, BTC-USDT/C12): unchanged 20FINAL_FIXED_V1@1 H0.
+- 3 Batch C P2 upgraded combos:
+ 13. BTC-USDT/C1  (combo_id=1):   H2_BUY_VOLUME_1_8 (BUY volume > 1.8*SMA20, SELL keeps 1.5*SMA20, 1H, SMC_STRICT, TP=2.0%, SL=0.8%)
+ 14. BTC-USDT/C11 (combo_id=101): H1_BUY_0_78 (DeMarker(60) BUY>0.78 / SELL<0.25, 1H, SMC_STRICT_OB, TP=1.8%, SL=0.9%)
+ 15. ETH-USDT/C7  (combo_id=7):   H1_BUY_VOLUME_1_7 (BUY volume > 1.7*SMA20, SELL keeps 1.5*SMA20, 15m, OB, TP=1.8%, SL=0.9%)
+- Remaining 15 combos (including ETH-USDT/C3, BTC-USDT/C10, BTC-USDT/C12): unchanged 20FINAL_FIXED_V1@1 H0.
 """
 from __future__ import annotations
 
@@ -29,6 +33,7 @@ import numpy as np
 import pandas as pd
 
 from autotrade_v3.engine.candle_loader import datetime_index_to_ms
+from autotrade_v3.engine.signal_engine import signal_from_event
 from autotrade_v3.filters.base import FilterContext
 from autotrade_v3.filters.c14_h3a_kumo_band import C14H3aKumoBandFilter
 from autotrade_v3.strategy.base import ExitPolicy
@@ -36,10 +41,13 @@ from autotrade_v3.strategy.baseline_20final import Baseline20FinalStrategy
 from autotrade_v3.strategy_core.api import ComboSpec, StrategySpec
 from autotrade_v3.strategy_core.hashing import canonical_json_sha256, compute_spec_hash
 from autotrade_v3.strategy_core.indicators.indicators import ema
+from autotrade_v3.strategy_core.indicators.layer3_long import edge_event, precompute
 from autotrade_v3.strategy_core.indicators.signals import ensure_dt, resample_ohlcv
+from autotrade_v3.strategy_core.indicators.smc_ob import OBConfig, ob_context
 from autotrade_v3.strategy_core.indicators.smc_structure import smc_direction
+from autotrade_v3.strategy_core.indicators.two_trail_layer12 import approved
 from autotrade_v3.strategy_core.registry import StrategyCoreRegistry
-from autotrade_v3.strategy_core.strategies.final20.logic import _vortex
+from autotrade_v3.strategy_core.strategies.final20.logic import _make_signal_event, _vortex
 
 
 def _load_p3_c1_h1_both_1():
@@ -92,6 +100,13 @@ def _build_v3_lab_4_core(params_dir: Path | None = None) -> Any:
             new_entry["period"] = 60
             new_entry["long_min"] = 0.78
             new_entry["short_max"] = 0.20
+            c = dataclasses.replace(c, entry=new_entry)
+        elif c.symbol == "BTC-USDT" and int(c.combo_id) == 101:
+            new_entry = dict(c.entry)
+            new_entry["indicator"] = "DeMarker"
+            new_entry["period"] = 60
+            new_entry["long_min"] = 0.78
+            new_entry["short_max"] = 0.25
             c = dataclasses.replace(c, entry=new_entry)
         elif c.symbol == "BTC-USDT" and int(c.combo_id) == 106:
             new_entry = dict(c.entry)
@@ -188,6 +203,9 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
                 "btc_c13_override": "H4_SELL_ONLY_4H_TREND(buy=OFF,sell=CMO(40)_cross_down_-40+close_4h<ema100_4h,layer2=OFF,tp=0.020,sl=0.008)",
                 "eth_c13_override": "H5_SELL_ONLY_4H_TREND(buy=OFF,sell=CMO(40)_cross_down_-40+close_4h<ema100_4h,layer2=OFF,tp=0.020,sl=0.008)",
                 "btc_c16_override": "H3_VORTEX_RATIO_1_22(vortex=14,ratio=1.22,layer2=OB,tp=0.011,sl=0.009)",
+                "btc_c1_override": "H2_BUY_VOLUME_1_8(buy_vol_mult=1.8,sell_vol_mult=1.5,layer2=SMC_STRICT,tp=0.020,sl=0.008)",
+                "btc_c11_override": "H1_BUY_0_78(period=60,long_min=0.78,short_max=0.25,layer2=SMC_STRICT_OB,tp=0.018,sl=0.009)",
+                "eth_c7_override": "H1_BUY_VOLUME_1_7(buy_vol_mult=1.7,sell_vol_mult=1.5,layer2=OB,tp=0.018,sl=0.009)",
             }
         )
 
@@ -299,6 +317,89 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
             out.append(s)
         return out
 
+    def _regenerate_buy_with_vol_mult(
+        self,
+        sym: str,
+        combo_id: int,
+        sym_m15: pd.DataFrame,
+        vol_mult: float,
+        only_approved: bool = True,
+        only_warmup_ready: bool = True,
+    ) -> list[Any]:
+        """Regenerate BUY signals for BTC-USDT/C1 (H2=1.8x) or ETH-USDT/C7 (H1=1.7x) with edge_event."""
+        from autotrade_v3.strategy_core.indicators.layer3_long import precompute as _precompute
+
+        d15 = ensure_dt(sym_m15).tz_convert("UTC")
+        pc = _precompute(d15, None)
+        d1 = pc["d1"]
+        p1 = pc["1"]
+        p15 = pc["15"]
+        c_spec = next(c for c in self.spec().combos if c.symbol == sym and int(c.combo_id) == combo_id)
+        ep = self.get_exit_policy(sym, combo_id)
+        ep_hash = ep.get_policy_hash()
+        warmup_bars = int(self.spec().warmup_bars)
+        posmap = {ts: i for i, ts in enumerate(d15.index)}
+
+        if sym == "BTC-USDT" and combo_id == 1:
+            A21, R, M, ADX, K, D, C = p1["A21"], p1["R"], p1["M"], p1["ADX"], p1["K"], p1["D"], p1["C"]
+            macd = ema(d1.close, 8) - ema(d1.close, 21)
+            hist = macd - ema(macd, 9)
+            volsp = d1.volume > p1["volma"] * vol_mult
+            adxr = ADX > ADX.shift(1)
+            sb08 = (d1.close > d1.open) & ((d1.close - d1.open) > A21 * 0.8)
+            tu = d1.close > p1["ema1504"]
+            longc = (K > 30) & (K > D) & (C > 80) & (C > C.shift(1))
+            lth = float(c_spec.entry.get("mfi_long", 50.0))
+            L = edge_event(longc & (R > 55) & (hist > 0) & (M > lth) & adxr & sb08 & tu & volsp)
+            smc_s = smc_direction(d1, 50, False)
+            ob_df = ob_context(d1, OBConfig(pivot_len=5, search_bars=12, max_age=80, danger_atr=0.5))
+            offset = pd.Timedelta(minutes=45)
+        elif sym == "ETH-USDT" and combo_id == 7:
+            d = d15
+            A, R, ADX = p15["A"], p15["R"], p15["ADX"]
+            ef, es = ema(d.close, 21), ema(d.close, 55)
+            bm = float(c_spec.entry.get("body_atr", 1.3))
+            strong_b = (d.close > d.open) & ((d.close - d.open) > A * bm)
+            L = edge_event(
+                (d.volume > d.volume.shift(1) * 1.8)
+                & (ef > es)
+                & (d.close > p15["trend100"])
+                & (ADX > ADX.shift(1))
+                & (ADX > 25)
+                & strong_b
+                & (d.volume > p15["volSMA"] * vol_mult)
+                & (p15["body_ratio"] > 0.75)
+                & (R > 60)
+                & (R < 85)
+            )
+            smc_s = smc_direction(d15, 50, False)
+            ob_df = ob_context(d15, OBConfig(pivot_len=5, search_bars=12, max_age=80, danger_atr=0.5))
+            offset = pd.Timedelta(0)
+        else:
+            raise ValueError(f"Unsupported BUY vol_mult override for {sym}/{combo_id}")
+
+        out = []
+        for ot in L.index[L.fillna(False)]:
+            last = ot + offset
+            if last not in posmap:
+                continue
+            sd = int(smc_s.loc[ot])
+            blocked = bool(ob_df.loc[ot, "buy_blocked"])
+            ok = bool(approved("L", sd, blocked, c_spec.layer2))
+            ev = _make_signal_event(sym, c_spec, "L", ot, posmap[last], sd, blocked, ok, d15, warmup_bars)
+            if only_approved and not ev.tags["approved"]:
+                continue
+            if only_warmup_ready and not ev.tags["warmup_ready"]:
+                continue
+            out.append(
+                dataclasses.replace(
+                    signal_from_event(ev, c_spec),
+                    exit_policy=ep,
+                    exit_policy_hash=ep_hash,
+                )
+            )
+        return out
+
     def generate_signals(
         self,
         df_m15_by_symbol: dict[str, pd.DataFrame],
@@ -327,6 +428,18 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
         kept_base = self._filter_4h_sell_downtrend(kept_base, btc_m15, "BTC-USDT", 103)
         kept_base = self._filter_4h_sell_downtrend(kept_base, eth_m15, "ETH-USDT", 103)
         kept_base = self._filter_btc_c16_vortex_ratio(kept_base, btc_m15, min_ratio=1.22)
+
+        only_app = bool(kwargs.get("only_approved", True))
+        only_warm = bool(kwargs.get("only_warmup_ready", True))
+        req_syms = set(kwargs.get("symbols") or ["BTC-USDT", "ETH-USDT"])
+
+        if "BTC-USDT" in req_syms and btc_m15 is not None and not btc_m15.empty:
+            kept_base = [s for s in kept_base if not (s.symbol == "BTC-USDT" and int(s.combo_id) == 1 and s.side == "BUY")]
+            kept_base.extend(self._regenerate_buy_with_vol_mult("BTC-USDT", 1, btc_m15, 1.8, only_app, only_warm))
+
+        if "ETH-USDT" in req_syms and eth_m15 is not None and not eth_m15.empty:
+            kept_base = [s for s in kept_base if not (s.symbol == "ETH-USDT" and int(s.combo_id) == 7 and s.side == "BUY")]
+            kept_base.extend(self._regenerate_buy_with_vol_mult("ETH-USDT", 7, eth_m15, 1.7, only_app, only_warm))
 
         eth_kwargs = dict(kwargs)
         eth_kwargs["symbols"] = ["ETH-USDT"]

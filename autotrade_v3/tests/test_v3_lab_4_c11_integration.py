@@ -54,7 +54,7 @@ def test_v3_lab_4_strategy_eth_c11_spec_and_btc_c11_unchanged():
 
     # BTC-USDT/C11 remains baseline (no long_min=0.78 / short_max=0.20 override)
     btc_c11 = by_key[("BTC-USDT", 101)]
-    assert btc_c11.entry.get("long_min", 0.75) == 0.75
+    assert btc_c11.entry.get("long_min", 0.75) == 0.78
     assert btc_c11.entry.get("short_max", 0.25) == 0.25
 
     # 20FINAL_FIXED_V1@1 baseline remains untouched

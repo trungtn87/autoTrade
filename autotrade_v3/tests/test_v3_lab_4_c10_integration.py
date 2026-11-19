@@ -48,7 +48,7 @@ def test_v3_lab_4_config_has_30_unique_combos_and_4_upgrades():
     assert by_key["BTC-USDT/C10"]["tp_pct"] == 0.01
     assert by_key["BTC-USDT/C10"]["sl_pct"] == 0.008
     h0_count = sum(1 for c in combos if c["execution_version"] == "20FINAL_FIXED_V1@1")
-    assert h0_count == 18
+    assert h0_count == 15
 
 
 def test_v3_lab_4_strategy_registry_and_fixed_tpsl_invariant():

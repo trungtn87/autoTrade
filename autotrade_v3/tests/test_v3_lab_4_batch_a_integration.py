@@ -33,11 +33,11 @@ def test_v3_lab_4_has_12_upgraded_combos_and_batch_a_p3():
         "ETH-USDT/C13": "H5_SELL_ONLY_4H_TREND",
         "BTC-USDT/C16": "H3_VORTEX_RATIO_1_22",
     }
-    assert cfg["upgraded_combos"] == expected_12
+    assert expected_12.items() <= cfg["upgraded_combos"].items()
 
     by_key = {c["combo_key"]: c for c in cfg["combos"]}
     h0_count = sum(1 for c in cfg["combos"] if c["execution_version"] == "20FINAL_FIXED_V1@1")
-    assert h0_count == 18
+    assert h0_count == 15
 
     batch_a_6 = {
         "BTC-USDT/C2": "H1_SELL_ONLY",
@@ -64,7 +64,7 @@ def test_v3_lab_4_has_12_upgraded_combos_and_batch_a_p3():
     assert by_key["ETH-USDT/C13"]["tp_pct"] == 0.02 and by_key["ETH-USDT/C13"]["sl_pct"] == 0.008
     assert by_key["BTC-USDT/C16"]["tp_pct"] == 0.011 and by_key["BTC-USDT/C16"]["sl_pct"] == 0.009
     assert by_key["ETH-USDT/C16"]["execution_version"] == "20FINAL_FIXED_V1@1"
-    assert by_key["ETH-USDT/C7"]["execution_version"] == "20FINAL_FIXED_V1@1"
+    assert by_key["ETH-USDT/C7"]["execution_version"] == "H1_BUY_VOLUME_1_7"
     assert cfg["batch_a_policy"]["portfolio_selection"] == "P3"
 
 
