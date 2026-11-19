@@ -7,9 +7,12 @@ from typing import Any
 
 from autotrade_v3.strategy.registry import StrategyRegistry
 from autotrade_v3.strategy.v3_lab_4 import V3Lab4Strategy
+from autotrade_v3.strategy.v3_lab_4_top23 import V3Lab4Top23Strategy
 
 V3_LAB_4_CONFIG_PATH = Path(__file__).resolve().with_name("v3_lab_4_config.json")
+V3_LAB_4_TOP23_CONFIG_PATH = Path(__file__).resolve().with_name("v3_lab_4_top23_config.json")
 V3_LAB_4_STRATEGY_ID = "V3_LAB_4@4.0.0"
+V3_LAB_4_TOP23_STRATEGY_ID = "V3_LAB_4_TOP23@1.0.0"
 
 
 def load_v3_lab_4_config(path: Path | None = None) -> dict[str, Any]:
@@ -39,4 +42,26 @@ def load_v3_lab_4_strategy() -> V3Lab4Strategy:
         ep = strat.get_exit_policy(c.symbol, int(c.combo_id))
         if ep.split_legs or float(ep.trailing_act_pct) != 0.0:
             raise ValueError(f"V3_LAB_4 requires Fixed TP/SL for {c.symbol}/{c.combo_id}: {ep}")
+    return strat
+
+
+def load_v3_lab_4_top23_config(path: Path | None = None) -> dict[str, Any]:
+    """Load and validate the 23-combo V3_LAB_4_TOP23 handoff configuration JSON."""
+    cfg_path = path or V3_LAB_4_TOP23_CONFIG_PATH
+    data = json.loads(cfg_path.read_text(encoding="utf-8"))
+    if data.get("config_id") != "V3_LAB_4_TOP23":
+        raise ValueError(f"Expected config_id='V3_LAB_4_TOP23', got {data.get('config_id')!r}")
+    combos = data.get("combos", [])
+    if int(data.get("total_combos", -1)) != 23 or len(combos) != 23:
+        raise ValueError(f"V3_LAB_4_TOP23 must contain exactly 23 combos, got {len(combos)}")
+    return data
+
+
+def load_v3_lab_4_top23_strategy() -> V3Lab4Top23Strategy:
+    """Resolve V3_LAB_4_TOP23@1.0.0 from StrategyRegistry and verify 23-combo invariants."""
+    strat = StrategyRegistry.get("V3_LAB_4_TOP23", "1.0.0")
+    if not isinstance(strat, V3Lab4Top23Strategy):
+        raise TypeError(f"Expected V3Lab4Top23Strategy, got {type(strat)}")
+    if len(strat.spec().combos) != 23:
+        raise ValueError(f"V3_LAB_4_TOP23 must have 23 combos, got {len(strat.spec().combos)}")
     return strat
