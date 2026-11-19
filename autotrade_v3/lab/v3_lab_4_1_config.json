@@ -1,7 +1,7 @@
 {
   "config_id": "V3_LAB_4",
   "version": "4.1.0",
-  "inherits_from": "V3_LAB_4@4.0.0",
+  "inherits_from": "V3_LAB_4@4.0.1",
   "live_eligible": false,
   "top20_live_modified": false,
   "purpose": "V3_LAB_4 30-combo research standard with Round 2 audited integrations: BTC-USDT/C13 (A-R2-01 BREAKEVEN_LOCK) and ETH-USDT/C14 (A-R2-05 ATR_SL_ADJUSTMENT)",
@@ -1281,7 +1281,7 @@
       "sha256": "36b55fc648573e27a66270e90d3192fb0e26b2a732a4cf2c557690f7e51d2d37"
     }
   },
-  "config_hash": "dcb5c22926705ea57d42adbfdf0cd60bd0baf92aa130d575ccab3f3c797fd3b6",
+  "config_hash": "eb7b5f080f972825fdad7159d5831e6e10e98949764dc70dee4068c299656cdd",
   "eth_c11_policy": {
     "version": "H3_B1_DEMARKER",
     "owner_approved_for_lab": true,

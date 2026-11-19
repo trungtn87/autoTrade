@@ -9,6 +9,7 @@ from autotrade_v3.strategy.registry import StrategyRegistry
 from autotrade_v3.strategy.v3_lab_4 import V3Lab4Strategy
 
 V3_LAB_4_CONFIG_PATH = Path(__file__).resolve().with_name("v3_lab_4_config.json")
+V3_LAB_4_0_1_CONFIG_PATH = Path(__file__).resolve().with_name("v3_lab_4_0_1_config.json")
 V3_LAB_4_1_CONFIG_PATH = Path(__file__).resolve().with_name("v3_lab_4_1_config.json")
 V3_LAB_4_ACTIVE_VERSION = "4.1.0"
 V3_LAB_4_BASELINE_VERSION = "4.0.0"
@@ -22,6 +23,8 @@ def load_v3_lab_4_config(path: Path | None = None, version: str | None = None) -
         cfg_path = path
     elif ver == "4.0.0":
         cfg_path = V3_LAB_4_CONFIG_PATH
+    elif ver == "4.0.1":
+        cfg_path = V3_LAB_4_0_1_CONFIG_PATH
     elif ver == "4.1.0":
         cfg_path = V3_LAB_4_1_CONFIG_PATH
     else:
