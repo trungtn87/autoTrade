@@ -27,60 +27,54 @@ from autotrade_v3.strategy.registry import StrategyRegistry
 from autotrade_v3.strategy.v3_lab_4 import V3Lab4Strategy
 
 
-def test_registry_and_config_v4_1_0_and_v4_0_0_rollback():
-    assert V3_LAB_4_STRATEGY_ID == "V3_LAB_4@4.1.0"
+def test_registry_and_config_v4_1_1_and_all_rollbacks():
+    assert V3_LAB_4_STRATEGY_ID == "V3_LAB_4@4.1.1"
     assert V3_LAB_4_BASELINE_VERSION == "4.0.0"
 
-    cfg41 = load_v3_lab_4_config()
+    cfg411 = load_v3_lab_4_config()
+    cfg410 = load_v3_lab_4_config(version="4.1.0")
     cfg401 = load_v3_lab_4_config(version="4.0.1")
-    cfg40 = load_v3_lab_4_config(version="4.0.0")
-    assert cfg41["version"] == "4.1.0"
+    cfg400 = load_v3_lab_4_config(version="4.0.0")
+    assert cfg411["version"] == "4.1.1"
+    assert cfg410["version"] == "4.1.0"
     assert cfg401["version"] == "4.0.1"
-    assert cfg40["version"] == "4.0.0"
-    assert cfg40["config_hash"] == "f4ef7b0d3991bcf980eed3304ea2128289a383a647209a64de03a4d1c145a8de"
-    assert cfg41["live_eligible"] is False
-    assert cfg41["top20_live_modified"] is False
-    assert len(cfg41["combos"]) == 30
-    assert len(cfg401["combos"]) == 30
-    assert len(cfg40["combos"]) == 30
+    assert cfg400["version"] == "4.0.0"
+    assert cfg400["config_hash"] == "f4ef7b0d3991bcf980eed3304ea2128289a383a647209a64de03a4d1c145a8de"
+    assert cfg411["live_eligible"] is False
+    assert cfg411["top20_live_modified"] is False
+    assert len(cfg411["combos"]) == 30
 
-    keys41 = {(c["symbol"], int(c["combo_id"])) for c in cfg41["combos"]}
+    keys411 = {(c["symbol"], int(c["combo_id"])) for c in cfg411["combos"]}
     keys401 = {(c["symbol"], int(c["combo_id"])) for c in cfg401["combos"]}
-    keys40 = {(c["symbol"], int(c["combo_id"])) for c in cfg40["combos"]}
-    assert len(keys41) == 30
-    assert keys41 == keys401 == keys40
+    keys400 = {(c["symbol"], int(c["combo_id"])) for c in cfg400["combos"]}
+    assert len(keys411) == 30
+    assert keys411 == keys401 == keys400
 
-    assert cfg41["upgraded_combos"]["BTC-USDT/C13"] == "A-R2-01_BREAKEVEN_LOCK"
-    assert cfg41["upgraded_combos"]["ETH-USDT/C14"] == "A-R2-05_ATR_SL_ADJUSTMENT"
-    assert cfg401["upgraded_combos"]["BTC-USDT/C13"] == "H4_SELL_ONLY_4H_TREND"
-    assert "BTC-USDT/C13" not in cfg40["upgraded_combos"]
-    assert "ETH-USDT/C14" not in cfg40["upgraded_combos"]
-    assert cfg41["btc_c10_policy"] == cfg401["btc_c10_policy"] == cfg40["btc_c10_policy"]
+    assert cfg411["upgraded_combos"]["BTC-USDT/C13"] == "H4_SELL_ONLY_4H_TREND"
+    assert cfg411["upgraded_combos"]["ETH-USDT/C14"] == "A-R2-05_ATR_SL_ADJUSTMENT"
+    assert cfg411["overrides"]["ETH-USDT/C14"]["audit_status"] == "AUDIT_VERIFIED_BUT_FRAGILE"
+    assert cfg411["overrides"]["ETH-USDT/C14"]["live_eligible"] is False
+    assert cfg411["btc_c10_policy"] == cfg401["btc_c10_policy"] == cfg400["btc_c10_policy"]
 
-    # 28 other combos must remain 100% identical vs 4.0.1
-    for k in keys401 - {("BTC-USDT", 103), ("ETH-USDT", 104)}:
-        c41 = next(c for c in cfg41["combos"] if (c["symbol"], int(c["combo_id"])) == k)
+    # 29 combos in 4.1.1 (all except ETH-USDT/C14) must match 4.0.1
+    for k in keys401 - {("ETH-USDT", 104)}:
+        c411 = next(c for c in cfg411["combos"] if (c["symbol"], int(c["combo_id"])) == k)
         c401 = next(c for c in cfg401["combos"] if (c["symbol"], int(c["combo_id"])) == k)
-        assert c41 == c401
+        assert c411 == c401
 
-    strat41 = load_v3_lab_4_strategy()
+    strat411 = load_v3_lab_4_strategy()
+    strat410 = load_v3_lab_4_strategy(version="4.1.0")
     strat401 = load_v3_lab_4_strategy(version="4.0.1")
-    strat40 = load_v3_lab_4_strategy(version="4.0.0")
-    assert strat41.version == "4.1.0"
+    strat400 = load_v3_lab_4_strategy(version="4.0.0")
+    assert strat411.version == "4.1.1"
+    assert strat410.version == "4.1.0"
     assert strat401.version == "4.0.1"
-    assert strat40.version == "4.0.0"
-    assert StrategyRegistry.get("V3_LAB_4", "4.1.0").version == "4.1.0"
-    assert StrategyRegistry.get("V3_LAB_4", "4.0.1").version == "4.0.1"
-    assert StrategyRegistry.get("V3_LAB_4", "4.0.0").version == "4.0.0"
+    assert strat400.version == "4.0.0"
+    for ver in ("4.0.0", "4.0.1", "4.1.0", "4.1.1"):
+        assert StrategyRegistry.get("V3_LAB_4", ver).version == ver
 
-    ep_c13 = strat41.get_exit_policy("BTC-USDT", 103)
-    assert ep_c13.tp_pct == pytest.approx(0.02)
-    assert ep_c13.sl_pct == pytest.approx(0.008)
-    assert ep_c13.be_trigger_pct == pytest.approx(0.012)
-    assert ep_c13.be_offset_pct == pytest.approx(-0.0014)
-
-    for sym, cid in keys401 - {("BTC-USDT", 103), ("ETH-USDT", 104)}:
-        assert strat41.get_exit_policy(sym, cid).get_policy_hash() == strat401.get_exit_policy(sym, cid).get_policy_hash()
+    for sym, cid in keys401 - {("ETH-USDT", 104)}:
+        assert strat411.get_exit_policy(sym, cid).get_policy_hash() == strat401.get_exit_policy(sym, cid).get_policy_hash()
 
 
 def test_exit_policy_hash_backward_compatibility():

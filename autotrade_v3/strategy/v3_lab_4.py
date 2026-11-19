@@ -138,10 +138,10 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
     """V3_LAB_4: 30-combo Fixed TP/SL strategy (4.0.0 frozen baseline; 4.1.0 integrates Round 2 A-R2-01 & A-R2-05)."""
 
     STRATEGY_ID = "V3_LAB_4"
-    VERSION = "4.1.0"
-    SUPPORTED_VERSIONS = ("4.0.0", "4.0.1", "4.1.0")
+    VERSION = "4.1.1"
+    SUPPORTED_VERSIONS = ("4.0.0", "4.0.1", "4.1.0", "4.1.1")
 
-    def __init__(self, params_dir: Path | None = None, version: str = "4.1.0") -> None:
+    def __init__(self, params_dir: Path | None = None, version: str = "4.1.1") -> None:
         if version not in self.SUPPORTED_VERSIONS:
             raise ValueError(f"Unsupported V3_LAB_4 version {version!r}; expected one of {self.SUPPORTED_VERSIONS}")
         self._version_value = version
@@ -197,7 +197,7 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
             "eth_c11_override": "H3_B1_DEMARKER(period=60,long_min=0.78,short_max=0.20,layer2=SMC_STRICT_OB,tp=0.018,sl=0.009)",
             "eth_c12_override": "H7_SELL_4H_TREND_ONLY(aroon=40,th=70,layer2=SMC_VETO_OB,sell_4h_filter=close_4h<ema100_4h,tp=0.018,sl=0.009)",
         }
-        if self._version_value in ("4.0.1", "4.1.0"):
+        if self._version_value in ("4.0.1", "4.1.0", "4.1.1"):
             base_dict.update({
                 "btc_c2_override": "H1_SELL_ONLY(buy=OFF,sell=H0_ADX>20,layer2=SMC_VETO_OB,tp=0.012,sl=0.008)",
                 "btc_c4_override": "H1_BUY_ONLY(buy=H0_ADX>23,sell=OFF,layer2=SMC_VETO,tp=0.018,sl=0.009)",
@@ -210,7 +210,7 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
                 "eth_c13_override": "H5_SELL_ONLY_4H_TREND(buy=OFF,sell=CMO(40)_cross_down_-40+close_4h<ema100_4h,layer2=OFF,tp=0.020,sl=0.008)",
                 "btc_c16_override": "H3_VORTEX_RATIO_1_22(vortex=14,ratio=1.22,layer2=OB,tp=0.011,sl=0.009)",
             })
-        if self._version_value == "4.1.0":
+        if self._version_value in ("4.1.0", "4.1.1"):
             base_dict["eth_c14_override"] = "A-R2-05_ATR_SL_ADJUSTMENT(kumo_band=[0.005,0.010),tp=0.020,sl=clamp(1.0*ATR14_1H/Close_1H,0.006,0.012))"
         return canonical_json_sha256(base_dict)
 
@@ -328,11 +328,17 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
         return out
 
     @staticmethod
-    def _apply_r2_4_1_upgrades(signals: list[Any], eth_m15: pd.DataFrame | None) -> list[Any]:
-        """Apply Round 2 V3_LAB_4@4.1.0 upgrades: A-R2-01 (BTC-USDT/C13) and A-R2-05 (ETH-USDT/C14)."""
+    def _apply_r2_4_1_upgrades(
+        signals: list[Any],
+        eth_m15: pd.DataFrame | None,
+        *,
+        apply_btc_c13_be_lock: bool = True,
+        apply_eth_c14_atr_sl: bool = True,
+    ) -> list[Any]:
+        """Apply Round 2 upgrades: A-R2-01 (BTC-USDT/C13) and/or A-R2-05 (ETH-USDT/C14)."""
         kumo_by_ms: dict[int, float] = {}
         atr_pct_by_ms: dict[int, float] = {}
-        if eth_m15 is not None and not eth_m15.empty:
+        if apply_eth_c14_atr_sl and eth_m15 is not None and not eth_m15.empty:
             d1 = resample_ohlcv(ensure_dt(eth_m15), "1h")
             if not d1.empty:
                 h1 = d1["high"].to_numpy(float)
@@ -360,9 +366,9 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
         )
         out: list[Any] = []
         for s in signals:
-            if s.symbol == "BTC-USDT" and int(s.combo_id) == 103:
+            if apply_btc_c13_be_lock and s.symbol == "BTC-USDT" and int(s.combo_id) == 103:
                 out.append(dataclasses.replace(s, exit_policy=btc_c13_ep, exit_policy_hash=btc_c13_ep.get_policy_hash()))
-            elif s.symbol == "ETH-USDT" and int(s.combo_id) == 104:
+            elif apply_eth_c14_atr_sl and s.symbol == "ETH-USDT" and int(s.combo_id) == 104:
                 cms = int(s.signal_close_ms)
                 kp = kumo_by_ms.get(cms, np.nan)
                 if not (np.isfinite(kp) and 0.005 <= kp < 0.010):
@@ -406,14 +412,16 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
 
         kept_base = self._filter_eth_c10_asymmetric(kept_base, eth_m15)
         kept_base = self._filter_4h_sell_downtrend(kept_base, eth_m15, "ETH-USDT", 102)
-        if self._version_value in ("4.0.1", "4.1.0"):
+        if self._version_value in ("4.0.1", "4.1.0", "4.1.1"):
             kept_base = self._filter_batch_a_one_sided(kept_base)
-            if self._version_value == "4.0.1":
+            if self._version_value in ("4.0.1", "4.1.1"):
                 kept_base = self._filter_4h_sell_downtrend(kept_base, btc_m15, "BTC-USDT", 103)
             kept_base = self._filter_4h_sell_downtrend(kept_base, eth_m15, "ETH-USDT", 103)
             kept_base = self._filter_btc_c16_vortex_ratio(kept_base, btc_m15, min_ratio=1.22)
         if self._version_value == "4.1.0":
-            kept_base = self._apply_r2_4_1_upgrades(kept_base, eth_m15)
+            kept_base = self._apply_r2_4_1_upgrades(kept_base, eth_m15, apply_btc_c13_be_lock=True, apply_eth_c14_atr_sl=True)
+        elif self._version_value == "4.1.1":
+            kept_base = self._apply_r2_4_1_upgrades(kept_base, eth_m15, apply_btc_c13_be_lock=False, apply_eth_c14_atr_sl=True)
 
         eth_kwargs = dict(kwargs)
         eth_kwargs["symbols"] = ["ETH-USDT"]

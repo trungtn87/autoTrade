@@ -92,6 +92,7 @@ class StrategyRegistry:
         cls.register(V3Lab4Strategy(version="4.0.0"))
         cls.register(V3Lab4Strategy(version="4.0.1"))
         cls.register(V3Lab4Strategy(version="4.1.0"))
+        cls.register(V3Lab4Strategy(version="4.1.1"))
 
 
 # Initialize defaults
