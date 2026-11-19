@@ -29,9 +29,10 @@ from autotrade_v2.app.strategy.final14_config import case_name, enabled_combos, 
 REGISTRY_V20 = "V3_LIVE_20_POSITIVE_FIXED_V1"
 REGISTRY_V18 = "V3_LIVE_18_H1_V2"
 REGISTRY_20FINAL = "20FINAL"
+REGISTRY_TOP23 = "V3_LAB_4_TOP23"  # lab handoff: L2 calls V3Lab4Top23Strategy directly (l2_top23.py)
 DEFAULT_REGISTRY = REGISTRY_V20
 JSON_REGISTRIES = (REGISTRY_V20, REGISTRY_V18)
-KNOWN_REGISTRIES = (REGISTRY_V20, REGISTRY_V18, REGISTRY_20FINAL)
+KNOWN_REGISTRIES = (REGISTRY_V20, REGISTRY_V18, REGISTRY_20FINAL, REGISTRY_TOP23)
 _PROVENANCE_KEYS = ("baseline_id", "baseline_source", "baseline_registry_sha256", "baseline_signals_sha256",
                     "c1_eth_research_source_sha256", "audit_id", "audit_source", "audit_source_run",
                     "audit_repro_run", "lab_git_sha", "audit_sha256", "audit_signal_spec_hash",
@@ -140,6 +141,22 @@ def _load_json(version: str) -> StrategyRegistry:
                             provenance=prov)
 
 
+def _load_top23() -> StrategyRegistry:
+    """Combo table of V3_LAB_4_TOP23 (23 combos) for L2/L3 lookups; signals come from the lab strategy."""
+    from autotrade_v3.lab.v3_lab_4_loader import load_v3_lab_4_top23_config
+    raw = load_v3_lab_4_top23_config()
+    combos = tuple(
+        ComboSpec(symbol=c["symbol"], combo_id=int(c["combo_id"]), native_timeframe=c["timeframe"],
+                  is_new6=False, entry_variant=str(c.get("execution_version", "")),
+                  entry={}, layer2=str(c.get("layer2", "")), tp_pct=float(c["tp_pct"]),
+                  sl_pct=float(c["sl_pct"]), signal_variant="BASELINE")
+        for c in raw["combos"])
+    if len(combos) != 23 or len({(c.symbol, c.combo_id) for c in combos}) != 23:
+        raise ValueError("V3_LAB_4_TOP23 phải có đúng 23 combo-symbol duy nhất")
+    return StrategyRegistry(version=f"{REGISTRY_TOP23}@1.0.0", combos=combos, new6_signal_mode="virtual_position",
+                            provenance={"source": "autotrade_v3.lab.v3_lab_4_loader (V3_LAB_4_TOP23@1.0.0)"})
+
+
 def _load_20final() -> StrategyRegistry:
     from autotrade_v2.app.strategy.final14_research.layer3_long import NATIVE
     combos = []
@@ -166,7 +183,10 @@ def load_registry(version: str | None = None) -> StrategyRegistry:
     if v not in KNOWN_REGISTRIES:
         raise ValueError(f"V3_STRATEGY_REGISTRY không hợp lệ: {version!r} (chỉ nhận {', '.join(KNOWN_REGISTRIES)})")
     if v not in _CACHE:
-        _CACHE[v] = _load_json(v) if v in JSON_REGISTRIES else _load_20final()
+        if v == REGISTRY_TOP23:
+            _CACHE[v] = _load_top23()
+        else:
+            _CACHE[v] = _load_json(v) if v in JSON_REGISTRIES else _load_20final()
     return _CACHE[v]
 
 

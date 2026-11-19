@@ -27,7 +27,7 @@ V18_WINDOW_BARS = 3_400  # other combos keep the 3400-bar window (20FINAL semant
 from .lab_h1.eth_c1_h1 import (H1_BUY_MAX_SLOPE_4H_PCT, H1_SELL_MIN_DIST_EMA150_4H_PCT, M15_MS,
                               EthC1H1Both1Strategy, compute_eth_c1_l2_features)
 from .store import ms_to_dt
-from .strategy_registry import REGISTRY_20FINAL, StrategyRegistry, load_registry
+from .strategy_registry import REGISTRY_20FINAL, REGISTRY_TOP23, StrategyRegistry, load_registry
 from .strategy_v18 import V18Engine
 
 log = logging.getLogger("autotrade_v3.l2")
@@ -68,9 +68,15 @@ class L2Strategy:
                 # so open positions stay protected and reconciled.
                 self.registry, self.registry_error = None, str(exc)
         self.v18: V18Engine | None = None
+        self.top23 = None  # V3_LAB_4_TOP23: lab strategy called directly (l2_top23.py)
+        self._top23_frames: dict = {}
         self.eth_c1_spec = None
         reg = self.registry
-        if reg is not None and reg.version != REGISTRY_20FINAL:
+        if reg is not None and reg.version.startswith(REGISTRY_TOP23):
+            from .l2_top23 import Top23Engine
+            self.top23 = Top23Engine()
+            eth_c1_h1_enabled = False  # the lab strategy already carries ETH C1 H1_BOTH_1
+        elif reg is not None and reg.version != REGISTRY_20FINAL:
             spec = reg.get(ETH, 1)
             if spec is not None and spec.signal_variant == "H1_BOTH_1":
                 self.eth_c1_spec = spec
@@ -104,6 +110,11 @@ class L2Strategy:
             raise RuntimeError(self.registry_error or "registry chưa nạp được")
         reg = self.registry
         signals: list[V3Signal]
+        if self.top23 is not None:
+            from .l2_top23 import TOP23_WINDOW_BARS
+            sym = str(snapshot.symbol).upper()
+            self._top23_frames[sym] = snapshot.candles.tail(TOP23_WINDOW_BARS)
+            return self.top23.calculate(sym, self._top23_frames)
         if self.v18 is not None:
             signals = [V3Signal(event_id=s.event_id, symbol=s.symbol, combo=s.combo, combo_name=s.combo_name,
                                 side=s.side, timeframe=s.timeframe, close_time=s.close_time, entry=s.entry, tp=s.tp,

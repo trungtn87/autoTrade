@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 import hashlib
 import json
-from typing import Any, Literal
+from typing import Any
 import pandas as pd
 
 from autotrade_v3.engine.signal_engine import Signal
+from autotrade_v3.strategy_core.api import SignalEvent, StrategySpec
+from autotrade_v3.strategy_core.hashing import canonical_json_sha256, compute_spec_hash
 
 
 @dataclass(frozen=True)
@@ -37,7 +39,7 @@ class ExitPolicy:
 
 class BaseStrategy(ABC):
     """Abstract Base Class for all pluggable trading strategies.
-    
+
     Principles:
     - Strategy determines signals; Simulator determines execution; Analyzer determines metrics.
     - Strategy ONLY reads past and present candle data up to decision time (strictly no lookahead).
@@ -50,13 +52,13 @@ class BaseStrategy(ABC):
     @property
     @abstractmethod
     def strategy_id(self) -> str:
-        """Unique identifier of the strategy (e.g. '20FINAL_BASELINE')."""
+        """Unique identifier of the strategy (e.g. '20FINAL_BASELINE' or '20FINAL')."""
         pass
 
     @property
     @abstractmethod
     def version(self) -> str:
-        """Semantic version of the strategy (e.g. '1.0.0')."""
+        """Version of the strategy (e.g. '1' or '1.0.0')."""
         pass
 
     @property
@@ -65,14 +67,21 @@ class BaseStrategy(ABC):
         """List of required timeframes (e.g. ['15m', '1h'])."""
         pass
 
+    def get_signal_spec_hash(self) -> str:
+        """Deterministic SHA256 of strategy_core source + signal-affecting parameters."""
+        return canonical_json_sha256({"strategy_id": self.strategy_id, "version": self.version, "config": self.config})
+
+    def get_exit_spec_hash(self) -> str:
+        """Deterministic SHA256 of exit policies across all combos."""
+        return canonical_json_sha256({"strategy_id": self.strategy_id, "version": self.version, "config": self.config})
+
+    def get_spec_hash(self) -> str:
+        """Combined SHA256 of signal_spec_hash, exit_spec_hash, strategy_id, and version."""
+        return compute_spec_hash(self.get_signal_spec_hash(), self.get_exit_spec_hash(), self.strategy_id, self.version)
+
     def get_config_hash(self) -> str:
-        """Deterministic SHA256 of the strategy configuration."""
-        raw = json.dumps(
-            {"strategy_id": self.strategy_id, "version": self.version, "config": self.config},
-            sort_keys=True,
-            default=str,
-        )
-        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+        """Deterministic SHA256 of the full strategy specification (delegates to get_spec_hash)."""
+        return self.get_spec_hash()
 
     @abstractmethod
     def calculate_indicators(self, data: dict[str, pd.DataFrame]) -> dict[str, Any]:
@@ -105,6 +114,9 @@ class BaseStrategy(ABC):
             "strategy_id": self.strategy_id,
             "version": self.version,
             "required_timeframes": self.required_timeframes,
+            "signal_spec_hash": self.get_signal_spec_hash(),
+            "exit_spec_hash": self.get_exit_spec_hash(),
+            "spec_hash": self.get_spec_hash(),
             "config_hash": self.get_config_hash(),
             "config": self.config,
         }
