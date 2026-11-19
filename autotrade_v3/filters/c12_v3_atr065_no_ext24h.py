@@ -77,25 +77,27 @@ class C12V3Atr065NoExt24hFilter:
         self.ret_24h_max = float(ret_24h_max)
 
     def evaluate(self, ctx: FilterContext) -> FilterDecision:
-        sig = ctx.signal
+        return self.evaluate_signal(ctx.signal)  # type: ignore[attr-defined]
+
+    def evaluate_signal(self, sig) -> tuple[bool, str]:
         if sig.symbol != C12_SYMBOL or int(sig.combo_id) != C12_COMBO_ID:
-            return FilterDecision(allow=True, reason="PASS_NON_C12", filter_name=self.name)
+            return True, "PASS_NON_C12"
 
         if len(self._close_ms) == 0:
-            return FilterDecision(allow=False, reason="BLOCKED_V3_MISSING_1H", filter_name=self.name)
+            return False, "BLOCKED_V3_MISSING_1H"
 
         idx = int(np.searchsorted(self._close_ms, int(sig.signal_close_ms), side="right")) - 1
         if idx < 0:
-            return FilterDecision(allow=False, reason="BLOCKED_V3_WARMUP_1H", filter_name=self.name)
+            return False, "BLOCKED_V3_WARMUP_1H"
 
         atr_val = float(self._atr_pct[idx])
         ret_val = float(self._ret_24h[idx])
         if not (math.isfinite(atr_val) and math.isfinite(ret_val)):
-            return FilterDecision(allow=False, reason="BLOCKED_V3_NONFINITE", filter_name=self.name)
+            return False, "BLOCKED_V3_NONFINITE"
 
         if atr_val < self.atr_pct_min:
-            return FilterDecision(allow=False, reason="BLOCKED_V3_LOW_ATR_1H", filter_name=self.name)
+            return False, "BLOCKED_V3_LOW_ATR_1H"
         if ret_val > self.ret_24h_max:
-            return FilterDecision(allow=False, reason="BLOCKED_V3_EXTENDED_24H", filter_name=self.name)
+            return False, "BLOCKED_V3_EXTENDED_24H"
 
-        return FilterDecision(allow=True, reason="ALLOW_V3_ATR065_NO_EXT24H", filter_name=self.name)
+        return True, "ALLOW_V3_ATR065_NO_EXT24H"

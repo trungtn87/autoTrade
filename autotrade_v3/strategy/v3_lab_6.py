@@ -43,14 +43,12 @@ class V3Lab6Strategy(V3Lab5Strategy):
         symbols: Collection[str] | None = None,
         only_approved: bool = True,
         only_warmup_ready: bool = True,
-        allowed_combos: Collection[tuple[str, int]] | None = None,
     ) -> list[Signal]:
         base_signals = super().generate_signals(
             data,
             symbols=symbols,
             only_approved=only_approved,
             only_warmup_ready=only_warmup_ready,
-            allowed_combos=allowed_combos,
         )
 
         eth_df = data.get(C12_SYMBOL)
@@ -64,15 +62,15 @@ class V3Lab6Strategy(V3Lab5Strategy):
         out: list[Signal] = []
         for sig in base_signals:
             if sig.symbol == C12_SYMBOL and int(sig.combo_id) == C12_COMBO_ID:
-                dec = c12_filter.evaluate(FilterContext(signal=sig))
-                if not dec.allow:
+                allowed, reason = c12_filter.evaluate_signal(sig)
+                if not allowed:
                     if only_approved:
                         continue
                     sig = Signal(
                         **{
                             **sig.__dict__,
                             "approved": False,
-                            "rejection_reason": dec.reason,
+                            "rejection_reason": reason,
                         }
                     )
             out.append(sig)
