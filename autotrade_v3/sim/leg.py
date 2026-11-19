@@ -405,6 +405,126 @@ def _simulate_trailing_leg(
     )
 
 
+def _simulate_breakeven_lock_leg(
+    arrays: M1BarArrays,
+    entry_idx: int,
+    entry_price: float,
+    is_buy: bool,
+    leg_spec: LegSpec,
+    exit_rules: ExitRules,
+    ambiguity_policy: AmbiguityPolicy = "CONSERVATIVE",
+) -> LegOutcome:
+    """Simulate a fixed TP/SL leg with MFE-triggered BREAKEVEN_LOCK."""
+    tp_price = entry_price * (1.0 + exit_rules.tp_pct) if is_buy else entry_price * (1.0 - exit_rules.tp_pct)
+    sl_price = entry_price * (1.0 - exit_rules.sl_pct) if is_buy else entry_price * (1.0 + exit_rules.sl_pct)
+    be_trigger_pct = float(exit_rules.be_trigger_pct or 0.0)
+    be_offset_pct = float(exit_rules.be_offset_pct or 0.0)
+    trigger_px = entry_price * (1.0 + be_trigger_pct) if is_buy else entry_price * (1.0 - be_trigger_pct)
+    be_stop_px = entry_price * (1.0 + be_offset_pct)
+
+    opens = arrays.opens
+    highs = arrays.highs
+    lows = arrays.lows
+    closes = arrays.closes
+    n_bars = arrays.n_bars
+
+    be_armed = False
+    ambiguous = False
+    amb_type = "NONE"
+    exit_price = 0.0
+    exit_reason = ""
+    exit_bar_idx = n_bars - 1
+
+    for i in range(entry_idx, n_bars):
+        if exit_rules.max_bars_held is not None and (i - entry_idx) >= exit_rules.max_bars_held:
+            exit_price = float(opens[i]) if opens is not None else float(closes[i])
+            exit_reason = "MAX_BARS_HELD"
+            exit_bar_idx = i
+            break
+
+        cur_sl = be_stop_px if be_armed else sl_price
+        cur_sl_reason = "BREAKEVEN_STOP" if be_armed else "SL"
+
+        if i > entry_idx and opens is not None:
+            op = float(opens[i])
+            if is_buy:
+                if op <= cur_sl:
+                    exit_price, exit_reason, exit_bar_idx = op, cur_sl_reason, i
+                    break
+                elif op >= tp_price:
+                    exit_price, exit_reason, exit_bar_idx = op, "TP", i
+                    break
+            else:
+                if op >= cur_sl:
+                    exit_price, exit_reason, exit_bar_idx = op, cur_sl_reason, i
+                    break
+                elif op <= tp_price:
+                    exit_price, exit_reason, exit_bar_idx = op, "TP", i
+                    break
+
+        h = float(highs[i])
+        l = float(lows[i])
+        hit_tp = (h >= tp_price) if is_buy else (l <= tp_price)
+        hit_sl = (l <= cur_sl) if is_buy else (h >= cur_sl)
+
+        if hit_tp and hit_sl:
+            bar_op = float(opens[i]) if opens is not None else float(closes[i])
+            bar_cl = float(closes[i])
+            res = resolve_tp_and_sl(
+                policy=ambiguity_policy,
+                is_buy=is_buy,
+                tp_price=tp_price,
+                sl_price=cur_sl,
+                bar_open=bar_op,
+                bar_close=bar_cl,
+            )
+            ambiguous = res.intrabar_ambiguous
+            amb_type = res.ambiguity_type
+            exit_price = res.exit_price
+            exit_reason = cur_sl_reason if res.exit_reason in ("SL", "SL_INTRABAR_AMBIGUOUS") else res.exit_reason
+            exit_bar_idx = i
+            break
+        elif hit_sl:
+            exit_price, exit_reason, exit_bar_idx = cur_sl, cur_sl_reason, i
+            break
+        elif hit_tp:
+            exit_price, exit_reason, exit_bar_idx = tp_price, "TP", i
+            break
+
+        if not be_armed:
+            hit_trig = (h >= trigger_px) if is_buy else (l <= trigger_px)
+            if hit_trig:
+                hit_be_same_bar = (l <= be_stop_px) if is_buy else (h >= be_stop_px)
+                if hit_be_same_bar:
+                    ambiguous = True
+                    amb_type = "BE_TRIGGER_AND_STOP_SAME_BAR"
+                    exit_price = be_stop_px
+                    exit_reason = "BREAKEVEN_STOP"
+                    exit_bar_idx = i
+                    break
+                be_armed = True
+    else:
+        exit_bar_idx = n_bars - 1
+        exit_price = float(closes[exit_bar_idx])
+        exit_reason = "FORCE_CLOSE"
+
+    return LegOutcome(
+        leg_id=leg_spec.leg_id,
+        trade_id=leg_spec.trade_id,
+        leg_type=leg_spec.leg_type,
+        entry_idx=entry_idx,
+        exit_bar_idx=exit_bar_idx,
+        entry_price=entry_price,
+        exit_price=exit_price,
+        exit_reason=exit_reason,
+        bars_held=exit_bar_idx - entry_idx,
+        intrabar_ambiguous=ambiguous,
+        intrabar_trailing_ambiguous=False,
+        ambiguity_type=amb_type,
+        ambiguity_policy=ambiguity_policy,
+    )
+
+
 def simulate_leg(
     bars_m1: pd.DataFrame | M1BarArrays,
     entry_idx: int,
@@ -428,6 +548,16 @@ def simulate_leg(
     is_buy = side.upper() == "BUY"
     if leg_spec.is_trailing:
         return _simulate_trailing_leg(
+            arrays=arrays,
+            entry_idx=entry_idx,
+            entry_price=entry_price,
+            is_buy=is_buy,
+            leg_spec=leg_spec,
+            exit_rules=exit_rules,
+            ambiguity_policy=policy,
+        )
+    if exit_rules.be_trigger_pct is not None:
+        return _simulate_breakeven_lock_leg(
             arrays=arrays,
             entry_idx=entry_idx,
             entry_price=entry_price,

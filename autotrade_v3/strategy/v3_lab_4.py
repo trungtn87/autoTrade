@@ -35,11 +35,11 @@ from autotrade_v3.strategy.base import ExitPolicy
 from autotrade_v3.strategy.baseline_20final import Baseline20FinalStrategy
 from autotrade_v3.strategy_core.api import ComboSpec, StrategySpec
 from autotrade_v3.strategy_core.hashing import canonical_json_sha256, compute_spec_hash
-from autotrade_v3.strategy_core.indicators.indicators import ema
+from autotrade_v3.strategy_core.indicators.indicators import atr, ema
 from autotrade_v3.strategy_core.indicators.signals import ensure_dt, resample_ohlcv
 from autotrade_v3.strategy_core.indicators.smc_structure import smc_direction
 from autotrade_v3.strategy_core.registry import StrategyCoreRegistry
-from autotrade_v3.strategy_core.strategies.final20.logic import _vortex
+from autotrade_v3.strategy_core.strategies.final20.logic import _ichimoku, _vortex
 
 
 def _load_p3_c1_h1_both_1():
@@ -54,8 +54,8 @@ def _load_p3_c1_h1_both_1():
     )
 
 
-def _build_v3_lab_4_core(params_dir: Path | None = None) -> Any:
-    """Build 30-combo Fixed TP/SL core with ETH-USDT/C10 configured for H3_ASYMMETRIC."""
+def _build_v3_lab_4_core(params_dir: Path | None = None, version: str = "4.1.0") -> Any:
+    """Build 30-combo Fixed TP/SL core for V3_LAB_4 (4.0.0 or 4.1.0)."""
     base_core = StrategyCoreRegistry.get("20FINAL_FIXED_V1", "1", params_dir=params_dir)
     base_spec = base_core.spec()
     combos = [copy.deepcopy(c) for c in base_spec.combos]
@@ -107,7 +107,7 @@ def _build_v3_lab_4_core(params_dir: Path | None = None) -> Any:
             self._spec = dataclasses.replace(
                 self._inner.spec(),
                 strategy_id="V3_LAB_4",
-                version="4.0.0",
+                version=version,
                 combos=tuple(new_combos),
             )
             self._inner._spec = self._spec
@@ -135,17 +135,21 @@ def _build_v3_lab_4_core(params_dir: Path | None = None) -> Any:
 
 
 class V3Lab4Strategy(Baseline20FinalStrategy):
-    """V3_LAB_4: 30-combo Fixed TP/SL strategy with 4 finalized upgraded combos."""
+    """V3_LAB_4: 30-combo Fixed TP/SL strategy (4.0.0 frozen baseline; 4.1.0 integrates Round 2 A-R2-01 & A-R2-05)."""
 
     STRATEGY_ID = "V3_LAB_4"
-    VERSION = "4.0.0"
+    VERSION = "4.1.0"
+    SUPPORTED_VERSIONS = ("4.0.0", "4.1.0")
 
-    def __init__(self, params_dir: Path | None = None) -> None:
-        core30 = _build_v3_lab_4_core(params_dir=params_dir)
+    def __init__(self, params_dir: Path | None = None, version: str = "4.1.0") -> None:
+        if version not in self.SUPPORTED_VERSIONS:
+            raise ValueError(f"Unsupported V3_LAB_4 version {version!r}; expected one of {self.SUPPORTED_VERSIONS}")
+        self._version_value = version
+        core30 = _build_v3_lab_4_core(params_dir=params_dir, version=version)
         super().__init__(
             core_strategy=core30,
             strategy_id_override=self.STRATEGY_ID,
-            version_override=self.VERSION,
+            version_override=version,
         )
         self._h1_both_1 = _load_p3_c1_h1_both_1()
 
@@ -164,6 +168,17 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
     def get_exit_policy(self, symbol: str, combo_id: int) -> ExitPolicy:
         if symbol == "ETH-USDT" and int(combo_id) == 1:
             ep = self._h1_both_1.get_exit_policy(symbol, combo_id)
+        elif self._version_value == "4.1.0" and symbol == "BTC-USDT" and int(combo_id) == 103:
+            ep = ExitPolicy(
+                tp_pct=0.02,
+                sl_pct=0.008,
+                split_legs=False,
+                trailing_act_pct=0.0,
+                trailing_cb_pct=0.0,
+                leg_weights=(1.0,),
+                be_trigger_pct=0.012,
+                be_offset_pct=-0.0014,
+            )
         else:
             ep = super().get_exit_policy(symbol, combo_id)
         if ep.split_legs or float(ep.trailing_act_pct) != 0.0:
@@ -171,13 +186,24 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
         return ep
 
     def get_signal_spec_hash(self) -> str:
+        btc_c13_ov = (
+            "A-R2-01_BREAKEVEN_LOCK(buy=OFF,sell=H0_CMO40,layer2=OFF,tp=0.020,sl=0.008,be_trigger=0.012,be_offset=-0.0014)"
+            if self._version_value == "4.1.0"
+            else "H4_SELL_ONLY_4H_TREND(buy=OFF,sell=CMO(40)_cross_down_-40+close_4h<ema100_4h,layer2=OFF,tp=0.020,sl=0.008)"
+        )
+        eth_c14_ov = (
+            "A-R2-05_ATR_SL_ADJUSTMENT(kumo_band=[0.005,0.010),tp=0.020,sl=clamp(1.0*ATR14_1H/Close_1H,0.006,0.012))"
+            if self._version_value == "4.1.0"
+            else "H0(20FINAL_FIXED_V1@1)"
+        )
         return canonical_json_sha256(
             {
                 "base_strategy": "20FINAL_FIXED_V1@1+CLONED_30",
                 "strategy_id": self.STRATEGY_ID,
-                "version": self.VERSION,
+                "version": self._version_value,
                 "eth_c1_override": "H1_BOTH_1(buy_max_slope_4h_pct=1.5,sell_cci9<-80,sell_min_dist_ema150_4h_pct=-6.0,pre_edge_h1=True)",
                 "btc_c14_override": "BTC-USDT_C14_H3a_KUMO_BAND_V1(0.005<=abs(span_a-span_b)/close<0.010,locked=True)",
+                "eth_c14_override": eth_c14_ov,
                 "eth_c15_override": "H3_ASYMMETRIC(buy_dist_kama_atr<=2.0,sell_post_tp_cooldown_60m)",
                 "eth_c10_override": "H3_ASYMMETRIC(adx>28,buy=SMC_VETO,sell=SMC_STRICT,tp=0.018,sl=0.009)",
                 "eth_c11_override": "H3_B1_DEMARKER(period=60,long_min=0.78,short_max=0.20,layer2=SMC_STRICT_OB,tp=0.018,sl=0.009)",
@@ -185,7 +211,7 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
                 "btc_c2_override": "H1_SELL_ONLY(buy=OFF,sell=H0_ADX>20,layer2=SMC_VETO_OB,tp=0.012,sl=0.008)",
                 "btc_c4_override": "H1_BUY_ONLY(buy=H0_ADX>23,sell=OFF,layer2=SMC_VETO,tp=0.018,sl=0.009)",
                 "btc_c7_override": "H1_BUY_ONLY(buy=H0_BODY1.6_VOL2.0,sell=OFF,layer2=OFF,tp=0.020,sl=0.008)",
-                "btc_c13_override": "H4_SELL_ONLY_4H_TREND(buy=OFF,sell=CMO(40)_cross_down_-40+close_4h<ema100_4h,layer2=OFF,tp=0.020,sl=0.008)",
+                "btc_c13_override": btc_c13_ov,
                 "eth_c13_override": "H5_SELL_ONLY_4H_TREND(buy=OFF,sell=CMO(40)_cross_down_-40+close_4h<ema100_4h,layer2=OFF,tp=0.020,sl=0.008)",
                 "btc_c16_override": "H3_VORTEX_RATIO_1_22(vortex=14,ratio=1.22,layer2=OB,tp=0.011,sl=0.009)",
             }
@@ -299,6 +325,61 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
             out.append(s)
         return out
 
+    @staticmethod
+    def _apply_r2_4_1_upgrades(signals: list[Any], eth_m15: pd.DataFrame | None) -> list[Any]:
+        """Apply Round 2 V3_LAB_4@4.1.0 upgrades: A-R2-01 (BTC-USDT/C13) and A-R2-05 (ETH-USDT/C14)."""
+        kumo_by_ms: dict[int, float] = {}
+        atr_pct_by_ms: dict[int, float] = {}
+        if eth_m15 is not None and not eth_m15.empty:
+            d1 = resample_ohlcv(ensure_dt(eth_m15), "1h")
+            if not d1.empty:
+                h1 = d1["high"].to_numpy(float)
+                l1 = d1["low"].to_numpy(float)
+                c1 = d1["close"].to_numpy(float)
+                _, _, span_a, span_b = _ichimoku(h1, l1, 12, 30, 60)
+                a14 = atr(d1, 14).to_numpy(float)
+                d1_close_ms = datetime_index_to_ms(d1.index) + 3_600_000 - 1
+                for i in range(len(d1)):
+                    cms = int(d1_close_ms[i])
+                    if np.isfinite(span_a[i]) and np.isfinite(span_b[i]) and c1[i] > 0:
+                        kumo_by_ms[cms] = float(abs(span_a[i] - span_b[i]) / c1[i])
+                    if np.isfinite(a14[i]) and c1[i] > 0:
+                        atr_pct_by_ms[cms] = float(a14[i] / c1[i])
+
+        btc_c13_ep = ExitPolicy(
+            tp_pct=0.02,
+            sl_pct=0.008,
+            split_legs=False,
+            trailing_act_pct=0.0,
+            trailing_cb_pct=0.0,
+            leg_weights=(1.0,),
+            be_trigger_pct=0.012,
+            be_offset_pct=-0.0014,
+        )
+        out: list[Any] = []
+        for s in signals:
+            if s.symbol == "BTC-USDT" and int(s.combo_id) == 103:
+                out.append(dataclasses.replace(s, exit_policy=btc_c13_ep, exit_policy_hash=btc_c13_ep.get_policy_hash()))
+            elif s.symbol == "ETH-USDT" and int(s.combo_id) == 104:
+                cms = int(s.signal_close_ms)
+                kp = kumo_by_ms.get(cms, np.nan)
+                if not (np.isfinite(kp) and 0.005 <= kp < 0.010):
+                    continue
+                ap = atr_pct_by_ms.get(cms, 0.009)
+                sl_pct = max(0.006, min(0.012, 1.0 * float(ap)))
+                ep = ExitPolicy(
+                    tp_pct=0.02,
+                    sl_pct=sl_pct,
+                    split_legs=False,
+                    trailing_act_pct=0.0,
+                    trailing_cb_pct=0.0,
+                    leg_weights=(1.0,),
+                )
+                out.append(dataclasses.replace(s, sl_pct=sl_pct, exit_policy=ep, exit_policy_hash=ep.get_policy_hash()))
+            else:
+                out.append(s)
+        return out
+
     def generate_signals(
         self,
         df_m15_by_symbol: dict[str, pd.DataFrame],
@@ -324,9 +405,12 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
         kept_base = self._filter_eth_c10_asymmetric(kept_base, eth_m15)
         kept_base = self._filter_4h_sell_downtrend(kept_base, eth_m15, "ETH-USDT", 102)
         kept_base = self._filter_batch_a_one_sided(kept_base)
-        kept_base = self._filter_4h_sell_downtrend(kept_base, btc_m15, "BTC-USDT", 103)
+        if self._version_value == "4.0.0":
+            kept_base = self._filter_4h_sell_downtrend(kept_base, btc_m15, "BTC-USDT", 103)
         kept_base = self._filter_4h_sell_downtrend(kept_base, eth_m15, "ETH-USDT", 103)
         kept_base = self._filter_btc_c16_vortex_ratio(kept_base, btc_m15, min_ratio=1.22)
+        if self._version_value == "4.1.0":
+            kept_base = self._apply_r2_4_1_upgrades(kept_base, eth_m15)
 
         eth_kwargs = dict(kwargs)
         eth_kwargs["symbols"] = ["ETH-USDT"]

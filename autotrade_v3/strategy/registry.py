@@ -89,7 +89,8 @@ class StrategyRegistry:
 
         cls.register(Baseline20FinalStrategy())
         cls.register(V3Lab2Strategy())
-        cls.register(V3Lab4Strategy())
+        cls.register(V3Lab4Strategy(version="4.0.0"))
+        cls.register(V3Lab4Strategy(version="4.1.0"))
 
 
 # Initialize defaults

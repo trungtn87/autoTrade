@@ -112,6 +112,8 @@ def _build_exit_rules(policy: ExitPolicy) -> ExitRules:
         trailing_cb_pct=policy.trailing_cb_pct,
         max_bars_held=policy.max_bars_held,
         exit_policy_hash=policy.get_policy_hash(),
+        be_trigger_pct=policy.be_trigger_pct,
+        be_offset_pct=policy.be_offset_pct,
     )
 
 

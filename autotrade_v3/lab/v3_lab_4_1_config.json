@@ -1,0 +1,1338 @@
+{
+  "config_id": "V3_LAB_4",
+  "version": "4.1.0",
+  "inherits_from": "V3_LAB_4@4.0.0",
+  "live_eligible": false,
+  "top20_live_modified": false,
+  "purpose": "V3_LAB_4 30-combo research standard with Round 2 audited integrations: BTC-USDT/C13 (A-R2-01 BREAKEVEN_LOCK) and ETH-USDT/C14 (A-R2-05 ATR_SL_ADJUSTMENT)",
+  "base_strategy": "20FINAL_FIXED_V1@1",
+  "total_combos": 30,
+  "upgraded_combos": {
+    "ETH-USDT/C1": "H1_BOTH_1",
+    "BTC-USDT/C14": "BTC-USDT_C14_H3a_KUMO_BAND_V1",
+    "ETH-USDT/C15": "H3_ASYMMETRIC",
+    "ETH-USDT/C10": "H3_ASYMMETRIC",
+    "ETH-USDT/C11": "H3_B1_DEMARKER",
+    "ETH-USDT/C12": "H7_SELL_4H_TREND_ONLY",
+    "BTC-USDT/C2": "H1_SELL_ONLY",
+    "BTC-USDT/C4": "H1_BUY_ONLY",
+    "BTC-USDT/C7": "H1_BUY_ONLY",
+    "BTC-USDT/C13": "A-R2-01_BREAKEVEN_LOCK",
+    "ETH-USDT/C13": "H5_SELL_ONLY_4H_TREND",
+    "BTC-USDT/C16": "H3_VORTEX_RATIO_1_22",
+    "ETH-USDT/C14": "A-R2-05_ATR_SL_ADJUSTMENT"
+  },
+  "btc_c10_policy": {
+    "version": "H0",
+    "adx_threshold": 22.0,
+    "layer2": "SMC_VETO",
+    "tp_pct": 0.01,
+    "sl_pct": 0.008,
+    "trailing_enabled": false,
+    "note": "H1A/H1B rejected in Round 1; keep H0 unchanged"
+  },
+  "eth_c10_policy": {
+    "version": "H3_ASYMMETRIC",
+    "research_status": "RESEARCH_ACCEPTED",
+    "sample_size": "23 trades / 3 years",
+    "live_eligible": false,
+    "note": "Sample size 23 < 30 threshold; not eligible for Top 20 Live promotion yet"
+  },
+  "exit_policy_global": {
+    "mode": "FIXED_TP_SL",
+    "trailing_enabled": false,
+    "split_legs": false,
+    "auto_breakeven": false
+  },
+  "overrides": {
+    "ETH-USDT/C1": {
+      "execution_version": "H1_BOTH_1",
+      "buy_max_slope_4h_pct": 1.5,
+      "sell_cci9_lt": -80,
+      "sell_min_dist_ema150_4h_pct": -6.0,
+      "pre_edge_h1": true,
+      "tp_pct": 0.02,
+      "sl_pct": 0.006666666666666667,
+      "source": "scripts/p3_c1_research_strategy.py"
+    },
+    "BTC-USDT/C14": {
+      "execution_version": "BTC-USDT_C14_H3a_KUMO_BAND_V1",
+      "ichimoku_1h": [
+        12,
+        30,
+        60
+      ],
+      "entry": "tkcross_12_30_60",
+      "layer2": "OB",
+      "kumo_filter": "0.005 <= abs(SpanA - SpanB) / Close < 0.010",
+      "parameter_policy": "LOCKED",
+      "tp_pct": 0.02,
+      "sl_pct": 0.006666666666666667,
+      "trailing_enabled": false,
+      "source": "autotrade_v3/filters/c14_h3a_kumo_band.py",
+      "candidate_spec": {
+        "candidate_id": "BTC-USDT_C14_H3a_KUMO_BAND_V1",
+        "candidate_version": 1,
+        "candidate_status": "OWNER_APPROVED_RESEARCH_CANDIDATE",
+        "is_default_research_candidate": true,
+        "live_eligible": false,
+        "approved_date": "2026-11-18",
+        "scope": {
+          "symbol": "BTC-USDT",
+          "combo_id": 104,
+          "combo_name": "C14",
+          "original_strategy_id": "20FINAL_FIXED_V1@1",
+          "other_combos": "UNCHANGED"
+        },
+        "original_strategy": {
+          "native_timeframe": "1h",
+          "indicator": "Ichimoku",
+          "parameters": {
+            "tenkan_period": 12,
+            "kijun_period": 30,
+            "senkou_b_period": 60
+          },
+          "layer2": "OB",
+          "exit_policy": {
+            "type": "FIXED_TP_SL",
+            "take_profit_pct": 0.02,
+            "stop_loss_pct": 0.006666666666666667,
+            "split_legs": false,
+            "leg_weights": [
+              1.0
+            ],
+            "trailing_enabled": false
+          }
+        },
+        "filter": {
+          "name": "Ichimoku Kumo Thickness Band",
+          "filter_stage": "C14_SIGNAL_ADMISSION_ONLY",
+          "expression": "0.005 <= abs(span_a - span_b) / close < 0.010",
+          "min_inclusive": 0.005,
+          "max_exclusive": 0.01,
+          "parameter_policy": "LOCKED"
+        },
+        "evidence_spec_path": "reports/v3-c14-loo-h2/candidates/BTC_C14_H3A_STANDARD_CANDIDATE.json"
+      }
+    },
+    "ETH-USDT/C15": {
+      "execution_version": "H3_ASYMMETRIC",
+      "buy": {
+        "dist_kama_atr_lte": 2.0
+      },
+      "sell": {
+        "post_tp_cooldown_minutes": 60
+      },
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "research_status": "RESEARCH_ACCEPTED",
+      "source": "scripts/run_v3_lab_2_eth_c15_h3_asymmetric.py"
+    },
+    "ETH-USDT/C10": {
+      "execution_version": "H3_ASYMMETRIC",
+      "adx_threshold": 28.0,
+      "buy_layer2": "SMC_VETO",
+      "sell_layer2": "SMC_STRICT",
+      "entry_logic": "C10 original (AO, Squeeze, Z, Trend100, Bull/Bear Pinbar)",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "research_status": "RESEARCH_ACCEPTED",
+      "sample_size": "23 trades / 3 years",
+      "live_eligible": false,
+      "live_ineligible_reason": "Below 30-trade verification threshold (23 < 30)",
+      "reference_script": "scripts/run_v3_lab_2_eth_c10_h3_asymmetric.py",
+      "reference_zip": "exports/V3_LAB_2_ETH_C10_H3_ASYMMETRIC.zip",
+      "source": "autotrade_v3/strategy/v3_lab_4.py"
+    },
+    "ETH-USDT/C11": {
+      "execution_version": "H3_B1_DEMARKER",
+      "combo_id": 101,
+      "timeframe": "1h",
+      "entry": {
+        "indicator": "DeMarker",
+        "period": 60,
+        "long_min": 0.78,
+        "short_max": 0.2
+      },
+      "layer2": "SMC_STRICT_OB",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "owner_approved_for_lab": true,
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "live_ineligible_reason": "Lab research configuration only; not approved for Live; historical backtest only (out-of-sample not yet independently proven)",
+      "baseline_h0": {
+        "trades_base": 461,
+        "trades_stress": 467,
+        "own_net_pnl_base": 10.3875,
+        "own_net_pnl_stress": -17.8424,
+        "closed_max_dd_base": 23.1114
+      },
+      "upgraded_b1": {
+        "trades_base": 242,
+        "buy_base": 92,
+        "sell_base": 150,
+        "own_net_pnl_base": 33.9645,
+        "pf_base": 1.2413,
+        "closed_max_dd_base": 12.0053,
+        "trades_stress": 245,
+        "buy_stress": 93,
+        "sell_stress": 152,
+        "own_net_pnl_stress": 18.1548,
+        "pf_stress": 1.1209,
+        "closed_max_dd_stress": 13.8087
+      },
+      "provenance": {
+        "branch": "lab/v3-lab-4-eth-c11-r1",
+        "round2_commit": "1d5bf09",
+        "round1_zip": "exports/V3_LAB_4_ETH_C11_ROUND1.zip",
+        "round2_zip": "exports/V3_LAB_4_ETH_C11_ROUND2.zip",
+        "round2_report": "runs/lab/v3_lab_4/eth_c11_round2/ETH_C11_R2_REPORT.md",
+        "round2_scripts": [
+          "scripts/run_v3_lab_4_eth_c11_round2.py",
+          "scripts/run_v3_lab_4_eth_c11_round2_buy.py"
+        ]
+      },
+      "source": "autotrade_v3/strategy/v3_lab_4.py"
+    },
+    "ETH-USDT/C12": {
+      "execution_version": "H7_SELL_4H_TREND_ONLY",
+      "combo_id": 102,
+      "timeframe": "1h",
+      "entry": {
+        "indicator": "Aroon",
+        "period": 40,
+        "threshold": 70.0,
+        "buy": "aroon_up cross_up aroon_down and aroon_up >= 70",
+        "sell": "aroon_down cross_up aroon_up and aroon_down >= 70 and closed_4h_close < closed_4h_ema100"
+      },
+      "layer2": "SMC_VETO_OB",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "owner_approved_for_lab": true,
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "live_ineligible_reason": "Lab research configuration only; not approved for Live; historical backtest only (out-of-sample not yet independently proven)",
+      "baseline_h0": {
+        "trades_base": 452,
+        "trades_stress": 452,
+        "own_net_pnl_base": 19.544,
+        "own_net_pnl_stress": -2.1252,
+        "closed_max_dd_base": 17.4038
+      },
+      "upgraded_h7": {
+        "trades_base": 366,
+        "buy_base": 243,
+        "sell_base": 123,
+        "own_net_pnl_base": 34.368,
+        "pf_base": 1.1568,
+        "closed_max_dd_base": 13.9818,
+        "trades_stress": 366,
+        "buy_stress": 243,
+        "sell_stress": 123,
+        "own_net_pnl_stress": 15.2814,
+        "pf_stress": 1.0668,
+        "closed_max_dd_stress": 18.4619
+      },
+      "provenance": {
+        "branch": "lab/v3-lab-4-eth-c11-r1",
+        "round1_2_zip": "exports/V3_LAB_4_ETH_C12_RESEARCH.zip",
+        "round3_zip": "exports/V3_LAB_4_ETH_C12_ROUND3.zip",
+        "final_evidence_zip": "exports/V3_LAB_4_ETH_C12_H7_FINAL_EVIDENCE.zip",
+        "round3_report": "runs/lab/v3_lab_4/eth_c12_round3/ETH_C12_R3_REPORT.md",
+        "final_verdict": "runs/lab/v3_lab_4/eth_c12_h7_final_verification/ETH_C12_H7_FINAL_VERDICT.md"
+      },
+      "source": "autotrade_v3/strategy/v3_lab_4.py"
+    },
+    "BTC-USDT/C2": {
+      "execution_version": "H1_SELL_ONLY",
+      "buy": "OFF",
+      "sell": {
+        "adx_gt": 20,
+        "layer2": "SMC_VETO_OB"
+      },
+      "tp_pct": 0.012,
+      "sl_pct": 0.008,
+      "sample_size": "36 trades BASE / 36 trades STRESS (3 years, LOW_SAMPLE)",
+      "risk_note": "LOW_SAMPLE: 36 trades BASE < 60; historical backtest only",
+      "source": "runs/lab/v3_lab_4/batch_a_6/ & exports/V3_LAB_4_BATCH_A_FINAL_CLOSEOUT.zip"
+    },
+    "BTC-USDT/C4": {
+      "execution_version": "H1_BUY_ONLY",
+      "buy": {
+        "adx_gt": 23,
+        "layer2": "SMC_VETO"
+      },
+      "sell": "OFF",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "sample_size": "127 trades BASE / 127 trades STRESS (3 years)",
+      "risk_note": "One-sided BUY_ONLY; historical backtest only",
+      "source": "runs/lab/v3_lab_4/batch_a_6/ & exports/V3_LAB_4_BATCH_A_FINAL_CLOSEOUT.zip"
+    },
+    "BTC-USDT/C7": {
+      "execution_version": "H1_BUY_ONLY",
+      "buy": {
+        "body_atr": 1.6,
+        "volume_mult": 2.0,
+        "layer2": "OFF"
+      },
+      "sell": "OFF",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "sample_size": "112 trades BASE / 113 trades STRESS (3 years)",
+      "risk_note": "H5 (SELL_BODY_ATR_1_8) retained as backup in Batch A archive",
+      "source": "runs/lab/v3_lab_4/batch_a_6/ & exports/V3_LAB_4_BATCH_A_FINAL_CLOSEOUT.zip"
+    },
+    "BTC-USDT/C13": {
+      "execution_version": "A-R2-01_BREAKEVEN_LOCK",
+      "base_foundation": "A1.1_BTC_C13_SELL_ONLY",
+      "allowed_sides": [
+        "SELL"
+      ],
+      "entry": "CMO(40)_cross_down_-40 (H0)",
+      "layer2": "OFF",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "be_trigger_pct": 0.012,
+      "be_offset_pct": -0.0014,
+      "trailing_enabled": false,
+      "audit_status": "AUDIT_VERIFIED_RESEARCH_CANDIDATE",
+      "live_eligible": false,
+      "source": "autotrade_v3/strategy/v3_lab_4.py + autotrade_v3/sim/leg.py",
+      "audit_evidence": "runs/lab/v3_lab_4/final_evidence_audit_20261119_085000",
+      "audited_metrics_otpc": {
+        "base_trades": 109,
+        "ideal_net_usd": 11.2511,
+        "base_net_usd": 11.8564,
+        "stress_net_usd": 4.8485
+      }
+    },
+    "ETH-USDT/C13": {
+      "execution_version": "H5_SELL_ONLY_4H_TREND",
+      "buy": "OFF",
+      "sell": {
+        "indicator": "CMO",
+        "period": 40,
+        "cross_down": -40.0,
+        "trend_4h": "close_4h < ema100_4h",
+        "layer2": "OFF"
+      },
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "sample_size": "117 trades BASE / 117 trades STRESS (3 years)",
+      "risk_note": "STRESS standalone +.8655 (thin margin); chosen for portfolio STRESS risk reduction",
+      "source": "runs/lab/v3_lab_4/batch_a_round4/ & exports/V3_LAB_4_BATCH_A_FINAL_CLOSEOUT.zip"
+    },
+    "BTC-USDT/C16": {
+      "execution_version": "H3_VORTEX_RATIO_1_22",
+      "entry": {
+        "indicator": "Vortex",
+        "period": 14,
+        "ratio": 1.22,
+        "both_sides": true
+      },
+      "layer2": "OB",
+      "tp_pct": 0.011,
+      "sl_pct": 0.009,
+      "sample_size": "120 trades BASE / 120 trades STRESS (3 years)",
+      "risk_note": "Parameter sensitivity (1.20 vs 1.22 vs 1.25) and 2024 profit concentration",
+      "source": "runs/lab/v3_lab_4/batch_a_round4/ & exports/V3_LAB_4_BATCH_A_FINAL_CLOSEOUT.zip"
+    },
+    "ETH-USDT/C14": {
+      "execution_version": "A-R2-05_ATR_SL_ADJUSTMENT",
+      "base_foundation": "A3.1_ETH_C14_KUMO_BAND_BOTH",
+      "allowed_sides": [
+        "BUY",
+        "SELL"
+      ],
+      "ichimoku_1h": [
+        12,
+        30,
+        60
+      ],
+      "kumo_filter": "0.005 <= abs(SpanA - SpanB) / Close < 0.010",
+      "tp_pct": 0.02,
+      "sl_mode": "ATR14_1H_CLAMPED",
+      "atr_period": 14,
+      "atr_timeframe": "1h",
+      "atr_mult": 1.0,
+      "sl_min_pct": 0.006,
+      "sl_max_pct": 0.012,
+      "sl_fallback_pct": 0.009,
+      "trailing_enabled": false,
+      "audit_status": "AUDIT_VERIFIED_BUT_FRAGILE",
+      "live_eligible": false,
+      "fragility_warning": "HOLDOUT_6M (-4.3393 BASE) and Ex-Top2 (-0.9697 BASE) negative; not LIVE_READY.",
+      "source": "autotrade_v3/strategy/v3_lab_4.py + autotrade_v3/filters/c14_h3a_kumo_band.py",
+      "audit_evidence": "runs/lab/v3_lab_4/final_evidence_audit_20261119_085000",
+      "audited_metrics_otpc": {
+        "base_trades": 66,
+        "ideal_net_usd": 7.501,
+        "base_net_usd": 5.3887,
+        "stress_net_usd": 3.4125
+      }
+    }
+  },
+  "combos": [
+    {
+      "order": 1,
+      "symbol": "BTC-USDT",
+      "combo_id": 1,
+      "combo_name": "C1",
+      "combo_key": "BTC-USDT/C1",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_STRICT",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 2,
+      "symbol": "BTC-USDT",
+      "combo_id": 2,
+      "combo_name": "C2",
+      "combo_key": "BTC-USDT/C2",
+      "timeframe": "1h",
+      "execution_version": "H1_SELL_ONLY",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.012,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_VETO_OB",
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "override_details": {
+        "execution_version": "H1_SELL_ONLY",
+        "buy": "OFF",
+        "sell": {
+          "adx_gt": 20,
+          "layer2": "SMC_VETO_OB"
+        },
+        "tp_pct": 0.012,
+        "sl_pct": 0.008,
+        "sample_size": "36 trades BASE / 36 trades STRESS (3 years, LOW_SAMPLE)",
+        "risk_note": "LOW_SAMPLE: 36 trades BASE < 60; historical backtest only",
+        "source": "runs/lab/v3_lab_4/batch_a_6/ & exports/V3_LAB_4_BATCH_A_FINAL_CLOSEOUT.zip"
+      }
+    },
+    {
+      "order": 3,
+      "symbol": "BTC-USDT",
+      "combo_id": 4,
+      "combo_name": "C4",
+      "combo_key": "BTC-USDT/C4",
+      "timeframe": "1h",
+      "execution_version": "H1_BUY_ONLY",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_VETO",
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "override_details": {
+        "execution_version": "H1_BUY_ONLY",
+        "buy": {
+          "adx_gt": 23,
+          "layer2": "SMC_VETO"
+        },
+        "sell": "OFF",
+        "tp_pct": 0.018,
+        "sl_pct": 0.009,
+        "sample_size": "127 trades BASE / 127 trades STRESS (3 years)",
+        "risk_note": "One-sided BUY_ONLY; historical backtest only",
+        "source": "runs/lab/v3_lab_4/batch_a_6/ & exports/V3_LAB_4_BATCH_A_FINAL_CLOSEOUT.zip"
+      }
+    },
+    {
+      "order": 4,
+      "symbol": "BTC-USDT",
+      "combo_id": 6,
+      "combo_name": "C6",
+      "combo_key": "BTC-USDT/C6",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.00666667,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_VETO_OB",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 5,
+      "symbol": "BTC-USDT",
+      "combo_id": 7,
+      "combo_name": "C7",
+      "combo_key": "BTC-USDT/C7",
+      "timeframe": "15m",
+      "execution_version": "H1_BUY_ONLY",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "OFF",
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "override_details": {
+        "execution_version": "H1_BUY_ONLY",
+        "buy": {
+          "body_atr": 1.6,
+          "volume_mult": 2.0,
+          "layer2": "OFF"
+        },
+        "sell": "OFF",
+        "tp_pct": 0.02,
+        "sl_pct": 0.008,
+        "sample_size": "112 trades BASE / 113 trades STRESS (3 years)",
+        "risk_note": "H5 (SELL_BODY_ATR_1_8) retained as backup in Batch A archive",
+        "source": "runs/lab/v3_lab_4/batch_a_6/ & exports/V3_LAB_4_BATCH_A_FINAL_CLOSEOUT.zip"
+      }
+    },
+    {
+      "order": 6,
+      "symbol": "BTC-USDT",
+      "combo_id": 9,
+      "combo_name": "C9",
+      "combo_key": "BTC-USDT/C9",
+      "timeframe": "15m",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.01,
+      "sl_pct": 0.004,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_VETO",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 7,
+      "symbol": "BTC-USDT",
+      "combo_id": 10,
+      "combo_name": "C10",
+      "combo_key": "BTC-USDT/C10",
+      "timeframe": "15m",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.01,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_VETO",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 8,
+      "symbol": "BTC-USDT",
+      "combo_id": 11,
+      "combo_name": "TIER",
+      "combo_key": "BTC-USDT/TIER",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "OFF",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 9,
+      "symbol": "BTC-USDT",
+      "combo_id": 101,
+      "combo_name": "C11",
+      "combo_key": "BTC-USDT/C11",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_STRICT_OB",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 10,
+      "symbol": "BTC-USDT",
+      "combo_id": 104,
+      "combo_name": "C14",
+      "combo_key": "BTC-USDT/C14",
+      "timeframe": "1h",
+      "execution_version": "BTC-USDT_C14_H3a_KUMO_BAND_V1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.006666666666666667,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "OB",
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": null,
+      "override_details": {
+        "execution_version": "BTC-USDT_C14_H3a_KUMO_BAND_V1",
+        "ichimoku_1h": [
+          12,
+          30,
+          60
+        ],
+        "entry": "tkcross_12_30_60",
+        "layer2": "OB",
+        "kumo_filter": "0.005 <= abs(SpanA - SpanB) / Close < 0.010",
+        "parameter_policy": "LOCKED",
+        "tp_pct": 0.02,
+        "sl_pct": 0.006666666666666667,
+        "trailing_enabled": false,
+        "source": "autotrade_v3/filters/c14_h3a_kumo_band.py",
+        "candidate_spec": {
+          "candidate_id": "BTC-USDT_C14_H3a_KUMO_BAND_V1",
+          "candidate_version": 1,
+          "candidate_status": "OWNER_APPROVED_RESEARCH_CANDIDATE",
+          "is_default_research_candidate": true,
+          "live_eligible": false,
+          "approved_date": "2026-11-18",
+          "scope": {
+            "symbol": "BTC-USDT",
+            "combo_id": 104,
+            "combo_name": "C14",
+            "original_strategy_id": "20FINAL_FIXED_V1@1",
+            "other_combos": "UNCHANGED"
+          },
+          "original_strategy": {
+            "native_timeframe": "1h",
+            "indicator": "Ichimoku",
+            "parameters": {
+              "tenkan_period": 12,
+              "kijun_period": 30,
+              "senkou_b_period": 60
+            },
+            "layer2": "OB",
+            "exit_policy": {
+              "type": "FIXED_TP_SL",
+              "take_profit_pct": 0.02,
+              "stop_loss_pct": 0.006666666666666667,
+              "split_legs": false,
+              "leg_weights": [
+                1.0
+              ],
+              "trailing_enabled": false
+            }
+          },
+          "filter": {
+            "name": "Ichimoku Kumo Thickness Band",
+            "filter_stage": "C14_SIGNAL_ADMISSION_ONLY",
+            "expression": "0.005 <= abs(span_a - span_b) / close < 0.010",
+            "min_inclusive": 0.005,
+            "max_exclusive": 0.01,
+            "parameter_policy": "LOCKED"
+          },
+          "evidence_spec_path": "reports/v3-c14-loo-h2/candidates/BTC_C14_H3A_STANDARD_CANDIDATE.json"
+        }
+      }
+    },
+    {
+      "order": 11,
+      "symbol": "BTC-USDT",
+      "combo_id": 106,
+      "combo_name": "C16",
+      "combo_key": "BTC-USDT/C16",
+      "timeframe": "1h",
+      "execution_version": "H3_VORTEX_RATIO_1_22",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.011,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "OB",
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "override_details": {
+        "execution_version": "H3_VORTEX_RATIO_1_22",
+        "entry": {
+          "indicator": "Vortex",
+          "period": 14,
+          "ratio": 1.22,
+          "both_sides": true
+        },
+        "layer2": "OB",
+        "tp_pct": 0.011,
+        "sl_pct": 0.009,
+        "sample_size": "120 trades BASE / 120 trades STRESS (3 years)",
+        "risk_note": "Parameter sensitivity (1.20 vs 1.22 vs 1.25) and 2024 profit concentration",
+        "source": "runs/lab/v3_lab_4/batch_a_round4/ & exports/V3_LAB_4_BATCH_A_FINAL_CLOSEOUT.zip"
+      }
+    },
+    {
+      "order": 12,
+      "symbol": "ETH-USDT",
+      "combo_id": 1,
+      "combo_name": "C1",
+      "combo_key": "ETH-USDT/C1",
+      "timeframe": "1h",
+      "execution_version": "H1_BOTH_1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.00666667,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_VETO",
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": null,
+      "override_details": {
+        "execution_version": "H1_BOTH_1",
+        "buy_max_slope_4h_pct": 1.5,
+        "sell_cci9_lt": -80,
+        "sell_min_dist_ema150_4h_pct": -6.0,
+        "pre_edge_h1": true,
+        "tp_pct": 0.02,
+        "sl_pct": 0.006666666666666667,
+        "source": "scripts/p3_c1_research_strategy.py"
+      }
+    },
+    {
+      "order": 13,
+      "symbol": "ETH-USDT",
+      "combo_id": 3,
+      "combo_name": "C3",
+      "combo_key": "ETH-USDT/C3",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.006,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_STRICT",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 14,
+      "symbol": "ETH-USDT",
+      "combo_id": 4,
+      "combo_name": "C4",
+      "combo_key": "ETH-USDT/C4",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_VETO",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 15,
+      "symbol": "ETH-USDT",
+      "combo_id": 6,
+      "combo_name": "C6",
+      "combo_key": "ETH-USDT/C6",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.00666667,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_VETO",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 16,
+      "symbol": "ETH-USDT",
+      "combo_id": 7,
+      "combo_name": "C7",
+      "combo_key": "ETH-USDT/C7",
+      "timeframe": "15m",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "OB",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 17,
+      "symbol": "ETH-USDT",
+      "combo_id": 10,
+      "combo_name": "C10",
+      "combo_key": "ETH-USDT/C10",
+      "timeframe": "15m",
+      "execution_version": "H3_ASYMMETRIC",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "BUY=SMC_VETO/SELL=SMC_STRICT",
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "override_details": {
+        "execution_version": "H3_ASYMMETRIC",
+        "adx_threshold": 28.0,
+        "buy_layer2": "SMC_VETO",
+        "sell_layer2": "SMC_STRICT",
+        "entry_logic": "C10 original (AO, Squeeze, Z, Trend100, Bull/Bear Pinbar)",
+        "tp_pct": 0.018,
+        "sl_pct": 0.009,
+        "trailing_enabled": false,
+        "research_status": "RESEARCH_ACCEPTED",
+        "sample_size": "23 trades / 3 years",
+        "live_eligible": false,
+        "live_ineligible_reason": "Below 30-trade verification threshold (23 < 30)",
+        "reference_script": "scripts/run_v3_lab_2_eth_c10_h3_asymmetric.py",
+        "reference_zip": "exports/V3_LAB_2_ETH_C10_H3_ASYMMETRIC.zip",
+        "source": "autotrade_v3/strategy/v3_lab_4.py"
+      }
+    },
+    {
+      "order": 18,
+      "symbol": "ETH-USDT",
+      "combo_id": 102,
+      "combo_name": "C12",
+      "combo_key": "ETH-USDT/C12",
+      "timeframe": "1h",
+      "execution_version": "H7_SELL_4H_TREND_ONLY",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_VETO_OB",
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "override_details": {
+        "execution_version": "H7_SELL_4H_TREND_ONLY",
+        "combo_id": 102,
+        "timeframe": "1h",
+        "entry": {
+          "indicator": "Aroon",
+          "period": 40,
+          "threshold": 70.0,
+          "buy": "aroon_up cross_up aroon_down and aroon_up >= 70",
+          "sell": "aroon_down cross_up aroon_up and aroon_down >= 70 and closed_4h_close < closed_4h_ema100"
+        },
+        "layer2": "SMC_VETO_OB",
+        "tp_pct": 0.018,
+        "sl_pct": 0.009,
+        "trailing_enabled": false,
+        "owner_approved_for_lab": true,
+        "research_status": "RESEARCH_ACCEPTED",
+        "live_eligible": false,
+        "live_ineligible_reason": "Lab research configuration only; not approved for Live; historical backtest only (out-of-sample not yet independently proven)",
+        "baseline_h0": {
+          "trades_base": 452,
+          "trades_stress": 452,
+          "own_net_pnl_base": 19.544,
+          "own_net_pnl_stress": -2.1252,
+          "closed_max_dd_base": 17.4038
+        },
+        "upgraded_h7": {
+          "trades_base": 366,
+          "buy_base": 243,
+          "sell_base": 123,
+          "own_net_pnl_base": 34.368,
+          "pf_base": 1.1568,
+          "closed_max_dd_base": 13.9818,
+          "trades_stress": 366,
+          "buy_stress": 243,
+          "sell_stress": 123,
+          "own_net_pnl_stress": 15.2814,
+          "pf_stress": 1.0668,
+          "closed_max_dd_stress": 18.4619
+        },
+        "provenance": {
+          "branch": "lab/v3-lab-4-eth-c11-r1",
+          "round1_2_zip": "exports/V3_LAB_4_ETH_C12_RESEARCH.zip",
+          "round3_zip": "exports/V3_LAB_4_ETH_C12_ROUND3.zip",
+          "final_evidence_zip": "exports/V3_LAB_4_ETH_C12_H7_FINAL_EVIDENCE.zip",
+          "round3_report": "runs/lab/v3_lab_4/eth_c12_round3/ETH_C12_R3_REPORT.md",
+          "final_verdict": "runs/lab/v3_lab_4/eth_c12_h7_final_verification/ETH_C12_H7_FINAL_VERDICT.md"
+        },
+        "source": "autotrade_v3/strategy/v3_lab_4.py"
+      }
+    },
+    {
+      "order": 19,
+      "symbol": "ETH-USDT",
+      "combo_id": 103,
+      "combo_name": "C13",
+      "combo_key": "ETH-USDT/C13",
+      "timeframe": "1h",
+      "execution_version": "H5_SELL_ONLY_4H_TREND",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "OFF",
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "override_details": {
+        "execution_version": "H5_SELL_ONLY_4H_TREND",
+        "buy": "OFF",
+        "sell": {
+          "indicator": "CMO",
+          "period": 40,
+          "cross_down": -40.0,
+          "trend_4h": "close_4h < ema100_4h",
+          "layer2": "OFF"
+        },
+        "tp_pct": 0.02,
+        "sl_pct": 0.008,
+        "sample_size": "117 trades BASE / 117 trades STRESS (3 years)",
+        "risk_note": "STRESS standalone +.8655 (thin margin); chosen for portfolio STRESS risk reduction",
+        "source": "runs/lab/v3_lab_4/batch_a_round4/ & exports/V3_LAB_4_BATCH_A_FINAL_CLOSEOUT.zip"
+      }
+    },
+    {
+      "order": 20,
+      "symbol": "ETH-USDT",
+      "combo_id": 105,
+      "combo_name": "C15",
+      "combo_key": "ETH-USDT/C15",
+      "timeframe": "1h",
+      "execution_version": "H3_ASYMMETRIC",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "OB",
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": null,
+      "override_details": {
+        "execution_version": "H3_ASYMMETRIC",
+        "buy": {
+          "dist_kama_atr_lte": 2.0
+        },
+        "sell": {
+          "post_tp_cooldown_minutes": 60
+        },
+        "tp_pct": 0.02,
+        "sl_pct": 0.008,
+        "trailing_enabled": false,
+        "research_status": "RESEARCH_ACCEPTED",
+        "source": "scripts/run_v3_lab_2_eth_c15_h3_asymmetric.py"
+      }
+    },
+    {
+      "order": 21,
+      "symbol": "ETH-USDT",
+      "combo_id": 2,
+      "combo_name": "C2",
+      "combo_key": "ETH-USDT/C2",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.012,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_VETO_OB",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 22,
+      "symbol": "BTC-USDT",
+      "combo_id": 3,
+      "combo_name": "C3",
+      "combo_key": "BTC-USDT/C3",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.006,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_STRICT",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 23,
+      "symbol": "ETH-USDT",
+      "combo_id": 9,
+      "combo_name": "C9",
+      "combo_key": "ETH-USDT/C9",
+      "timeframe": "15m",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.01,
+      "sl_pct": 0.004,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_VETO",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 24,
+      "symbol": "ETH-USDT",
+      "combo_id": 11,
+      "combo_name": "TIER",
+      "combo_key": "ETH-USDT/TIER",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "OFF",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 25,
+      "symbol": "ETH-USDT",
+      "combo_id": 101,
+      "combo_name": "C11",
+      "combo_key": "ETH-USDT/C11",
+      "timeframe": "1h",
+      "execution_version": "H3_B1_DEMARKER",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_STRICT_OB",
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "override_details": {
+        "execution_version": "H3_B1_DEMARKER",
+        "combo_id": 101,
+        "timeframe": "1h",
+        "entry": {
+          "indicator": "DeMarker",
+          "period": 60,
+          "long_min": 0.78,
+          "short_max": 0.2
+        },
+        "layer2": "SMC_STRICT_OB",
+        "tp_pct": 0.018,
+        "sl_pct": 0.009,
+        "trailing_enabled": false,
+        "owner_approved_for_lab": true,
+        "research_status": "RESEARCH_ACCEPTED",
+        "live_eligible": false,
+        "live_ineligible_reason": "Lab research configuration only; not approved for Live; historical backtest only (out-of-sample not yet independently proven)",
+        "baseline_h0": {
+          "trades_base": 461,
+          "trades_stress": 467,
+          "own_net_pnl_base": 10.3875,
+          "own_net_pnl_stress": -17.8424,
+          "closed_max_dd_base": 23.1114
+        },
+        "upgraded_b1": {
+          "trades_base": 242,
+          "buy_base": 92,
+          "sell_base": 150,
+          "own_net_pnl_base": 33.9645,
+          "pf_base": 1.2413,
+          "closed_max_dd_base": 12.0053,
+          "trades_stress": 245,
+          "buy_stress": 93,
+          "sell_stress": 152,
+          "own_net_pnl_stress": 18.1548,
+          "pf_stress": 1.1209,
+          "closed_max_dd_stress": 13.8087
+        },
+        "provenance": {
+          "branch": "lab/v3-lab-4-eth-c11-r1",
+          "round2_commit": "1d5bf09",
+          "round1_zip": "exports/V3_LAB_4_ETH_C11_ROUND1.zip",
+          "round2_zip": "exports/V3_LAB_4_ETH_C11_ROUND2.zip",
+          "round2_report": "runs/lab/v3_lab_4/eth_c11_round2/ETH_C11_R2_REPORT.md",
+          "round2_scripts": [
+            "scripts/run_v3_lab_4_eth_c11_round2.py",
+            "scripts/run_v3_lab_4_eth_c11_round2_buy.py"
+          ]
+        },
+        "source": "autotrade_v3/strategy/v3_lab_4.py"
+      }
+    },
+    {
+      "order": 26,
+      "symbol": "BTC-USDT",
+      "combo_id": 102,
+      "combo_name": "C12",
+      "combo_key": "BTC-USDT/C12",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "SMC_VETO_OB",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 27,
+      "symbol": "BTC-USDT",
+      "combo_id": 103,
+      "combo_name": "C13",
+      "combo_key": "BTC-USDT/C13",
+      "timeframe": "1h",
+      "execution_version": "A-R2-01_BREAKEVEN_LOCK",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "OFF",
+      "research_status": "RESEARCH_ACCEPTED",
+      "live_eligible": false,
+      "override_details": {
+        "execution_version": "H4_SELL_ONLY_4H_TREND",
+        "buy": "OFF",
+        "sell": {
+          "indicator": "CMO",
+          "period": 40,
+          "cross_down": -40.0,
+          "trend_4h": "close_4h < ema100_4h",
+          "layer2": "OFF"
+        },
+        "tp_pct": 0.02,
+        "sl_pct": 0.008,
+        "sample_size": "89 trades BASE / 90 trades STRESS (3 years)",
+        "risk_note": "Closed 4H bar no-look-ahead; historical backtest only",
+        "source": "runs/lab/v3_lab_4/batch_a_round4/ & exports/V3_LAB_4_BATCH_A_FINAL_CLOSEOUT.zip"
+      },
+      "audit_status": "AUDIT_VERIFIED_RESEARCH_CANDIDATE"
+    },
+    {
+      "order": 28,
+      "symbol": "ETH-USDT",
+      "combo_id": 104,
+      "combo_name": "C14",
+      "combo_key": "ETH-USDT/C14",
+      "timeframe": "1h",
+      "execution_version": "A-R2-05_ATR_SL_ADJUSTMENT",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.006666666666666667,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "OB",
+      "research_status": "H0_BASELINE",
+      "live_eligible": false,
+      "override_details": null,
+      "audit_status": "AUDIT_VERIFIED_BUT_FRAGILE"
+    },
+    {
+      "order": 29,
+      "symbol": "BTC-USDT",
+      "combo_id": 105,
+      "combo_name": "C15",
+      "combo_key": "BTC-USDT/C15",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "OB",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    },
+    {
+      "order": 30,
+      "symbol": "ETH-USDT",
+      "combo_id": 106,
+      "combo_name": "C16",
+      "combo_key": "ETH-USDT/C16",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.011,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "layer2": "OB",
+      "research_status": "H0_BASELINE",
+      "live_eligible": null,
+      "override_details": null
+    }
+  ],
+  "strategy_hashes": {
+    "signal_spec_hash": "8b4f2b9d73d986e73f41e92529977d0ce2527e3d0c4216476de1d33c1df35082",
+    "exit_spec_hash": "451883a51503a3f4b3c2dd286f9e96246ddbc3732efc46cfe6a1e63ae998abcd",
+    "spec_hash": "578773b8b3d4ff2a83f7023b8703e72c3f8522e1afc51d2bd3db110b1ccd7145"
+  },
+  "source_hashes": {
+    "v3_lab_4_strategy": {
+      "path": "autotrade_v3/strategy/v3_lab_4.py",
+      "sha256": "b76c886f0efed3a52ec9ddb264a7e48f07f6e97b93d903ab7a2f06bdd9ea03c7"
+    },
+    "v3_lab_4_loader": {
+      "path": "autotrade_v3/lab/v3_lab_4_loader.py",
+      "sha256": "f6e88122bec9829c3f662922ddbbf2f8a104d017a7f4380e5c8107a5832ce41a"
+    },
+    "eth_c10_h3_script": {
+      "path": "scripts/run_v3_lab_2_eth_c10_h3_asymmetric.py",
+      "sha256": "e7bd7194c131c58722d5ace50900af4a27a1b277b5c306b11a55b2cf0f891837"
+    },
+    "eth_c10_h3_zip": {
+      "path": "exports/V3_LAB_2_ETH_C10_H3_ASYMMETRIC.zip",
+      "sha256": "710933a845e8fbad7148a0e7c1586f5291b1dc76a53f5eb289c3d3af26ea472f"
+    },
+    "eth_c11_r2_zip": {
+      "path": "exports/V3_LAB_4_ETH_C11_ROUND2.zip",
+      "sha256": "bd9a8c8b8226aaa3eeb9b716c26303ad2a19833de26aef60401ba21528c3e20b"
+    },
+    "eth_c12_r3_zip": {
+      "path": "exports/V3_LAB_4_ETH_C12_ROUND3.zip",
+      "sha256": "64a31691abba34cfc6ddb4822cb930d9e455096416d05b53787df674bf96df7f"
+    },
+    "eth_c12_final_evidence_zip": {
+      "path": "exports/V3_LAB_4_ETH_C12_H7_FINAL_EVIDENCE.zip",
+      "sha256": "9ef0e18060ae608d161d0623a497d603fa003e7910f08467b586ac4fdba4fc03"
+    },
+    "batch_a_r1_r3_zip": {
+      "path": "exports/V3_LAB_4_BATCH_A_6_18_VARIANTS.zip",
+      "sha256": "4a3d64d33386026a5cf02e790d88c16861ff3b5b492f8b9675d1a0c8dfba330e"
+    },
+    "batch_a_round4_zip": {
+      "path": "exports/V3_LAB_4_BATCH_A_ROUND4_12_NEW_VARIANTS.zip",
+      "sha256": "f421095fa946da906e8092580bc533ce8203165260a6a7574d9687985bd6d464"
+    },
+    "batch_a_final_closeout_zip": {
+      "path": "exports/V3_LAB_4_BATCH_A_FINAL_CLOSEOUT.zip",
+      "sha256": "8d2d8aba9273aa8d9c55a9c25945c3d602bbf4b0f53ad13c1b2681e489a3e3b0"
+    },
+    "pre_integration_config_snapshot": {
+      "path": "runs/lab/v3_lab_4/batch_a_integration/pre_integration_v3_lab_4_config.json",
+      "sha256": "36b55fc648573e27a66270e90d3192fb0e26b2a732a4cf2c557690f7e51d2d37"
+    }
+  },
+  "config_hash": "dcb5c22926705ea57d42adbfdf0cd60bd0baf92aa130d575ccab3f3c797fd3b6",
+  "eth_c11_policy": {
+    "version": "H3_B1_DEMARKER",
+    "owner_approved_for_lab": true,
+    "research_status": "RESEARCH_ACCEPTED",
+    "live_eligible": false,
+    "sample_size": "242 trades BASE / 245 trades STRESS (3 years)",
+    "baseline_h0": "BASE +.3875 / STRESS -.8424",
+    "upgraded_b1": "BASE +.9645 / STRESS +.1548",
+    "note": "Historical backtest only; out-of-sample performance not yet independently proven"
+  },
+  "eth_c12_policy": {
+    "version": "H7_SELL_4H_TREND_ONLY",
+    "owner_approved_for_lab": true,
+    "research_status": "RESEARCH_ACCEPTED",
+    "live_eligible": false,
+    "sample_size": "366 trades BASE / 366 trades STRESS (3 years)",
+    "baseline_h0": "BASE +.5440 / STRESS -.1252",
+    "upgraded_h7": "BASE +.3680 / STRESS +.2814",
+    "note": "Historical backtest only; out-of-sample performance not yet independently proven"
+  },
+  "batch_a_policy": {
+    "portfolio_selection": "P3",
+    "owner_approved_for_lab": true,
+    "research_status": "RESEARCH_ACCEPTED",
+    "live_eligible": false,
+    "combos": {
+      "BTC-USDT/C2": {
+        "version": "H1_SELL_ONLY",
+        "flag": "LOW_SAMPLE_36_TRADES"
+      },
+      "BTC-USDT/C4": {
+        "version": "H1_BUY_ONLY",
+        "flag": "ONE_SIDED_BUY_ONLY"
+      },
+      "BTC-USDT/C7": {
+        "version": "H1_BUY_ONLY",
+        "flag": "H5_SELL_BODY_ATR_1_8_RETAINED_AS_BACKUP"
+      },
+      "BTC-USDT/C13": {
+        "version": "H4_SELL_ONLY_4H_TREND",
+        "flag": "CLOSED_4H_TREND_CONFIRMED"
+      },
+      "ETH-USDT/C13": {
+        "version": "H5_SELL_ONLY_4H_TREND",
+        "flag": "STRESS_THIN_MARGIN_PLUS_0.8655"
+      },
+      "BTC-USDT/C16": {
+        "version": "H3_VORTEX_RATIO_1_22",
+        "flag": "PARAM_SENSITIVITY_AND_2024_CONCENTRATION"
+      }
+    },
+    "note": "Historical backtest only; out-of-sample performance not yet independently proven; not eligible for Live/Top20"
+  }
+}

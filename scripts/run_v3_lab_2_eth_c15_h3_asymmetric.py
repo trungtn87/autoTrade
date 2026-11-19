@@ -65,6 +65,10 @@ class H3AsymmetricController:
         self.feat_map = feat_map
         self.last_sell_tp_exit_ms: int | None = None
 
+    def reset(self) -> None:
+        """Reset stateful cooldown tracking before a new simulation run."""
+        self.last_sell_tp_exit_ms = None
+
     @staticmethod
     def is_target(symbol: str, combo_id: int) -> bool:
         return symbol == "ETH-USDT" and int(combo_id) == 105
