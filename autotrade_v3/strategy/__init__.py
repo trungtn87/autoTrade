@@ -7,6 +7,7 @@ from autotrade_v3.strategy.v3_lab_2 import V3Lab2Strategy
 from autotrade_v3.strategy.v3_lab_5 import V3Lab5Strategy
 from autotrade_v3.strategy.v3_lab_6 import V3Lab6Strategy
 from autotrade_v3.strategy.v3_lab_7 import V3Lab7Strategy
+from autotrade_v3.strategy.v3_lab_8 import V3Lab8Strategy
 
 __all__ = [
     "BaseStrategy",
@@ -18,4 +19,5 @@ __all__ = [
     "V3Lab5Strategy",
     "V3Lab6Strategy",
     "V3Lab7Strategy",
+    "V3Lab8Strategy",
 ]

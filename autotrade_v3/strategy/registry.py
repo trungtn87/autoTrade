@@ -89,6 +89,8 @@ class StrategyRegistry:
         from autotrade_v3.strategy.v3_lab_4 import V3Lab4Strategy
         from autotrade_v3.strategy.v3_lab_5 import V3Lab5Strategy
         from autotrade_v3.strategy.v3_lab_6 import V3Lab6Strategy
+        from autotrade_v3.strategy.v3_lab_7 import V3Lab7Strategy
+        from autotrade_v3.strategy.v3_lab_8 import V3Lab8Strategy
 
         cls.register(Baseline20FinalStrategy())
         cls.register(EthC1H1Both1Strategy())
@@ -99,6 +101,8 @@ class StrategyRegistry:
         cls.register(V3Lab4Strategy(version="4.1.1"))
         cls.register(V3Lab5Strategy(version="5.0.0"))
         cls.register(V3Lab6Strategy(version="6.0.0"))
+        cls.register(V3Lab7Strategy(version="7.0.0"))
+        cls.register(V3Lab8Strategy(version="8.0.0"))
 
 
 # Initialize defaults
