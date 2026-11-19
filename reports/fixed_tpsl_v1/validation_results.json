@@ -1,0 +1,3701 @@
+{
+  "strategy_id": "20FINAL_FIXED_V1",
+  "strategy_version": "1",
+  "simulator_version": "v3.16-fixed-tpsl",
+  "expected_dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+  "git_sha": "14b57851e137d7f3830c35da2c0dfb30f6eb7e43",
+  "code_dirty": false,
+  "parity_status": "PARITY_PENDING_LIVE_VERIFICATION",
+  "runs": {
+    "ALL_SIGNALS__IDEAL": {
+      "run_id": "RUN_20261115_044713_20FINAL_FIXED_V1_ALL_SIGNALS_20231101_20261101",
+      "strategy_config_hash": "40fe84cd94b9cbd443af0b33391e67f486fd76f952009e7827de4910598db7cb",
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "validation_status": "PARTIALLY_VERIFIED",
+      "overall_status": "PARTIALLY_VERIFIED",
+      "gates": {
+        "A1": {
+          "gate_id": "A1",
+          "name": "Dataset hash",
+          "status": "PASS",
+          "rows_checked": 74,
+          "rows_total": 74,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.872,
+          "reason": "",
+          "details": {
+            "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "dataset_hash_measured": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "data_root": "C:\\tmp\\autotrade-v3-16-clean"
+          }
+        },
+        "A2": {
+          "gate_id": "A2",
+          "name": "M1 integrity",
+          "status": "PASS",
+          "rows_checked": 3156480,
+          "rows_total": 3156480,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 4.455,
+          "reason": "",
+          "details": {
+            "per_symbol": {
+              "BTCUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              },
+              "ETHUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              }
+            },
+            "scan_seconds": 4.453
+          }
+        },
+        "B1": {
+          "gate_id": "B1",
+          "name": "Frozen signal parity",
+          "status": "INCONCLUSIVE",
+          "rows_checked": 0,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.029,
+          "reason": "Strategy (20FINAL_FIXED_V1@1) has no registered frozen reference baseline.",
+          "details": {}
+        },
+        "B2": {
+          "gate_id": "B2",
+          "name": "No-lookahead validation",
+          "status": "PASS",
+          "rows_checked": 20,
+          "rows_total": 20,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 550.238,
+          "reason": "",
+          "details": {
+            "seed": 20261110,
+            "n_cutoffs": 20,
+            "duration_s": 550.21,
+            "cutoffs_tested": [
+              {
+                "cutoff_ms": 1705919399999,
+                "cutoff_dt": "2024-01-22 10:29:59",
+                "expected_count": 218,
+                "replayed_count": 218,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1709045999999,
+                "cutoff_dt": "2024-02-27 14:59:59",
+                "expected_count": 489,
+                "replayed_count": 489,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1714337999999,
+                "cutoff_dt": "2024-04-28 20:59:59",
+                "expected_count": 832,
+                "replayed_count": 832,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1716065999999,
+                "cutoff_dt": "2024-05-18 20:59:59",
+                "expected_count": 934,
+                "replayed_count": 934,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1720173599999,
+                "cutoff_dt": "2024-07-05 09:59:59",
+                "expected_count": 1271,
+                "replayed_count": 1271,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1726829999999,
+                "cutoff_dt": "2024-09-20 10:59:59",
+                "expected_count": 1708,
+                "replayed_count": 1708,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1728932399999,
+                "cutoff_dt": "2024-10-14 18:59:59",
+                "expected_count": 1830,
+                "replayed_count": 1830,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1735914599999,
+                "cutoff_dt": "2025-01-03 14:29:59",
+                "expected_count": 2247,
+                "replayed_count": 2247,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1740506399999,
+                "cutoff_dt": "2025-02-25 17:59:59",
+                "expected_count": 2553,
+                "replayed_count": 2553,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1746701999999,
+                "cutoff_dt": "2025-05-08 10:59:59",
+                "expected_count": 2894,
+                "replayed_count": 2894,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1751839199999,
+                "cutoff_dt": "2025-07-06 21:59:59",
+                "expected_count": 3236,
+                "replayed_count": 3236,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1754564399999,
+                "cutoff_dt": "2025-08-07 10:59:59",
+                "expected_count": 3468,
+                "replayed_count": 3468,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1757596499999,
+                "cutoff_dt": "2025-09-11 13:14:59",
+                "expected_count": 3672,
+                "replayed_count": 3672,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1765707299999,
+                "cutoff_dt": "2025-12-14 10:14:59",
+                "expected_count": 4133,
+                "replayed_count": 4133,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1769943599999,
+                "cutoff_dt": "2026-02-01 10:59:59",
+                "expected_count": 4473,
+                "replayed_count": 4473,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1770811199999,
+                "cutoff_dt": "2026-02-11 11:59:59",
+                "expected_count": 4562,
+                "replayed_count": 4562,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1776607199999,
+                "cutoff_dt": "2026-04-19 13:59:59",
+                "expected_count": 4914,
+                "replayed_count": 4914,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1782309599999,
+                "cutoff_dt": "2026-06-24 13:59:59",
+                "expected_count": 5265,
+                "replayed_count": 5265,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1784224799999,
+                "cutoff_dt": "2026-07-16 17:59:59",
+                "expected_count": 5375,
+                "replayed_count": 5375,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1789779599999,
+                "cutoff_dt": "2026-09-19 00:59:59",
+                "expected_count": 5744,
+                "replayed_count": 5744,
+                "content_matched": true,
+                "pass": true
+              }
+            ],
+            "exit_code": 0,
+            "sampling_policy": "uniform_buckets_random_jitter",
+            "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+          }
+        },
+        "B3": {
+          "gate_id": "B3",
+          "name": "Batch-Live equivalence",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 93.293,
+          "reason": "",
+          "details": {
+            "strategy_ref": "20FINAL_FIXED_V1@1",
+            "signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
+            "unclosed_bar_rejected": true,
+            "per_symbol": {
+              "BTC-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 2575,
+                "live_signals": 2575,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              },
+              "ETH-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 3409,
+                "live_signals": 3409,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              }
+            },
+            "duration_s": 93.27
+          }
+        },
+        "C1": {
+          "gate_id": "C1",
+          "name": "Entry causality",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.167,
+          "reason": "",
+          "details": {
+            "mode": "ALL_SIGNALS",
+            "price_check": "open+slippage"
+          }
+        },
+        "C2": {
+          "gate_id": "C2",
+          "name": "ExitPolicy propagation",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 2.327,
+          "reason": "",
+          "details": {
+            "policies_checked": 20
+          }
+        },
+        "C3": {
+          "gate_id": "C3",
+          "name": "Exit replay",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.361,
+          "reason": "",
+          "details": {
+            "mode": "ALL_SIGNALS",
+            "legs_replayed": 5984,
+            "mismatch_rows": 0
+          }
+        },
+        "C4": {
+          "gate_id": "C4",
+          "name": "Accounting",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.072,
+          "reason": "",
+          "details": {
+            "notes": [],
+            "mode": "ALL_SIGNALS",
+            "c4_subchecks": {
+              "NET_COST_INVARIANT_OWN": "PASS",
+              "NET_IS_VWAP_BASIS": "N/A",
+              "BASIS_SHIFT_CONSERVATION": "N/A"
+            }
+          }
+        },
+        "C5": {
+          "gate_id": "C5",
+          "name": "Signal conservation",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.064,
+          "reason": "",
+          "details": {
+            "statuses": {
+              "ACCEPTED": 5984,
+              "SKIPPED": 0,
+              "REJECTED": 0,
+              "FILTERED": 0,
+              "UNFILLABLE": 0
+            }
+          }
+        },
+        "D1": {
+          "gate_id": "D1",
+          "name": "Artifact integrity",
+          "status": "PASS",
+          "rows_checked": 8,
+          "rows_total": 8,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.74,
+          "reason": "",
+          "details": {
+            "undelivered_large_artifacts": []
+          }
+        },
+        "D2": {
+          "gate_id": "D2",
+          "name": "Reported numbers",
+          "status": "PASS",
+          "rows_checked": 1645,
+          "rows_total": 1645,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.405,
+          "reason": "",
+          "details": {
+            "analysis_leaves_total": 1441,
+            "analysis_leaves_checked": 1441,
+            "report_numbers_total": 204,
+            "report_numbers_checked": 204,
+            "scope": "all numeric leaves of analysis.json (except the 'validation' block and prose notes) and every number in report.md, recomputed from trades.parquet"
+          }
+        }
+      }
+    },
+    "ALL_SIGNALS__BASE": {
+      "run_id": "RUN_20261115_045855_20FINAL_FIXED_V1_ALL_SIGNALS_20231101_20261101",
+      "strategy_config_hash": "40fe84cd94b9cbd443af0b33391e67f486fd76f952009e7827de4910598db7cb",
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "validation_status": "PARTIALLY_VERIFIED",
+      "overall_status": "PARTIALLY_VERIFIED",
+      "gates": {
+        "A1": {
+          "gate_id": "A1",
+          "name": "Dataset hash",
+          "status": "PASS",
+          "rows_checked": 74,
+          "rows_total": 74,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.893,
+          "reason": "",
+          "details": {
+            "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "dataset_hash_measured": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "data_root": "C:\\tmp\\autotrade-v3-16-clean"
+          }
+        },
+        "A2": {
+          "gate_id": "A2",
+          "name": "M1 integrity",
+          "status": "PASS",
+          "rows_checked": 3156480,
+          "rows_total": 3156480,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 4.445,
+          "reason": "",
+          "details": {
+            "per_symbol": {
+              "BTCUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              },
+              "ETHUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              }
+            },
+            "scan_seconds": 4.443
+          }
+        },
+        "B1": {
+          "gate_id": "B1",
+          "name": "Frozen signal parity",
+          "status": "INCONCLUSIVE",
+          "rows_checked": 0,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.03,
+          "reason": "Strategy (20FINAL_FIXED_V1@1) has no registered frozen reference baseline.",
+          "details": {}
+        },
+        "B2": {
+          "gate_id": "B2",
+          "name": "No-lookahead validation",
+          "status": "PASS",
+          "rows_checked": 20,
+          "rows_total": 20,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 40.487,
+          "reason": "",
+          "details": {
+            "seed": 20261110,
+            "n_cutoffs": 20,
+            "duration_s": 40.44,
+            "cutoffs_tested": [
+              {
+                "cutoff_ms": 1705919399999,
+                "cutoff_dt": "2024-01-22 10:29:59",
+                "expected_count": 218,
+                "replayed_count": 218,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1709045999999,
+                "cutoff_dt": "2024-02-27 14:59:59",
+                "expected_count": 489,
+                "replayed_count": 489,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1714337999999,
+                "cutoff_dt": "2024-04-28 20:59:59",
+                "expected_count": 832,
+                "replayed_count": 832,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1716065999999,
+                "cutoff_dt": "2024-05-18 20:59:59",
+                "expected_count": 934,
+                "replayed_count": 934,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1720173599999,
+                "cutoff_dt": "2024-07-05 09:59:59",
+                "expected_count": 1271,
+                "replayed_count": 1271,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1726829999999,
+                "cutoff_dt": "2024-09-20 10:59:59",
+                "expected_count": 1708,
+                "replayed_count": 1708,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1728932399999,
+                "cutoff_dt": "2024-10-14 18:59:59",
+                "expected_count": 1830,
+                "replayed_count": 1830,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1735914599999,
+                "cutoff_dt": "2025-01-03 14:29:59",
+                "expected_count": 2247,
+                "replayed_count": 2247,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1740506399999,
+                "cutoff_dt": "2025-02-25 17:59:59",
+                "expected_count": 2553,
+                "replayed_count": 2553,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1746701999999,
+                "cutoff_dt": "2025-05-08 10:59:59",
+                "expected_count": 2894,
+                "replayed_count": 2894,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1751839199999,
+                "cutoff_dt": "2025-07-06 21:59:59",
+                "expected_count": 3236,
+                "replayed_count": 3236,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1754564399999,
+                "cutoff_dt": "2025-08-07 10:59:59",
+                "expected_count": 3468,
+                "replayed_count": 3468,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1757596499999,
+                "cutoff_dt": "2025-09-11 13:14:59",
+                "expected_count": 3672,
+                "replayed_count": 3672,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1765707299999,
+                "cutoff_dt": "2025-12-14 10:14:59",
+                "expected_count": 4133,
+                "replayed_count": 4133,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1769943599999,
+                "cutoff_dt": "2026-02-01 10:59:59",
+                "expected_count": 4473,
+                "replayed_count": 4473,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1770811199999,
+                "cutoff_dt": "2026-02-11 11:59:59",
+                "expected_count": 4562,
+                "replayed_count": 4562,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1776607199999,
+                "cutoff_dt": "2026-04-19 13:59:59",
+                "expected_count": 4914,
+                "replayed_count": 4914,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1782309599999,
+                "cutoff_dt": "2026-06-24 13:59:59",
+                "expected_count": 5265,
+                "replayed_count": 5265,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1784224799999,
+                "cutoff_dt": "2026-07-16 17:59:59",
+                "expected_count": 5375,
+                "replayed_count": 5375,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1789779599999,
+                "cutoff_dt": "2026-09-19 00:59:59",
+                "expected_count": 5744,
+                "replayed_count": 5744,
+                "content_matched": true,
+                "pass": true
+              }
+            ],
+            "exit_code": 0,
+            "sampling_policy": "uniform_buckets_random_jitter",
+            "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+          }
+        },
+        "B3": {
+          "gate_id": "B3",
+          "name": "Batch-Live equivalence",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.552,
+          "reason": "",
+          "details": {
+            "strategy_ref": "20FINAL_FIXED_V1@1",
+            "signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
+            "unclosed_bar_rejected": true,
+            "per_symbol": {
+              "BTC-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 2575,
+                "live_signals": 2575,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              },
+              "ETH-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 3409,
+                "live_signals": 3409,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              }
+            },
+            "duration_s": 0.54
+          }
+        },
+        "C1": {
+          "gate_id": "C1",
+          "name": "Entry causality",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.163,
+          "reason": "",
+          "details": {
+            "mode": "ALL_SIGNALS",
+            "price_check": "open+slippage"
+          }
+        },
+        "C2": {
+          "gate_id": "C2",
+          "name": "ExitPolicy propagation",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 2.346,
+          "reason": "",
+          "details": {
+            "policies_checked": 20
+          }
+        },
+        "C3": {
+          "gate_id": "C3",
+          "name": "Exit replay",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.319,
+          "reason": "",
+          "details": {
+            "mode": "ALL_SIGNALS",
+            "legs_replayed": 5984,
+            "mismatch_rows": 0
+          }
+        },
+        "C4": {
+          "gate_id": "C4",
+          "name": "Accounting",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.09,
+          "reason": "",
+          "details": {
+            "notes": [],
+            "mode": "ALL_SIGNALS",
+            "c4_subchecks": {
+              "NET_COST_INVARIANT_OWN": "PASS",
+              "NET_IS_VWAP_BASIS": "N/A",
+              "BASIS_SHIFT_CONSERVATION": "N/A"
+            }
+          }
+        },
+        "C5": {
+          "gate_id": "C5",
+          "name": "Signal conservation",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.059,
+          "reason": "",
+          "details": {
+            "statuses": {
+              "ACCEPTED": 5984,
+              "SKIPPED": 0,
+              "REJECTED": 0,
+              "FILTERED": 0,
+              "UNFILLABLE": 0
+            }
+          }
+        },
+        "D1": {
+          "gate_id": "D1",
+          "name": "Artifact integrity",
+          "status": "PASS",
+          "rows_checked": 8,
+          "rows_total": 8,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.701,
+          "reason": "",
+          "details": {
+            "undelivered_large_artifacts": []
+          }
+        },
+        "D2": {
+          "gate_id": "D2",
+          "name": "Reported numbers",
+          "status": "PASS",
+          "rows_checked": 1645,
+          "rows_total": 1645,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.387,
+          "reason": "",
+          "details": {
+            "analysis_leaves_total": 1441,
+            "analysis_leaves_checked": 1441,
+            "report_numbers_total": 204,
+            "report_numbers_checked": 204,
+            "scope": "all numeric leaves of analysis.json (except the 'validation' block and prose notes) and every number in report.md, recomputed from trades.parquet"
+          }
+        }
+      }
+    },
+    "ALL_SIGNALS__STRESS": {
+      "run_id": "RUN_20261115_050037_20FINAL_FIXED_V1_ALL_SIGNALS_20231101_20261101",
+      "strategy_config_hash": "40fe84cd94b9cbd443af0b33391e67f486fd76f952009e7827de4910598db7cb",
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "validation_status": "PARTIALLY_VERIFIED",
+      "overall_status": "PARTIALLY_VERIFIED",
+      "gates": {
+        "A1": {
+          "gate_id": "A1",
+          "name": "Dataset hash",
+          "status": "PASS",
+          "rows_checked": 74,
+          "rows_total": 74,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.912,
+          "reason": "",
+          "details": {
+            "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "dataset_hash_measured": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "data_root": "C:\\tmp\\autotrade-v3-16-clean"
+          }
+        },
+        "A2": {
+          "gate_id": "A2",
+          "name": "M1 integrity",
+          "status": "PASS",
+          "rows_checked": 3156480,
+          "rows_total": 3156480,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 4.466,
+          "reason": "",
+          "details": {
+            "per_symbol": {
+              "BTCUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              },
+              "ETHUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              }
+            },
+            "scan_seconds": 4.463
+          }
+        },
+        "B1": {
+          "gate_id": "B1",
+          "name": "Frozen signal parity",
+          "status": "INCONCLUSIVE",
+          "rows_checked": 0,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.027,
+          "reason": "Strategy (20FINAL_FIXED_V1@1) has no registered frozen reference baseline.",
+          "details": {}
+        },
+        "B2": {
+          "gate_id": "B2",
+          "name": "No-lookahead validation",
+          "status": "PASS",
+          "rows_checked": 20,
+          "rows_total": 20,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 41.182,
+          "reason": "",
+          "details": {
+            "seed": 20261110,
+            "n_cutoffs": 20,
+            "duration_s": 41.16,
+            "cutoffs_tested": [
+              {
+                "cutoff_ms": 1705919399999,
+                "cutoff_dt": "2024-01-22 10:29:59",
+                "expected_count": 218,
+                "replayed_count": 218,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1709045999999,
+                "cutoff_dt": "2024-02-27 14:59:59",
+                "expected_count": 489,
+                "replayed_count": 489,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1714337999999,
+                "cutoff_dt": "2024-04-28 20:59:59",
+                "expected_count": 832,
+                "replayed_count": 832,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1716065999999,
+                "cutoff_dt": "2024-05-18 20:59:59",
+                "expected_count": 934,
+                "replayed_count": 934,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1720173599999,
+                "cutoff_dt": "2024-07-05 09:59:59",
+                "expected_count": 1271,
+                "replayed_count": 1271,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1726829999999,
+                "cutoff_dt": "2024-09-20 10:59:59",
+                "expected_count": 1708,
+                "replayed_count": 1708,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1728932399999,
+                "cutoff_dt": "2024-10-14 18:59:59",
+                "expected_count": 1830,
+                "replayed_count": 1830,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1735914599999,
+                "cutoff_dt": "2025-01-03 14:29:59",
+                "expected_count": 2247,
+                "replayed_count": 2247,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1740506399999,
+                "cutoff_dt": "2025-02-25 17:59:59",
+                "expected_count": 2553,
+                "replayed_count": 2553,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1746701999999,
+                "cutoff_dt": "2025-05-08 10:59:59",
+                "expected_count": 2894,
+                "replayed_count": 2894,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1751839199999,
+                "cutoff_dt": "2025-07-06 21:59:59",
+                "expected_count": 3236,
+                "replayed_count": 3236,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1754564399999,
+                "cutoff_dt": "2025-08-07 10:59:59",
+                "expected_count": 3468,
+                "replayed_count": 3468,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1757596499999,
+                "cutoff_dt": "2025-09-11 13:14:59",
+                "expected_count": 3672,
+                "replayed_count": 3672,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1765707299999,
+                "cutoff_dt": "2025-12-14 10:14:59",
+                "expected_count": 4133,
+                "replayed_count": 4133,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1769943599999,
+                "cutoff_dt": "2026-02-01 10:59:59",
+                "expected_count": 4473,
+                "replayed_count": 4473,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1770811199999,
+                "cutoff_dt": "2026-02-11 11:59:59",
+                "expected_count": 4562,
+                "replayed_count": 4562,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1776607199999,
+                "cutoff_dt": "2026-04-19 13:59:59",
+                "expected_count": 4914,
+                "replayed_count": 4914,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1782309599999,
+                "cutoff_dt": "2026-06-24 13:59:59",
+                "expected_count": 5265,
+                "replayed_count": 5265,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1784224799999,
+                "cutoff_dt": "2026-07-16 17:59:59",
+                "expected_count": 5375,
+                "replayed_count": 5375,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1789779599999,
+                "cutoff_dt": "2026-09-19 00:59:59",
+                "expected_count": 5744,
+                "replayed_count": 5744,
+                "content_matched": true,
+                "pass": true
+              }
+            ],
+            "exit_code": 0,
+            "sampling_policy": "uniform_buckets_random_jitter",
+            "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+          }
+        },
+        "B3": {
+          "gate_id": "B3",
+          "name": "Batch-Live equivalence",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.535,
+          "reason": "",
+          "details": {
+            "strategy_ref": "20FINAL_FIXED_V1@1",
+            "signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
+            "unclosed_bar_rejected": true,
+            "per_symbol": {
+              "BTC-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 2575,
+                "live_signals": 2575,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              },
+              "ETH-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 3409,
+                "live_signals": 3409,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              }
+            },
+            "duration_s": 0.52
+          }
+        },
+        "C1": {
+          "gate_id": "C1",
+          "name": "Entry causality",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.171,
+          "reason": "",
+          "details": {
+            "mode": "ALL_SIGNALS",
+            "price_check": "open+slippage"
+          }
+        },
+        "C2": {
+          "gate_id": "C2",
+          "name": "ExitPolicy propagation",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 2.28,
+          "reason": "",
+          "details": {
+            "policies_checked": 20
+          }
+        },
+        "C3": {
+          "gate_id": "C3",
+          "name": "Exit replay",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.289,
+          "reason": "",
+          "details": {
+            "mode": "ALL_SIGNALS",
+            "legs_replayed": 5984,
+            "mismatch_rows": 0
+          }
+        },
+        "C4": {
+          "gate_id": "C4",
+          "name": "Accounting",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.101,
+          "reason": "",
+          "details": {
+            "notes": [],
+            "mode": "ALL_SIGNALS",
+            "c4_subchecks": {
+              "NET_COST_INVARIANT_OWN": "PASS",
+              "NET_IS_VWAP_BASIS": "N/A",
+              "BASIS_SHIFT_CONSERVATION": "N/A"
+            }
+          }
+        },
+        "C5": {
+          "gate_id": "C5",
+          "name": "Signal conservation",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.067,
+          "reason": "",
+          "details": {
+            "statuses": {
+              "ACCEPTED": 5984,
+              "SKIPPED": 0,
+              "REJECTED": 0,
+              "FILTERED": 0,
+              "UNFILLABLE": 0
+            }
+          }
+        },
+        "D1": {
+          "gate_id": "D1",
+          "name": "Artifact integrity",
+          "status": "PASS",
+          "rows_checked": 8,
+          "rows_total": 8,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.842,
+          "reason": "",
+          "details": {
+            "undelivered_large_artifacts": []
+          }
+        },
+        "D2": {
+          "gate_id": "D2",
+          "name": "Reported numbers",
+          "status": "INCONCLUSIVE",
+          "rows_checked": 1645,
+          "rows_total": 1646,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.408,
+          "reason": "rows_checked < rows_total",
+          "details": {
+            "analysis_leaves_total": 1441,
+            "analysis_leaves_checked": 1441,
+            "report_numbers_total": 205,
+            "report_numbers_checked": 204,
+            "scope": "all numeric leaves of analysis.json (except the 'validation' block and prose notes) and every number in report.md, recomputed from trades.parquet"
+          }
+        }
+      }
+    },
+    "ONE_TRADE_PER_COMBO__IDEAL": {
+      "run_id": "RUN_20261115_050217_20FINAL_FIXED_V1_ONE_TRADE_PER_COMBO_20231101_20261101",
+      "strategy_config_hash": "40fe84cd94b9cbd443af0b33391e67f486fd76f952009e7827de4910598db7cb",
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "validation_status": "PARTIALLY_VERIFIED",
+      "overall_status": "PARTIALLY_VERIFIED",
+      "gates": {
+        "A1": {
+          "gate_id": "A1",
+          "name": "Dataset hash",
+          "status": "PASS",
+          "rows_checked": 74,
+          "rows_total": 74,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.902,
+          "reason": "",
+          "details": {
+            "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "dataset_hash_measured": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "data_root": "C:\\tmp\\autotrade-v3-16-clean"
+          }
+        },
+        "A2": {
+          "gate_id": "A2",
+          "name": "M1 integrity",
+          "status": "PASS",
+          "rows_checked": 3156480,
+          "rows_total": 3156480,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 4.306,
+          "reason": "",
+          "details": {
+            "per_symbol": {
+              "BTCUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              },
+              "ETHUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              }
+            },
+            "scan_seconds": 4.304
+          }
+        },
+        "B1": {
+          "gate_id": "B1",
+          "name": "Frozen signal parity",
+          "status": "INCONCLUSIVE",
+          "rows_checked": 0,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.024,
+          "reason": "Strategy (20FINAL_FIXED_V1@1) has no registered frozen reference baseline.",
+          "details": {}
+        },
+        "B2": {
+          "gate_id": "B2",
+          "name": "No-lookahead validation",
+          "status": "PASS",
+          "rows_checked": 20,
+          "rows_total": 20,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 41.128,
+          "reason": "",
+          "details": {
+            "seed": 20261110,
+            "n_cutoffs": 20,
+            "duration_s": 41.1,
+            "cutoffs_tested": [
+              {
+                "cutoff_ms": 1705919399999,
+                "cutoff_dt": "2024-01-22 10:29:59",
+                "expected_count": 218,
+                "replayed_count": 218,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1709045999999,
+                "cutoff_dt": "2024-02-27 14:59:59",
+                "expected_count": 489,
+                "replayed_count": 489,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1714337999999,
+                "cutoff_dt": "2024-04-28 20:59:59",
+                "expected_count": 832,
+                "replayed_count": 832,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1716065999999,
+                "cutoff_dt": "2024-05-18 20:59:59",
+                "expected_count": 934,
+                "replayed_count": 934,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1720173599999,
+                "cutoff_dt": "2024-07-05 09:59:59",
+                "expected_count": 1271,
+                "replayed_count": 1271,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1726829999999,
+                "cutoff_dt": "2024-09-20 10:59:59",
+                "expected_count": 1708,
+                "replayed_count": 1708,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1728932399999,
+                "cutoff_dt": "2024-10-14 18:59:59",
+                "expected_count": 1830,
+                "replayed_count": 1830,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1735914599999,
+                "cutoff_dt": "2025-01-03 14:29:59",
+                "expected_count": 2247,
+                "replayed_count": 2247,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1740506399999,
+                "cutoff_dt": "2025-02-25 17:59:59",
+                "expected_count": 2553,
+                "replayed_count": 2553,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1746701999999,
+                "cutoff_dt": "2025-05-08 10:59:59",
+                "expected_count": 2894,
+                "replayed_count": 2894,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1751839199999,
+                "cutoff_dt": "2025-07-06 21:59:59",
+                "expected_count": 3236,
+                "replayed_count": 3236,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1754564399999,
+                "cutoff_dt": "2025-08-07 10:59:59",
+                "expected_count": 3468,
+                "replayed_count": 3468,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1757596499999,
+                "cutoff_dt": "2025-09-11 13:14:59",
+                "expected_count": 3672,
+                "replayed_count": 3672,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1765707299999,
+                "cutoff_dt": "2025-12-14 10:14:59",
+                "expected_count": 4133,
+                "replayed_count": 4133,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1769943599999,
+                "cutoff_dt": "2026-02-01 10:59:59",
+                "expected_count": 4473,
+                "replayed_count": 4473,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1770811199999,
+                "cutoff_dt": "2026-02-11 11:59:59",
+                "expected_count": 4562,
+                "replayed_count": 4562,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1776607199999,
+                "cutoff_dt": "2026-04-19 13:59:59",
+                "expected_count": 4914,
+                "replayed_count": 4914,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1782309599999,
+                "cutoff_dt": "2026-06-24 13:59:59",
+                "expected_count": 5265,
+                "replayed_count": 5265,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1784224799999,
+                "cutoff_dt": "2026-07-16 17:59:59",
+                "expected_count": 5375,
+                "replayed_count": 5375,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1789779599999,
+                "cutoff_dt": "2026-09-19 00:59:59",
+                "expected_count": 5744,
+                "replayed_count": 5744,
+                "content_matched": true,
+                "pass": true
+              }
+            ],
+            "exit_code": 0,
+            "sampling_policy": "uniform_buckets_random_jitter",
+            "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+          }
+        },
+        "B3": {
+          "gate_id": "B3",
+          "name": "Batch-Live equivalence",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.543,
+          "reason": "",
+          "details": {
+            "strategy_ref": "20FINAL_FIXED_V1@1",
+            "signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
+            "unclosed_bar_rejected": true,
+            "per_symbol": {
+              "BTC-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 2575,
+                "live_signals": 2575,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              },
+              "ETH-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 3409,
+                "live_signals": 3409,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              }
+            },
+            "duration_s": 0.53
+          }
+        },
+        "C1": {
+          "gate_id": "C1",
+          "name": "Entry causality",
+          "status": "PASS",
+          "rows_checked": 4150,
+          "rows_total": 4150,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.149,
+          "reason": "",
+          "details": {
+            "mode": "ONE_TRADE_PER_COMBO",
+            "price_check": "open+slippage"
+          }
+        },
+        "C2": {
+          "gate_id": "C2",
+          "name": "ExitPolicy propagation",
+          "status": "PASS",
+          "rows_checked": 4150,
+          "rows_total": 4150,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.537,
+          "reason": "",
+          "details": {
+            "policies_checked": 20
+          }
+        },
+        "C3": {
+          "gate_id": "C3",
+          "name": "Exit replay",
+          "status": "PASS",
+          "rows_checked": 4150,
+          "rows_total": 4150,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.872,
+          "reason": "",
+          "details": {
+            "mode": "ONE_TRADE_PER_COMBO",
+            "legs_replayed": 4150,
+            "mismatch_rows": 0
+          }
+        },
+        "C4": {
+          "gate_id": "C4",
+          "name": "Accounting",
+          "status": "PASS",
+          "rows_checked": 4150,
+          "rows_total": 4150,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.068,
+          "reason": "",
+          "details": {
+            "notes": [],
+            "mode": "ONE_TRADE_PER_COMBO",
+            "c4_subchecks": {
+              "NET_COST_INVARIANT_OWN": "PASS",
+              "NET_IS_VWAP_BASIS": "N/A",
+              "BASIS_SHIFT_CONSERVATION": "N/A"
+            }
+          }
+        },
+        "C5": {
+          "gate_id": "C5",
+          "name": "Signal conservation",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.062,
+          "reason": "",
+          "details": {
+            "statuses": {
+              "ACCEPTED": 4150,
+              "SKIPPED": 1834,
+              "REJECTED": 0,
+              "FILTERED": 0,
+              "UNFILLABLE": 0
+            }
+          }
+        },
+        "D1": {
+          "gate_id": "D1",
+          "name": "Artifact integrity",
+          "status": "PASS",
+          "rows_checked": 8,
+          "rows_total": 8,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.542,
+          "reason": "",
+          "details": {
+            "undelivered_large_artifacts": []
+          }
+        },
+        "D2": {
+          "gate_id": "D2",
+          "name": "Reported numbers",
+          "status": "PASS",
+          "rows_checked": 1645,
+          "rows_total": 1645,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.362,
+          "reason": "",
+          "details": {
+            "analysis_leaves_total": 1441,
+            "analysis_leaves_checked": 1441,
+            "report_numbers_total": 204,
+            "report_numbers_checked": 204,
+            "scope": "all numeric leaves of analysis.json (except the 'validation' block and prose notes) and every number in report.md, recomputed from trades.parquet"
+          }
+        }
+      }
+    },
+    "ONE_TRADE_PER_COMBO__BASE": {
+      "run_id": "RUN_20261115_050355_20FINAL_FIXED_V1_ONE_TRADE_PER_COMBO_20231101_20261101",
+      "strategy_config_hash": "40fe84cd94b9cbd443af0b33391e67f486fd76f952009e7827de4910598db7cb",
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "validation_status": "PARTIALLY_VERIFIED",
+      "overall_status": "PARTIALLY_VERIFIED",
+      "gates": {
+        "A1": {
+          "gate_id": "A1",
+          "name": "Dataset hash",
+          "status": "PASS",
+          "rows_checked": 74,
+          "rows_total": 74,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.891,
+          "reason": "",
+          "details": {
+            "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "dataset_hash_measured": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "data_root": "C:\\tmp\\autotrade-v3-16-clean"
+          }
+        },
+        "A2": {
+          "gate_id": "A2",
+          "name": "M1 integrity",
+          "status": "PASS",
+          "rows_checked": 3156480,
+          "rows_total": 3156480,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 4.576,
+          "reason": "",
+          "details": {
+            "per_symbol": {
+              "BTCUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              },
+              "ETHUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              }
+            },
+            "scan_seconds": 4.574
+          }
+        },
+        "B1": {
+          "gate_id": "B1",
+          "name": "Frozen signal parity",
+          "status": "INCONCLUSIVE",
+          "rows_checked": 0,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.024,
+          "reason": "Strategy (20FINAL_FIXED_V1@1) has no registered frozen reference baseline.",
+          "details": {}
+        },
+        "B2": {
+          "gate_id": "B2",
+          "name": "No-lookahead validation",
+          "status": "PASS",
+          "rows_checked": 20,
+          "rows_total": 20,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 40.386,
+          "reason": "",
+          "details": {
+            "seed": 20261110,
+            "n_cutoffs": 20,
+            "duration_s": 40.32,
+            "cutoffs_tested": [
+              {
+                "cutoff_ms": 1705919399999,
+                "cutoff_dt": "2024-01-22 10:29:59",
+                "expected_count": 218,
+                "replayed_count": 218,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1709045999999,
+                "cutoff_dt": "2024-02-27 14:59:59",
+                "expected_count": 489,
+                "replayed_count": 489,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1714337999999,
+                "cutoff_dt": "2024-04-28 20:59:59",
+                "expected_count": 832,
+                "replayed_count": 832,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1716065999999,
+                "cutoff_dt": "2024-05-18 20:59:59",
+                "expected_count": 934,
+                "replayed_count": 934,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1720173599999,
+                "cutoff_dt": "2024-07-05 09:59:59",
+                "expected_count": 1271,
+                "replayed_count": 1271,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1726829999999,
+                "cutoff_dt": "2024-09-20 10:59:59",
+                "expected_count": 1708,
+                "replayed_count": 1708,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1728932399999,
+                "cutoff_dt": "2024-10-14 18:59:59",
+                "expected_count": 1830,
+                "replayed_count": 1830,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1735914599999,
+                "cutoff_dt": "2025-01-03 14:29:59",
+                "expected_count": 2247,
+                "replayed_count": 2247,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1740506399999,
+                "cutoff_dt": "2025-02-25 17:59:59",
+                "expected_count": 2553,
+                "replayed_count": 2553,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1746701999999,
+                "cutoff_dt": "2025-05-08 10:59:59",
+                "expected_count": 2894,
+                "replayed_count": 2894,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1751839199999,
+                "cutoff_dt": "2025-07-06 21:59:59",
+                "expected_count": 3236,
+                "replayed_count": 3236,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1754564399999,
+                "cutoff_dt": "2025-08-07 10:59:59",
+                "expected_count": 3468,
+                "replayed_count": 3468,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1757596499999,
+                "cutoff_dt": "2025-09-11 13:14:59",
+                "expected_count": 3672,
+                "replayed_count": 3672,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1765707299999,
+                "cutoff_dt": "2025-12-14 10:14:59",
+                "expected_count": 4133,
+                "replayed_count": 4133,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1769943599999,
+                "cutoff_dt": "2026-02-01 10:59:59",
+                "expected_count": 4473,
+                "replayed_count": 4473,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1770811199999,
+                "cutoff_dt": "2026-02-11 11:59:59",
+                "expected_count": 4562,
+                "replayed_count": 4562,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1776607199999,
+                "cutoff_dt": "2026-04-19 13:59:59",
+                "expected_count": 4914,
+                "replayed_count": 4914,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1782309599999,
+                "cutoff_dt": "2026-06-24 13:59:59",
+                "expected_count": 5265,
+                "replayed_count": 5265,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1784224799999,
+                "cutoff_dt": "2026-07-16 17:59:59",
+                "expected_count": 5375,
+                "replayed_count": 5375,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1789779599999,
+                "cutoff_dt": "2026-09-19 00:59:59",
+                "expected_count": 5744,
+                "replayed_count": 5744,
+                "content_matched": true,
+                "pass": true
+              }
+            ],
+            "exit_code": 0,
+            "sampling_policy": "uniform_buckets_random_jitter",
+            "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+          }
+        },
+        "B3": {
+          "gate_id": "B3",
+          "name": "Batch-Live equivalence",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.549,
+          "reason": "",
+          "details": {
+            "strategy_ref": "20FINAL_FIXED_V1@1",
+            "signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
+            "unclosed_bar_rejected": true,
+            "per_symbol": {
+              "BTC-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 2575,
+                "live_signals": 2575,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              },
+              "ETH-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 3409,
+                "live_signals": 3409,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              }
+            },
+            "duration_s": 0.54
+          }
+        },
+        "C1": {
+          "gate_id": "C1",
+          "name": "Entry causality",
+          "status": "PASS",
+          "rows_checked": 4157,
+          "rows_total": 4157,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.157,
+          "reason": "",
+          "details": {
+            "mode": "ONE_TRADE_PER_COMBO",
+            "price_check": "open+slippage"
+          }
+        },
+        "C2": {
+          "gate_id": "C2",
+          "name": "ExitPolicy propagation",
+          "status": "PASS",
+          "rows_checked": 4157,
+          "rows_total": 4157,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.501,
+          "reason": "",
+          "details": {
+            "policies_checked": 20
+          }
+        },
+        "C3": {
+          "gate_id": "C3",
+          "name": "Exit replay",
+          "status": "PASS",
+          "rows_checked": 4157,
+          "rows_total": 4157,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.881,
+          "reason": "",
+          "details": {
+            "mode": "ONE_TRADE_PER_COMBO",
+            "legs_replayed": 4157,
+            "mismatch_rows": 0
+          }
+        },
+        "C4": {
+          "gate_id": "C4",
+          "name": "Accounting",
+          "status": "PASS",
+          "rows_checked": 4157,
+          "rows_total": 4157,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.065,
+          "reason": "",
+          "details": {
+            "notes": [],
+            "mode": "ONE_TRADE_PER_COMBO",
+            "c4_subchecks": {
+              "NET_COST_INVARIANT_OWN": "PASS",
+              "NET_IS_VWAP_BASIS": "N/A",
+              "BASIS_SHIFT_CONSERVATION": "N/A"
+            }
+          }
+        },
+        "C5": {
+          "gate_id": "C5",
+          "name": "Signal conservation",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.063,
+          "reason": "",
+          "details": {
+            "statuses": {
+              "ACCEPTED": 4157,
+              "SKIPPED": 1827,
+              "REJECTED": 0,
+              "FILTERED": 0,
+              "UNFILLABLE": 0
+            }
+          }
+        },
+        "D1": {
+          "gate_id": "D1",
+          "name": "Artifact integrity",
+          "status": "PASS",
+          "rows_checked": 8,
+          "rows_total": 8,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.398,
+          "reason": "",
+          "details": {
+            "undelivered_large_artifacts": []
+          }
+        },
+        "D2": {
+          "gate_id": "D2",
+          "name": "Reported numbers",
+          "status": "PASS",
+          "rows_checked": 1645,
+          "rows_total": 1645,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.358,
+          "reason": "",
+          "details": {
+            "analysis_leaves_total": 1441,
+            "analysis_leaves_checked": 1441,
+            "report_numbers_total": 204,
+            "report_numbers_checked": 204,
+            "scope": "all numeric leaves of analysis.json (except the 'validation' block and prose notes) and every number in report.md, recomputed from trades.parquet"
+          }
+        }
+      }
+    },
+    "ONE_TRADE_PER_COMBO__STRESS": {
+      "run_id": "RUN_20261115_050532_20FINAL_FIXED_V1_ONE_TRADE_PER_COMBO_20231101_20261101",
+      "strategy_config_hash": "40fe84cd94b9cbd443af0b33391e67f486fd76f952009e7827de4910598db7cb",
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "validation_status": "PARTIALLY_VERIFIED",
+      "overall_status": "PARTIALLY_VERIFIED",
+      "gates": {
+        "A1": {
+          "gate_id": "A1",
+          "name": "Dataset hash",
+          "status": "PASS",
+          "rows_checked": 74,
+          "rows_total": 74,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.838,
+          "reason": "",
+          "details": {
+            "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "dataset_hash_measured": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "data_root": "C:\\tmp\\autotrade-v3-16-clean"
+          }
+        },
+        "A2": {
+          "gate_id": "A2",
+          "name": "M1 integrity",
+          "status": "PASS",
+          "rows_checked": 3156480,
+          "rows_total": 3156480,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 4.49,
+          "reason": "",
+          "details": {
+            "per_symbol": {
+              "BTCUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              },
+              "ETHUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              }
+            },
+            "scan_seconds": 4.488
+          }
+        },
+        "B1": {
+          "gate_id": "B1",
+          "name": "Frozen signal parity",
+          "status": "INCONCLUSIVE",
+          "rows_checked": 0,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.031,
+          "reason": "Strategy (20FINAL_FIXED_V1@1) has no registered frozen reference baseline.",
+          "details": {}
+        },
+        "B2": {
+          "gate_id": "B2",
+          "name": "No-lookahead validation",
+          "status": "PASS",
+          "rows_checked": 20,
+          "rows_total": 20,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 40.816,
+          "reason": "",
+          "details": {
+            "seed": 20261110,
+            "n_cutoffs": 20,
+            "duration_s": 40.78,
+            "cutoffs_tested": [
+              {
+                "cutoff_ms": 1705919399999,
+                "cutoff_dt": "2024-01-22 10:29:59",
+                "expected_count": 218,
+                "replayed_count": 218,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1709045999999,
+                "cutoff_dt": "2024-02-27 14:59:59",
+                "expected_count": 489,
+                "replayed_count": 489,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1714337999999,
+                "cutoff_dt": "2024-04-28 20:59:59",
+                "expected_count": 832,
+                "replayed_count": 832,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1716065999999,
+                "cutoff_dt": "2024-05-18 20:59:59",
+                "expected_count": 934,
+                "replayed_count": 934,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1720173599999,
+                "cutoff_dt": "2024-07-05 09:59:59",
+                "expected_count": 1271,
+                "replayed_count": 1271,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1726829999999,
+                "cutoff_dt": "2024-09-20 10:59:59",
+                "expected_count": 1708,
+                "replayed_count": 1708,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1728932399999,
+                "cutoff_dt": "2024-10-14 18:59:59",
+                "expected_count": 1830,
+                "replayed_count": 1830,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1735914599999,
+                "cutoff_dt": "2025-01-03 14:29:59",
+                "expected_count": 2247,
+                "replayed_count": 2247,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1740506399999,
+                "cutoff_dt": "2025-02-25 17:59:59",
+                "expected_count": 2553,
+                "replayed_count": 2553,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1746701999999,
+                "cutoff_dt": "2025-05-08 10:59:59",
+                "expected_count": 2894,
+                "replayed_count": 2894,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1751839199999,
+                "cutoff_dt": "2025-07-06 21:59:59",
+                "expected_count": 3236,
+                "replayed_count": 3236,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1754564399999,
+                "cutoff_dt": "2025-08-07 10:59:59",
+                "expected_count": 3468,
+                "replayed_count": 3468,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1757596499999,
+                "cutoff_dt": "2025-09-11 13:14:59",
+                "expected_count": 3672,
+                "replayed_count": 3672,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1765707299999,
+                "cutoff_dt": "2025-12-14 10:14:59",
+                "expected_count": 4133,
+                "replayed_count": 4133,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1769943599999,
+                "cutoff_dt": "2026-02-01 10:59:59",
+                "expected_count": 4473,
+                "replayed_count": 4473,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1770811199999,
+                "cutoff_dt": "2026-02-11 11:59:59",
+                "expected_count": 4562,
+                "replayed_count": 4562,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1776607199999,
+                "cutoff_dt": "2026-04-19 13:59:59",
+                "expected_count": 4914,
+                "replayed_count": 4914,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1782309599999,
+                "cutoff_dt": "2026-06-24 13:59:59",
+                "expected_count": 5265,
+                "replayed_count": 5265,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1784224799999,
+                "cutoff_dt": "2026-07-16 17:59:59",
+                "expected_count": 5375,
+                "replayed_count": 5375,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1789779599999,
+                "cutoff_dt": "2026-09-19 00:59:59",
+                "expected_count": 5744,
+                "replayed_count": 5744,
+                "content_matched": true,
+                "pass": true
+              }
+            ],
+            "exit_code": 0,
+            "sampling_policy": "uniform_buckets_random_jitter",
+            "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+          }
+        },
+        "B3": {
+          "gate_id": "B3",
+          "name": "Batch-Live equivalence",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.559,
+          "reason": "",
+          "details": {
+            "strategy_ref": "20FINAL_FIXED_V1@1",
+            "signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
+            "unclosed_bar_rejected": true,
+            "per_symbol": {
+              "BTC-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 2575,
+                "live_signals": 2575,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              },
+              "ETH-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 3409,
+                "live_signals": 3409,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              }
+            },
+            "duration_s": 0.55
+          }
+        },
+        "C1": {
+          "gate_id": "C1",
+          "name": "Entry causality",
+          "status": "PASS",
+          "rows_checked": 4168,
+          "rows_total": 4168,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.139,
+          "reason": "",
+          "details": {
+            "mode": "ONE_TRADE_PER_COMBO",
+            "price_check": "open+slippage"
+          }
+        },
+        "C2": {
+          "gate_id": "C2",
+          "name": "ExitPolicy propagation",
+          "status": "PASS",
+          "rows_checked": 4168,
+          "rows_total": 4168,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.604,
+          "reason": "",
+          "details": {
+            "policies_checked": 20
+          }
+        },
+        "C3": {
+          "gate_id": "C3",
+          "name": "Exit replay",
+          "status": "PASS",
+          "rows_checked": 4168,
+          "rows_total": 4168,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.877,
+          "reason": "",
+          "details": {
+            "mode": "ONE_TRADE_PER_COMBO",
+            "legs_replayed": 4168,
+            "mismatch_rows": 0
+          }
+        },
+        "C4": {
+          "gate_id": "C4",
+          "name": "Accounting",
+          "status": "PASS",
+          "rows_checked": 4168,
+          "rows_total": 4168,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.063,
+          "reason": "",
+          "details": {
+            "notes": [],
+            "mode": "ONE_TRADE_PER_COMBO",
+            "c4_subchecks": {
+              "NET_COST_INVARIANT_OWN": "PASS",
+              "NET_IS_VWAP_BASIS": "N/A",
+              "BASIS_SHIFT_CONSERVATION": "N/A"
+            }
+          }
+        },
+        "C5": {
+          "gate_id": "C5",
+          "name": "Signal conservation",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.066,
+          "reason": "",
+          "details": {
+            "statuses": {
+              "ACCEPTED": 4168,
+              "SKIPPED": 1816,
+              "REJECTED": 0,
+              "FILTERED": 0,
+              "UNFILLABLE": 0
+            }
+          }
+        },
+        "D1": {
+          "gate_id": "D1",
+          "name": "Artifact integrity",
+          "status": "PASS",
+          "rows_checked": 8,
+          "rows_total": 8,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.459,
+          "reason": "",
+          "details": {
+            "undelivered_large_artifacts": []
+          }
+        },
+        "D2": {
+          "gate_id": "D2",
+          "name": "Reported numbers",
+          "status": "INCONCLUSIVE",
+          "rows_checked": 1645,
+          "rows_total": 1646,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.394,
+          "reason": "rows_checked < rows_total",
+          "details": {
+            "analysis_leaves_total": 1441,
+            "analysis_leaves_checked": 1441,
+            "report_numbers_total": 205,
+            "report_numbers_checked": 204,
+            "scope": "all numeric leaves of analysis.json (except the 'validation' block and prose notes) and every number in report.md, recomputed from trades.parquet"
+          }
+        }
+      }
+    },
+    "BINGX_PORTFOLIO__IDEAL": {
+      "run_id": "RUN_20261115_050735_20FINAL_FIXED_V1_BINGX_PORTFOLIO_20231101_20261101",
+      "strategy_config_hash": "40fe84cd94b9cbd443af0b33391e67f486fd76f952009e7827de4910598db7cb",
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "validation_status": "PARTIALLY_VERIFIED",
+      "overall_status": "PARTIALLY_VERIFIED",
+      "gates": {
+        "A1": {
+          "gate_id": "A1",
+          "name": "Dataset hash",
+          "status": "PASS",
+          "rows_checked": 74,
+          "rows_total": 74,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.868,
+          "reason": "",
+          "details": {
+            "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "dataset_hash_measured": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "data_root": "C:\\tmp\\autotrade-v3-16-clean"
+          }
+        },
+        "A2": {
+          "gate_id": "A2",
+          "name": "M1 integrity",
+          "status": "PASS",
+          "rows_checked": 3156480,
+          "rows_total": 3156480,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 4.377,
+          "reason": "",
+          "details": {
+            "per_symbol": {
+              "BTCUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              },
+              "ETHUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              }
+            },
+            "scan_seconds": 4.374
+          }
+        },
+        "B1": {
+          "gate_id": "B1",
+          "name": "Frozen signal parity",
+          "status": "INCONCLUSIVE",
+          "rows_checked": 0,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.021,
+          "reason": "Strategy (20FINAL_FIXED_V1@1) has no registered frozen reference baseline.",
+          "details": {}
+        },
+        "B2": {
+          "gate_id": "B2",
+          "name": "No-lookahead validation",
+          "status": "PASS",
+          "rows_checked": 20,
+          "rows_total": 20,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 40.275,
+          "reason": "",
+          "details": {
+            "seed": 20261110,
+            "n_cutoffs": 20,
+            "duration_s": 40.25,
+            "cutoffs_tested": [
+              {
+                "cutoff_ms": 1705919399999,
+                "cutoff_dt": "2024-01-22 10:29:59",
+                "expected_count": 218,
+                "replayed_count": 218,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1709045999999,
+                "cutoff_dt": "2024-02-27 14:59:59",
+                "expected_count": 489,
+                "replayed_count": 489,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1714337999999,
+                "cutoff_dt": "2024-04-28 20:59:59",
+                "expected_count": 832,
+                "replayed_count": 832,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1716065999999,
+                "cutoff_dt": "2024-05-18 20:59:59",
+                "expected_count": 934,
+                "replayed_count": 934,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1720173599999,
+                "cutoff_dt": "2024-07-05 09:59:59",
+                "expected_count": 1271,
+                "replayed_count": 1271,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1726829999999,
+                "cutoff_dt": "2024-09-20 10:59:59",
+                "expected_count": 1708,
+                "replayed_count": 1708,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1728932399999,
+                "cutoff_dt": "2024-10-14 18:59:59",
+                "expected_count": 1830,
+                "replayed_count": 1830,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1735914599999,
+                "cutoff_dt": "2025-01-03 14:29:59",
+                "expected_count": 2247,
+                "replayed_count": 2247,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1740506399999,
+                "cutoff_dt": "2025-02-25 17:59:59",
+                "expected_count": 2553,
+                "replayed_count": 2553,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1746701999999,
+                "cutoff_dt": "2025-05-08 10:59:59",
+                "expected_count": 2894,
+                "replayed_count": 2894,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1751839199999,
+                "cutoff_dt": "2025-07-06 21:59:59",
+                "expected_count": 3236,
+                "replayed_count": 3236,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1754564399999,
+                "cutoff_dt": "2025-08-07 10:59:59",
+                "expected_count": 3468,
+                "replayed_count": 3468,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1757596499999,
+                "cutoff_dt": "2025-09-11 13:14:59",
+                "expected_count": 3672,
+                "replayed_count": 3672,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1765707299999,
+                "cutoff_dt": "2025-12-14 10:14:59",
+                "expected_count": 4133,
+                "replayed_count": 4133,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1769943599999,
+                "cutoff_dt": "2026-02-01 10:59:59",
+                "expected_count": 4473,
+                "replayed_count": 4473,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1770811199999,
+                "cutoff_dt": "2026-02-11 11:59:59",
+                "expected_count": 4562,
+                "replayed_count": 4562,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1776607199999,
+                "cutoff_dt": "2026-04-19 13:59:59",
+                "expected_count": 4914,
+                "replayed_count": 4914,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1782309599999,
+                "cutoff_dt": "2026-06-24 13:59:59",
+                "expected_count": 5265,
+                "replayed_count": 5265,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1784224799999,
+                "cutoff_dt": "2026-07-16 17:59:59",
+                "expected_count": 5375,
+                "replayed_count": 5375,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1789779599999,
+                "cutoff_dt": "2026-09-19 00:59:59",
+                "expected_count": 5744,
+                "replayed_count": 5744,
+                "content_matched": true,
+                "pass": true
+              }
+            ],
+            "exit_code": 0,
+            "sampling_policy": "uniform_buckets_random_jitter",
+            "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+          }
+        },
+        "B3": {
+          "gate_id": "B3",
+          "name": "Batch-Live equivalence",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.529,
+          "reason": "",
+          "details": {
+            "strategy_ref": "20FINAL_FIXED_V1@1",
+            "signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
+            "unclosed_bar_rejected": true,
+            "per_symbol": {
+              "BTC-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 2575,
+                "live_signals": 2575,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              },
+              "ETH-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 3409,
+                "live_signals": 3409,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              }
+            },
+            "duration_s": 0.51
+          }
+        },
+        "C1": {
+          "gate_id": "C1",
+          "name": "Entry causality",
+          "status": "PASS",
+          "rows_checked": 4150,
+          "rows_total": 4150,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.194,
+          "reason": "",
+          "details": {
+            "mode": "BINGX_PORTFOLIO",
+            "price_check": "VWAP-reconstruction"
+          }
+        },
+        "C2": {
+          "gate_id": "C2",
+          "name": "ExitPolicy propagation",
+          "status": "PASS",
+          "rows_checked": 4150,
+          "rows_total": 4150,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.488,
+          "reason": "",
+          "details": {
+            "policies_checked": 20
+          }
+        },
+        "C3": {
+          "gate_id": "C3",
+          "name": "Exit replay",
+          "status": "PASS",
+          "rows_checked": 4150,
+          "rows_total": 4150,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.886,
+          "reason": "",
+          "details": {
+            "mode": "BINGX_PORTFOLIO",
+            "legs_replayed": 4150,
+            "mismatch_rows": 0
+          }
+        },
+        "C4": {
+          "gate_id": "C4",
+          "name": "Accounting",
+          "status": "PASS",
+          "rows_checked": 4150,
+          "rows_total": 4150,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.499,
+          "reason": "",
+          "details": {
+            "notes": [],
+            "mode": "BINGX_PORTFOLIO",
+            "c4_subchecks": {
+              "NET_COST_INVARIANT_OWN": "PASS",
+              "NET_IS_VWAP_BASIS": "PASS",
+              "BASIS_SHIFT_CONSERVATION": "PASS"
+            }
+          }
+        },
+        "C5": {
+          "gate_id": "C5",
+          "name": "Signal conservation",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.079,
+          "reason": "",
+          "details": {
+            "statuses": {
+              "ACCEPTED": 4150,
+              "SKIPPED": 1834,
+              "REJECTED": 0,
+              "FILTERED": 0,
+              "UNFILLABLE": 0
+            }
+          }
+        },
+        "D1": {
+          "gate_id": "D1",
+          "name": "Artifact integrity",
+          "status": "PASS",
+          "rows_checked": 9,
+          "rows_total": 9,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 24.662,
+          "reason": "",
+          "details": {
+            "undelivered_large_artifacts": []
+          }
+        },
+        "D2": {
+          "gate_id": "D2",
+          "name": "Reported numbers",
+          "status": "PASS",
+          "rows_checked": 1647,
+          "rows_total": 1647,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.382,
+          "reason": "",
+          "details": {
+            "analysis_leaves_total": 1441,
+            "analysis_leaves_checked": 1441,
+            "report_numbers_total": 206,
+            "report_numbers_checked": 206,
+            "scope": "all numeric leaves of analysis.json (except the 'validation' block and prose notes) and every number in report.md, recomputed from trades.parquet"
+          }
+        }
+      }
+    },
+    "BINGX_PORTFOLIO__BASE": {
+      "run_id": "RUN_20261115_051036_20FINAL_FIXED_V1_BINGX_PORTFOLIO_20231101_20261101",
+      "strategy_config_hash": "40fe84cd94b9cbd443af0b33391e67f486fd76f952009e7827de4910598db7cb",
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "validation_status": "PARTIALLY_VERIFIED",
+      "overall_status": "PARTIALLY_VERIFIED",
+      "gates": {
+        "A1": {
+          "gate_id": "A1",
+          "name": "Dataset hash",
+          "status": "PASS",
+          "rows_checked": 74,
+          "rows_total": 74,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.887,
+          "reason": "",
+          "details": {
+            "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "dataset_hash_measured": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "data_root": "C:\\tmp\\autotrade-v3-16-clean"
+          }
+        },
+        "A2": {
+          "gate_id": "A2",
+          "name": "M1 integrity",
+          "status": "PASS",
+          "rows_checked": 3156480,
+          "rows_total": 3156480,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 4.268,
+          "reason": "",
+          "details": {
+            "per_symbol": {
+              "BTCUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              },
+              "ETHUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              }
+            },
+            "scan_seconds": 4.266
+          }
+        },
+        "B1": {
+          "gate_id": "B1",
+          "name": "Frozen signal parity",
+          "status": "INCONCLUSIVE",
+          "rows_checked": 0,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.032,
+          "reason": "Strategy (20FINAL_FIXED_V1@1) has no registered frozen reference baseline.",
+          "details": {}
+        },
+        "B2": {
+          "gate_id": "B2",
+          "name": "No-lookahead validation",
+          "status": "PASS",
+          "rows_checked": 20,
+          "rows_total": 20,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 40.988,
+          "reason": "",
+          "details": {
+            "seed": 20261110,
+            "n_cutoffs": 20,
+            "duration_s": 40.95,
+            "cutoffs_tested": [
+              {
+                "cutoff_ms": 1705919399999,
+                "cutoff_dt": "2024-01-22 10:29:59",
+                "expected_count": 218,
+                "replayed_count": 218,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1709045999999,
+                "cutoff_dt": "2024-02-27 14:59:59",
+                "expected_count": 489,
+                "replayed_count": 489,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1714337999999,
+                "cutoff_dt": "2024-04-28 20:59:59",
+                "expected_count": 832,
+                "replayed_count": 832,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1716065999999,
+                "cutoff_dt": "2024-05-18 20:59:59",
+                "expected_count": 934,
+                "replayed_count": 934,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1720173599999,
+                "cutoff_dt": "2024-07-05 09:59:59",
+                "expected_count": 1271,
+                "replayed_count": 1271,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1726829999999,
+                "cutoff_dt": "2024-09-20 10:59:59",
+                "expected_count": 1708,
+                "replayed_count": 1708,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1728932399999,
+                "cutoff_dt": "2024-10-14 18:59:59",
+                "expected_count": 1830,
+                "replayed_count": 1830,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1735914599999,
+                "cutoff_dt": "2025-01-03 14:29:59",
+                "expected_count": 2247,
+                "replayed_count": 2247,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1740506399999,
+                "cutoff_dt": "2025-02-25 17:59:59",
+                "expected_count": 2553,
+                "replayed_count": 2553,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1746701999999,
+                "cutoff_dt": "2025-05-08 10:59:59",
+                "expected_count": 2894,
+                "replayed_count": 2894,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1751839199999,
+                "cutoff_dt": "2025-07-06 21:59:59",
+                "expected_count": 3236,
+                "replayed_count": 3236,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1754564399999,
+                "cutoff_dt": "2025-08-07 10:59:59",
+                "expected_count": 3468,
+                "replayed_count": 3468,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1757596499999,
+                "cutoff_dt": "2025-09-11 13:14:59",
+                "expected_count": 3672,
+                "replayed_count": 3672,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1765707299999,
+                "cutoff_dt": "2025-12-14 10:14:59",
+                "expected_count": 4133,
+                "replayed_count": 4133,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1769943599999,
+                "cutoff_dt": "2026-02-01 10:59:59",
+                "expected_count": 4473,
+                "replayed_count": 4473,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1770811199999,
+                "cutoff_dt": "2026-02-11 11:59:59",
+                "expected_count": 4562,
+                "replayed_count": 4562,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1776607199999,
+                "cutoff_dt": "2026-04-19 13:59:59",
+                "expected_count": 4914,
+                "replayed_count": 4914,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1782309599999,
+                "cutoff_dt": "2026-06-24 13:59:59",
+                "expected_count": 5265,
+                "replayed_count": 5265,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1784224799999,
+                "cutoff_dt": "2026-07-16 17:59:59",
+                "expected_count": 5375,
+                "replayed_count": 5375,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1789779599999,
+                "cutoff_dt": "2026-09-19 00:59:59",
+                "expected_count": 5744,
+                "replayed_count": 5744,
+                "content_matched": true,
+                "pass": true
+              }
+            ],
+            "exit_code": 0,
+            "sampling_policy": "uniform_buckets_random_jitter",
+            "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+          }
+        },
+        "B3": {
+          "gate_id": "B3",
+          "name": "Batch-Live equivalence",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.489,
+          "reason": "",
+          "details": {
+            "strategy_ref": "20FINAL_FIXED_V1@1",
+            "signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
+            "unclosed_bar_rejected": true,
+            "per_symbol": {
+              "BTC-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 2575,
+                "live_signals": 2575,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              },
+              "ETH-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 3409,
+                "live_signals": 3409,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              }
+            },
+            "duration_s": 0.48
+          }
+        },
+        "C1": {
+          "gate_id": "C1",
+          "name": "Entry causality",
+          "status": "PASS",
+          "rows_checked": 4157,
+          "rows_total": 4157,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.197,
+          "reason": "",
+          "details": {
+            "mode": "BINGX_PORTFOLIO",
+            "price_check": "VWAP-reconstruction"
+          }
+        },
+        "C2": {
+          "gate_id": "C2",
+          "name": "ExitPolicy propagation",
+          "status": "PASS",
+          "rows_checked": 4157,
+          "rows_total": 4157,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.491,
+          "reason": "",
+          "details": {
+            "policies_checked": 20
+          }
+        },
+        "C3": {
+          "gate_id": "C3",
+          "name": "Exit replay",
+          "status": "PASS",
+          "rows_checked": 4157,
+          "rows_total": 4157,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.869,
+          "reason": "",
+          "details": {
+            "mode": "BINGX_PORTFOLIO",
+            "legs_replayed": 4157,
+            "mismatch_rows": 0
+          }
+        },
+        "C4": {
+          "gate_id": "C4",
+          "name": "Accounting",
+          "status": "PASS",
+          "rows_checked": 4157,
+          "rows_total": 4157,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.492,
+          "reason": "",
+          "details": {
+            "notes": [],
+            "mode": "BINGX_PORTFOLIO",
+            "c4_subchecks": {
+              "NET_COST_INVARIANT_OWN": "PASS",
+              "NET_IS_VWAP_BASIS": "PASS",
+              "BASIS_SHIFT_CONSERVATION": "PASS"
+            }
+          }
+        },
+        "C5": {
+          "gate_id": "C5",
+          "name": "Signal conservation",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.063,
+          "reason": "",
+          "details": {
+            "statuses": {
+              "ACCEPTED": 4157,
+              "SKIPPED": 1827,
+              "REJECTED": 0,
+              "FILTERED": 0,
+              "UNFILLABLE": 0
+            }
+          }
+        },
+        "D1": {
+          "gate_id": "D1",
+          "name": "Artifact integrity",
+          "status": "PASS",
+          "rows_checked": 9,
+          "rows_total": 9,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 23.872,
+          "reason": "",
+          "details": {
+            "undelivered_large_artifacts": []
+          }
+        },
+        "D2": {
+          "gate_id": "D2",
+          "name": "Reported numbers",
+          "status": "PASS",
+          "rows_checked": 1647,
+          "rows_total": 1647,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.393,
+          "reason": "",
+          "details": {
+            "analysis_leaves_total": 1441,
+            "analysis_leaves_checked": 1441,
+            "report_numbers_total": 206,
+            "report_numbers_checked": 206,
+            "scope": "all numeric leaves of analysis.json (except the 'validation' block and prose notes) and every number in report.md, recomputed from trades.parquet"
+          }
+        }
+      }
+    },
+    "BINGX_PORTFOLIO__STRESS": {
+      "run_id": "RUN_20261115_051337_20FINAL_FIXED_V1_BINGX_PORTFOLIO_20231101_20261101",
+      "strategy_config_hash": "40fe84cd94b9cbd443af0b33391e67f486fd76f952009e7827de4910598db7cb",
+      "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+      "validation_status": "PARTIALLY_VERIFIED",
+      "overall_status": "PARTIALLY_VERIFIED",
+      "gates": {
+        "A1": {
+          "gate_id": "A1",
+          "name": "Dataset hash",
+          "status": "PASS",
+          "rows_checked": 74,
+          "rows_total": 74,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.86,
+          "reason": "",
+          "details": {
+            "dataset_hash_declared": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "dataset_hash_measured": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+            "data_root": "C:\\tmp\\autotrade-v3-16-clean"
+          }
+        },
+        "A2": {
+          "gate_id": "A2",
+          "name": "M1 integrity",
+          "status": "PASS",
+          "rows_checked": 3156480,
+          "rows_total": 3156480,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 4.645,
+          "reason": "",
+          "details": {
+            "per_symbol": {
+              "BTCUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              },
+              "ETHUSDT": {
+                "rows": 1578240,
+                "expected_rows_from_manifest_range": 1578240,
+                "manifest_total_candles": 1578240,
+                "missing": 0,
+                "duplicates": 0,
+                "misaligned": 0,
+                "nonfinite": 0,
+                "nonpositive_price": 0,
+                "ohlc_inconsistent": 0,
+                "negative_volume": 0
+              }
+            },
+            "scan_seconds": 4.643
+          }
+        },
+        "B1": {
+          "gate_id": "B1",
+          "name": "Frozen signal parity",
+          "status": "INCONCLUSIVE",
+          "rows_checked": 0,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.026,
+          "reason": "Strategy (20FINAL_FIXED_V1@1) has no registered frozen reference baseline.",
+          "details": {}
+        },
+        "B2": {
+          "gate_id": "B2",
+          "name": "No-lookahead validation",
+          "status": "PASS",
+          "rows_checked": 20,
+          "rows_total": 20,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 39.84,
+          "reason": "",
+          "details": {
+            "seed": 20261110,
+            "n_cutoffs": 20,
+            "duration_s": 39.82,
+            "cutoffs_tested": [
+              {
+                "cutoff_ms": 1705919399999,
+                "cutoff_dt": "2024-01-22 10:29:59",
+                "expected_count": 218,
+                "replayed_count": 218,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1709045999999,
+                "cutoff_dt": "2024-02-27 14:59:59",
+                "expected_count": 489,
+                "replayed_count": 489,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1714337999999,
+                "cutoff_dt": "2024-04-28 20:59:59",
+                "expected_count": 832,
+                "replayed_count": 832,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1716065999999,
+                "cutoff_dt": "2024-05-18 20:59:59",
+                "expected_count": 934,
+                "replayed_count": 934,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1720173599999,
+                "cutoff_dt": "2024-07-05 09:59:59",
+                "expected_count": 1271,
+                "replayed_count": 1271,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1726829999999,
+                "cutoff_dt": "2024-09-20 10:59:59",
+                "expected_count": 1708,
+                "replayed_count": 1708,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1728932399999,
+                "cutoff_dt": "2024-10-14 18:59:59",
+                "expected_count": 1830,
+                "replayed_count": 1830,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1735914599999,
+                "cutoff_dt": "2025-01-03 14:29:59",
+                "expected_count": 2247,
+                "replayed_count": 2247,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1740506399999,
+                "cutoff_dt": "2025-02-25 17:59:59",
+                "expected_count": 2553,
+                "replayed_count": 2553,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1746701999999,
+                "cutoff_dt": "2025-05-08 10:59:59",
+                "expected_count": 2894,
+                "replayed_count": 2894,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1751839199999,
+                "cutoff_dt": "2025-07-06 21:59:59",
+                "expected_count": 3236,
+                "replayed_count": 3236,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1754564399999,
+                "cutoff_dt": "2025-08-07 10:59:59",
+                "expected_count": 3468,
+                "replayed_count": 3468,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1757596499999,
+                "cutoff_dt": "2025-09-11 13:14:59",
+                "expected_count": 3672,
+                "replayed_count": 3672,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1765707299999,
+                "cutoff_dt": "2025-12-14 10:14:59",
+                "expected_count": 4133,
+                "replayed_count": 4133,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1769943599999,
+                "cutoff_dt": "2026-02-01 10:59:59",
+                "expected_count": 4473,
+                "replayed_count": 4473,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1770811199999,
+                "cutoff_dt": "2026-02-11 11:59:59",
+                "expected_count": 4562,
+                "replayed_count": 4562,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1776607199999,
+                "cutoff_dt": "2026-04-19 13:59:59",
+                "expected_count": 4914,
+                "replayed_count": 4914,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1782309599999,
+                "cutoff_dt": "2026-06-24 13:59:59",
+                "expected_count": 5265,
+                "replayed_count": 5265,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1784224799999,
+                "cutoff_dt": "2026-07-16 17:59:59",
+                "expected_count": 5375,
+                "replayed_count": 5375,
+                "content_matched": true,
+                "pass": true
+              },
+              {
+                "cutoff_ms": 1789779599999,
+                "cutoff_dt": "2026-09-19 00:59:59",
+                "expected_count": 5744,
+                "replayed_count": 5744,
+                "content_matched": true,
+                "pass": true
+              }
+            ],
+            "exit_code": 0,
+            "sampling_policy": "uniform_buckets_random_jitter",
+            "boundary_policy": "strictly past closed bars (bar_open_index < cutoff_dt)"
+          }
+        },
+        "B3": {
+          "gate_id": "B3",
+          "name": "Batch-Live equivalence",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.571,
+          "reason": "",
+          "details": {
+            "strategy_ref": "20FINAL_FIXED_V1@1",
+            "signal_spec_hash": "4729dfeabea57994d1e955c9f8ce4716b4fbe118cbce2765fa8fddeeaf17da79",
+            "unclosed_bar_rejected": true,
+            "per_symbol": {
+              "BTC-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 2575,
+                "live_signals": 2575,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              },
+              "ETH-USDT": {
+                "bars_processed": 105216,
+                "batch_signals": 3409,
+                "live_signals": 3409,
+                "only_in_batch": 0,
+                "only_in_live": 0,
+                "field_mismatches": 0
+              }
+            },
+            "duration_s": 0.56
+          }
+        },
+        "C1": {
+          "gate_id": "C1",
+          "name": "Entry causality",
+          "status": "PASS",
+          "rows_checked": 4168,
+          "rows_total": 4168,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.19,
+          "reason": "",
+          "details": {
+            "mode": "BINGX_PORTFOLIO",
+            "price_check": "VWAP-reconstruction"
+          }
+        },
+        "C2": {
+          "gate_id": "C2",
+          "name": "ExitPolicy propagation",
+          "status": "PASS",
+          "rows_checked": 4168,
+          "rows_total": 4168,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 1.502,
+          "reason": "",
+          "details": {
+            "policies_checked": 20
+          }
+        },
+        "C3": {
+          "gate_id": "C3",
+          "name": "Exit replay",
+          "status": "PASS",
+          "rows_checked": 4168,
+          "rows_total": 4168,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.862,
+          "reason": "",
+          "details": {
+            "mode": "BINGX_PORTFOLIO",
+            "legs_replayed": 4168,
+            "mismatch_rows": 0
+          }
+        },
+        "C4": {
+          "gate_id": "C4",
+          "name": "Accounting",
+          "status": "PASS",
+          "rows_checked": 4168,
+          "rows_total": 4168,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.453,
+          "reason": "",
+          "details": {
+            "notes": [],
+            "mode": "BINGX_PORTFOLIO",
+            "c4_subchecks": {
+              "NET_COST_INVARIANT_OWN": "PASS",
+              "NET_IS_VWAP_BASIS": "PASS",
+              "BASIS_SHIFT_CONSERVATION": "PASS"
+            }
+          }
+        },
+        "C5": {
+          "gate_id": "C5",
+          "name": "Signal conservation",
+          "status": "PASS",
+          "rows_checked": 5984,
+          "rows_total": 5984,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.074,
+          "reason": "",
+          "details": {
+            "statuses": {
+              "ACCEPTED": 4168,
+              "SKIPPED": 1816,
+              "REJECTED": 0,
+              "FILTERED": 0,
+              "UNFILLABLE": 0
+            }
+          }
+        },
+        "D1": {
+          "gate_id": "D1",
+          "name": "Artifact integrity",
+          "status": "PASS",
+          "rows_checked": 9,
+          "rows_total": 9,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 24.746,
+          "reason": "",
+          "details": {
+            "undelivered_large_artifacts": []
+          }
+        },
+        "D2": {
+          "gate_id": "D2",
+          "name": "Reported numbers",
+          "status": "INCONCLUSIVE",
+          "rows_checked": 1647,
+          "rows_total": 1648,
+          "violation_count": 0,
+          "violations": [],
+          "duration_s": 0.368,
+          "reason": "rows_checked < rows_total",
+          "details": {
+            "analysis_leaves_total": 1441,
+            "analysis_leaves_checked": 1441,
+            "report_numbers_total": 207,
+            "report_numbers_checked": 206,
+            "scope": "all numeric leaves of analysis.json (except the 'validation' block and prose notes) and every number in report.md, recomputed from trades.parquet"
+          }
+        }
+      }
+    }
+  }
+}

@@ -595,7 +595,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Backtest
     p_bt = subparsers.add_parser("backtest", help="Execute simulation backtest")
-    p_bt.add_argument("--strategy", default="20FINAL_BASELINE", help="Strategy ID")
+    p_bt.add_argument("--strategy", default="20FINAL_FIXED_V1", help="Strategy ID")
     p_bt.add_argument("--mode", default="ALL_SIGNALS", choices=["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO", "all", "ALL"], help="Execution mode")
     p_bt.add_argument("--symbols", default="BTC-USDT,ETH-USDT", help="Comma-separated symbols")
     p_bt.add_argument("--start", default="2023-11-01", help="Start date (UTC)")
@@ -615,7 +615,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Uncertainty interval (CONSERVATIVE vs OPTIMISTIC)
     p_unc = subparsers.add_parser("uncertainty", help="Run CONSERVATIVE vs OPTIMISTIC ambiguity interval")
-    p_unc.add_argument("--strategy", default="20FINAL_BASELINE", help="Strategy ID")
+    p_unc.add_argument("--strategy", default="20FINAL_FIXED_V1", help="Strategy ID")
     p_unc.add_argument("--mode", default="ALL_SIGNALS", choices=["ALL_SIGNALS", "ONE_TRADE_PER_COMBO", "BINGX_PORTFOLIO"], help="Execution mode")
     p_unc.add_argument("--symbols", default="BTC-USDT,ETH-USDT", help="Comma-separated symbols")
     p_unc.add_argument("--start", default="2023-11-01", help="Start date (UTC)")

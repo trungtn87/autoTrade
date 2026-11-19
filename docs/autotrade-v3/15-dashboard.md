@@ -24,3 +24,14 @@ Xem chi tiết đầy đủ tại [ui_map.md](../../evidence/v3-15/ui_map.md).
 - ROI của Mode A (`ALL_SIGNALS`) và Mode B (`ONE_TRADE_PER_COMBO`) chỉ là số tham chiếu trên vốn danh nghĩa, không so sánh trực tiếp với Portfolio ROI của Mode C (`BINGX_PORTFOLIO`).
 - Hồ sơ chi phí `UNCONFIRMED` (`BASE`, `STRESS`) và `TEST_ONLY` bị khóa trên dữ liệu M1 thật.
 - Baseline `20FINAL@1` (`20final_v1.json` + `20final_v1.lock`) bị khóa cứng, chỉ có thể clone sang version mới.
+
+
+## 5. Kho backtest V3 (bổ sung từ PR #133)
+
+- Trang **Kho backtest · Tất cả run** đọc trực tiếp `run_manifest.json` trong cây `runs/`, không chỉ `runs/lab/store`, và luôn quét lại khi bấm **Tải lại**. Không thay thế các màn hình Run Detail/Walk-Forward hiện có.
+- Các mode `ALL_SIGNALS`, `ONE_TRADE_PER_COMBO`, `BINGX_PORTFOLIO`, `ALL_SIGNALS_PORTFOLIO` hiển thị riêng theo manifest. Chiến lược và combo-symbol giữ tách biệt, không gộp BTC-C1 với ETH-C1.
+- Với run nằm ngoài `runs/` (ví dụ một thư mục worktree nghiên cứu riêng), đặt biến `AUTOTRADE_BACKTEST_RUN_ROOTS` trỏ tới thư mục gốc. Trên Windows, nhiều đường dẫn ngăn cách bằng dấu chấm phẩy.
+- Run không có `run_manifest.json` **chưa được nhập tự động**; các script nghiên cứu xuất file CSV tùy ý cần chuẩn hóa artifact có thông tin run/provenance.
+- **Bảo toàn nguồn sự thật:** `validation.json` là nguồn validation của trang này. Khi thiếu hoặc không VERIFIED/PARTIALLY_VERIFIED, chỉ hiện metadata và report.md gốc, không hiển thị KPI từ analysis.json. Nếu `ARTIFACTS.json` có hash cho analysis.json thì hash phải khớp. PARTIALLY_VERIFIED không được xem là VERIFIED.
+- **Không phải kiểm chứng MT5:** Các KPI được đọc trực tiếp từ `analysis.json` của run đủ điều kiện; màn hình này không thay thế verifier độc lập, và không tính lại PnL/ROI.
+- Dashboard chỉ chạy local, không đụng V2/live, baseline/golden, Supabase hoặc BingX.

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 from autotrade_v3.strategy.base import BaseStrategy
 from autotrade_v3.strategy.baseline_20final import Baseline20FinalStrategy
+from autotrade_v3.strategy.eth_c1_h1_both_1 import EthC1H1Both1Strategy
 from autotrade_v3.strategy_core.registry import StrategyCoreRegistry, parse_strategy_ref
 
 
@@ -88,6 +89,7 @@ class StrategyRegistry:
         from autotrade_v3.strategy.v3_lab_4 import V3Lab4Strategy
 
         cls.register(Baseline20FinalStrategy())
+        cls.register(EthC1H1Both1Strategy())
         cls.register(V3Lab2Strategy())
         cls.register(V3Lab4Strategy(version="4.0.0"))
         cls.register(V3Lab4Strategy(version="4.0.1"))
