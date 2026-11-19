@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0",
+  "strategy_id": "20FINAL",
+  "strategy_version": "1",
+  "source_commit_sha": "011d081ac84668211cd48ed497781904ce8eefd2",
+  "source_last_modified_commit_sha": "91a6546766057eba020d74c7010de714e3a5bee2",
+  "files": [
+    {
+      "target_path": "autotrade_v3/strategy_core/indicators/__init__.py",
+      "source_path": "autotrade_v2/app/strategy/final14_research/__init__.py",
+      "source_blob_sha": "9d48db4f9f85e1752cf424c49ee18a6907c3f160",
+      "source_commit_sha": "011d081ac84668211cd48ed497781904ce8eefd2",
+      "changes": []
+    },
+    {
+      "target_path": "autotrade_v3/strategy_core/indicators/indicators.py",
+      "source_path": "autotrade_v2/app/strategy/final14_research/indicators.py",
+      "source_blob_sha": "4851250a2baa3ca73163f2d5b13c59c3c7aaa8b3",
+      "source_commit_sha": "011d081ac84668211cd48ed497781904ce8eefd2",
+      "changes": []
+    },
+    {
+      "target_path": "autotrade_v3/strategy_core/indicators/signals.py",
+      "source_path": "autotrade_v2/app/strategy/final14_research/signals.py",
+      "source_blob_sha": "7e111f40bd20253a180e31ef76c6398f7effd2d9",
+      "source_commit_sha": "011d081ac84668211cd48ed497781904ce8eefd2",
+      "changes": []
+    },
+    {
+      "target_path": "autotrade_v3/strategy_core/indicators/smc_structure.py",
+      "source_path": "autotrade_v2/app/strategy/final14_research/smc_structure.py",
+      "source_blob_sha": "ba4a550027ce6000c25c0768cbc84d43b3fd05c1",
+      "source_commit_sha": "011d081ac84668211cd48ed497781904ce8eefd2",
+      "changes": []
+    },
+    {
+      "target_path": "autotrade_v3/strategy_core/indicators/smc_ob.py",
+      "source_path": "autotrade_v2/app/strategy/final14_research/smc_ob.py",
+      "source_blob_sha": "9ba6ab737d126f6c55c98f02922c1b81c86f3777",
+      "source_commit_sha": "011d081ac84668211cd48ed497781904ce8eefd2",
+      "changes": []
+    },
+    {
+      "target_path": "autotrade_v3/strategy_core/indicators/two_trail_layer12.py",
+      "source_path": "autotrade_v2/app/strategy/final14_research/two_trail_layer12.py",
+      "source_blob_sha": "0d265669d73840a93f990f6ec71b7eadee932637",
+      "source_commit_sha": "011d081ac84668211cd48ed497781904ce8eefd2",
+      "changes": [
+        "Removed imports only used by non-signal CLI simulation (argparse, json, math, Path, numpy, pandas, .signals, .smc_structure, .smc_ob)",
+        "Removed non-signal Layer 1/2 simulation and CLI functions/constants (END, WINDOWS, COMBOS, NATIVE, T1_ACT, SL_GRID, T1_CB_GRID, T2_ACT_GRID, T2_CB_GRID, PROTECT_GRID, INITIAL, NOTIONAL, FEE, HALF, load, prepare, _half_exit_gross, run_one_trade, simulate, configs, rank_layer1, params_from_rank, process_symbol, main)",
+        "Kept L2_VARIANTS and approved(side, smcdir, obblocked, variant) verbatim"
+      ]
+    },
+    {
+      "target_path": "autotrade_v3/strategy_core/indicators/layer3_long.py",
+      "source_path": "autotrade_v2/app/strategy/final14_research/layer3_long.py",
+      "source_blob_sha": "f5d4710d772f809594d7cc16a9134b527aab3ee2",
+      "source_commit_sha": "011d081ac84668211cd48ed497781904ce8eefd2",
+      "changes": [
+        "Removed imports only used by non-signal CLI simulation (argparse, json, Path, .smc_structure, .smc_ob, .two_trail_layer12)",
+        "Removed non-signal pickle/lock file loaders and Layer 3 simulation/CLI functions (load, load_lock, build_context, simulate, main)",
+        "Kept COMBOS, NATIVE, _nadaraya, precompute, _want_variant, _want_combo, and entry_variants verbatim"
+      ]
+    },
+    {
+      "target_path": "autotrade_v3/strategy_core/strategies/final20/logic.py",
+      "source_path": "autotrade_v2/app/strategy/final14_exact_strategy.py",
+      "source_blob_sha": "5a5bf8d0149766f289a730664428b914c51e874c",
+      "source_commit_sha": "011d081ac84668211cd48ed497781904ce8eefd2",
+      "changes": [
+        "Updated relative imports from .final14_research.* to ...indicators.* and removed imports of .final14_config and .strategy.Signal",
+        "Removed V2 live execution functions not used for research signal generation (hard_tp_sl, _symbol_configs, _selected_variants, _layer2_requirements, _new6_latest_action, combo_readiness, strategy_static_snapshot, scan_latest)",
+        "Kept MIN_LIVE_15M_BARS, _research_frame, _combo_name, and all NEW6 indicator & signal functions (_clean_bool, _cross_up, _cross_down, _demarker, _aroon, _cmo, _ichimoku, _kama_er, _vortex, _new6_raw_signals, _new6_filtered_signals) verbatim"
+      ]
+    }
+  ],
+  "parameter_sources": [
+    {
+      "target_path": "autotrade_v3/strategy_core/strategies/final20/params/20final_v1.json",
+      "source_path": "autotrade_v2/app/strategy/final14_config.py",
+      "source_blob_sha": "389d1fc9930f9a85a2f5384f8c21a11e5506454b",
+      "source_commit_sha": "011d081ac84668211cd48ed497781904ce8eefd2",
+      "extraction_tool": "autotrade_v3/tools/extract_20final_params.py",
+      "notes": "Extracted programmatically from FINAL14_CASES, NEW6_CASES, and NATIVE_TIMEFRAME. trailing_act_pct=0.005 and trailing_cb_pct=0.005 match V3 baseline assumption (unverified against live V2 environment variables)."
+    }
+  ]
+}
