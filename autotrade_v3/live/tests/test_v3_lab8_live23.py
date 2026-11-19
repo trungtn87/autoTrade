@@ -26,6 +26,7 @@ EXCLUDED = {("BTC-USDT", 3), ("BTC-USDT", 102), ("BTC-USDT", 105),
 _REG8 = load_registry(REGISTRY_LAB8_23)
 _REG5 = load_registry(REGISTRY_LAB5_23)
 _ALLOWED8 = {(c.symbol, c.combo_id) for c in _REG8.combos}
+_REG5_BY_KEY = {(c.symbol, c.combo_id): c for c in _REG5.combos}
 
 
 def test_lab8_registry_is_the_same_23_as_lab5():
@@ -41,7 +42,16 @@ def test_lab8_registry_tp_sl_match_lab8_runtime_config():
         cfg = strat.get_combo_config(c.symbol, c.combo_id)
         assert c.tp_pct == pytest.approx(float(cfg["tp_pct"])), (c.symbol, c.combo_id)
         assert c.sl_pct == pytest.approx(float(cfg["sl_pct"])), (c.symbol, c.combo_id)
-        assert c.layer2 == str(cfg["layer2"]), (c.symbol, c.combo_id)
+        # layer2 / execution_version metadata is the approved Lab 5 registry text (ETH-C10 is
+        # BUY=SMC_VETO / SELL=SMC_STRICT, H3_ASYMMETRIC); the runtime label set differs in naming only.
+        assert c.layer2 == _REG5_BY_KEY[(c.symbol, c.combo_id)].layer2, (c.symbol, c.combo_id)
+        assert c.entry_variant == _REG5_BY_KEY[(c.symbol, c.combo_id)].entry_variant, (c.symbol, c.combo_id)
+
+
+def test_eth_c10_metadata_is_lab5_approved_text():
+    c10 = next(c for c in _REG8.combos if (c.symbol, c.combo_id) == ("ETH-USDT", 10))
+    assert c10.entry_variant == "H3_ASYMMETRIC"
+    assert c10.layer2 == "BUY=SMC_VETO/SELL=SMC_STRICT"
 
 
 def test_lab8_engine_restricted_to_23_on_fixture_and_matches_lab5_there():
