@@ -7,7 +7,7 @@ from autotrade_v3.strategy_core.registry import StrategyCoreRegistry
 
 def test_v3_lab_4_has_upgraded_combos_and_eth_c11_h3_b1():
     cfg = load_v3_lab_4_config()
-    assert cfg["upgraded_combos"] == {
+    expected_pre_batch_a = {
         "ETH-USDT/C1": "H1_BOTH_1",
         "BTC-USDT/C14": "BTC-USDT_C14_H3a_KUMO_BAND_V1",
         "ETH-USDT/C15": "H3_ASYMMETRIC",
@@ -15,6 +15,8 @@ def test_v3_lab_4_has_upgraded_combos_and_eth_c11_h3_b1():
         "ETH-USDT/C11": "H3_B1_DEMARKER",
         "ETH-USDT/C12": "H7_SELL_4H_TREND_ONLY",
     }
+    for k, v in expected_pre_batch_a.items():
+        assert cfg["upgraded_combos"][k] == v
     by_key = {c["combo_key"]: c for c in cfg["combos"]}
     c11 = by_key["ETH-USDT/C11"]
     assert c11["execution_version"] == "H3_B1_DEMARKER"

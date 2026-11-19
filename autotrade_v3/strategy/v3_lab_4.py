@@ -2,14 +2,21 @@
 
 Configuration:
 - Base 30 combos: 20FINAL_FIXED_V1@1 (20 base + 10 cloned cross-symbol pairs, all Fixed TP/SL)
-- 6 finalized upgraded combos:
+- 6 finalized upgraded combos (pre-Batch A):
   1. ETH-USDT/C1  (combo_id=1):   H1_BOTH_1 (TP=2.0%, SL=0.666667%)
   2. BTC-USDT/C14 (combo_id=104): BTC-USDT_C14_H3a_KUMO_BAND_V1 (TP=2.0%, SL=0.666667%, LOCKED)
   3. ETH-USDT/C15 (combo_id=105): H3_ASYMMETRIC (BUY dist_kama_atr<=2.0; SELL 60m post-TP cooldown via controller)
   4. ETH-USDT/C10 (combo_id=10):  H3_ASYMMETRIC (BUY: ADX>28 + SMC_VETO; SELL: ADX>28 + SMC_STRICT; TP=1.8%, SL=0.9%)
   5. ETH-USDT/C11 (combo_id=101): H3_B1_DEMARKER (DeMarker(60) BUY>0.78 / SELL<0.20, SMC_STRICT_OB, TP=1.8%, SL=0.9%)
   6. ETH-USDT/C12 (combo_id=102): H7_SELL_4H_TREND_ONLY (Aroon(40)>=70, SMC_VETO_OB, SELL close_4h<ema100_4h, TP=1.8%, SL=0.9%)
-- BTC-USDT/C10 (combo_id=10), BTC-USDT/C12 (combo_id=102) and remaining 22 combos: unchanged 20FINAL_FIXED_V1@1 H0.
+- 6 Batch A P3 upgraded combos:
+  7. BTC-USDT/C2  (combo_id=2):   H1_SELL_ONLY (BUY disabled, SELL ADX>20 + SMC_VETO_OB, 1H, TP=1.2%, SL=0.8%)
+  8. BTC-USDT/C4  (combo_id=4):   H1_BUY_ONLY (SELL disabled, BUY ADX>23 + SMC_VETO, 1H, TP=1.8%, SL=0.9%)
+  9. BTC-USDT/C7  (combo_id=7):   H1_BUY_ONLY (SELL disabled, BUY body_atr=1.6 + vol_mult=2.0 + Layer2=OFF, 15m, TP=2.0%, SL=0.8%)
+ 10. BTC-USDT/C13 (combo_id=103): H4_SELL_ONLY_4H_TREND (BUY disabled, SELL CMO(40) cross_down -40 + close_4h<ema100_4h, 1H, TP=2.0%, SL=0.8%)
+ 11. ETH-USDT/C13 (combo_id=103): H5_SELL_ONLY_4H_TREND (BUY disabled, SELL CMO(40) cross_down -40 + close_4h<ema100_4h, 1H, TP=2.0%, SL=0.8%)
+ 12. BTC-USDT/C16 (combo_id=106): H3_VORTEX_RATIO_1_22 (Vortex(14) ratio=1.22 both sides, Layer2=OB, 1H, TP=1.1%, SL=0.9%)
+- Remaining 18 combos (including BTC-USDT/C10, BTC-USDT/C12): unchanged 20FINAL_FIXED_V1@1 H0.
 """
 from __future__ import annotations
 
@@ -32,6 +39,7 @@ from autotrade_v3.strategy_core.indicators.indicators import ema
 from autotrade_v3.strategy_core.indicators.signals import ensure_dt, resample_ohlcv
 from autotrade_v3.strategy_core.indicators.smc_structure import smc_direction
 from autotrade_v3.strategy_core.registry import StrategyCoreRegistry
+from autotrade_v3.strategy_core.strategies.final20.logic import _vortex
 
 
 def _load_p3_c1_h1_both_1():
@@ -84,6 +92,12 @@ def _build_v3_lab_4_core(params_dir: Path | None = None) -> Any:
             new_entry["period"] = 60
             new_entry["long_min"] = 0.78
             new_entry["short_max"] = 0.20
+            c = dataclasses.replace(c, entry=new_entry)
+        elif c.symbol == "BTC-USDT" and int(c.combo_id) == 106:
+            new_entry = dict(c.entry)
+            new_entry["indicator"] = "Vortex"
+            new_entry["period"] = 14
+            new_entry["ratio"] = 1.22
             c = dataclasses.replace(c, entry=new_entry)
         updated.append(c)
 
@@ -168,6 +182,12 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
                 "eth_c10_override": "H3_ASYMMETRIC(adx>28,buy=SMC_VETO,sell=SMC_STRICT,tp=0.018,sl=0.009)",
                 "eth_c11_override": "H3_B1_DEMARKER(period=60,long_min=0.78,short_max=0.20,layer2=SMC_STRICT_OB,tp=0.018,sl=0.009)",
                 "eth_c12_override": "H7_SELL_4H_TREND_ONLY(aroon=40,th=70,layer2=SMC_VETO_OB,sell_4h_filter=close_4h<ema100_4h,tp=0.018,sl=0.009)",
+                "btc_c2_override": "H1_SELL_ONLY(buy=OFF,sell=H0_ADX>20,layer2=SMC_VETO_OB,tp=0.012,sl=0.008)",
+                "btc_c4_override": "H1_BUY_ONLY(buy=H0_ADX>23,sell=OFF,layer2=SMC_VETO,tp=0.018,sl=0.009)",
+                "btc_c7_override": "H1_BUY_ONLY(buy=H0_BODY1.6_VOL2.0,sell=OFF,layer2=OFF,tp=0.020,sl=0.008)",
+                "btc_c13_override": "H4_SELL_ONLY_4H_TREND(buy=OFF,sell=CMO(40)_cross_down_-40+close_4h<ema100_4h,layer2=OFF,tp=0.020,sl=0.008)",
+                "eth_c13_override": "H5_SELL_ONLY_4H_TREND(buy=OFF,sell=CMO(40)_cross_down_-40+close_4h<ema100_4h,layer2=OFF,tp=0.020,sl=0.008)",
+                "btc_c16_override": "H3_VORTEX_RATIO_1_22(vortex=14,ratio=1.22,layer2=OB,tp=0.011,sl=0.009)",
             }
         )
 
@@ -198,14 +218,19 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
         return out
 
     @staticmethod
-    def _filter_eth_c12_h7_sell_4h_trend(signals: list[Any], eth_m15: pd.DataFrame | None) -> list[Any]:
-        """Enforce closed-4H downtrend (close_4h < ema100_4h) on ETH-USDT/C12 SELL while keeping BUY unchanged."""
-        if eth_m15 is None or eth_m15.empty:
-            return signals
-        d15 = ensure_dt(eth_m15)
+    def _filter_4h_sell_downtrend(
+        signals: list[Any],
+        sym_m15: pd.DataFrame | None,
+        symbol: str,
+        combo_id: int,
+    ) -> list[Any]:
+        """Enforce closed-4H downtrend (close_4h < ema100_4h) on SELL signals for (symbol, combo_id)."""
+        if sym_m15 is None or sym_m15.empty:
+            return [s for s in signals if not (s.symbol == symbol and int(s.combo_id) == combo_id and s.side == "SELL")]
+        d15 = ensure_dt(sym_m15)
         d4 = resample_ohlcv(d15, "4h")
         if d4.empty:
-            return [s for s in signals if not (s.symbol == "ETH-USDT" and int(s.combo_id) == 102 and s.side == "SELL")]
+            return [s for s in signals if not (s.symbol == symbol and int(s.combo_id) == combo_id and s.side == "SELL")]
         ema100_4h = ema(d4["close"], 100)
         d4_close_ms = datetime_index_to_ms(d4.index) + 14_400_000 - 1
         d4_closes = d4["close"].to_numpy(float)
@@ -213,7 +238,7 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
 
         out = []
         for s in signals:
-            if s.symbol == "ETH-USDT" and int(s.combo_id) == 102 and s.side == "SELL":
+            if s.symbol == symbol and int(s.combo_id) == combo_id and s.side == "SELL":
                 sig_c_ms = int(s.signal_close_ms)
                 idx4 = int(np.searchsorted(d4_close_ms, sig_c_ms, side="right")) - 1
                 if idx4 < 0:
@@ -221,6 +246,55 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
                 c4 = float(d4_closes[idx4])
                 e4 = float(d4_emas[idx4])
                 if not (np.isfinite(c4) and np.isfinite(e4) and (c4 < e4)):
+                    continue
+            out.append(s)
+        return out
+
+    @staticmethod
+    def _filter_batch_a_one_sided(signals: list[Any]) -> list[Any]:
+        """Enforce Batch A P3 one-sided directional locks (C2 SELL_ONLY, C4/C7 BUY_ONLY, BTC/ETH C13 SELL_ONLY)."""
+        drop_rules = {
+            ("BTC-USDT", 2, "BUY"),
+            ("BTC-USDT", 4, "SELL"),
+            ("BTC-USDT", 7, "SELL"),
+            ("BTC-USDT", 103, "BUY"),
+            ("ETH-USDT", 103, "BUY"),
+        }
+        return [s for s in signals if (s.symbol, int(s.combo_id), s.side) not in drop_rules]
+
+    @staticmethod
+    def _filter_btc_c16_vortex_ratio(
+        signals: list[Any],
+        btc_m15: pd.DataFrame | None,
+        min_ratio: float = 1.22,
+    ) -> list[Any]:
+        """Enforce Vortex(14) ratio > 1.22 on both BUY and SELL for BTC-USDT/C16 while keeping Layer 2 OB."""
+        if btc_m15 is None or btc_m15.empty:
+            return [s for s in signals if not (s.symbol == "BTC-USDT" and int(s.combo_id) == 106)]
+        d1 = resample_ohlcv(ensure_dt(btc_m15), "1h")
+        if d1.empty:
+            return [s for s in signals if not (s.symbol == "BTC-USDT" and int(s.combo_id) == 106)]
+        vi_p, vi_m = _vortex(
+            d1["high"].to_numpy(float),
+            d1["low"].to_numpy(float),
+            d1["close"].to_numpy(float),
+            14,
+        )
+        d1_close_ms = datetime_index_to_ms(d1.index) + 3_600_000 - 1
+        vortex_by_ms = {
+            int(d1_close_ms[i]): (float(vi_p[i]), float(vi_m[i]))
+            for i in range(len(d1_close_ms))
+        }
+
+        out = []
+        for s in signals:
+            if s.symbol == "BTC-USDT" and int(s.combo_id) == 106:
+                vp, vm = vortex_by_ms.get(int(s.signal_close_ms), (np.nan, np.nan))
+                if not (np.isfinite(vp) and np.isfinite(vm) and vp > 0.0 and vm > 0.0):
+                    continue
+                if s.side == "BUY" and not ((vp / vm) > min_ratio):
+                    continue
+                if s.side == "SELL" and not ((vm / vp) > min_ratio):
                     continue
             out.append(s)
         return out
@@ -233,6 +307,7 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
         base_sigs = super().generate_signals(df_m15_by_symbol, **kwargs)
 
         btc_m15 = df_m15_by_symbol.get("BTC-USDT")
+        eth_m15 = df_m15_by_symbol.get("ETH-USDT")
         if btc_m15 is not None and not btc_m15.empty:
             btc_1h = resample_ohlcv(ensure_dt(btc_m15), "1h")
             h3a_flt = self.build_c14_h3a_filter(btc_1h)
@@ -246,8 +321,12 @@ class V3Lab4Strategy(Baseline20FinalStrategy):
         else:
             kept_base = [s for s in base_sigs if not (s.symbol == "ETH-USDT" and int(s.combo_id) == 1)]
 
-        kept_base = self._filter_eth_c10_asymmetric(kept_base, df_m15_by_symbol.get("ETH-USDT"))
-        kept_base = self._filter_eth_c12_h7_sell_4h_trend(kept_base, df_m15_by_symbol.get("ETH-USDT"))
+        kept_base = self._filter_eth_c10_asymmetric(kept_base, eth_m15)
+        kept_base = self._filter_4h_sell_downtrend(kept_base, eth_m15, "ETH-USDT", 102)
+        kept_base = self._filter_batch_a_one_sided(kept_base)
+        kept_base = self._filter_4h_sell_downtrend(kept_base, btc_m15, "BTC-USDT", 103)
+        kept_base = self._filter_4h_sell_downtrend(kept_base, eth_m15, "ETH-USDT", 103)
+        kept_base = self._filter_btc_c16_vortex_ratio(kept_base, btc_m15, min_ratio=1.22)
 
         eth_kwargs = dict(kwargs)
         eth_kwargs["symbols"] = ["ETH-USDT"]

@@ -13,7 +13,7 @@ def test_v3_lab_4_has_6_upgraded_combos_and_eth_c12_h7():
     expected_hash = canonical_json_sha256({k: v for k, v in cfg.items() if k != "config_hash"})
     assert cfg["config_hash"] == expected_hash
 
-    assert cfg["upgraded_combos"] == {
+    expected_pre_batch_a = {
         "ETH-USDT/C1": "H1_BOTH_1",
         "BTC-USDT/C14": "BTC-USDT_C14_H3a_KUMO_BAND_V1",
         "ETH-USDT/C15": "H3_ASYMMETRIC",
@@ -21,6 +21,8 @@ def test_v3_lab_4_has_6_upgraded_combos_and_eth_c12_h7():
         "ETH-USDT/C11": "H3_B1_DEMARKER",
         "ETH-USDT/C12": "H7_SELL_4H_TREND_ONLY",
     }
+    for k, v in expected_pre_batch_a.items():
+        assert cfg["upgraded_combos"][k] == v
     by_key = {c["combo_key"]: c for c in cfg["combos"]}
     c12 = by_key["ETH-USDT/C12"]
     assert c12["execution_version"] == "H7_SELL_4H_TREND_ONLY"
