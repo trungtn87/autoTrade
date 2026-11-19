@@ -46,7 +46,7 @@ class V3Lab6Strategy(V3Lab5Strategy):
     ) -> list[Signal]:
         base_signals = super().generate_signals(
             data,
-            symbols=symbols,
+            symbols=list(symbols) if symbols is not None else None,
             only_approved=only_approved,
             only_warmup_ready=only_warmup_ready,
         )

@@ -76,8 +76,9 @@ class C12V3Atr065NoExt24hFilter:
         self.atr_pct_min = float(atr_pct_min)
         self.ret_24h_max = float(ret_24h_max)
 
-    def evaluate(self, ctx: FilterContext) -> FilterDecision:
-        return self.evaluate_signal(ctx.signal)  # type: ignore[attr-defined]
+    def evaluate(self, signal: Any, ctx: FilterContext) -> FilterDecision:
+        ok, reason = self.evaluate_signal(signal)
+        return FilterDecision(action="KEEP" if ok else "DROP", reason=reason, label=self.name)
 
     def evaluate_signal(self, sig) -> tuple[bool, str]:
         if sig.symbol != C12_SYMBOL or int(sig.combo_id) != C12_COMBO_ID:

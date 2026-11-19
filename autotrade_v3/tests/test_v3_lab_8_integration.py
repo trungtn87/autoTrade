@@ -1,6 +1,8 @@
 """Integration tests for V3_LAB_8@8.0.0 (V3_LAB_7 + ETH-USDT/C6 R2_V4_COMBINED)."""
 from __future__ import annotations
 
+from typing import Literal
+
 import numpy as np
 import pandas as pd
 
@@ -44,7 +46,7 @@ def test_c6_r2_v4_combined_filter_thresholds() -> None:
     atr_ratio = np.array([0.85, 1.00, 1.25], dtype=float)
     flt = C6R2V4CombinedFilter(close_ms, atr_ratio)
 
-    def make_sig(side: str, ts: int) -> Signal:
+    def make_sig(side: Literal["BUY", "SELL"], ts: int) -> Signal:
         return Signal(
             symbol="ETH-USDT", combo_id=6, combo_name="C6", timeframe="1h", side=side,
             signal_close_ms=ts, signal_close_dt=pd.Timestamp(ts, unit="ms", tz="UTC"),

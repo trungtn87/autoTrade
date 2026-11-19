@@ -56,8 +56,8 @@ class C6R2V4CombinedFilter:
         self.close_ms_1h = close_ms_1h
         self.atr_ratio_50 = atr_ratio_50
 
-    def evaluate(self, ctx: FilterContext) -> FilterDecision:
-        return self.evaluate_signal(ctx.signal)
+    def evaluate(self, signal: Any, ctx: FilterContext) -> FilterDecision:
+        return self.evaluate_signal(signal)
 
     def evaluate_signal(self, sig: Signal) -> FilterDecision:
         sig_ms = int(sig.signal_close_ms)

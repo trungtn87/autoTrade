@@ -1,6 +1,8 @@
 """Pure candle-only filter for ETH-USDT/C7 R2_V2_ASYM_BUY_VOL20_SELL_TREND (V3_LAB_7@7.0.0)."""
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -49,8 +51,8 @@ class C7R2V2AsymFilter:
         self.close_ms_1h = close_ms_1h
         self.ema_trend_1h = ema_trend_1h
 
-    def evaluate(self, ctx: FilterContext) -> FilterDecision:
-        return self.evaluate_signal(ctx.signal)
+    def evaluate(self, signal: Any, ctx: FilterContext) -> FilterDecision:
+        return self.evaluate_signal(signal)
 
     def evaluate_signal(self, sig: Signal) -> FilterDecision:
         sig_ms = int(sig.signal_close_ms)
