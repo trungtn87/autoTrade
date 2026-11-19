@@ -35,7 +35,16 @@ def test_v3_lab_8_30_combos_parity_with_lab_7() -> None:
     assert len(cfg8["combos"]) == 30
     for item in cfg8["combos"]:
         sym, cid = item["symbol"], int(item["combo_id"])
-        assert s8.get_combo_config(sym, cid) == s7.get_combo_config(sym, cid)
+        if sym == "BTC-USDT" and cid == 101:
+            c11 = s8.get_combo_config(sym, cid)
+            assert abs(float(c11["tp_pct"]) - 0.018) < 1e-9
+            assert abs(float(c11["sl_pct"]) - 0.009) < 1e-9
+            assert c11["entry_variant"] == "trend_n60_0.25_0.75"
+            c11_spec = next(c for c in s8.spec().combos if c.symbol == "BTC-USDT" and int(c.combo_id) == 101)
+            assert float(c11_spec.entry["long_min"]) == 0.78
+            assert float(c11_spec.entry["short_max"]) == 0.25
+        else:
+            assert s8.get_combo_config(sym, cid) == s7.get_combo_config(sym, cid)
     c6 = s8.get_combo_config("ETH-USDT", 6)
     assert abs(float(c6["tp_pct"]) - 0.02) < 1e-9
     assert abs(float(c6["sl_pct"]) - 0.00666667) < 1e-6

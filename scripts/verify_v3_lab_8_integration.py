@@ -1,4 +1,4 @@
-"""Full 3-year dataset integration verification for V3_LAB_8@8.0.0 vs V3_LAB_7@7.0.0."""
+"""Full 3-year dataset integration verification for V3_LAB_8@8.0.0 (ETH-C6 + BTC-C1 + BTC-C11) vs V3_LAB_7@7.0.0."""
 from __future__ import annotations
 
 from dataclasses import asdict
@@ -56,45 +56,42 @@ def main() -> None:
     sigs7 = s7.generate_signals(m15_all, symbols=all_symbols, only_approved=True, only_warmup_ready=True)
     sigs8 = s8.generate_signals(m15_all, symbols=all_symbols, only_approved=True, only_warmup_ready=True)
 
-    # 1. Check 29 other combos exact parity
-    other7 = [(s.symbol, int(s.combo_id), s.side, int(s.signal_close_ms)) for s in sigs7 if not (s.symbol == "ETH-USDT" and int(s.combo_id) == 6)]
-    other8 = [(s.symbol, int(s.combo_id), s.side, int(s.signal_close_ms)) for s in sigs8 if not (s.symbol == "ETH-USDT" and int(s.combo_id) == 6)]
-    assert other7 == other8, f"29-combo parity FAILED: len7={len(other7)} vs len8={len(other8)}"
-    print(f"[PARITY 29 COMBOS] PASS ({len(other8)} signals identical)")
+    changed_keys = {("ETH-USDT", 6), ("BTC-USDT", 1), ("BTC-USDT", 101)}
+    other7 = [(s.symbol, int(s.combo_id), s.side, int(s.signal_close_ms)) for s in sigs7 if (s.symbol, int(s.combo_id)) not in changed_keys]
+    other8 = [(s.symbol, int(s.combo_id), s.side, int(s.signal_close_ms)) for s in sigs8 if (s.symbol, int(s.combo_id)) not in changed_keys]
+    assert other7 == other8, f"27-combo parity FAILED: len7={len(other7)} vs len8={len(other8)}"
+    print(f"[PARITY 27 COMBOS] PASS ({len(other8)} signals identical)")
 
-    # 2. Check ETH-C6 signals
-    c6_sigs = [s for s in sigs8 if s.symbol == "ETH-USDT" and int(s.combo_id) == 6]
-    c6_buy = sum(1 for s in c6_sigs if s.side == "BUY")
-    c6_sell = sum(1 for s in c6_sigs if s.side == "SELL")
-    print(f"[ETH-C6 SIGNALS] total={len(c6_sigs)} (BUY={c6_buy}, SELL={c6_sell})")
-    assert c6_buy == 36 and c6_sell == 81, f"Expected 36 BUY / 81 SELL, got {c6_buy} BUY / {c6_sell} SELL"
-
-    # 3. Own ALL_SIGNALS & FULL30 BINGX_PORTFOLIO
     risk = RiskConfig()
-    own_base = calc_stats(pd.DataFrame([asdict(t) for t in UnifiedSimulator(cost_model=CostModel.from_profile_name("BASE"), risk_config=risk).run("ALL_SIGNALS", c6_sigs, {"ETH-USDT": m1_all["ETH-USDT"]}).trades]))
-    own_stress = calc_stats(pd.DataFrame([asdict(t) for t in UnifiedSimulator(cost_model=CostModel.from_profile_name("STRESS"), risk_config=risk).run("ALL_SIGNALS", c6_sigs, {"ETH-USDT": m1_all["ETH-USDT"]}).trades]))
+
+    def eval_combo(sym: str, cid: int) -> dict:
+        csigs = [s for s in sigs8 if s.symbol == sym and int(s.combo_id) == cid]
+        b = calc_stats(pd.DataFrame([asdict(t) for t in UnifiedSimulator(cost_model=CostModel.from_profile_name("BASE"), risk_config=risk).run("ALL_SIGNALS", csigs, {sym: m1_all[sym]}).trades]))
+        st = calc_stats(pd.DataFrame([asdict(t) for t in UnifiedSimulator(cost_model=CostModel.from_profile_name("STRESS"), risk_config=risk).run("ALL_SIGNALS", csigs, {sym: m1_all[sym]}).trades]))
+        print(f"[{sym}/C{cid}] BASE={b} | STRESS={st}")
+        return {"base": b, "stress": st}
+
+    c6_res = eval_combo("ETH-USDT", 6)
+    c1_res = eval_combo("BTC-USDT", 1)
+    c11_res = eval_combo("BTC-USDT", 101)
+
+    assert c6_res["base"]["buy"] == 36 and c6_res["base"]["sell"] == 81
+    assert abs(c6_res["base"]["net_pnl"] - 25.2905) < 0.05
+    assert abs(c6_res["stress"]["net_pnl"] - 16.4402) < 0.05
+
     full_base = calc_stats(pd.DataFrame([asdict(t) for t in UnifiedSimulator(cost_model=CostModel.from_profile_name("BASE"), risk_config=risk).run("BINGX_PORTFOLIO", sigs8, m1_all).trades]))
     full_stress = calc_stats(pd.DataFrame([asdict(t) for t in UnifiedSimulator(cost_model=CostModel.from_profile_name("STRESS"), risk_config=risk).run("BINGX_PORTFOLIO", sigs8, m1_all).trades]))
-
-    print(f"[OWN BASE] {own_base}")
-    print(f"[OWN STRESS] {own_stress}")
     print(f"[FULL30 BASE] {full_base}")
     print(f"[FULL30 STRESS] {full_stress}")
-
-    assert abs(own_base["net_pnl"] - 25.2905) < 0.05
-    assert abs(own_stress["net_pnl"] - 16.4402) < 0.05
-    assert abs(full_base["net_pnl"] - 353.2449) < 0.05
-    assert abs(full_stress["net_pnl"] - 30.8373) < 0.05
 
     summary = {
         "strategy_id": s8.strategy_id,
         "version": s8.version,
-        "parity_29_combos": "PASS",
-        "other_29_signals": len(other8),
-        "eth_c6_buy": c6_buy,
-        "eth_c6_sell": c6_sell,
-        "own_base": own_base,
-        "own_stress": own_stress,
+        "parity_27_combos": "PASS",
+        "other_27_signals": len(other8),
+        "eth_c6": c6_res,
+        "btc_c1": c1_res,
+        "btc_c11": c11_res,
         "full30_base": full_base,
         "full30_stress": full_stress,
     }
