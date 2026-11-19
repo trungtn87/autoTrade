@@ -54,7 +54,7 @@ class V3Lab7Strategy(V3Lab6Strategy):
             return base_signals
 
         eth_dt = ensure_dt(eth_df)
-        eth_15m = resample_ohlcv(eth_dt, "15m") if len(eth_dt) > 0 else eth_dt
+        eth_15m = resample_ohlcv(eth_dt, "15min") if len(eth_dt) > 0 else eth_dt
         eth_1h = resample_ohlcv(eth_dt, "1h")
         c15_ms, vol_mult_15m, c1h_ms, ema_trend_1h = build_c7_features_lookup(eth_15m, eth_1h)
         c7_filter = C7R2V2AsymFilter(c15_ms, vol_mult_15m, c1h_ms, ema_trend_1h)
