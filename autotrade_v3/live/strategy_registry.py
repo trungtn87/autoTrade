@@ -32,9 +32,10 @@ REGISTRY_V20 = "V3_LIVE_20_POSITIVE_FIXED_V1"
 REGISTRY_V18 = "V3_LIVE_18_H1_V2"
 REGISTRY_20FINAL = "20FINAL"
 REGISTRY_LAB5_23 = "V3_LIVE_23_LAB_5_V1"
+REGISTRY_LAB8_23 = "V3_LIVE_23_LAB_8_V1"
 DEFAULT_REGISTRY = REGISTRY_V20
 JSON_REGISTRIES = (REGISTRY_V20, REGISTRY_V18)
-KNOWN_REGISTRIES = (REGISTRY_V20, REGISTRY_V18, REGISTRY_20FINAL, REGISTRY_LAB5_23)
+KNOWN_REGISTRIES = (REGISTRY_V20, REGISTRY_V18, REGISTRY_20FINAL, REGISTRY_LAB5_23, REGISTRY_LAB8_23)
 _PROVENANCE_KEYS = ("baseline_id", "baseline_source", "baseline_registry_sha256", "baseline_signals_sha256",
                     "c1_eth_research_source_sha256", "audit_id", "audit_source", "audit_source_run",
                     "audit_repro_run", "lab_git_sha", "audit_sha256", "audit_signal_spec_hash",
@@ -143,10 +144,10 @@ def _load_json(version: str) -> StrategyRegistry:
                             provenance=prov)
 
 
-def _load_lab5_23() -> StrategyRegistry:
-    """23 combo-symbols of V3_LAB_5@5.0.0 (file ``V3_LIVE_23_LAB_5_V1.json``); signals come from the lab."""
-    raw = json.loads((_DIR / f"{REGISTRY_LAB5_23}.json").read_text(encoding="utf-8"))
-    if raw["registry_version"] != REGISTRY_LAB5_23:
+def _load_lab_23(name: str) -> StrategyRegistry:
+    """23 combo-symbols of a lab strategy (files ``V3_LIVE_23_LAB_*_V1.json``); signals come from the lab."""
+    raw = json.loads((_DIR / f"{name}.json").read_text(encoding="utf-8"))
+    if raw["registry_version"] != name:
         raise ValueError(f"registry file declares {raw['registry_version']!r}")
     combos = tuple(
         ComboSpec(symbol=c["symbol"], combo_id=int(c["combo_id"]), native_timeframe=c["timeframe"],
@@ -154,11 +155,18 @@ def _load_lab5_23() -> StrategyRegistry:
                   tp_pct=float(c["tp_pct"]), sl_pct=float(c["sl_pct"]), signal_variant="LAB_5")
         for c in raw["combos"])
     if len(combos) != 23 or len({(c.symbol, c.combo_id) for c in combos}) != 23:
-        raise ValueError(f"{REGISTRY_LAB5_23} phải có đúng 23 combo-symbol duy nhất")
-    return StrategyRegistry(version=f"{REGISTRY_LAB5_23}@1.0.0", combos=combos, new6_signal_mode="virtual_position",
-                            provenance={"source": "autotrade_v3.lab.v3_lab_5_loader (V3_LAB_5@5.0.0)",
-                                        "lab_config_hash": raw["parent_source"]["config_hash"],
-                                        "lab_merge_commit": raw["parent_source"]["lab_merge_commit"]})
+        raise ValueError(f"{name} phải có đúng 23 combo-symbol duy nhất")
+    return StrategyRegistry(version=f"{name}@1.0.0", combos=combos, new6_signal_mode="virtual_position",
+                            provenance={"source": raw["parent_source"]["strategy"] + "@" + raw["parent_source"]["version"],
+                                        "parent_source": dict(raw["parent_source"])})
+
+
+def _load_lab5_23() -> StrategyRegistry:
+    return _load_lab_23(REGISTRY_LAB5_23)
+
+
+def _load_lab8_23() -> StrategyRegistry:
+    return _load_lab_23(REGISTRY_LAB8_23)
 
 
 def _load_20final() -> StrategyRegistry:
@@ -189,6 +197,8 @@ def load_registry(version: str | None = None) -> StrategyRegistry:
     if v not in _CACHE:
         if v == REGISTRY_LAB5_23:
             _CACHE[v] = _load_lab5_23()
+        elif v == REGISTRY_LAB8_23:
+            _CACHE[v] = _load_lab8_23()
         else:
             _CACHE[v] = _load_json(v) if v in JSON_REGISTRIES else _load_20final()
     return _CACHE[v]
