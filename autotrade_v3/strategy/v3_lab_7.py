@@ -30,7 +30,7 @@ class V3Lab7Strategy(V3Lab6Strategy):
 
     strategy_id: str = "V3_LAB_7"
     version: str = "7.0.0"
-    SUPPORTED_VERSIONS: tuple[str, ...] = ("7.0.0",)
+    SUPPORTED_VERSIONS = ("7.0.0",)
 
     def __init__(self, params_dir: Path | None = None, version: str = "7.0.0") -> None:
         super().__init__(params_dir=params_dir, version=version)
