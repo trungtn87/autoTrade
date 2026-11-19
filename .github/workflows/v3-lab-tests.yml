@@ -8,6 +8,8 @@ on:
   pull_request:
     branches:
       - main
+      - v3_lab
+      - 'lab/**'
 
 jobs:
   lab-quality-and-tests:
@@ -61,10 +63,66 @@ jobs:
       - name: Verify Golden Invariants & Hashes
         run: |
           set -euo pipefail
-          (
-            cd runs/golden/v3-08
-            sha256sum --check SHA256SUMS.txt
-          ) | tee evidence/ci_artifacts/golden_parity.log
+          python - <<'PY' | tee evidence/ci_artifacts/golden_parity.log
+          from hashlib import sha256
+          from pathlib import Path
+          import subprocess
+
+          baseline_path = Path("evidence/v3-16/golden_hashes_before.txt")
+          expected = {}
+          for line in baseline_path.read_text(encoding="utf-8-sig").splitlines():
+              digest, rel = line.split(maxsplit=1)
+              expected[rel.replace("\\", "/")] = digest.lower()
+
+          tracked_paths = set(
+              subprocess.check_output(
+                  ["git", "ls-files", "runs/golden"], text=True
+              ).splitlines()
+          )
+          missing_baseline = sorted(tracked_paths - set(expected))
+          if missing_baseline:
+              raise SystemExit(
+                  f"Tracked Golden files missing from baseline: {missing_baseline}"
+              )
+
+          for rel in sorted(tracked_paths):
+              wanted = expected[rel]
+              got = sha256(Path(rel).read_bytes()).hexdigest()
+              if got != wanted:
+                  raise SystemExit(f"Golden hash mismatch: {rel}")
+          print(f"Tracked Golden SHA-256 OK: {len(tracked_paths)} files")
+          PY
+
+      - name: Verify Forbidden Scope Is Unchanged
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$PR_BASE_SHA" ] && [ -n "$PR_HEAD_SHA" ]; then
+            BASE_SHA="$PR_BASE_SHA"
+            HEAD_SHA="$PR_HEAD_SHA"
+          elif git rev-parse --verify origin/lab/v3-lab-4-batch-a-base >/dev/null 2>&1; then
+            BASE_SHA="$(git merge-base origin/lab/v3-lab-4-batch-a-base HEAD)"
+            HEAD_SHA="HEAD"
+          elif [ -n "$PUSH_BEFORE_SHA" ] && [ "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="$PUSH_BEFORE_SHA"
+            HEAD_SHA="HEAD"
+          else
+            BASE_SHA="7cbe662"
+            HEAD_SHA="HEAD"
+          fi
+          git fetch --no-tags origin "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || true
+          echo "Checking forbidden scope diff: ${BASE_SHA}..${HEAD_SHA}"
+          test -z "$(git diff "${BASE_SHA}..${HEAD_SHA}" -- \
+            autotrade_v3/live \
+            unified_app.py \
+            autotrade_v2 \
+            dashboard \
+            runs/golden \
+            autotrade_v3/strategy_core)"
 
       - name: Run Test Suite (pytest)
         run: |

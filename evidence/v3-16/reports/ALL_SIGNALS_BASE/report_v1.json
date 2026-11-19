@@ -1,0 +1,5445 @@
+{
+  "schema_version": "1.0.0-draft",
+  "generated_at_utc": "2026-11-15T13:08:22.874080+00:00",
+  "is_sample_layout": false,
+  "run_info": {
+    "run_id": "ALL_SIGNALS_BASE",
+    "strategy_id": "20FINAL_BASELINE",
+    "strategy_version": "1.0.0",
+    "execution_mode": "ALL_SIGNALS_PORTFOLIO",
+    "entry_stats_basis": "pnl_own_entry",
+    "symbols": [
+      "BTC-USDT",
+      "ETH-USDT"
+    ],
+    "time_window_utc": {
+      "start": "2023-11-01",
+      "end": "2026-11-01"
+    },
+    "cost_profile": {
+      "name": "BASE",
+      "hash": "a6c0d5e2643abfce5643d1e788d05c9891ea278c33e42dc7fced1739411cac31",
+      "status": "CONFIRMED",
+      "ideal_warning_required": false
+    },
+    "ambiguity_policy": "CONSERVATIVE",
+    "git_commit": "f1073a66a763de00ee82782646ff9dccafb83e78",
+    "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+    "config_hash": "1145d7f5494a9e9aaa250a48c214acdd8c87bf58869ff6c24861fbfe65033b81",
+    "validation_status": "VERIFIED",
+    "governance_labels": {
+      "window_2026_label": "VALIDATION (đã dùng để chọn biến thể)",
+      "development_window": "2023-11-01..2025-11-01",
+      "forward_evidence_start_utc": "2026-11-14"
+    }
+  },
+  "kpi": {
+    "account": {
+      "initial_capital": {
+        "value": 1000.0,
+        "unit": "USD",
+        "source": "run_manifest.json#initial_equity",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Vốn ban đầu"
+      },
+      "final_balance": {
+        "value": 1168.5995,
+        "unit": "USD",
+        "source": "snapshots.parquet#balance[-1]",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Số dư cuối kỳ"
+      },
+      "final_equity_mtm": {
+        "value": 1168.5995,
+        "unit": "USD",
+        "source": "snapshots.parquet#equity[-1]",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Vốn thực (M2M) cuối kỳ"
+      },
+      "max_used_margin": {
+        "value": 54.5,
+        "unit": "USD",
+        "source": "snapshots.parquet#used_margin",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Ký quỹ đang dùng tối đa"
+      },
+      "min_free_margin": {
+        "value": 908.0391,
+        "unit": "USD",
+        "source": "snapshots.parquet#free_margin",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Ký quỹ khả dụng tối thiểu"
+      },
+      "min_margin_level_pct": {
+        "value": 2210.08752293578,
+        "unit": "pct",
+        "source": "snapshots.parquet#equity/used_margin",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Mức ký quỹ tối thiểu"
+      }
+    },
+    "cost_reality": {
+      "gross_pnl_before_costs": {
+        "value": 766.9654635764243,
+        "unit": "USD",
+        "source": "trades.parquet#gross_pnl",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lãi gộp trước phí"
+      },
+      "total_fees": {
+        "value": 598.365951634614,
+        "unit": "USD",
+        "source": "trades.parquet#fee_total",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Tổng phí giao dịch"
+      },
+      "fee_drag_pct": {
+        "value": 78.01732673129548,
+        "unit": "pct",
+        "source": "derived:total_fees/gross_pnl",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Phí chiếm % lãi gộp"
+      },
+      "break_even_slippage_per_side_pct": {
+        "value": 0.014087526064656613,
+        "unit": "pct",
+        "source": "derived:net_pnl/(2*notional)",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Trượt giá hòa vốn mỗi chiều (%)"
+      },
+      "break_even_slippage_per_side_bps": {
+        "value": 1.4087526064656613,
+        "unit": "bps",
+        "source": "derived:net_pnl/(2*notional)*10000",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Trượt giá hòa vốn mỗi chiều (bps)"
+      },
+      "spread_cost": {
+        "value": 0.0,
+        "unit": "USD",
+        "source": "trades.parquet#spread_cost",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chi phí chênh lệch giá"
+      },
+      "slippage_cost": {
+        "value": 239.346420906321,
+        "unit": "USD",
+        "source": "trades.parquet#slippage_cost",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chi phí trượt giá"
+      },
+      "funding_cost": {
+        "value": 0.0,
+        "unit": "USD",
+        "source": "trades.parquet#funding_cost",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chi phí funding"
+      }
+    },
+    "risk": {
+      "net_pf_entry": {
+        "value": 1.0535929063500278,
+        "unit": "ratio",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Hệ số lợi nhuận (PF) theo entry"
+      },
+      "net_pf_trade_vwap": {
+        "value": 1.0589655017966273,
+        "unit": "ratio",
+        "source": "trades.parquet#net_pnl",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Hệ số lợi nhuận (PF) theo entry (VWAP)"
+      },
+      "net_pf_leg": {
+        "value": 1.057446730944675,
+        "unit": "ratio",
+        "source": "trades.parquet#net_pnl",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+      },
+      "recovery_factor_closed": {
+        "value": 1.6478503840133103,
+        "unit": "ratio",
+        "source": "derived:net_pnl/closed_max_dd",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Hệ số phục hồi (DD đã chốt)"
+      },
+      "recovery_factor_m2m": {
+        "value": 1.605290733102127,
+        "unit": "ratio",
+        "source": "derived:net_pnl/m2m_max_dd",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Hệ số phục hồi (DD M2M)"
+      },
+      "sharpe_daily_365": {
+        "value": 0.5235933582167059,
+        "unit": "ratio_annualized_365d",
+        "source": "snapshots.parquet#balance",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chỉ số Sharpe (theo ngày, rf=0, √365)"
+      },
+      "closed_max_dd_dollars": {
+        "value": 102.31481788485507,
+        "unit": "USD",
+        "source": "trades.parquet#net_pnl",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Sụt giảm tối đa đã chốt ($)"
+      },
+      "closed_max_dd_pct": {
+        "value": 8.759518426562671,
+        "unit": "pct",
+        "source": "trades.parquet#net_pnl",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Sụt giảm tối đa đã chốt (%)"
+      },
+      "m2m_max_dd_dollars": {
+        "value": 105.0274,
+        "unit": "USD",
+        "source": "snapshots.parquet#drawdown_dollars",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Sụt giảm tối đa M2M ($)"
+      },
+      "m2m_max_dd_pct": {
+        "value": 8.98,
+        "unit": "pct",
+        "source": "snapshots.parquet#drawdown_pct",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Sụt giảm tối đa M2M (%)"
+      }
+    },
+    "volume": {
+      "total_signals": {
+        "value": 5984,
+        "unit": "count",
+        "source": "signal_decisions.parquet",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Tín hiệu"
+      },
+      "accepted_entries": {
+        "value": 5984,
+        "unit": "count",
+        "source": "trades.parquet#trade_id",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Entry đã khớp"
+      },
+      "entry_fill_rate_pct": {
+        "value": 100.0,
+        "unit": "pct",
+        "source": "derived:entries/signals",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Tỷ lệ khớp (%)"
+      },
+      "total_legs": {
+        "value": 8258,
+        "unit": "count",
+        "source": "trades.parquet#leg_id",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chân lệnh (leg)"
+      },
+      "skipped_by_concurrency": {
+        "value": 0,
+        "unit": "count",
+        "source": "run_manifest.json#skipped_signals_count",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Bỏ qua do giới hạn đồng thời"
+      },
+      "rejected_by_margin": {
+        "value": 0,
+        "unit": "count",
+        "source": "run_manifest.json#rejected_signals_count",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Từ chối do thiếu ký quỹ"
+      }
+    },
+    "mt5_results": {
+      "total_net_profit": {
+        "value": 168.59951194181033,
+        "unit": "USD",
+        "source": "trades.parquet#net_pnl",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Tổng lãi ròng"
+      },
+      "roi_pct": {
+        "value": 16.859951194181033,
+        "unit": "pct",
+        "source": "derived:net_pnl/initial_equity",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Tỷ suất sinh lời (ROI)"
+      },
+      "gross_profit_entry": {
+        "value": 3314.529140027679,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Tổng lãi gộp (entry thắng sau phí)"
+      },
+      "gross_loss_entry": {
+        "value": -3145.9296280858944,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Tổng lỗ gộp (entry thua sau phí)"
+      },
+      "expected_payoff_entry": {
+        "value": 0.028175052129309004,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Kỳ vọng mỗi lệnh (entry)"
+      },
+      "expected_payoff_leg": {
+        "value": 0.020416506653161824,
+        "unit": "USD",
+        "source": "trades.parquet#net_pnl",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Kỳ vọng mỗi chân lệnh (leg)"
+      },
+      "balance_dd_absolute_dollars": {
+        "value": 64.40499999999997,
+        "unit": "USD",
+        "source": "snapshots.parquet#balance",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Sụt giảm số dư tuyệt đối ($)"
+      },
+      "balance_dd_absolute_pct": {
+        "value": 6.4404999999999974,
+        "unit": "pct",
+        "source": "snapshots.parquet#balance",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Sụt giảm số dư tuyệt đối (%)"
+      },
+      "balance_dd_maximal_dollars": {
+        "value": 102.31481788485507,
+        "unit": "USD",
+        "source": "trades.parquet#net_pnl",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Sụt giảm số dư lớn nhất ($)"
+      },
+      "balance_dd_relative_pct": {
+        "value": 8.759518426562671,
+        "unit": "pct",
+        "source": "trades.parquet#net_pnl",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Sụt giảm số dư tương đối (%)"
+      },
+      "winning_entries": {
+        "value": 2267,
+        "unit": "count",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lệnh thắng (entry)"
+      },
+      "losing_entries": {
+        "value": 3717,
+        "unit": "count",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lệnh thua (entry)"
+      },
+      "entry_win_rate_pct": {
+        "value": 37.88435828877005,
+        "unit": "pct",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Tỷ lệ thắng theo entry (%)"
+      },
+      "leg_win_rate_pct": {
+        "value": 42.28626786146767,
+        "unit": "pct",
+        "source": "trades.parquet#net_pnl",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Tỷ lệ thắng theo leg (%)"
+      },
+      "largest_profit_entry": {
+        "value": 2.458482325631163,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lệnh thắng lớn nhất (entry)"
+      },
+      "largest_loss_entry": {
+        "value": -1.02064009000001,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lệnh thua lớn nhất (entry)"
+      },
+      "avg_profit_entry": {
+        "value": 1.46207725629805,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lệnh thắng trung bình (entry)"
+      },
+      "avg_loss_entry": {
+        "value": -0.8463625579999716,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lệnh thua trung bình (entry)"
+      }
+    },
+    "long_short": {
+      "long_entries": {
+        "value": 3478,
+        "unit": "count",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lệnh Mua (entry)"
+      },
+      "long_won": {
+        "value": 1275,
+        "unit": "count",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lệnh Mua thắng"
+      },
+      "long_win_rate_pct": {
+        "value": 36.658999424956875,
+        "unit": "pct",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lệnh Mua (thắng %)"
+      },
+      "long_net_pnl": {
+        "value": 1.4596492189888295,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lãi ròng lệnh Mua"
+      },
+      "long_pf": {
+        "value": 1.000806291626873,
+        "unit": "ratio",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "PF lệnh Mua"
+      },
+      "short_entries": {
+        "value": 2506,
+        "unit": "count",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lệnh Bán (entry)"
+      },
+      "short_won": {
+        "value": 992,
+        "unit": "count",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lệnh Bán thắng"
+      },
+      "short_win_rate_pct": {
+        "value": 39.58499600957702,
+        "unit": "pct",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lệnh Bán (thắng %)"
+      },
+      "short_net_pnl": {
+        "value": 167.1398627227963,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lãi ròng lệnh Bán"
+      },
+      "short_pf": {
+        "value": 1.1251416438316253,
+        "unit": "ratio",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "PF lệnh Bán"
+      }
+    },
+    "streaks": {
+      "max_consecutive_wins_count": {
+        "value": 41,
+        "unit": "count",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chuỗi thắng dài nhất (số lệnh)"
+      },
+      "max_consecutive_wins_dollars": {
+        "value": 69.79079948422283,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chuỗi thắng dài nhất ($)"
+      },
+      "max_consecutive_losses_count": {
+        "value": 43,
+        "unit": "count",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chuỗi thua dài nhất (số lệnh)"
+      },
+      "max_consecutive_losses_dollars": {
+        "value": -40.04630884873519,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chuỗi thua dài nhất ($)"
+      },
+      "maximal_consecutive_profit_dollars": {
+        "value": 69.79079948422283,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chuỗi lãi lớn nhất ($)"
+      },
+      "maximal_consecutive_profit_count": {
+        "value": 41,
+        "unit": "count",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chuỗi lãi lớn nhất (số lệnh)"
+      },
+      "maximal_consecutive_loss_dollars": {
+        "value": -40.04630884873519,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chuỗi lỗ lớn nhất ($)"
+      },
+      "maximal_consecutive_loss_count": {
+        "value": 43,
+        "unit": "count",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chuỗi lỗ lớn nhất (số lệnh)"
+      },
+      "avg_consecutive_wins": {
+        "value": 3.4244712990936557,
+        "unit": "count",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chuỗi thắng trung bình (số lệnh)"
+      },
+      "avg_consecutive_losses": {
+        "value": 5.614803625377643,
+        "unit": "count",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Chuỗi thua trung bình (số lệnh)"
+      }
+    },
+    "concentration": {
+      "max_open_entries_any_sym_side": {
+        "value": 26,
+        "unit": "count",
+        "source": "trades.parquet#entry_time_ms,exit_time_ms",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Số lệnh mở đồng thời tối đa (cặp-chiều)"
+      },
+      "max_open_notional_any_sym_side": {
+        "value": 2600.0,
+        "unit": "USD",
+        "source": "trades.parquet#notional",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Notional mở tối đa (cặp-chiều)"
+      },
+      "max_open_notional_total": {
+        "value": 3500.0,
+        "unit": "USD",
+        "source": "trades.parquet#notional",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Notional mở tối đa toàn danh mục"
+      },
+      "btc_c11_own_entry_pnl": {
+        "value": 194.90697943000117,
+        "unit": "USD",
+        "source": "trades.parquet#pnl_own_entry",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Lãi lỗ BTC-USDT/C11 (entry riêng)"
+      },
+      "btc_c11_share_of_total_net_pct": {
+        "value": 115.60352529209604,
+        "unit": "pct",
+        "source": "derived:btc_c11_pnl_own_entry/net_pnl",
+        "status": "AVAILABLE",
+        "reason": null,
+        "label_vi": "Tỷ trọng BTC-USDT/C11 trong tổng lãi ròng"
+      }
+    }
+  },
+  "breakdowns": {
+    "cost_sensitivity": [
+      {
+        "slippage_bps": 0.0,
+        "label": "0,0 bps (IDEAL)",
+        "run_ref": "IDEAL",
+        "net_pnl": {
+          "value": 410.700675249799,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "roi_pct": {
+          "value": 41.070067524979905,
+          "unit": "pct",
+          "source": "derived:net_pnl/initial_equity",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ suất sinh lời (ROI)"
+        },
+        "net_pf_leg": {
+          "value": 1.1454617697571596,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        },
+        "m2m_dd_pct": {
+          "value": 7.14,
+          "unit": "pct",
+          "source": "snapshots.parquet#drawdown_pct",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Sụt giảm tối đa M2M (%)"
+        }
+      },
+      {
+        "slippage_bps": 1.0,
+        "label": "1,0 bps",
+        "run_ref": "SLIP_1BPS",
+        "net_pnl": {
+          "value": 288.8409045190881,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "roi_pct": {
+          "value": 28.88409045190881,
+          "unit": "pct",
+          "source": "derived:net_pnl/initial_equity",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ suất sinh lời (ROI)"
+        },
+        "net_pf_leg": {
+          "value": 1.1003088322090606,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        },
+        "m2m_dd_pct": {
+          "value": 7.57,
+          "unit": "pct",
+          "source": "snapshots.parquet#drawdown_pct",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Sụt giảm tối đa M2M (%)"
+        }
+      },
+      {
+        "slippage_bps": 2.0,
+        "label": "2,0 bps (BASE)",
+        "run_ref": "ALL_SIGNALS_BASE",
+        "net_pnl": {
+          "value": 168.59951194181033,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "roi_pct": {
+          "value": 16.859951194181033,
+          "unit": "pct",
+          "source": "derived:net_pnl/initial_equity",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ suất sinh lời (ROI)"
+        },
+        "net_pf_leg": {
+          "value": 1.057446730944675,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        },
+        "m2m_dd_pct": {
+          "value": 8.98,
+          "unit": "pct",
+          "source": "snapshots.parquet#drawdown_pct",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Sụt giảm tối đa M2M (%)"
+        }
+      },
+      {
+        "slippage_bps": 3.4,
+        "label": "3,4 bps (Hòa vốn tham chiếu)",
+        "run_ref": "SLIP_3_4BPS",
+        "net_pnl": {
+          "value": -11.70120635994325,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "roi_pct": {
+          "value": -1.170120635994325,
+          "unit": "pct",
+          "source": "derived:net_pnl/initial_equity",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ suất sinh lời (ROI)"
+        },
+        "net_pf_leg": {
+          "value": 0.9961246755537351,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        },
+        "m2m_dd_pct": {
+          "value": 15.23,
+          "unit": "pct",
+          "source": "snapshots.parquet#drawdown_pct",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Sụt giảm tối đa M2M (%)"
+        }
+      },
+      {
+        "slippage_bps": 5.0,
+        "label": "5,0 bps (STRESS)",
+        "run_ref": "STRESS",
+        "net_pnl": {
+          "value": -217.92821211668877,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "roi_pct": {
+          "value": -21.79282121166888,
+          "unit": "pct",
+          "source": "derived:net_pnl/initial_equity",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ suất sinh lời (ROI)"
+        },
+        "net_pf_leg": {
+          "value": 0.9300697202210542,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        },
+        "m2m_dd_pct": {
+          "value": 26.43,
+          "unit": "pct",
+          "source": "snapshots.parquet#drawdown_pct",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Sụt giảm tối đa M2M (%)"
+        }
+      }
+    ],
+    "combos": [
+      {
+        "combo_key": "BTC-USDT/C11",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 828,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 828,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 828,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 46.85990338164252,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": 194.90697943000117,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": 179.9792433616201,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": -14.92773606838108,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 82.82348057000002,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 1.4447250777329306,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "BTC-USDT/TIER",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 193,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 193,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 386,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 49.48186528497409,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": 6.6665220160654215,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": 25.113058410355613,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": 18.44653639429019,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 19.297810010455876,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 1.3533629169470343,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "BTC-USDT/C6",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 114,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 114,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 228,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 49.122807017543856,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": 15.37623777676124,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": 15.236647493558456,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": -0.139590283202784,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 11.4123198099735,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 1.3884395850824072,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "ETH-USDT/C7",
+        "symbol": "ETH-USDT",
+        "timeframe": "15m",
+        "signals": {
+          "value": 288,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 288,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 576,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 48.09027777777778,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": -3.5884384986325673,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": 12.679129000644808,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": 16.267567499277376,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 28.797516249394036,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 1.1063927586635895,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "BTC-USDT/C16",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 168,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 168,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 168,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 54.761904761904766,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": 12.636723279999497,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": 10.726541927351706,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": -1.9101813526477915,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 16.80231672,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 1.140441687885169,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "ETH-USDT/C3",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 95,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 95,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 190,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 42.63157894736842,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": -3.1134049842570306,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": 10.008181931524838,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": 13.121586915781869,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 9.498650387798223,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 1.316406106943279,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "BTC-USDT/C7",
+        "symbol": "BTC-USDT",
+        "timeframe": "15m",
+        "signals": {
+          "value": 227,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 227,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 454,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 45.59471365638766,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": -2.552335737282906,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": 8.780025416901424,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": 11.33236115418433,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 22.709798459321362,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 1.0977643781281177,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "ETH-USDT/C4",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 268,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 268,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 536,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 45.149253731343286,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": 9.067532500273083,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": 8.372520940539262,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": -0.6950115597338211,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 26.798022972680023,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 1.074044235067709,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "BTC-USDT/C2",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 84,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 84,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 168,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 51.78571428571429,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": 1.1082319510625775,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": 8.065588337489908,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": 6.95735638642733,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 8.393848758481736,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 1.2945822371783522,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "ETH-USDT/C10",
+        "symbol": "ETH-USDT",
+        "timeframe": "15m",
+        "signals": {
+          "value": 13,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 13,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 26,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 73.07692307692307,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": 7.988809931201153,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": 7.226871767703443,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": -0.7619381634977103,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 1.2982045403410518,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 4.012683431154365,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "BTC-USDT/C10",
+        "symbol": "BTC-USDT",
+        "timeframe": "15m",
+        "signals": {
+          "value": 46,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 46,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 92,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 57.608695652173914,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": 4.050595898943315,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": 1.3860426635118621,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": -2.6645532354314527,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 4.599298904050135,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 1.093117568901617,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "BTC-USDT/C9",
+        "symbol": "BTC-USDT",
+        "timeframe": "15m",
+        "signals": {
+          "value": 76,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 76,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 152,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 44.07894736842105,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": 4.388064491142041,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": -0.9200225374274802,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": -5.3080870285695205,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 7.605997030760952,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 0.9574167988268918,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "BTC-USDT/C4",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 278,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 278,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 556,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 48.561151079136685,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": -12.12030399134255,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": -1.0299672182931234,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": 11.090336773049426,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 27.812738717833017,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 0.9916120893890755,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "BTC-USDT/C1",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 245,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 245,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 490,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 44.48979591836735,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": -11.593002697528998,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": -2.113345134267073,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": 9.479657563261926,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 24.507277297299886,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 0.9791774662062515,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "ETH-USDT/C12",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 455,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 455,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 455,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 39.120879120879124,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": 16.482047110000522,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": -2.1479600513448247,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": -18.630007161345347,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 45.51273289000001,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 0.9924511784071516,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "ETH-USDT/C6",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 75,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 75,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 150,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 39.33333333333333,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": -2.1028457192118966,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": -2.3271083557805006,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": -0.224262636568604,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 7.502699927103946,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 0.9181070403878335,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "ETH-USDT/C13",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 297,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 297,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 297,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 33.670033670033675,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": 6.778034239999312,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": -17.601232930229695,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": -24.379267170229006,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 29.687085760000002,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 0.9005163968522546,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "ETH-USDT/C1",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 272,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 272,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 544,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 38.970588235294116,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": -27.804593788737783,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": -22.609943213484772,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": 5.194650575253011,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 27.200384695786926,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 0.7937090744903255,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "BTC-USDT/C14",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 316,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 316,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 316,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 30.37974683544304,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": 7.409924533332954,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": -24.946175769635808,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": -32.35610030296876,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 31.602342133333337,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 0.8569798792974634,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      },
+      {
+        "combo_key": "ETH-USDT/C15",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "signals": {
+          "value": 1646,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 1646,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "fill_rate_pct": {
+          "value": 100.0,
+          "unit": "pct",
+          "source": "derived:entries/signals",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ khớp (%)"
+        },
+        "legs": {
+          "value": 1646,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 32.98906439854192,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "own_entry_pnl": {
+          "value": -55.38526580000348,
+          "unit": "USD",
+          "source": "trades.parquet#pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ theo entry riêng ($)"
+        },
+        "portfolio_net_pnl": {
+          "value": -45.27858409892776,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi lỗ ròng theo danh mục (VWAP) ($)"
+        },
+        "basis_shift_delta": {
+          "value": 10.106681701075722,
+          "unit": "USD",
+          "source": "derived:net_pnl-pnl_own_entry",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chênh lệch cơ sở ($)"
+        },
+        "fees": {
+          "value": 164.5034258,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Phí ($)"
+        },
+        "net_pf_leg": {
+          "value": 0.9510694351568626,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "PF"
+        }
+      }
+    ],
+    "symbols": [
+      {
+        "symbol": "BTC-USDT",
+        "signals": {
+          "value": 2575,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 2575,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 3838,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 46.40437727983325,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 477.84486536267536,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "total_fees": {
+          "value": 257.5672284115098,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 220.27763695116556,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_trade": {
+          "value": 1.2003330193370165,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo entry (VWAP)"
+        },
+        "net_pf_leg": {
+          "value": 1.1925914276261464,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "symbol": "ETH-USDT",
+        "signals": {
+          "value": 3409,
+          "unit": "count",
+          "source": "signal_decisions.parquet",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tín hiệu"
+        },
+        "entries": {
+          "value": 3409,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 4420,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 38.710407239819006,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 289.120598213749,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "total_fees": {
+          "value": 340.7987232231042,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -51.678125009355206,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_trade": {
+          "value": 0.9706329805696335,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo entry (VWAP)"
+        },
+        "net_pf_leg": {
+          "value": 0.9711477235881769,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      }
+    ],
+    "monthly": [
+      {
+        "year_month": "2023-12",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 120,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 170,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 28.823529411764703,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": -19.559742587270797,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 11.991242319903321,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -31.55098490717412,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.5814665172596539,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2024-01",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 159,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 236,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 36.016949152542374,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": -6.8346269618490085,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 15.903531238512524,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -22.73815820036154,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.744916171662821,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2024-02",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 274,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 384,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 50.260416666666664,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 100.4428776913841,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 27.45807958107728,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 72.98479811030683,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.715753817049018,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2024-03",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 121,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 174,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 40.229885057471265,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": -1.8150382299921004,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 11.997205099825802,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -13.812243329817905,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.7852475125102553,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2024-04",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 173,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 227,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 41.409691629955944,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 4.395193204467468,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 17.184468083298206,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -12.789274878830735,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.8602259920246219,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2024-05",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 169,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 243,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 34.5679012345679,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": -6.371199563308682,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 16.898251789955996,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -23.269451353264675,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.7402676000914795,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2024-06",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 156,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 210,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 41.42857142857143,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 17.172414310969423,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 15.58592107542995,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 1.5864932355394679,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.0194600917774,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2024-07",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 279,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 369,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 49.05149051490515,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 107.79294890752924,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 27.805450795884283,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 79.98749811164495,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.7166106915906096,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2024-08",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 167,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 216,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 50.0,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 66.50898417535572,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 16.57096460396642,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 49.9380195713893,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.7115050370857205,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2024-09",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 134,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 193,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 41.968911917098445,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 12.645270084356312,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 13.404664245042145,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -0.7593941606858319,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.9879644278155021,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2024-10",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 181,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 249,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 45.78313253012048,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 27.15349181409118,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 18.100033459088152,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 9.05345835500303,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.1078542504661224,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2024-11",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 189,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 262,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 44.656488549618324,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 35.77453897824866,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 18.924521849489125,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 16.850017128759532,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.193846826876568,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2024-12",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 124,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 191,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 46.596858638743456,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 13.501008873908395,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 12.405566952459179,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 1.0954419214492215,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.0182202863162064,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2025-01",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 165,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 233,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 36.9098712446352,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": -10.919731082650287,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 16.489463496730192,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -27.40919457938048,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.6990702931139087,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2025-02",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 198,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 246,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 37.80487804878049,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 12.545440699721125,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 19.787828246537313,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -7.242387546816188,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.9346731203140874,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2025-03",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 120,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 170,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 42.35294117647059,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 10.747689554074457,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 11.993755488739588,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -1.2460659346651317,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.9800276116592567,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2025-04",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 141,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 197,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 43.14720812182741,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 12.924655591966946,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 14.096974042810535,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -1.1723184508435893,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.9835176692271141,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2025-05",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 179,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 251,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 50.199203187250994,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 69.35621379787005,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 17.942966346898935,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 51.41324745097113,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.7925373701399272,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2025-06",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 157,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 218,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 42.201834862385326,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 10.952159353778573,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 15.636949826205793,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -4.684790472427226,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.9415136454279263,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2025-07",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 212,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 289,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 40.830449826989614,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 26.40316526721196,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 21.166189163681132,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 5.236976103530829,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.0509206402170737,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2025-08",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 233,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 314,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 36.94267515923567,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 2.508887270561429,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 23.240109167328924,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -20.731221896767497,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.8245554338307651,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2025-09",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 141,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 187,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 41.711229946524064,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 4.169274161716013,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 13.905483370312815,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -9.736209208596797,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.8669881860137129,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2025-10",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 186,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 265,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 47.924528301886795,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 40.95518388528032,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 18.4600102574069,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 22.49517362787342,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.2796915887723215,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2025-11",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 89,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 134,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 36.56716417910448,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": -0.2803828431577222,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 8.896358891736828,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -9.17674173489455,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.8134049714742408,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2025-12",
+        "governance_period": "GIAI ĐOẠN PHÁT TRIỂN (24M)",
+        "entries": {
+          "value": 143,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 191,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 30.89005235602094,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": -22.601851808113768,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 14.302212076021133,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -36.90406388413489,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.5797255234448704,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2026-01",
+        "governance_period": "VALIDATION (đã dùng để chọn biến thể)",
+        "entries": {
+          "value": 254,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 344,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 47.383720930232556,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 68.41430779171948,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 25.35420453240742,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 43.06010325931207,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.3644895013850102,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2026-02",
+        "governance_period": "VALIDATION (đã dùng để chọn biến thể)",
+        "entries": {
+          "value": 190,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 231,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 35.93073593073593,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": -1.406856004911937,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 18.978194944641643,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -20.3850509495536,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.8170332781839865,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2026-03",
+        "governance_period": "VALIDATION (đã dùng để chọn biến thể)",
+        "entries": {
+          "value": 167,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 232,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 46.12068965517241,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 28.583998633063203,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 16.710270787153657,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 11.873727845909542,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.1607199282639766,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2026-04",
+        "governance_period": "VALIDATION (đã dùng để chọn biến thể)",
+        "entries": {
+          "value": 155,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 231,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 47.61904761904761,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 16.367287388504558,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 15.519094994464062,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 0.8481923940404918,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.0126224449193382,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2026-05",
+        "governance_period": "VALIDATION (đã dùng để chọn biến thể)",
+        "entries": {
+          "value": 130,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 185,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 29.72972972972973,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": -17.817813247246118,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 13.001750249928714,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -30.81956349717483,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.5825682817905057,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2026-06",
+        "governance_period": "VALIDATION (đã dùng để chọn biến thể)",
+        "entries": {
+          "value": 187,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 252,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 56.34920634920635,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 100.23317348254082,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 18.652869070524986,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 81.5803044120158,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 2.2436864380573365,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2026-07",
+        "governance_period": "VALIDATION (đã dùng để chọn biến thể)",
+        "entries": {
+          "value": 168,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 240,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 35.41666666666667,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": -9.310144242426585,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 16.701474337470607,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -26.011618579897196,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.7117577257013133,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2026-08",
+        "governance_period": "VALIDATION (đã dùng để chọn biến thể)",
+        "entries": {
+          "value": 223,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 295,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 44.74576271186441,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 58.0528346240661,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 22.24412325678635,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 35.80871136727974,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.3423546461472542,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2026-09",
+        "governance_period": "VALIDATION (đã dùng để chọn biến thể)",
+        "entries": {
+          "value": 173,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 233,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 37.33905579399141,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": -16.252674521100182,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 17.286296583820228,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": -33.53897110492042,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 0.6686501680476896,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      },
+      {
+        "year_month": "2026-10",
+        "governance_period": "VALIDATION (đã dùng để chọn biến thể)",
+        "entries": {
+          "value": 138,
+          "unit": "count",
+          "source": "trades.parquet#trade_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Entry đã khớp"
+        },
+        "legs": {
+          "value": 196,
+          "unit": "count",
+          "source": "trades.parquet#leg_id",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Chân lệnh (leg)"
+        },
+        "leg_win_rate_pct": {
+          "value": 38.265306122448976,
+          "unit": "pct",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tỷ lệ thắng theo leg (%)"
+        },
+        "gross_pnl": {
+          "value": 32.53452512606605,
+          "unit": "USD",
+          "source": "trades.parquet#gross_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Lãi gộp trước phí"
+        },
+        "fees": {
+          "value": 13.769471409073882,
+          "unit": "USD",
+          "source": "trades.parquet#fee_total",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng phí giao dịch"
+        },
+        "net_pnl": {
+          "value": 18.76505371699217,
+          "unit": "USD",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Tổng lãi ròng"
+        },
+        "net_pf_leg": {
+          "value": 1.2784187294846419,
+          "unit": "ratio",
+          "source": "trades.parquet#net_pnl",
+          "status": "AVAILABLE",
+          "reason": null,
+          "label_vi": "Hệ số lợi nhuận (PF) theo leg"
+        }
+      }
+    ],
+    "concentration_by_sym_side": {
+      "BTC-USDT/BUY": 26,
+      "BTC-USDT/SELL": 14,
+      "ETH-USDT/BUY": 19,
+      "ETH-USDT/SELL": 21
+    },
+    "mode_comparison": []
+  },
+  "series": {
+    "has_equity_mtm": true,
+    "balance": [
+      1000.0,
+      996.4136,
+      987.2649,
+      978.7243,
+      967.4284,
+      967.2655,
+      964.9652,
+      950.9195,
+      944.7403,
+      937.3985,
+      967.8358,
+      969.6989,
+      958.4804,
+      986.0279,
+      1000.4808,
+      1009.0781,
+      1003.932,
+      1007.0856,
+      1007.8551,
+      1004.7242,
+      991.6586,
+      980.5663,
+      977.5664,
+      979.6205,
+      972.0849,
+      965.7419,
+      964.3025,
+      948.8168,
+      947.4794,
+      949.1488,
+      972.4012,
+      969.1864,
+      981.1614,
+      978.7419,
+      1031.8355,
+      1054.4398,
+      1048.886,
+      1090.3921,
+      1083.5844,
+      1113.6688,
+      1104.6305,
+      1108.9297,
+      1103.5158,
+      1103.2853,
+      1102.5213,
+      1106.7735,
+      1104.1152,
+      1090.1483,
+      1090.1316,
+      1100.6611,
+      1104.839,
+      1131.4586,
+      1142.9307,
+      1136.9612,
+      1130.6901,
+      1117.9739,
+      1127.9015,
+      1133.3923,
+      1128.6197,
+      1125.7163,
+      1115.5663,
+      1104.6075,
+      1101.109,
+      1091.4316,
+      1082.0421,
+      1091.7805,
+      1089.0783,
+      1091.9775,
+      1093.8172,
+      1091.0249,
+      1090.2232,
+      1092.942,
+      1083.8002,
+      1100.6704,
+      1142.6611,
+      1150.7669,
+      1138.9372,
+      1136.6963,
+      1124.8375,
+      1134.1812,
+      1142.6333,
+      1141.2364,
+      1130.8002,
+      1125.5943,
+      1138.2024,
+      1153.6978,
+      1141.4217,
+      1152.5329,
+      1153.6402,
+      1124.0191,
+      1122.4056,
+      1139.0979,
+      1135.5763,
+      1122.108,
+      1111.5452,
+      1109.4554,
+      1125.1518,
+      1122.3789,
+      1115.4395,
+      1110.3726,
+      1127.4962,
+      1136.1459,
+      1135.0045,
+      1135.6271,
+      1133.4494,
+      1130.4256,
+      1120.3592,
+      1125.1142,
+      1115.4473,
+      1109.3417,
+      1103.142,
+      1087.3686,
+      1080.2071,
+      1076.6382,
+      1068.1685,
+      1117.3886,
+      1105.9399,
+      1149.5241,
+      1138.5549,
+      1120.124,
+      1117.5521,
+      1127.214,
+      1117.57,
+      1116.5378,
+      1117.097,
+      1125.4725,
+      1129.0075,
+      1127.2783,
+      1122.9627,
+      1123.6544,
+      1116.0025,
+      1103.2864,
+      1090.6487,
+      1103.3011,
+      1099.5502,
+      1104.2287,
+      1186.0453,
+      1181.8714,
+      1170.7427,
+      1163.5239,
+      1160.3005,
+      1160.7079,
+      1149.1407,
+      1139.3446,
+      1145.3232,
+      1139.5951,
+      1139.2761,
+      1131.0948,
+      1124.8414,
+      1118.3655,
+      1185.5942,
+      1186.4858,
+      1187.9595,
+      1183.5769,
+      1187.9025,
+      1161.0889,
+      1147.6904,
+      1183.1256,
+      1171.5678,
+      1183.3374,
+      1168.5995
+    ],
+    "equity_mtm": [
+      1000.0,
+      996.6954,
+      987.0821,
+      978.9871,
+      967.4284,
+      968.4143,
+      964.8171,
+      950.6126,
+      944.6464,
+      939.194,
+      969.3072,
+      969.4075,
+      958.1878,
+      986.6615,
+      1000.4808,
+      1009.7205,
+      1003.932,
+      1006.874,
+      1008.4158,
+      1004.5424,
+      992.3452,
+      980.3187,
+      978.2212,
+      974.3086,
+      973.4896,
+      966.1099,
+      963.0979,
+      947.912,
+      949.7403,
+      948.8331,
+      972.1868,
+      968.1911,
+      981.4551,
+      980.1523,
+      1030.945,
+      1055.2572,
+      1048.8689,
+      1091.5799,
+      1083.8276,
+      1113.5406,
+      1104.3112,
+      1108.722,
+      1102.9467,
+      1103.7488,
+      1100.7033,
+      1106.6816,
+      1104.1837,
+      1090.0238,
+      1090.2352,
+      1108.7453,
+      1105.0777,
+      1131.7202,
+      1142.9307,
+      1136.9259,
+      1131.1225,
+      1117.7302,
+      1128.4792,
+      1133.2464,
+      1128.3935,
+      1130.4902,
+      1115.41,
+      1104.3946,
+      1104.844,
+      1091.9219,
+      1082.1749,
+      1090.6595,
+      1089.0783,
+      1093.8023,
+      1094.2686,
+      1091.6841,
+      1092.1981,
+      1093.313,
+      1083.3482,
+      1101.218,
+      1141.7991,
+      1151.6241,
+      1139.2262,
+      1136.2323,
+      1126.1473,
+      1134.5051,
+      1142.5638,
+      1142.0688,
+      1130.6117,
+      1126.5565,
+      1149.6048,
+      1154.7823,
+      1142.2521,
+      1151.8606,
+      1154.6821,
+      1124.7056,
+      1124.225,
+      1139.8518,
+      1137.9738,
+      1123.0912,
+      1111.527,
+      1111.0592,
+      1124.963,
+      1122.4163,
+      1112.5899,
+      1111.698,
+      1128.9239,
+      1136.31,
+      1134.717,
+      1135.6894,
+      1134.0435,
+      1130.4654,
+      1121.8296,
+      1125.7942,
+      1115.7594,
+      1109.9446,
+      1101.8726,
+      1087.3241,
+      1078.3693,
+      1076.7408,
+      1067.6039,
+      1120.3693,
+      1106.5943,
+      1150.4182,
+      1139.3677,
+      1119.7615,
+      1117.5687,
+      1127.7081,
+      1117.0878,
+      1116.0229,
+      1115.9299,
+      1126.5172,
+      1128.3192,
+      1127.254,
+      1123.5238,
+      1124.8407,
+      1117.4479,
+      1102.8471,
+      1084.0275,
+      1102.7243,
+      1098.1815,
+      1111.9792,
+      1186.0453,
+      1181.1319,
+      1170.8142,
+      1163.251,
+      1161.9557,
+      1162.5237,
+      1149.688,
+      1139.5642,
+      1146.1644,
+      1139.7291,
+      1139.3055,
+      1131.305,
+      1124.5673,
+      1125.8961,
+      1185.2475,
+      1186.9432,
+      1187.6655,
+      1183.4961,
+      1188.8852,
+      1161.1142,
+      1146.8163,
+      1183.1256,
+      1173.0447,
+      1181.1869,
+      1168.5995
+    ],
+    "dd_dollars": [
+      0.0,
+      4.1244,
+      24.9794,
+      33.0744,
+      44.6331,
+      43.6472,
+      47.2444,
+      61.4489,
+      67.4151,
+      72.8675,
+      42.7543,
+      42.654,
+      53.8736,
+      25.4,
+      27.1368,
+      17.897,
+      23.6856,
+      20.7435,
+      19.9224,
+      23.7959,
+      35.9931,
+      48.0196,
+      50.1171,
+      54.0297,
+      54.8487,
+      62.2284,
+      65.2403,
+      80.4263,
+      78.5979,
+      79.5051,
+      56.1515,
+      60.1472,
+      46.8832,
+      48.186,
+      22.9332,
+      0.3259,
+      9.6443,
+      4.5144,
+      12.2667,
+      0.3934,
+      12.9972,
+      8.5865,
+      14.3617,
+      13.5597,
+      16.6052,
+      10.6268,
+      13.1247,
+      27.2846,
+      27.0732,
+      8.5632,
+      26.2815,
+      2.4506,
+      6.6107,
+      12.6155,
+      18.4189,
+      31.8112,
+      21.0623,
+      16.295,
+      21.1479,
+      19.0512,
+      34.1314,
+      45.1468,
+      44.6974,
+      57.6195,
+      67.3665,
+      58.8819,
+      60.4631,
+      55.7391,
+      55.2728,
+      57.8574,
+      57.3433,
+      56.2284,
+      66.1932,
+      48.3235,
+      16.0597,
+      6.2693,
+      18.6671,
+      21.6611,
+      31.746,
+      23.3883,
+      15.3296,
+      15.8246,
+      27.2817,
+      31.3369,
+      9.8023,
+      15.3005,
+      27.8306,
+      18.2221,
+      15.4006,
+      45.3771,
+      45.8577,
+      30.231,
+      32.1089,
+      46.9915,
+      58.5557,
+      59.0236,
+      45.1197,
+      47.6665,
+      57.4928,
+      58.3847,
+      41.1588,
+      33.7728,
+      35.3657,
+      34.3933,
+      36.0392,
+      39.6174,
+      48.2531,
+      44.2885,
+      54.3233,
+      60.1381,
+      68.2102,
+      82.7586,
+      91.7135,
+      93.3419,
+      102.4789,
+      49.7134,
+      63.4885,
+      19.6646,
+      30.715,
+      50.3213,
+      52.514,
+      42.3746,
+      52.995,
+      54.0598,
+      54.1528,
+      43.5655,
+      41.7635,
+      42.8288,
+      46.5589,
+      45.2421,
+      52.6349,
+      67.2356,
+      86.0552,
+      67.3585,
+      71.9012,
+      58.1035,
+      3.8686,
+      23.4077,
+      33.7254,
+      41.2886,
+      42.5839,
+      42.0159,
+      54.8516,
+      64.9754,
+      58.3752,
+      64.8105,
+      65.234,
+      73.2346,
+      79.9723,
+      78.6435,
+      28.0464,
+      26.3507,
+      25.6283,
+      29.7978,
+      45.3128,
+      73.0838,
+      87.3817,
+      51.0724,
+      61.1533,
+      53.0111,
+      65.5985
+    ],
+    "dd_pct": [
+      0.0,
+      0.41,
+      2.47,
+      3.27,
+      4.41,
+      4.31,
+      4.67,
+      6.07,
+      6.66,
+      7.2,
+      4.22,
+      4.21,
+      5.32,
+      2.51,
+      2.64,
+      1.74,
+      2.3,
+      2.02,
+      1.94,
+      2.31,
+      3.5,
+      4.67,
+      4.87,
+      5.25,
+      5.33,
+      6.05,
+      6.34,
+      7.82,
+      7.64,
+      7.73,
+      5.46,
+      5.85,
+      4.56,
+      4.69,
+      2.18,
+      0.03,
+      0.91,
+      0.41,
+      1.12,
+      0.04,
+      1.16,
+      0.77,
+      1.29,
+      1.21,
+      1.49,
+      0.95,
+      1.17,
+      2.44,
+      2.42,
+      0.77,
+      2.32,
+      0.22,
+      0.58,
+      1.1,
+      1.6,
+      2.77,
+      1.83,
+      1.42,
+      1.84,
+      1.66,
+      2.97,
+      3.93,
+      3.89,
+      5.01,
+      5.86,
+      5.12,
+      5.26,
+      4.85,
+      4.81,
+      5.03,
+      4.99,
+      4.89,
+      5.76,
+      4.2,
+      1.39,
+      0.54,
+      1.61,
+      1.87,
+      2.74,
+      2.02,
+      1.32,
+      1.37,
+      2.36,
+      2.71,
+      0.85,
+      1.31,
+      2.38,
+      1.56,
+      1.32,
+      3.88,
+      3.92,
+      2.58,
+      2.74,
+      4.02,
+      5.0,
+      5.04,
+      3.86,
+      4.07,
+      4.91,
+      4.99,
+      3.52,
+      2.89,
+      3.02,
+      2.94,
+      3.08,
+      3.39,
+      4.12,
+      3.79,
+      4.64,
+      5.14,
+      5.83,
+      7.07,
+      7.84,
+      7.98,
+      8.76,
+      4.25,
+      5.43,
+      1.68,
+      2.63,
+      4.3,
+      4.49,
+      3.62,
+      4.53,
+      4.62,
+      4.63,
+      3.72,
+      3.57,
+      3.66,
+      3.98,
+      3.87,
+      4.5,
+      5.75,
+      7.35,
+      5.76,
+      6.14,
+      4.97,
+      0.33,
+      1.94,
+      2.8,
+      3.43,
+      3.54,
+      3.49,
+      4.55,
+      5.39,
+      4.85,
+      5.38,
+      5.42,
+      6.08,
+      6.64,
+      6.53,
+      2.31,
+      2.17,
+      2.11,
+      2.46,
+      3.67,
+      5.92,
+      7.08,
+      4.14,
+      4.95,
+      4.3,
+      5.32
+    ]
+  }
+}

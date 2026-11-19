@@ -127,10 +127,11 @@ class OneTradePerCombo(AdmissionPolicy):
 
 
 class Portfolio(AdmissionPolicy):
-    """Mode C: concurrency check per (symbol, combo_id) plus strict AccountLedger margin gate."""
+    """Mode C / ALL_SIGNALS_PORTFOLIO: optional concurrency check plus strict AccountLedger margin gate."""
 
-    def __init__(self, account: AccountLedger) -> None:
+    def __init__(self, account: AccountLedger, *, allow_multiple_per_combo: bool = False) -> None:
         self.account = account
+        self.allow_multiple_per_combo = allow_multiple_per_combo
         self._active_combos: dict[tuple[str, int], list[tuple[str, str]]] = {}
 
     def evaluate(
@@ -148,25 +149,26 @@ class Portfolio(AdmissionPolicy):
         entry_time_ms: int,
         req_margin: float,
     ) -> SignalDecision:
-        key = (symbol, combo_id)
-        active = self._active_combos.get(key)
-        if active:
-            blocking_trade_id = active[0][1]
-            return SignalDecision(
-                signal_id=signal_id,
-                symbol=symbol,
-                combo_id=combo_id,
-                combo_name=combo_name,
-                timeframe=timeframe,
-                side=side,
-                signal_close_ms=signal_close_ms,
-                signal_close_dt=signal_close_dt,
-                status="SKIPPED",
-                reason="SKIPPED_BY_CONCURRENCY",
-                blocking_trade_id=blocking_trade_id,
-                entry_bar_idx=entry_idx,
-                entry_time_ms=entry_time_ms,
-            )
+        if not self.allow_multiple_per_combo:
+            key = (symbol, combo_id)
+            active = self._active_combos.get(key)
+            if active:
+                blocking_trade_id = active[0][1]
+                return SignalDecision(
+                    signal_id=signal_id,
+                    symbol=symbol,
+                    combo_id=combo_id,
+                    combo_name=combo_name,
+                    timeframe=timeframe,
+                    side=side,
+                    signal_close_ms=signal_close_ms,
+                    signal_close_dt=signal_close_dt,
+                    status="SKIPPED",
+                    reason="SKIPPED_BY_CONCURRENCY",
+                    blocking_trade_id=blocking_trade_id,
+                    entry_bar_idx=entry_idx,
+                    entry_time_ms=entry_time_ms,
+                )
 
         free_margin = self.account.free_margin_at_open(entry_idx)
         if free_margin < req_margin:

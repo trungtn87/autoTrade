@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from autotrade_v3.filters.annotation_filter import AnnotationGuardFilter
+from autotrade_v3.filters.c14_h3a_kumo_band import C14H3aKumoBandFilter, build_c14_1h_kumo_lookup
 from autotrade_v3.filters.base import (
     FilterContext,
     FilterDecision,
@@ -13,6 +14,8 @@ from autotrade_v3.filters.base import (
 
 __all__ = [
     "AnnotationGuardFilter",
+    "C14H3aKumoBandFilter",
+    "build_c14_1h_kumo_lookup",
     "FilterContext",
     "FilterDecision",
     "FilterRunResult",

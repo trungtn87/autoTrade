@@ -24,6 +24,11 @@ from autotrade_v3.sim.leg import extract_m1_arrays
 
 def _load_entry_mode_suite():
     script_path = Path(__file__).resolve().parents[2] / "runs" / "lab" / "scratch" / "run_entry_mode_suite.py"
+    if not script_path.is_file():
+        pytest.skip(
+            "Optional local research source is not tracked: "
+            "runs/lab/scratch/run_entry_mode_suite.py"
+        )
     spec = importlib.util.spec_from_file_location("run_entry_mode_suite", script_path)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
