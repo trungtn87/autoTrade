@@ -1,0 +1,44 @@
+{
+  "strategy_id": "V3_LAB_8",
+  "version": "8.0.0",
+  "parity_29_combos": "PASS",
+  "other_29_signals": 6976,
+  "eth_c6_buy": 36,
+  "eth_c6_sell": 81,
+  "own_base": {
+    "trades": 117,
+    "buy": 36,
+    "sell": 81,
+    "win_rate": 37.61,
+    "net_pnl": 25.2905,
+    "pf": 1.4403,
+    "max_dd_pct": 0.59
+  },
+  "own_stress": {
+    "trades": 117,
+    "buy": 36,
+    "sell": 81,
+    "win_rate": 35.9,
+    "net_pnl": 16.4402,
+    "pf": 1.2683,
+    "max_dd_pct": 0.92
+  },
+  "full30_base": {
+    "trades": 4684,
+    "buy": 2410,
+    "sell": 2274,
+    "win_rate": 39.56,
+    "net_pnl": 353.2449,
+    "pf": 1.1421,
+    "max_dd_pct": 4.88
+  },
+  "full30_stress": {
+    "trades": 4704,
+    "buy": 2418,
+    "sell": 2286,
+    "win_rate": 37.95,
+    "net_pnl": 30.8373,
+    "pf": 1.0116,
+    "max_dd_pct": 7.75
+  }
+}
