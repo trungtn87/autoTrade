@@ -705,5 +705,214 @@ def main() -> None:
     sys.exit(0 if success else 1)
 
 
+def _compare_numeric(
+    label: str,
+    actual: Any,
+    expected: Any,
+    discrepancies: list[str],
+    verifications: list[str],
+    tol: float = 1e-6,
+) -> None:
+    if expected is None and actual is None:
+        verifications.append(f"VERIFIED {label}: None/N/A")
+        return
+    if expected is None or actual is None:
+        discrepancies.append(f"MISMATCH {label}: actual={actual} vs expected={expected}")
+        return
+    if isinstance(expected, str) or isinstance(actual, str):
+        if str(actual) != str(expected):
+            discrepancies.append(f"MISMATCH {label}: actual={actual} vs expected={expected}")
+        else:
+            verifications.append(f"VERIFIED {label}: {actual}")
+        return
+    if abs(float(actual) - float(expected)) > tol:
+        discrepancies.append(f"MISMATCH {label}: actual={actual} vs expected={expected} (tol={tol})")
+    else:
+        verifications.append(f"VERIFIED {label}: {actual}")
+
+
+def verify_mt5_report(
+    run_dir: Path,
+    report_json_path: Path,
+    report_html_path: Path,
+    *,
+    sensitivity_runs: dict[float, Path] | None = None,
+) -> bool:
+    """Independently verify ``report_v1.json`` and ``report_mt5.html`` against ledger."""
+    import json
+    from autotrade_v3.reports.labels_vi import extract_visible_html_text, find_english_label_leaks
+    from autotrade_v3.reports.mt5_report import build_report_data
+
+    discrepancies: list[str] = []
+    verifications: list[str] = []
+
+    if not report_json_path.exists():
+        print(f"ERROR: Missing report JSON: {report_json_path}", file=sys.stderr)
+        return False
+    if not report_html_path.exists():
+        print(f"ERROR: Missing report HTML: {report_html_path}", file=sys.stderr)
+        return False
+
+    actual_data = json.loads(report_json_path.read_text(encoding="utf-8"))
+    html_text = report_html_path.read_text(encoding="utf-8")
+
+    # Recompute directly from ledger (fail-closed if columns missing)
+    expected_data = build_report_data(
+        run_dir,
+        sensitivity_runs=sensitivity_runs,
+        include_mode_comparison=False,
+    )
+
+    # 1. Verify all KPI groups & fields
+    for group_name, exp_group in expected_data["kpi"].items():
+        act_group = actual_data.get("kpi", {}).get(group_name, {})
+        for field_name, exp_field in exp_group.items():
+            act_field = act_group.get(field_name)
+            if not isinstance(act_field, dict):
+                discrepancies.append(f"MISSING KPI field: kpi.{group_name}.{field_name}")
+                continue
+            if not act_field.get("label_vi"):
+                discrepancies.append(f"MISSING label_vi: kpi.{group_name}.{field_name}")
+            if act_field.get("status") != exp_field.get("status"):
+                discrepancies.append(
+                    f"STATUS MISMATCH kpi.{group_name}.{field_name}: actual={act_field.get('status')} vs expected={exp_field.get('status')}"
+                )
+            _compare_numeric(
+                f"kpi.{group_name}.{field_name}",
+                act_field.get("value"),
+                exp_field.get("value"),
+                discrepancies,
+                verifications,
+            )
+
+    # 2. Verify combos & Mode C basis_shift conservation
+    exp_combos = {c["combo_key"]: c for c in expected_data["breakdowns"]["combos"]}
+    act_combos = {c["combo_key"]: c for c in actual_data.get("breakdowns", {}).get("combos", [])}
+    if set(exp_combos.keys()) != set(act_combos.keys()):
+        discrepancies.append(f"COMBO SET MISMATCH: {sorted(act_combos.keys())} vs {sorted(exp_combos.keys())}")
+    else:
+        basis_sum = 0.0
+        for ckey, exp_c in exp_combos.items():
+            act_c = act_combos[ckey]
+            for col in ("signals", "entries", "legs", "own_entry_pnl", "portfolio_net_pnl", "basis_shift_delta", "fees"):
+                _compare_numeric(
+                    f"combo.{ckey}.{col}",
+                    act_c.get(col, {}).get("value"),
+                    exp_c[col]["value"],
+                    discrepancies,
+                    verifications,
+                )
+            basis_sum += float(act_c.get("basis_shift_delta", {}).get("value") or 0.0)
+        if abs(basis_sum) > 1e-6:
+            discrepancies.append(f"BASIS_SHIFT_CONSERVATION_FAIL: sum={basis_sum}")
+        else:
+            verifications.append(f"VERIFIED basis_shift conservation: sum={basis_sum:.2e}")
+
+    # 2b. Verify concentration_by_sym_side & cost_sensitivity
+    exp_conc_sym = expected_data["breakdowns"].get("concentration_by_sym_side", {})
+    act_conc_sym = actual_data.get("breakdowns", {}).get("concentration_by_sym_side", {})
+    if exp_conc_sym != act_conc_sym:
+        discrepancies.append(f"CONCENTRATION_BY_SYM_SIDE_MISMATCH: actual={act_conc_sym} vs expected={exp_conc_sym}")
+    else:
+        verifications.append(f"VERIFIED concentration_by_sym_side: {act_conc_sym}")
+
+    if sensitivity_runs:
+        exp_sens = {float(r["slippage_bps"]): r for r in expected_data["breakdowns"]["cost_sensitivity"]}
+        act_sens = {float(r["slippage_bps"]): r for r in actual_data.get("breakdowns", {}).get("cost_sensitivity", [])}
+        for bps_val, exp_r in exp_sens.items():
+            act_r = act_sens.get(bps_val)
+            if not act_r:
+                discrepancies.append(f"MISSING cost_sensitivity row: {bps_val} bps")
+                continue
+            for col in ("net_pnl", "roi_pct", "net_pf_leg", "m2m_dd_pct"):
+                _compare_numeric(
+                    f"sensitivity.{bps_val}bps.{col}",
+                    act_r.get(col, {}).get("value"),
+                    exp_r[col]["value"],
+                    discrepancies,
+                    verifications,
+                )
+
+    # 3. Verify HTML Vietnamese labels (no English label leaks)
+    leaks = find_english_label_leaks(html_text)
+    if leaks:
+        discrepancies.append(f"ENGLISH_LABEL_LEAK in HTML: {leaks}")
+    else:
+        verifications.append("VERIFIED 100% Vietnamese UI labels (0 English leaks)")
+
+    # 4. Verify key rendered numbers appear faithfully in HTML visible text
+    visible = extract_visible_html_text(html_text)
+    exp_net = float(expected_data["kpi"]["mt5_results"]["total_net_profit"]["value"])
+    exp_fees = float(expected_data["kpi"]["cost_reality"]["total_fees"]["value"])
+    exp_entries = int(expected_data["kpi"]["volume"]["accepted_entries"]["value"])
+    exp_net_str = f"${abs(exp_net):,.2f}"
+    exp_fees_str = f"${abs(exp_fees):,.2f}"
+    exp_ent_str = f"{exp_entries:,}"
+    for label, token in [("HTML Net PnL", exp_net_str), ("HTML Total Fees", exp_fees_str), ("HTML Accepted Entries", exp_ent_str)]:
+        if token not in visible:
+            discrepancies.append(f"HTML_NUMBER_MISMATCH: expected '{token}' for {label} not found in visible HTML")
+        else:
+            verifications.append(f"VERIFIED {label}: {token}")
+
+    if discrepancies:
+        print(f"\nMT5 VERIFY FAILED ({len(discrepancies)} issues):", file=sys.stderr)
+        for d in discrepancies:
+            print(f"  [ERROR] {d}", file=sys.stderr)
+        return False
+
+    print(f"MT5 VERIFY SUCCESS: {len(verifications)} checks passed.")
+    return True
+
+
+def main_cli(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Verify report.md or MT5 report_v1.json/html against ledger.")
+    parser.add_argument("report_dir", nargs="?", help="Directory containing report.md and trades.parquet")
+    parser.add_argument("--run-dir", dest="run_dir", help="Run directory containing trades.parquet")
+    parser.add_argument("--report", dest="report_file", help="Path to report.md")
+    parser.add_argument("--trades", dest="trades_file", help="Path to trades.parquet")
+    parser.add_argument("--mt5-dir", dest="mt5_dir", help="Directory containing report_v1.json and report_mt5.html")
+    parser.add_argument("--slip-0-dir", type=Path, default=None)
+    parser.add_argument("--slip-1-dir", type=Path, default=None)
+    parser.add_argument("--slip-2-dir", type=Path, default=None)
+    parser.add_argument("--slip-34-dir", type=Path, default=None)
+    parser.add_argument("--slip-5-dir", type=Path, default=None)
+    args = parser.parse_args(argv)
+
+    if args.mt5_dir:
+        r_dir = Path(args.run_dir or args.report_dir or args.mt5_dir)
+        m_dir = Path(args.mt5_dir)
+        sens_runs: dict[float, Path] = {}
+        if args.slip_0_dir:
+            sens_runs[0.0] = args.slip_0_dir
+        if args.slip_1_dir:
+            sens_runs[1.0] = args.slip_1_dir
+        if args.slip_2_dir:
+            sens_runs[2.0] = args.slip_2_dir
+        if args.slip_34_dir:
+            sens_runs[3.4] = args.slip_34_dir
+        if args.slip_5_dir:
+            sens_runs[5.0] = args.slip_5_dir
+        ok = verify_mt5_report(
+            r_dir,
+            m_dir / "report_v1.json",
+            m_dir / "report_mt5.html",
+            sensitivity_runs=sens_runs or None,
+        )
+        return 0 if ok else 1
+
+    target_dir = args.run_dir or args.report_dir
+    if target_dir:
+        dir_p = Path(target_dir)
+        rep_p = dir_p / "report.md"
+        trd_p = dir_p / "trades.parquet"
+    elif args.report_file and args.trades_file:
+        rep_p = Path(args.report_file)
+        trd_p = Path(args.trades_file)
+    else:
+        parser.error("Must provide either report_dir, --run-dir, --mt5-dir, or both --report and --trades.")
+
+    return 0 if verify_report(rep_p, trd_p) else 1
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main_cli())

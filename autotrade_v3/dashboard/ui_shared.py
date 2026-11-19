@@ -6,10 +6,11 @@ import html
 from pathlib import Path
 import streamlit as st
 
-from autotrade_v3.dashboard.queries import DEFAULT_CATALOG_PATH, DEFAULT_NOTES_DB, DEFAULT_QA_PATH, DEFAULT_STORE_DIR
-
-
 PLOTLY_COLORS = ["#35d9ff", "#36e394", "#ffb547", "#a87cff", "#ff5c68", "#5f8cff"]
+DEFAULT_STORE_DIR = Path("runs/lab/store")
+DEFAULT_CATALOG_PATH = Path("catalog/research.duckdb")
+DEFAULT_QA_PATH = Path("catalog/v3_m1_qa.json")
+DEFAULT_NOTES_DB = Path("runs/lab/notes.duckdb")
 
 
 def inject_research_theme() -> None:

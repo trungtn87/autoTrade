@@ -1,0 +1,307 @@
+{
+  "schema_version": "v3_lab_5_integration_manifest_v1",
+  "generated_at_utc": "2026-11-19T12:10:36.181212+00:00",
+  "strategy_id": "V3_LAB_5",
+  "version": "5.0.0",
+  "inherits_from": "V3_LAB_4@4.1.1",
+  "verdict": "READY_FOR_CLAUDE",
+  "git": {
+    "repository": "trungtn87/autoTrade",
+    "base_branch": "v3_lab",
+    "head_branch": "feat/v3-lab-5-eth-c15-v5",
+    "baseline_commit_sha": "d11e37d42dd04a3db82e55bc8df408c1450bd143",
+    "l2_source_sha": "11b61a2c550e15079e4c299839c7512fa52829eb",
+    "pr_url": "https://github.com/trungtn87/autoTrade/pull/147"
+  },
+  "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+  "config_hash": "a9ac70337477f2d338753fc80158382e013f1ba263c468559444d5be93db33bc",
+  "strategy_hashes": {
+    "signal_spec_hash": "1b8d6d0f856abcaedecb1d39de1e74022a5cf8713e9743d9e8562c1d1158ebd9",
+    "exit_spec_hash": "11617415ec7aa0cbde95a1b3c67a6254c416cc971aee573858f86da949b37e11",
+    "spec_hash": "631cd361bc0a1100675e4c77c783ae64952854c6f286694bf71306329227372e",
+    "c15_v5_filter_config_hash": "e831925538c23cdae37511ce945ab409b97922c95e477abd58b0f3df686a2fb3"
+  },
+  "source_hashes": {
+    "autotrade_v3/filters/c15_v5_sell_atr140.py": {
+      "path": "autotrade_v3/filters/c15_v5_sell_atr140.py",
+      "sha256": "ca4cabf44ead8f77dfd9ac197b946eed06414e07a90f5812179fe036baac8de8"
+    },
+    "autotrade_v3/filters/__init__.py": {
+      "path": "autotrade_v3/filters/__init__.py",
+      "sha256": "a27810eb2838686aa738baa3951d83182546745acda927eb82de8e6fd740ac48"
+    },
+    "autotrade_v3/strategy/v3_lab_5.py": {
+      "path": "autotrade_v3/strategy/v3_lab_5.py",
+      "sha256": "a0273aeb421ad00d8617d23e75cd01f278d3a1390f7c2d93e2bd50fce33c2da2"
+    },
+    "autotrade_v3/strategy/registry.py": {
+      "path": "autotrade_v3/strategy/registry.py",
+      "sha256": "603d2a85d29a817894a91217c39594255502c943d26feee01e9f6933322c9f98"
+    },
+    "autotrade_v3/strategy/__init__.py": {
+      "path": "autotrade_v3/strategy/__init__.py",
+      "sha256": "2336897986b5972cb9f8f2fbcff74f8f4ecc3bb7585d3fa3d6ac7cdf24de8ff6"
+    },
+    "autotrade_v3/strategy/eth_c1_h1_both_1.py": {
+      "path": "autotrade_v3/strategy/eth_c1_h1_both_1.py",
+      "sha256": "1c9c3eab2443bf84d24eea8174ec795d22327227a5a6764989657d096036763a"
+    },
+    "autotrade_v3/filters/c14_h3a_kumo_band.py": {
+      "path": "autotrade_v3/filters/c14_h3a_kumo_band.py",
+      "sha256": "d2b282a3eadea67e17b7146ab14b06eb1db9b478cfa9fe24c4bab7d1ac3d320b"
+    },
+    "autotrade_v3/lab/v3_lab_5_loader.py": {
+      "path": "autotrade_v3/lab/v3_lab_5_loader.py",
+      "sha256": "a3b54af862144df459ddae60d52b16b90ce78b1f1253646c2596ce5ba472d28e"
+    },
+    "autotrade_v3/lab/__init__.py": {
+      "path": "autotrade_v3/lab/__init__.py",
+      "sha256": "aa0b1ed892a242f394fa1f1568a7b1d86f89077d91a00c035ac193445f87b4d2"
+    },
+    "autotrade_v3/lab/v3_lab_5_config.json": {
+      "path": "autotrade_v3/lab/v3_lab_5_config.json",
+      "sha256": "061979b52538594aaf16417d637861860c040ae338aa4dc2936c4f11f2369d63"
+    }
+  },
+  "gates": {
+    "A_29_COMBO_PARITY": "PASS",
+    "B_C15_V5_PARITY": "PASS",
+    "C_PORTFOLIO_30": "PASS",
+    "D_L2_AUDIT": "PASS"
+  },
+  "c15_decisions": {
+    "c15_ob_approved_input": 1646,
+    "c15_v5_kept": 480,
+    "c15_blocked_total": 1166,
+    "blocked_reason_counts": {
+      "BLOCKED_V5_BUY_DISABLED": 881,
+      "BLOCKED_V5_SELL_ATR_RATIO_GT_140": 285
+    }
+  },
+  "gate_b_otpc": [
+    {
+      "cost_profile": "IDEAL",
+      "c15_ob_approved_input": 1646,
+      "c15_v5_kept_signals": 480,
+      "c15_blocked_buy_disabled": 881,
+      "c15_blocked_sell_atr_gt_140": 285,
+      "v5_trades": 186,
+      "r2_trades": 186,
+      "trade_count_diff": 0,
+      "signal_id_exact_match": true,
+      "buy_trades": 0,
+      "sell_trades": 186,
+      "win_rate_pct": 41.4,
+      "v5_own_net_pnl": 48.2334,
+      "r2_own_net_pnl": 48.2334,
+      "own_net_diff": 0.0,
+      "v5_vwap_net_pnl": 48.2334,
+      "own_minus_vwap": 0.0,
+      "fee_total": 18.5666,
+      "slippage_cost": 0.0,
+      "ev_own": 0.2593,
+      "pf_own": 1.4915,
+      "closed_max_dd_own": 13.6048,
+      "standalone_m2m_max_dd": 13.8723,
+      "max_entry_time_diff_ms": 0,
+      "max_exit_time_diff_ms": 0,
+      "max_entry_px_diff": 0.0,
+      "max_exit_px_diff": 0.0,
+      "max_fee_diff": 0.0,
+      "max_slip_diff": 0.0,
+      "max_trade_pnl_diff": 0.0,
+      "status": "PASS"
+    },
+    {
+      "cost_profile": "BASE",
+      "c15_ob_approved_input": 1646,
+      "c15_v5_kept_signals": 480,
+      "c15_blocked_buy_disabled": 881,
+      "c15_blocked_sell_atr_gt_140": 285,
+      "v5_trades": 187,
+      "r2_trades": 187,
+      "trade_count_diff": 0,
+      "signal_id_exact_match": true,
+      "buy_trades": 0,
+      "sell_trades": 187,
+      "win_rate_pct": 41.18,
+      "v5_own_net_pnl": 43.6043,
+      "r2_own_net_pnl": 43.6043,
+      "own_net_diff": 0.0,
+      "v5_vwap_net_pnl": 43.6043,
+      "own_minus_vwap": 0.0,
+      "fee_total": 18.6689,
+      "slippage_cost": 7.4675,
+      "ev_own": 0.2332,
+      "pf_own": 1.4306,
+      "closed_max_dd_own": 14.4071,
+      "standalone_m2m_max_dd": 14.6947,
+      "max_entry_time_diff_ms": 0,
+      "max_exit_time_diff_ms": 0,
+      "max_entry_px_diff": 0.0,
+      "max_exit_px_diff": 0.0,
+      "max_fee_diff": 0.0,
+      "max_slip_diff": 0.0,
+      "max_trade_pnl_diff": 0.0,
+      "status": "PASS"
+    },
+    {
+      "cost_profile": "STRESS",
+      "c15_ob_approved_input": 1646,
+      "c15_v5_kept_signals": 480,
+      "c15_blocked_buy_disabled": 881,
+      "c15_blocked_sell_atr_gt_140": 285,
+      "v5_trades": 191,
+      "r2_trades": 191,
+      "trade_count_diff": 0,
+      "signal_id_exact_match": true,
+      "buy_trades": 0,
+      "sell_trades": 191,
+      "win_rate_pct": 37.7,
+      "v5_own_net_pnl": 20.194,
+      "r2_own_net_pnl": 20.194,
+      "own_net_diff": 0.0,
+      "v5_vwap_net_pnl": 20.194,
+      "own_minus_vwap": 0.0,
+      "fee_total": 19.0804,
+      "slippage_cost": 19.0804,
+      "ev_own": 0.1057,
+      "pf_own": 1.1785,
+      "closed_max_dd_own": 17.5123,
+      "standalone_m2m_max_dd": 18.1359,
+      "max_entry_time_diff_ms": 0,
+      "max_exit_time_diff_ms": 0,
+      "max_entry_px_diff": 0.0,
+      "max_exit_px_diff": 0.0,
+      "max_fee_diff": 0.0,
+      "max_slip_diff": 0.0,
+      "max_trade_pnl_diff": 0.0,
+      "status": "PASS"
+    }
+  ],
+  "gate_c_portfolio": [
+    {
+      "cost_profile": "IDEAL",
+      "v5_trades": 4839,
+      "r2_v5_trades": 4839,
+      "v4_h3_trades": 5070,
+      "v5_net_pnl": 528.1643,
+      "r2_v5_net_pnl": 528.1643,
+      "v5_minus_r2_diff": 0.0,
+      "v5_own_net_sum": 528.1643,
+      "v5_vwap_net_sum": 528.1643,
+      "own_vwap_conservation_diff": 2.2737367544323206e-13,
+      "v5_m2m_max_dd": 68.5912,
+      "r2_v5_m2m_max_dd": 68.5912,
+      "v4_h3_net_pnl": 544.2507,
+      "v4_h3_m2m_max_dd": 68.3916,
+      "net_delta_v5_vs_v4_h3": -16.0864,
+      "dd_delta_v5_vs_v4_h3": 0.1996,
+      "v5_c15_trades": 186,
+      "v5_c15_net_vwap": 43.859,
+      "v4_h3_c15_trades": 417,
+      "v4_h3_c15_net_vwap": 52.3215,
+      "v5_other29_net_vwap": 484.3053,
+      "v4_h3_other29_net_vwap": 491.9292,
+      "interaction_delta_other29": -7.6239,
+      "parity_vs_r2_signal_exact": true,
+      "parity_vs_r2_max_pnl_diff": 0.0,
+      "status": "PASS"
+    },
+    {
+      "cost_profile": "BASE",
+      "v5_trades": 4853,
+      "r2_v5_trades": 4853,
+      "v4_h3_trades": 5082,
+      "v5_net_pnl": 320.1867,
+      "r2_v5_net_pnl": 320.1867,
+      "v5_minus_r2_diff": 0.0,
+      "v5_own_net_sum": 320.1867,
+      "v5_vwap_net_sum": 320.1867,
+      "own_vwap_conservation_diff": 2.2453150450019166e-11,
+      "v5_m2m_max_dd": 72.87,
+      "r2_v5_m2m_max_dd": 72.87,
+      "v4_h3_net_pnl": 327.8943,
+      "v4_h3_m2m_max_dd": 72.7133,
+      "net_delta_v5_vs_v4_h3": -7.7076,
+      "dd_delta_v5_vs_v4_h3": 0.1567,
+      "v5_c15_trades": 187,
+      "v5_c15_net_vwap": 38.0439,
+      "v4_h3_c15_trades": 416,
+      "v4_h3_c15_net_vwap": 38.8463,
+      "v5_other29_net_vwap": 282.1428,
+      "v4_h3_other29_net_vwap": 289.048,
+      "interaction_delta_other29": -6.9052,
+      "parity_vs_r2_signal_exact": true,
+      "parity_vs_r2_max_pnl_diff": 0.0,
+      "status": "PASS"
+    },
+    {
+      "cost_profile": "STRESS",
+      "v5_trades": 4873,
+      "r2_v5_trades": 4873,
+      "v4_h3_trades": 5104,
+      "v5_net_pnl": -4.6574,
+      "r2_v5_net_pnl": -4.6574,
+      "v5_minus_r2_diff": 0.0,
+      "v5_own_net_sum": -4.6574,
+      "v5_vwap_net_sum": -4.6574,
+      "own_vwap_conservation_diff": 5.3162807489570696e-11,
+      "v5_m2m_max_dd": 89.1855,
+      "r2_v5_m2m_max_dd": 89.1855,
+      "v4_h3_net_pnl": -19.7274,
+      "v4_h3_m2m_max_dd": 96.4929,
+      "net_delta_v5_vs_v4_h3": 15.07,
+      "dd_delta_v5_vs_v4_h3": -7.3074,
+      "v5_c15_trades": 191,
+      "v5_c15_net_vwap": 15.1373,
+      "v4_h3_c15_trades": 422,
+      "v4_h3_c15_net_vwap": -2.4296,
+      "v5_other29_net_vwap": -19.7947,
+      "v4_h3_other29_net_vwap": -17.2978,
+      "interaction_delta_other29": -2.4969,
+      "parity_vs_r2_signal_exact": true,
+      "parity_vs_r2_max_pnl_diff": 0.0,
+      "status": "PASS"
+    }
+  ],
+  "files": {
+    "runs/lab/v3_lab_5/v5_0_0_integration/V3_LAB_5_INTEGRATION_REPORT.md": {
+      "sha256": "9150fe19648e2397260d4a5b8b87ab8f9010a91d549e4035435593a647480b21",
+      "bytes": 7160
+    },
+    "runs/lab/v3_lab_5/v5_0_0_integration/V3_LAB_5_PARITY_29.csv": {
+      "sha256": "9ebb9593a8986ba8c7119bc50fdc9574b0d6c2dca2c1c74458272145922dd65d",
+      "bytes": 2541
+    },
+    "runs/lab/v3_lab_5/v5_0_0_integration/V3_LAB_5_C15_V5_PARITY.csv": {
+      "sha256": "5560723ac54df44a110707e8d286ba915f7a0d53e341b0408e8d01228bc58f74",
+      "bytes": 953
+    },
+    "runs/lab/v3_lab_5/v5_0_0_integration/V3_LAB_5_PORTFOLIO_COMPARISON.csv": {
+      "sha256": "31e201325f6de765b2819db829df96c7388a25ac7032f5eb7eb334286179c7b8",
+      "bytes": 1030
+    },
+    "runs/lab/v3_lab_5/v5_0_0_integration/V3_LAB_5_CONFIG_DIFF.json": {
+      "sha256": "33b0594c07c065316018c94dcfb6fd8fdb7f00fa2d1b7a48c3e76b5320597c1f",
+      "bytes": 7369
+    },
+    "runs/lab/v3_lab_5/v5_0_0_integration/V3_LAB_5_VALIDATION.json": {
+      "sha256": "51a2a9d40d0547eff0877af086581b420189ae6c3ca8c854fda670e74948c9c9",
+      "bytes": 2010
+    },
+    "runs/lab/v3_lab_5/v5_0_0_integration/V3_LAB_5_L2_LIVE_HANDOFF.md": {
+      "sha256": "385ba8eb735b6673140a28bda599e3d75cb087ffa69410e1ae30965bff61f153",
+      "bytes": 13914
+    },
+    "docs/autotrade-v3/V3_LAB_5_L2_LIVE_HANDOFF.md": {
+      "sha256": "385ba8eb735b6673140a28bda599e3d75cb087ffa69410e1ae30965bff61f153",
+      "bytes": 13914
+    }
+  },
+  "export_zip": {
+    "path": "exports/V3_LAB_5_INTEGRATION_AND_HANDOFF.zip",
+    "sha256": "a3737708aa938f0ae8e81507ef78389f7327fe094342c33c4b8510a0ee705b9c",
+    "bytes": 322184
+  }
+}

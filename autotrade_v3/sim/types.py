@@ -19,6 +19,8 @@ class ExitRules:
     trailing_cb_pct: float = 0.0
     max_bars_held: int | None = None
     exit_policy_hash: str = ""
+    be_trigger_pct: float | None = None
+    be_offset_pct: float | None = None
 
 
 @dataclass(frozen=True)

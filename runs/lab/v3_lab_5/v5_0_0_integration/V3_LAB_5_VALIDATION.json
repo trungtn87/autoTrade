@@ -1,0 +1,47 @@
+{
+  "schema_version": "v3_lab_5_validation_v1",
+  "strategy_id": "V3_LAB_5",
+  "version": "5.0.0",
+  "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+  "config_hash": "a9ac70337477f2d338753fc80158382e013f1ba263c468559444d5be93db33bc",
+  "spec_hash": "631cd361bc0a1100675e4c77c783ae64952854c6f286694bf71306329227372e",
+  "gates": {
+    "A_29_COMBO_PARITY": "PASS",
+    "B_C15_V5_PARITY": "PASS",
+    "C_PORTFOLIO_30": "PASS",
+    "D_L2_AUDIT": "PASS"
+  },
+  "checks": {
+    "1_candle_only_ast_audit": {
+      "status": "PASS",
+      "detail": "0 forbidden imports across filter/strategy/loader (0 violations)"
+    },
+    "2_zero_stateful_h3_controller": {
+      "status": "PASS",
+      "detail": "0 stateful H3AsymmetricController / build_c15_h3_controller code paths (0 refs)"
+    },
+    "3_zero_lookahead_real_3y": {
+      "status": "PASS",
+      "detail": "4698 signals before 2025-11-01T00:00Z matched 100% after post-cutoff OHLCV perturbation"
+    },
+    "4_warmup_and_closed_1h_bars": {
+      "status": "PASS",
+      "detail": "warmup_bars=3400, all signals closed-bar aligned, min_signal_close_ms=1701856799999"
+    },
+    "5_deterministic_replay": {
+      "status": "PASS",
+      "detail": "Full 3Y replay sha256=a630e6f622145a584fcccad3b40c07abe4955438080fa2388d84c9776a49cfd0 matched across repeat invocations (n=7269)"
+    },
+    "6_simulator_independence_subprocess": {
+      "status": "PASS",
+      "detail": "Subprocess L2 execution with sim engines & scripts.run_v3_lab_2_eth_c15_h3_asymmetric blocked exited 0"
+    },
+    "7_hash_verification": {
+      "status": "PASS",
+      "detail": "config_hash=a9ac70337477f2d338753fc80158382e013f1ba263c468559444d5be93db33bc, spec_hash=631cd361bc0a1100675e4c77c783ae64952854c6f286694bf71306329227372e"
+    }
+  },
+  "verdict": "READY_FOR_CLAUDE",
+  "l2_source_sha": "11b61a2c550e15079e4c299839c7512fa52829eb",
+  "pr_url": "https://github.com/trungtn87/autoTrade/pull/147"
+}
