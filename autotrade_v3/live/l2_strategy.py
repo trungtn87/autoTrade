@@ -74,11 +74,7 @@ class L2Strategy:
         reg = self.registry
         if reg is not None and reg.version.startswith((REGISTRY_LAB5_23, REGISTRY_LAB8_23)):
             from .l2_lab5 import Lab5Engine
-            if reg.version.startswith(REGISTRY_LAB8_23):
-                from autotrade_v3.lab.v3_lab_8_loader import load_v3_lab_8_strategy as _load_lab
-            else:
-                from autotrade_v3.lab.v3_lab_5_loader import load_v3_lab_5_strategy as _load_lab
-            self.lab5 = Lab5Engine(reg, strategy=_load_lab())
+            self.lab5 = Lab5Engine(reg)
             eth_c1_h1_enabled = False  # ETH-C1 H1_BOTH_1 is computed inside the lab strategy
         elif reg is not None and reg.version != REGISTRY_20FINAL:
             spec = reg.get(ETH, 1)

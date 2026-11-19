@@ -5,7 +5,14 @@ import json
 from pathlib import Path
 from typing import Any
 
-import duckdb
+
+def _duckdb():
+    """Lazy DuckDB import: only lab stores need it; live imports of this package must not."""
+    import duckdb
+
+    return duckdb
+
+
 
 _CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS runs (
@@ -80,7 +87,7 @@ class StoreIndex:
         if row is None:
             return
         self.store_dir.mkdir(parents=True, exist_ok=True)
-        con = duckdb.connect(str(self.db_path))
+        con = _duckdb().connect(str(self.db_path))
         try:
             con.execute(_CREATE_SQL)
             con.execute("DELETE FROM runs WHERE run_id = ?", [row[0]])
@@ -96,7 +103,7 @@ class StoreIndex:
         self.store_dir.mkdir(parents=True, exist_ok=True)
         if self.db_path.exists():
             self.db_path.unlink()
-        con = duckdb.connect(str(self.db_path))
+        con = _duckdb().connect(str(self.db_path))
         count = 0
         try:
             con.execute(_CREATE_SQL)
@@ -117,7 +124,7 @@ class StoreIndex:
     def list_runs(self, *, limit: int | None = None) -> list[dict[str, Any]]:
         if not self.db_path.exists():
             self.reindex()
-        con = duckdb.connect(str(self.db_path), read_only=True)
+        con = _duckdb().connect(str(self.db_path), read_only=True)
         try:
             sql = "SELECT * FROM runs ORDER BY created_at_utc DESC, run_id ASC"
             if limit is not None:
@@ -131,7 +138,7 @@ class StoreIndex:
     def get_run(self, run_id: str) -> dict[str, Any] | None:
         if not self.db_path.exists():
             self.reindex()
-        con = duckdb.connect(str(self.db_path), read_only=True)
+        con = _duckdb().connect(str(self.db_path), read_only=True)
         try:
             cur = con.execute("SELECT * FROM runs WHERE run_id = ?", [run_id])
             row = cur.fetchone()

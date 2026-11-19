@@ -4,7 +4,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
-import duckdb
 import numpy as np
 import pandas as pd
 
@@ -131,6 +130,8 @@ def load_m1_from_catalog(
     start_ms = to_utc_ms(start)
     end_ms = to_utc_ms(end)
     sym_clean = symbol.replace("-", "").upper()
+
+    import duckdb  # lazy: only the lab catalog reader needs DuckDB; live imports must not
 
     con = duckdb.connect(str(catalog_path), read_only=True)
     try:

@@ -102,3 +102,22 @@ def test_eth_c6_sell_maps_to_v3signal_with_fixed_tp_sl():
     assert v.tp_pct == 0.02 and v.sl_pct == pytest.approx(0.00666667)
     assert v.event_id == f"ETH-USDT|1h|C6|SELL|{close_ms}"
     assert v.registry_version == _REG8.version
+
+
+def test_live_l2_path_does_not_load_lab_packages_or_duckdb():
+    """Owner rule: live uses no lab-only code. Build the Lab 8 engine in a clean process and check modules."""
+    import subprocess
+    import sys
+    code = (
+        "import sys\n"
+        "from autotrade_v3.live.l2_strategy import L2Strategy\n"
+        "from autotrade_v3.live.l2_lab5 import Lab5Engine\n"
+        "from autotrade_v3.live.strategy_registry import load_registry\n"
+        "Lab5Engine(load_registry('V3_LIVE_23_LAB_8_V1'))\n"
+        "mods = list(sys.modules)\n"
+        "bad = [m for m in ('duckdb', 'scripts', 'autotrade_v3.lab') if any(k == m or k.startswith(m + '.') for k in mods)]\n"
+        "print('BAD=' + ','.join(bad))\n"
+    )
+    out = subprocess.run([sys.executable, "-c", code], cwd=str(ROOT), capture_output=True, text=True, timeout=160)
+    assert out.returncode == 0, out.stderr[-800:]
+    assert "BAD=\n" in out.stdout or out.stdout.strip().endswith("BAD="), out.stdout

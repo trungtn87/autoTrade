@@ -13,6 +13,7 @@ class StrategyRegistry:
     """Registry maintaining available research strategies indexed by (strategy_id, version)."""
 
     _strategies: dict[tuple[str, str], BaseStrategy] = {}
+    _defaults_loaded: bool = False
 
     @classmethod
     def register(cls, strategy: BaseStrategy, version: str | None = None) -> None:
@@ -26,6 +27,7 @@ class StrategyRegistry:
         version: str | None = None,
         params_dir: Path | None = None,
     ) -> BaseStrategy:
+        cls._ensure_defaults()
         raw = str(strategy_id).strip()
         if "@" in raw and version is None:
             sid, ver = raw.split("@", 1)
@@ -66,6 +68,7 @@ class StrategyRegistry:
 
     @classmethod
     def list_strategies(cls, params_dir: Path | None = None) -> list[dict[str, Any]]:
+        cls._ensure_defaults()
         seen: set[tuple[str, str]] = set()
         out: list[dict[str, Any]] = []
         for (sid, ver), strat in cls._strategies.items():
@@ -81,7 +84,14 @@ class StrategyRegistry:
     @classmethod
     def clear(cls) -> None:
         cls._strategies.clear()
+        cls._defaults_loaded = False
         cls._register_defaults()
+
+    @classmethod
+    def _ensure_defaults(cls) -> None:
+        """Register the lab strategies on first use, not at import (live must not load lab code)."""
+        if not cls._defaults_loaded:
+            cls._register_defaults()
 
     @classmethod
     def _register_defaults(cls) -> None:
@@ -103,7 +113,4 @@ class StrategyRegistry:
         cls.register(V3Lab6Strategy(version="6.0.0"))
         cls.register(V3Lab7Strategy(version="7.0.0"))
         cls.register(V3Lab8Strategy(version="8.0.0"))
-
-
-# Initialize defaults
-StrategyRegistry._register_defaults()
+        cls._defaults_loaded = True

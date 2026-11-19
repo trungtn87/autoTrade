@@ -17,7 +17,7 @@ from __future__ import annotations
 import pandas as pd
 
 from .l3_execution import V3Signal
-from .strategy_registry import StrategyRegistry
+from .strategy_registry import REGISTRY_LAB8_23, StrategyRegistry
 
 M15_MS = 900_000
 BTC = "BTC-USDT"
@@ -37,13 +37,34 @@ def to_lab_frame(candles: pd.DataFrame) -> pd.DataFrame:
     return d[["open", "high", "low", "close", "volume"]].astype(float)
 
 
+def _checked(strategy):
+    """Fixed TP/SL only, 30 combos: the same invariants the lab loaders enforce, without importing the lab."""
+    spec = strategy.spec()
+    if len(spec.combos) != 30:
+        raise ValueError(f"{strategy.strategy_id}@{strategy.version} phải có 30 combo, nhận {len(spec.combos)}")
+    for c in spec.combos:
+        ep = strategy.get_exit_policy(c.symbol, int(c.combo_id))
+        if ep.split_legs or float(ep.trailing_act_pct) != 0.0:
+            raise ValueError(f"{strategy.strategy_id} yêu cầu Fixed TP/SL: {c.symbol}/{c.combo_id}")
+    return strategy
+
+
+def lab5_strategy():
+    from autotrade_v3.strategy.v3_lab_5 import V3Lab5Strategy
+    return _checked(V3Lab5Strategy(version="5.0.0"))
+
+
+def lab8_strategy():
+    from autotrade_v3.strategy.v3_lab_8 import V3Lab8Strategy
+    return _checked(V3Lab8Strategy(version="8.0.0"))
+
+
 class Lab5Engine:
-    """Runs the lab V3_LAB_5 strategy on closed M15 frames, restricted to one registry."""
+    """Runs a lab strategy (V3_LAB_5 or V3_LAB_8) on closed M15 frames, restricted to one registry."""
 
     def __init__(self, registry: StrategyRegistry, strategy=None) -> None:
         if strategy is None:
-            from autotrade_v3.lab.v3_lab_5_loader import load_v3_lab_5_strategy
-            strategy = load_v3_lab_5_strategy()
+            strategy = lab8_strategy() if registry.version.startswith(REGISTRY_LAB8_23) else lab5_strategy()
         self.strategy = strategy
         self.registry_version: str = registry.version
         self.spec_hash: str = strategy.get_spec_hash()

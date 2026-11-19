@@ -7,10 +7,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import duckdb
 import pandas as pd
 
 from autotrade_v3.runstore.hashing import canonical_json, sha256_text
+
+
+def _duckdb():
+    """Lazy DuckDB import: only lab stores need it; live imports of this package must not."""
+    import duckdb
+
+    return duckdb
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +60,7 @@ class AnnotationStore:
     def __init__(self, db_path: str | Path = "runs/lab/annotations/annotations.duckdb") -> None:
         self.db_path = Path(db_path)
 
-    def _ensure_table(self, con: duckdb.DuckDBPyConnection) -> None:
+    def _ensure_table(self, con: object) -> None:
         con.execute(_CREATE_SQL)
 
     def import_file(
@@ -118,7 +125,7 @@ class AnnotationStore:
             validated.append((row_source, symbol, as_of_ms, payload_json, payload_hash, row_unverified))
 
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        con = duckdb.connect(str(self.db_path))
+        con = _duckdb().connect(str(self.db_path))
         try:
             self._ensure_table(con)
             if validated:
@@ -148,7 +155,7 @@ class AnnotationStore:
             return AnnotationQueryResult(records=[], dropped_future_count=0, has_unverified=False)
 
         cutoff = int(signal_close_ms)
-        con = duckdb.connect(str(self.db_path), read_only=True)
+        con = _duckdb().connect(str(self.db_path), read_only=True)
         try:
             if source is not None:
                 valid_rows = con.execute(
