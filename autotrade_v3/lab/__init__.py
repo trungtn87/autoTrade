@@ -40,3 +40,5 @@ __all__ = [
     "load_v3_lab_5_config",
     "load_v3_lab_5_strategy",
 ]
+
+from autotrade_v3.lab.v3_lab_6_loader import load_v3_lab_6_config, load_v3_lab_6_strategy
