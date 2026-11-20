@@ -22,7 +22,7 @@ from autotrade_v3.live.config import V3Settings
 from autotrade_v3.live.l2_strategy import L2Strategy
 from autotrade_v3.live.l3_execution import V3Signal
 from autotrade_v3.live.store import MemoryStore
-from autotrade_v3.live.strategy_registry import (REGISTRY_20FINAL, REGISTRY_V18, REGISTRY_V20, case_for, load_registry)
+from autotrade_v3.live.strategy_registry import (REGISTRY_V18, REGISTRY_V20, load_registry)
 from autotrade_v3.live.strategy_v18 import V18Engine
 from autotrade_v3.live.tests.fakes import PRICE, build
 
@@ -101,18 +101,11 @@ def test_same_combo_id_on_btc_and_eth_are_distinct_identities():
     for cid in BTC_18 & ETH_18:
         b, e = reg.get("BTC-USDT", cid), reg.get("ETH-USDT", cid)
         assert b.key != e.key and b.spec_hash != e.spec_hash
-        assert case_for("ETH-USDT", cid, reg) == e.as_case()
+        assert e.as_case()["tp_pct"] == e.tp_pct and e.as_case()["sl_pct"] == e.sl_pct
 
 
 def test_registry_spec_hash_is_frozen():
     assert load_registry(REGISTRY_V18).spec_hash == V18_SPEC_HASH
-
-
-def test_rollback_registry_is_the_untouched_20final():
-    reg = load_registry(REGISTRY_20FINAL)
-    assert len(reg.combos) == 20
-    for sym in ("BTC-USDT", "ETH-USDT"):
-        assert {c.combo_id for c in reg.for_symbol(sym)} == set(enabled_combos(sym)) | set(enabled_new6_combos(sym))
 
 
 def test_unknown_registry_blocks_new_entries_only():
@@ -125,8 +118,8 @@ def test_unknown_registry_blocks_new_entries_only():
 def test_settings_default_registry_and_env_override(monkeypatch):
     monkeypatch.delenv("V3_STRATEGY_REGISTRY", raising=False)
     assert V3Settings().strategy_registry == "V3_LIVE_23_LAB_8_V1"
-    monkeypatch.setenv("V3_STRATEGY_REGISTRY", "20final")
-    assert V3Settings().strategy_registry == REGISTRY_20FINAL
+    monkeypatch.setenv("V3_STRATEGY_REGISTRY", "v3_live_18_h1_v2")
+    assert V3Settings().strategy_registry == REGISTRY_V18
 
 
 # ---------------------------------------------------------------- B. live path == batch path
@@ -211,21 +204,10 @@ def test_no_lookahead_appending_future_bars_never_changes_past_signals():
 
 
 def test_missing_candles_raise_and_emit_nothing():
-    from autotrade_v2.app.control.errors import StrategyInsufficientCandlesError
+    from autotrade_v3.live.exchange.errors import StrategyInsufficientCandlesError
     eng = V18Engine(load_registry(REGISTRY_V18))
     with pytest.raises(StrategyInsufficientCandlesError):
         eng.calculate("BTC-USDT", _candles(0, 3399))
-
-
-def test_rollback_l2_is_byte_identical_to_20final_scan_latest():
-    l2 = L2Strategy(MemoryStore(), control=None, registry=REGISTRY_20FINAL)
-    full = _candles(0, 3420)
-    for end in (3400, 3415):
-        m15 = full.iloc[end - 3400:end].reset_index(drop=True)
-        for symbol in ("BTC-USDT", "ETH-USDT"):
-            got = [(s.event_id, s.entry, s.tp, s.sl) for s in l2.calculate(_snap(symbol, m15))]
-            want = [(x.event_id, x.entry, x.tp, x.sl) for x in scan_latest(symbol, m15)]
-            assert got == want
 
 
 # ---------------------------------------------------------------- C. L2 -> L3 -> L4 (MOCK)
@@ -297,7 +279,7 @@ def test_switching_registry_does_not_touch_open_positions():
     _, store, client, *_r, executor = build()
     executor.execute(_sig18("BTC-USDT", 2, "BUY"))
     posts_before = list(client.order_posts)
-    for version in (REGISTRY_20FINAL, REGISTRY_V18, REGISTRY_20FINAL):
+    for version in (REGISTRY_V18, REGISTRY_V20, REGISTRY_V18):
         L2Strategy(store, control=None, executor=executor, registry=version)
     assert client.order_posts == posts_before
     assert getattr(client, "cancels", []) == [] and getattr(client, "amends", []) == []

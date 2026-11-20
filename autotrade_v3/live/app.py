@@ -155,7 +155,7 @@ class Runtime:
             self.status = "ready_no_websocket"
 
     def _start_data(self) -> None:
-        from autotrade_v2.app.data.websocket import BingXKlineStream
+        from .exchange.websocket import BingXKlineStream
         self.status = "checking_candles"
         self.l1.startup_sync()
         self.stream = BingXKlineStream(self.settings.symbols, self.on_closed, url=self.settings.bingx_ws_url,

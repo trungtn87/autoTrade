@@ -1,4 +1,4 @@
-"""Reuse the existing BingX signed transport (V2 ``LegacyStyleBingXClient``).
+"""BingX signed transport (``LegacyStyleBingXClient``, copied into ``autotrade_v3.live.exchange``).
 
 Two small V3 adaptations, no change to V2 code:
 * ``SpacingGuard`` keeps the 1.1 s request spacing but has NO local circuit
@@ -14,9 +14,9 @@ import threading
 import time
 from contextlib import contextmanager
 
-from autotrade_v2.app.control.bingx_guard import BingXRequestGuard
-from autotrade_v2.app.control.errors import BingXApiError
-from autotrade_v2.app.execution.executor import LegacyStyleBingXClient
+from .exchange.bingx_guard import BingXRequestGuard
+from .exchange.errors import BingXApiError
+from .exchange.executor import LegacyStyleBingXClient
 
 log = logging.getLogger("autotrade_v3.transport")
 

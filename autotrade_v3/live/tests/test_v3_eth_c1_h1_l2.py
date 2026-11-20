@@ -112,16 +112,6 @@ def test_no_lookahead_h1_and_h4_values_do_not_change_when_future_bars_arrive():
     assert checked > 0
 
 
-def test_rollback_flag_off_is_identical_to_v2_for_both_symbols():
-    l2 = L2Strategy(MemoryStore(), control=None, eth_c1_h1_enabled=False)
-    for m15 in _small_windows():
-        for symbol in ("BTC-USDT", "ETH-USDT"):
-            snap = _snap(symbol, m15)
-            got = [(s.event_id, s.side, s.entry, s.tp, s.sl, s.combo_name) for s in l2.calculate(snap)]
-            want = [(x.event_id, x.side, x.entry, x.tp, x.sl, case_name(x.combo)) for x in scan_latest(symbol, m15)]
-            assert got == want
-
-
 def test_flag_on_changes_only_eth_c1_and_19_other_combos_are_unchanged():
     l2, hist, ctl, big = _setup()
     for end in (12_000, 12_001, 12_300):

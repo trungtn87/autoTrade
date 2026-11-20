@@ -212,8 +212,12 @@ def sig(symbol="BTC-USDT", combo=1, side="BUY", close_time=1763000099999) -> V3S
     tf = "1h" if combo in (1, 2, 3, 4, 6, 11) or combo > 100 else "15m"
     tp = entry * (1.02 if side == "BUY" else 0.98)
     sl = entry * (0.992 if side == "BUY" else 1.008)
+    # TP/SL pct come from the default registry spec, as in production (L2 always attaches them).
+    from autotrade_v3.live.strategy_registry import DEFAULT_REGISTRY, load_registry
+    spec = load_registry(DEFAULT_REGISTRY).get(symbol, combo)
+    pct = {} if spec is None else {"tp_pct": spec.tp_pct, "sl_pct": spec.sl_pct}
     return V3Signal(event_id=f"{symbol}|{tf}|{name}|{side}|{close_time}", symbol=symbol, combo=combo, combo_name=name,
-                    side=side, timeframe=tf, close_time=close_time, entry=entry, tp=tp, sl=sl)
+                    side=side, timeframe=tf, close_time=close_time, entry=entry, tp=tp, sl=sl, **pct)
 
 
 def open_legacy_split(executor, sg=None):
