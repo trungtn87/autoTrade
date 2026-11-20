@@ -1,0 +1,35 @@
+CLONE_SHA=f765a80ddd720deef4b1aa45646875540afe70c3
+PYTEST_EXIT=0
+============================= test session starts =============================
+platform win32 -- Python 3.12.8, pytest-9.2.0, pluggy-1.7.0 -- D:\AutoTrade\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\AutoTrade\.clone_c12_verify
+configfile: pyproject.toml
+plugins: anyio-4.16.0
+collecting ... collected 13 items
+
+autotrade_v3/tests/test_v3_lab_4_c10_integration.py::test_v3_lab_4_config_has_30_unique_combos_and_4_upgrades PASSED [  7%]
+autotrade_v3/tests/test_v3_lab_4_c10_integration.py::test_v3_lab_4_strategy_registry_and_fixed_tpsl_invariant PASSED [ 15%]
+autotrade_v3/tests/test_v3_lab_4_c10_integration.py::test_v3_lab_2_remains_untouched PASSED [ 23%]
+autotrade_v3/tests/test_v3_lab_4_c10_integration.py::test_eth_c10_asymmetric_sell_filter_enforces_smc_strict PASSED [ 30%]
+autotrade_v3/tests/test_v3_lab_4_c11_integration.py::test_v3_lab_4_has_upgraded_combos_and_eth_c11_h3_b1 PASSED [ 38%]
+autotrade_v3/tests/test_v3_lab_4_c11_integration.py::test_v3_lab_4_strategy_eth_c11_spec_and_btc_c11_unchanged PASSED [ 46%]
+autotrade_v3/tests/test_v3_lab_4_c12_integration.py::test_v3_lab_4_has_6_upgraded_combos_and_eth_c12_h7 PASSED [ 53%]
+autotrade_v3/tests/test_v3_lab_4_c12_integration.py::test_v3_lab_4_strategy_eth_c12_spec_and_20final_unchanged PASSED [ 61%]
+autotrade_v3/tests/test_eth_c12_h7_no_lookahead.py::test_before_4h_close_never_uses_developing_4h_bar PASSED [ 69%]
+autotrade_v3/tests/test_eth_c12_h7_no_lookahead.py::test_exact_4h_close_and_immediately_after PASSED [ 76%]
+autotrade_v3/tests/test_eth_c12_h7_no_lookahead.py::test_buy_and_other_combos_always_kept PASSED [ 84%]
+autotrade_v3/tests/test_eth_c12_h7_no_lookahead.py::test_missing_4h_bar_falls_back_to_prior_closed_bar PASSED [ 92%]
+autotrade_v3/tests/test_eth_c12_h7_no_lookahead.py::test_insufficient_ema100_4h_warmup_rejects_sell PASSED [100%]
+
+============================= 13 passed in 2.83s ==============================
+
+
+PARITY_EXIT=0
+[ONE_TRADE_PER_COMBO_BASE  ] {"portfolio_trades": 5932, "portfolio_net_pnl": 235.9798, "m2m_max_dd_dollars": 0.0, "eth_c12_trades": 366, "eth_c12_buy": 243, "eth_c12_sell": 123, "eth_c12_tp": 151, "eth_c12_sl": 215, "eth_c12_own_pnl": 34.368, "eth_c12_pf": 1.1568, "eth_c12_closed_max_dd": 13.9818, "btc_c12_trades": 434, "btc_c12_own_pnl": -64.6999, "eth_c11_trades": 242, "eth_c11_own_pnl": 33.9645, "btc_c11_trades": 241, "btc_c11_own_pnl": 24.1902}
+[ONE_TRADE_PER_COMBO_STRESS] {"portfolio_trades": 5954, "portfolio_net_pnl": -165.7878, "m2m_max_dd_dollars": 0.0, "eth_c12_trades": 366, "eth_c12_buy": 243, "eth_c12_sell": 123, "eth_c12_tp": 148, "eth_c12_sl": 218, "eth_c12_own_pnl": 15.2814, "eth_c12_pf": 1.0668, "eth_c12_closed_max_dd": 18.4619, "btc_c12_trades": 438, "btc_c12_own_pnl": -98.1175, "eth_c11_trades": 245, "eth_c11_own_pnl": 18.1548, "btc_c11_trades": 244, "btc_c11_own_pnl": 8.4096}
+[BINGX_PORTFOLIO    _BASE  ] {"portfolio_trades": 5932, "portfolio_net_pnl": 235.9798, "m2m_max_dd_dollars": 91.1139, "eth_c12_trades": 366, "eth_c12_buy": 243, "eth_c12_sell": 123, "eth_c12_tp": 151, "eth_c12_sl": 215, "eth_c12_own_pnl": 34.368, "eth_c12_pf": 1.1568, "eth_c12_closed_max_dd": 13.9818, "btc_c12_trades": 434, "btc_c12_own_pnl": -64.6999, "eth_c11_trades": 242, "eth_c11_own_pnl": 33.9645, "btc_c11_trades": 241, "btc_c11_own_pnl": 24.1902}
+[BINGX_PORTFOLIO    _STRESS] {"portfolio_trades": 5954, "portfolio_net_pnl": -165.7878, "m2m_max_dd_dollars": 170.5243, "eth_c12_trades": 366, "eth_c12_buy": 243, "eth_c12_sell": 123, "eth_c12_tp": 148, "eth_c12_sl": 218, "eth_c12_own_pnl": 15.2814, "eth_c12_pf": 1.0668, "eth_c12_closed_max_dd": 18.4619, "btc_c12_trades": 438, "btc_c12_own_pnl": -98.1175, "eth_c11_trades": 245, "eth_c11_own_pnl": 18.1548, "btc_c11_trades": 244, "btc_c11_own_pnl": 8.4096}
+
+ALL 732/732 TRADE-BY-TRADE PARITY CHECKS PASSED in 231.88s!
+

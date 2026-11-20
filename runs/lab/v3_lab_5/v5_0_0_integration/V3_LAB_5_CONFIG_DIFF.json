@@ -1,0 +1,200 @@
+{
+  "schema_version": "v3_lab_5_config_diff_v1",
+  "from_config_id": "V3_LAB_4@4.1.1",
+  "to_config_id": "V3_LAB_5@5.0.0",
+  "from_config_hash": "fe8cb9f83178c0cbcd87b612287b022a4f5f79e39a2f14f024f8568bb191b30c",
+  "to_config_hash": "a9ac70337477f2d338753fc80158382e013f1ba263c468559444d5be93db33bc",
+  "untouched_combo_count": 29,
+  "modified_combo_count": 1,
+  "modified_combos": [
+    {
+      "combo_key": "ETH-USDT/C15",
+      "combo_id": 105,
+      "before": {
+        "order": 20,
+        "symbol": "ETH-USDT",
+        "combo_id": 105,
+        "combo_name": "C15",
+        "combo_key": "ETH-USDT/C15",
+        "timeframe": "1h",
+        "execution_version": "H3_ASYMMETRIC",
+        "exit_mode": "FIXED_TP_SL",
+        "tp_pct": 0.02,
+        "sl_pct": 0.008,
+        "trailing_enabled": false,
+        "split_legs": false,
+        "auto_breakeven": false,
+        "layer2": "OB",
+        "research_status": "RESEARCH_ACCEPTED",
+        "live_eligible": null,
+        "override_details": {
+          "execution_version": "H3_ASYMMETRIC",
+          "buy": {
+            "dist_kama_atr_lte": 2.0
+          },
+          "sell": {
+            "post_tp_cooldown_minutes": 60
+          },
+          "tp_pct": 0.02,
+          "sl_pct": 0.008,
+          "trailing_enabled": false,
+          "research_status": "RESEARCH_ACCEPTED",
+          "source": "scripts/run_v3_lab_2_eth_c15_h3_asymmetric.py"
+        }
+      },
+      "after": {
+        "order": 20,
+        "symbol": "ETH-USDT",
+        "combo_id": 105,
+        "combo_name": "C15",
+        "combo_key": "ETH-USDT/C15",
+        "timeframe": "1h",
+        "execution_version": "V5_SELL_ONLY_ATR140",
+        "exit_mode": "FIXED_TP_SL",
+        "tp_pct": 0.02,
+        "sl_pct": 0.008,
+        "trailing_enabled": false,
+        "split_legs": false,
+        "auto_breakeven": false,
+        "layer2": "OB",
+        "research_status": "RESEARCH_ACCEPTED_READY_FOR_SHADOW",
+        "live_eligible": null,
+        "override_details": {
+          "execution_version": "V5_SELL_ONLY_ATR140",
+          "timeframe": "1h",
+          "entry": {
+            "indicator": "KAMA_ER",
+            "er_period": 40,
+            "fast_period": 2,
+            "slow_period": 40,
+            "er_min": 0.4
+          },
+          "layer2": "OB",
+          "buy": {
+            "enabled": false,
+            "rule": "DISABLED"
+          },
+          "sell": {
+            "enabled": true,
+            "base_signal": "KAMA_ER(40,2,40,er_min=0.4) + Layer2 OB",
+            "atr_ratio_metric": "ATR(14)_1H / SMA(ATR(14)_1H, 50)",
+            "atr_ratio_50_lte": 1.4,
+            "atr_period": 14,
+            "atr_sma_period": 50,
+            "post_tp_cooldown_minutes": 0
+          },
+          "tp_pct": 0.02,
+          "sl_pct": 0.008,
+          "trailing_enabled": false,
+          "split_legs": false,
+          "auto_breakeven": false,
+          "candle_only": true,
+          "stateful_controller_removed": true,
+          "research_status": "RESEARCH_ACCEPTED_READY_FOR_SHADOW",
+          "source": "autotrade_v3/filters/c15_v5_sell_atr140.py",
+          "strategy_source": "autotrade_v3/strategy/v3_lab_5.py",
+          "round2_source_dir": "runs/lab/v3_lab_4/eth_c15_round2/"
+        }
+      }
+    }
+  ],
+  "eth_c1_source_update": {
+    "before": "scripts/p3_c1_research_strategy.py",
+    "after": "autotrade_v3/strategy/eth_c1_h1_both_1.py",
+    "signal_and_exit_parity": "100% IDENTICAL"
+  },
+  "eth_c15_override_diff": {
+    "before": {
+      "execution_version": "H3_ASYMMETRIC",
+      "buy": {
+        "dist_kama_atr_lte": 2.0
+      },
+      "sell": {
+        "post_tp_cooldown_minutes": 60
+      },
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "research_status": "RESEARCH_ACCEPTED",
+      "source": "scripts/run_v3_lab_2_eth_c15_h3_asymmetric.py"
+    },
+    "after": {
+      "execution_version": "V5_SELL_ONLY_ATR140",
+      "timeframe": "1h",
+      "entry": {
+        "indicator": "KAMA_ER",
+        "er_period": 40,
+        "fast_period": 2,
+        "slow_period": 40,
+        "er_min": 0.4
+      },
+      "layer2": "OB",
+      "buy": {
+        "enabled": false,
+        "rule": "DISABLED"
+      },
+      "sell": {
+        "enabled": true,
+        "base_signal": "KAMA_ER(40,2,40,er_min=0.4) + Layer2 OB",
+        "atr_ratio_metric": "ATR(14)_1H / SMA(ATR(14)_1H, 50)",
+        "atr_ratio_50_lte": 1.4,
+        "atr_period": 14,
+        "atr_sma_period": 50,
+        "post_tp_cooldown_minutes": 0
+      },
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "candle_only": true,
+      "stateful_controller_removed": true,
+      "research_status": "RESEARCH_ACCEPTED_READY_FOR_SHADOW",
+      "source": "autotrade_v3/filters/c15_v5_sell_atr140.py",
+      "strategy_source": "autotrade_v3/strategy/v3_lab_5.py",
+      "round2_source_dir": "runs/lab/v3_lab_4/eth_c15_round2/"
+    }
+  },
+  "live_governance": {
+    "lab_registry_id": "V3_LAB_5@5.0.0",
+    "lab_total_combos": 30,
+    "live_registry_id": "V3_LIVE_20_POSITIVE_FIXED_V1",
+    "live_config_file": "autotrade_v3/live/registries/V3_LIVE_20_POSITIVE_FIXED_V1.json",
+    "live_combo_count": 20,
+    "live_combo_count_modified_by_v5": false,
+    "note": "V3_LAB_5 retains all 30 Lab combos for research and portfolio evaluation. Live executes the separate 20-combo V3_LIVE_20_POSITIVE_FIXED_V1 registry; Claude may consume V3_LAB_5 L2 logic via generate_signals_for_combos(..., allowed_combos=<LIVE_20_COMBOS>) without altering Live combo count."
+  },
+  "strategy_hashes_before": {
+    "signal_spec_hash": "8b4f2b9d73d986e73f41e92529977d0ce2527e3d0c4216476de1d33c1df35082",
+    "exit_spec_hash": "451883a51503a3f4b3c2dd286f9e96246ddbc3732efc46cfe6a1e63ae998abcd",
+    "spec_hash": "578773b8b3d4ff2a83f7023b8703e72c3f8522e1afc51d2bd3db110b1ccd7145"
+  },
+  "strategy_hashes_after": {
+    "signal_spec_hash": "1b8d6d0f856abcaedecb1d39de1e74022a5cf8713e9743d9e8562c1d1158ebd9",
+    "exit_spec_hash": "11617415ec7aa0cbde95a1b3c67a6254c416cc971aee573858f86da949b37e11",
+    "spec_hash": "631cd361bc0a1100675e4c77c783ae64952854c6f286694bf71306329227372e",
+    "c15_v5_filter_config_hash": "e831925538c23cdae37511ce945ab409b97922c95e477abd58b0f3df686a2fb3"
+  },
+  "source_hashes": {
+    "c15_v5_filter": {
+      "path": "autotrade_v3/filters/c15_v5_sell_atr140.py",
+      "sha256": "ca4cabf44ead8f77dfd9ac197b946eed06414e07a90f5812179fe036baac8de8"
+    },
+    "c14_h3a_filter": {
+      "path": "autotrade_v3/filters/c14_h3a_kumo_band.py",
+      "sha256": "d2b282a3eadea67e17b7146ab14b06eb1db9b478cfa9fe24c4bab7d1ac3d320b"
+    },
+    "eth_c1_h1_both_1": {
+      "path": "autotrade_v3/strategy/eth_c1_h1_both_1.py",
+      "sha256": "1c9c3eab2443bf84d24eea8174ec795d22327227a5a6764989657d096036763a"
+    },
+    "v3_lab_5_strategy": {
+      "path": "autotrade_v3/strategy/v3_lab_5.py",
+      "sha256": "a0273aeb421ad00d8617d23e75cd01f278d3a1390f7c2d93e2bd50fce33c2da2"
+    },
+    "v3_lab_5_loader": {
+      "path": "autotrade_v3/lab/v3_lab_5_loader.py",
+      "sha256": "a3b54af862144df459ddae60d52b16b90ce78b1f1253646c2596ce5ba472d28e"
+    }
+  }
+}

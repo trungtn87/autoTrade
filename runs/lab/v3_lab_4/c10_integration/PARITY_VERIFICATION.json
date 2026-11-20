@@ -1,0 +1,67 @@
+{
+  "verification_id": "V3_LAB_4_C10_INTEGRATION_PARITY",
+  "created_at_utc": "2026-11-18T13:19:56.505401+00:00",
+  "config_id": "V3_LAB_4",
+  "version": "4.0.0",
+  "config_hash": "ffd0cc4d0ef5f034b1ae0b4146c1921c03d7c2eed80dec12a2013c13cd66c288",
+  "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+  "results": {
+    "ONE_TRADE_PER_COMBO_BASE": {
+      "portfolio_trades": 6237,
+      "portfolio_net_pnl": 197.5788,
+      "m2m_max_dd_dollars": 0.0,
+      "eth_c10_trades": 23,
+      "eth_c10_buy": 15,
+      "eth_c10_sell": 8,
+      "eth_c10_own_pnl": 14.3407,
+      "btc_c10_trades": 46,
+      "btc_c10_own_pnl": 6.2829
+    },
+    "ONE_TRADE_PER_COMBO_STRESS": {
+      "portfolio_trades": 6262,
+      "portfolio_net_pnl": -219.1916,
+      "m2m_max_dd_dollars": 0.0,
+      "eth_c10_trades": 23,
+      "eth_c10_buy": 15,
+      "eth_c10_sell": 8,
+      "eth_c10_own_pnl": 10.9484,
+      "btc_c10_trades": 46,
+      "btc_c10_own_pnl": 1.3041
+    },
+    "BINGX_PORTFOLIO_BASE": {
+      "portfolio_trades": 6237,
+      "portfolio_net_pnl": 197.5788,
+      "m2m_max_dd_dollars": 97.6132,
+      "eth_c10_trades": 23,
+      "eth_c10_buy": 15,
+      "eth_c10_sell": 8,
+      "eth_c10_own_pnl": 14.3407,
+      "btc_c10_trades": 46,
+      "btc_c10_own_pnl": 6.2829
+    },
+    "BINGX_PORTFOLIO_STRESS": {
+      "portfolio_trades": 6262,
+      "portfolio_net_pnl": -219.1916,
+      "m2m_max_dd_dollars": 222.8772,
+      "eth_c10_trades": 23,
+      "eth_c10_buy": 15,
+      "eth_c10_sell": 8,
+      "eth_c10_own_pnl": 10.9484,
+      "btc_c10_trades": 46,
+      "btc_c10_own_pnl": 1.3041
+    }
+  },
+  "parity_status": "PASSED_EXACT",
+  "git_state": {
+    "sha": "51234e35a145e29cf4a5cd3fc3fb5e69a6366c55",
+    "dirty": true
+  },
+  "env_versions": {
+    "python_version": "3.12.8",
+    "pandas_version": "2.3.2",
+    "numpy_version": "2.3.3",
+    "duckdb_version": "1.4.2",
+    "pyarrow_version": "26.0.1"
+  },
+  "runner_sha256": "87eefdbcf4dad9a376e71857c04067741816cf6eb02669be53d465e5e8169d33"
+}

@@ -1,0 +1,463 @@
+{
+  "config_id": "V3_LAB_2",
+  "version": "2.0.0",
+  "is_default_research_standard": true,
+  "live_eligible": false,
+  "purpose": "Official V3 Lab research standard & future Live sync source",
+  "base_strategy": "20FINAL_FIXED_V1@1",
+  "total_combos": 20,
+  "exit_policy_global": {
+    "mode": "FIXED_TP_SL",
+    "trailing_enabled": false,
+    "split_legs": false,
+    "auto_breakeven": false
+  },
+  "overrides": {
+    "ETH-USDT/C1": {
+      "execution_version": "H1_BOTH_1",
+      "buy_max_slope_4h_pct": 1.5,
+      "sell_cci9_lt": -80,
+      "sell_min_dist_ema150_4h_pct": -6.0,
+      "pre_edge_h1": true,
+      "tp_pct": 0.02,
+      "sl_pct": 0.006666666666666667,
+      "source": "scripts/p3_c1_research_strategy.py"
+    },
+    "BTC-USDT/C14": {
+      "execution_version": "BTC-USDT_C14_H3a_KUMO_BAND_V1",
+      "ichimoku_1h": [
+        12,
+        30,
+        60
+      ],
+      "entry": "tkcross_12_30_60",
+      "layer2": "OB",
+      "kumo_filter": "0.005 <= abs(SpanA - SpanB) / Close < 0.010",
+      "parameter_policy": "LOCKED",
+      "tp_pct": 0.02,
+      "sl_pct": 0.006666666666666667,
+      "trailing_enabled": false,
+      "source": "autotrade_v3/filters/c14_h3a_kumo_band.py",
+      "candidate_spec": {
+        "candidate_id": "BTC-USDT_C14_H3a_KUMO_BAND_V1",
+        "candidate_version": 1,
+        "candidate_status": "OWNER_APPROVED_RESEARCH_CANDIDATE",
+        "is_default_research_candidate": true,
+        "live_eligible": false,
+        "approved_date": "2026-11-18",
+        "scope": {
+          "symbol": "BTC-USDT",
+          "combo_id": 104,
+          "combo_name": "C14",
+          "original_strategy_id": "20FINAL_FIXED_V1@1",
+          "other_combos": "UNCHANGED"
+        },
+        "original_strategy": {
+          "native_timeframe": "1h",
+          "indicator": "Ichimoku",
+          "parameters": {
+            "tenkan_period": 12,
+            "kijun_period": 30,
+            "senkou_b_period": 60
+          },
+          "layer2": "OB",
+          "exit_policy": {
+            "type": "FIXED_TP_SL",
+            "take_profit_pct": 0.02,
+            "stop_loss_pct": 0.006666666666666667,
+            "split_legs": false,
+            "leg_weights": [
+              1.0
+            ],
+            "trailing_enabled": false
+          }
+        },
+        "filter": {
+          "name": "Ichimoku Kumo Thickness Band",
+          "filter_stage": "C14_SIGNAL_ADMISSION_ONLY",
+          "expression": "0.005 <= abs(span_a - span_b) / close < 0.010",
+          "min_inclusive": 0.005,
+          "max_exclusive": 0.01,
+          "parameter_policy": "LOCKED"
+        },
+        "evidence_spec_path": "reports/v3-c14-loo-h2/candidates/BTC_C14_H3A_STANDARD_CANDIDATE.json"
+      }
+    }
+  },
+  "combos": [
+    {
+      "order": 1,
+      "symbol": "BTC-USDT",
+      "combo_id": 1,
+      "combo_name": "C1",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 2,
+      "symbol": "BTC-USDT",
+      "combo_id": 2,
+      "combo_name": "C2",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.012,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 3,
+      "symbol": "BTC-USDT",
+      "combo_id": 4,
+      "combo_name": "C4",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 4,
+      "symbol": "BTC-USDT",
+      "combo_id": 6,
+      "combo_name": "C6",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.00666667,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 5,
+      "symbol": "BTC-USDT",
+      "combo_id": 7,
+      "combo_name": "C7",
+      "timeframe": "15m",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 6,
+      "symbol": "BTC-USDT",
+      "combo_id": 9,
+      "combo_name": "C9",
+      "timeframe": "15m",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.01,
+      "sl_pct": 0.004,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 7,
+      "symbol": "BTC-USDT",
+      "combo_id": 10,
+      "combo_name": "C10",
+      "timeframe": "15m",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.01,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 8,
+      "symbol": "BTC-USDT",
+      "combo_id": 11,
+      "combo_name": "TIER",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 9,
+      "symbol": "BTC-USDT",
+      "combo_id": 101,
+      "combo_name": "C11",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 10,
+      "symbol": "BTC-USDT",
+      "combo_id": 104,
+      "combo_name": "C14",
+      "timeframe": "1h",
+      "execution_version": "BTC-USDT_C14_H3a_KUMO_BAND_V1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.006666666666666667,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/filters/c14_h3a_kumo_band.py::C14H3aKumoBandFilter",
+      "override_details": {
+        "ichimoku_1h": "12/30/60",
+        "entry": "tkcross_12_30_60",
+        "layer2": "OB",
+        "filter": "0.005 <= abs(SpanA - SpanB) / Close < 0.010",
+        "parameter_policy": "LOCKED"
+      }
+    },
+    {
+      "order": 11,
+      "symbol": "BTC-USDT",
+      "combo_id": 106,
+      "combo_name": "C16",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.011,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 12,
+      "symbol": "ETH-USDT",
+      "combo_id": 1,
+      "combo_name": "C1",
+      "timeframe": "1h",
+      "execution_version": "H1_BOTH_1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.00666667,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "scripts/p3_c1_research_strategy.py::P3C1ResearchStrategy",
+      "override_details": {
+        "buy_rule": "slope_10bar_4h <= 1.5%",
+        "sell_rule": "CCI9 < -80 AND dist_ema150_4h >= -6.0%",
+        "pre_edge_h1": true
+      }
+    },
+    {
+      "order": 13,
+      "symbol": "ETH-USDT",
+      "combo_id": 3,
+      "combo_name": "C3",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.006,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 14,
+      "symbol": "ETH-USDT",
+      "combo_id": 4,
+      "combo_name": "C4",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 15,
+      "symbol": "ETH-USDT",
+      "combo_id": 6,
+      "combo_name": "C6",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.00666667,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 16,
+      "symbol": "ETH-USDT",
+      "combo_id": 7,
+      "combo_name": "C7",
+      "timeframe": "15m",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 17,
+      "symbol": "ETH-USDT",
+      "combo_id": 10,
+      "combo_name": "C10",
+      "timeframe": "15m",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 18,
+      "symbol": "ETH-USDT",
+      "combo_id": 102,
+      "combo_name": "C12",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.018,
+      "sl_pct": 0.009,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 19,
+      "symbol": "ETH-USDT",
+      "combo_id": 103,
+      "combo_name": "C13",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    },
+    {
+      "order": 20,
+      "symbol": "ETH-USDT",
+      "combo_id": 105,
+      "combo_name": "C15",
+      "timeframe": "1h",
+      "execution_version": "20FINAL_FIXED_V1@1",
+      "exit_mode": "FIXED_TP_SL",
+      "tp_pct": 0.02,
+      "sl_pct": 0.008,
+      "trailing_enabled": false,
+      "split_legs": false,
+      "auto_breakeven": false,
+      "source_module": "autotrade_v3/strategy_core/strategies/final20/params/20final_fixed_v1_v1/params.json",
+      "override_details": null
+    }
+  ],
+  "strategy_hashes": {
+    "signal_spec_hash": "1a1ccbe10eae4be7a562089c71b0e6d661da2fa7a9b1ebf48820009edafaad38",
+    "exit_spec_hash": "451883a51503a3f4b3c2dd286f9e96246ddbc3732efc46cfe6a1e63ae998abcd",
+    "spec_hash": "07f54bbb976b6654dfc35853fcf618fab7d5eb0e6cb641011d470aa82c21d9a1"
+  },
+  "source_hashes": {
+    "v3_lab_2_strategy": {
+      "path": "D:\\AutoTrade\\autotrade_v3\\strategy\\v3_lab_2.py",
+      "sha256": "1a77538820fea226e02a69a2ee32a1e5746a085169c5bd22e18978aff9dc4fd8"
+    },
+    "v3_lab_2_loader": {
+      "path": "D:\\AutoTrade\\autotrade_v3\\lab\\v3_lab_2_loader.py",
+      "sha256": "6e7ec751ed6804725c9846de9900d5388c9ceac082e409a727dd8e3b7ec0e387"
+    },
+    "eth_c1_h1_both_1": {
+      "path": "D:\\AutoTrade\\scripts\\p3_c1_research_strategy.py",
+      "sha256": "5043254c1f4ba1205d2bef57deb8b8d98cf462324991d4e3f69d986e4ec9be95"
+    },
+    "c1_sell_corrected": {
+      "path": "D:\\AutoTrade\\scripts\\c1_sell_corrected_strategy.py",
+      "sha256": "da4ef22578709942564da1b8bdb354acf04e6c4379d75f38e6bb1c06d51f6a73"
+    },
+    "fixed_tpsl_base": {
+      "path": "D:\\AutoTrade\\scripts\\fixed_tpsl_strategy.py",
+      "sha256": "b11f891a4e0f679ec290ddf686529f733c31d51e1dd8730df89c74121dc72c32"
+    },
+    "btc_c14_h3a_filter": {
+      "path": "D:\\AutoTrade\\autotrade_v3\\filters\\c14_h3a_kumo_band.py",
+      "sha256": "d2b282a3eadea67e17b7146ab14b06eb1db9b478cfa9fe24c4bab7d1ac3d320b"
+    },
+    "btc_c14_candidate_json": {
+      "path": "D:\\AutoTrade_c14\\autotrade_v3\\lab\\research_candidates.json",
+      "sha256": "955d6939c666c5ce054a1c7ca8cab3536ed9c7174cd41f502fe54f2bb6daea45"
+    },
+    "base_20final_fixed_v1_params": {
+      "path": "D:\\AutoTrade\\autotrade_v3\\strategy_core\\strategies\\final20\\params\\20final_fixed_v1_v1\\params.json",
+      "sha256": "94666b135525e8bc7d70af2e29ffbe2f68c96c7880db3e0de0994ee32ddbcc9d"
+    }
+  },
+  "git_state": {
+    "main_repo_sha": "51234e35a145e29cf4a5cd3fc3fb5e69a6366c55",
+    "c14_repo_sha": "d0ba7be19abdabd05ae4a95f020f3c35cefda948"
+  },
+  "config_hash": "038dd40e4dac72f5811d92f682f6f1e522a0f6f643d8acefa1189dda8065d85e"
+}

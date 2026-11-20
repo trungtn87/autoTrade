@@ -24,10 +24,16 @@ class ExitPolicy:
     leg_weights: tuple[float, ...] = (0.5, 0.5)  # Volume weight per leg (e.g. 50/50 or (1.0,))
     max_bars_held: int | None = None
     force_close_on_window_end: bool = False
+    be_trigger_pct: float | None = None
+    be_offset_pct: float | None = None
 
     def get_policy_hash(self) -> str:
         """Deterministic SHA256 of the ExitPolicy parameters."""
         data = asdict(self)
+        if data.get("be_trigger_pct") is None:
+            data.pop("be_trigger_pct", None)
+        if data.get("be_offset_pct") is None:
+            data.pop("be_offset_pct", None)
         raw = json.dumps(data, sort_keys=True, default=str)
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 

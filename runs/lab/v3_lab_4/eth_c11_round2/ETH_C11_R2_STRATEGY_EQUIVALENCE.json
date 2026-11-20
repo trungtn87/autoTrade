@@ -1,0 +1,41 @@
+{
+  "h3_filter_signal_count": 9655,
+  "h3_strategy_config_signal_count": 9655,
+  "signals_100pct_identical": true,
+  "other_29_combos_100pct_identical": {
+    "BASE": {
+      "trades": 5776,
+      "identical_to_h0": true
+    },
+    "STRESS": {
+      "trades": 5795,
+      "identical_to_h0": true
+    }
+  },
+  "stability_checks": {
+    "BASE": {
+      "months_total": 32,
+      "months_h3_gt_h0": 15,
+      "months_h3_lt_h0": 9,
+      "months_h3_eq_h0": 8,
+      "h0_total_pnl": 10.3875,
+      "h3_total_pnl": 27.246,
+      "h0_pnl_excl_2024_08_2025_05": -16.7956,
+      "h3_pnl_excl_2024_08_2025_05": 0.664,
+      "h3_2024_08_pnl": 15.3724,
+      "h3_2025_05_pnl": 11.2096
+    },
+    "STRESS": {
+      "months_total": 32,
+      "months_h3_gt_h0": 15,
+      "months_h3_lt_h0": 9,
+      "months_h3_eq_h0": 8,
+      "h0_total_pnl": -17.8425,
+      "h3_total_pnl": 7.5105,
+      "h0_pnl_excl_2024_08_2025_05": -43.0471,
+      "h3_pnl_excl_2024_08_2025_05": -17.3926,
+      "h3_2024_08_pnl": 14.7175,
+      "h3_2025_05_pnl": 10.1856
+    }
+  }
+}
