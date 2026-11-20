@@ -34,19 +34,15 @@ with TestClient(app, follow_redirects=False) as client:
     assert home.status_code == 303
     assert home.headers["location"] == "/mobile"
 
-    # The private AI page must resolve before the public Dashboard mount.
-    private_ai = client.get("/ai")
-    assert private_ai.status_code == 503, private_ai.text
-    assert "AI_ANALYST_PASSWORD" in private_ai.text
-    assert client.get("/ai/api/state").status_code == 503
-    assert client.get("/ai/static/app.js").status_code == 200
+    # The V2 AI page was removed from the unified app: no route, no static mount.
+    assert client.get("/ai").status_code == 404
+    assert client.get("/ai/api/state").status_code == 404
+    assert client.get("/ai/static/app.js").status_code == 404
 
     mobile = client.get("/mobile")
     assert mobile.status_code == 200, mobile.text
     assert "Đăng xuất" not in mobile.text
     assert "LIVE TERMINAL" in mobile.text
-    assert 'href="/ai"' in mobile.text
-    assert '✦ AI phân tích' in mobile.text
     assert 'Chỉ xem' in mobile.text
 
 
@@ -64,18 +60,8 @@ with TestClient(app, follow_redirects=False) as client:
     finally:
         web._db_records = previous_records
 
-    # Monitoring endpoint is read-only, cgroup-scoped, never exposes trading data.
-    res = client.get("/monitor/resources")
-    assert res.status_code == 200, res.text
-    assert res.headers["cache-control"] == "no-store"
-    data = res.json()
-    assert data["service"] == "autotrade" and data["schema"] == 1
-    assert data["sourceCpu"] in ("CGROUP_V2", "PROCESS")
-    assert data["sourceRam"] in ("CGROUP_V2", "PROCESS", "UNAVAILABLE")
-    assert data["ramUsedMb"] >= 0
-    assert not any(k in data for k in ("positions", "apiKey", "password", "orders"))
-    warmed = client.get("/monitor/resources").json()
-    assert warmed["cpuVcpu"] is None or warmed["cpuVcpu"] >= 0
+    # The V2 resource monitor was removed from the unified app.
+    assert client.get("/monitor/resources").status_code == 404
 
     engine = client.get("/engine/status")
     assert engine.status_code == 200, engine.text
