@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AutoTrade V3 · Live Terminal</title>
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">◈ LIVE TERMINAL <span class="sub">AutoTrade V3</span></div>
+    <div class="right"><!--LOGOUT--></div>
+  </header>
+  <main>
+    <section class="filters">
+      <input id="symbol" placeholder="Symbol (ETH-USDT)" autocomplete="off">
+      <input id="combo" placeholder="Combo (C1, TIER…)" autocomplete="off">
+      <select id="days">
+        <option value="7">7 ngày</option>
+        <option value="30" selected>30 ngày</option>
+        <option value="90">90 ngày</option>
+        <option value="all">Tất cả</option>
+      </select>
+      <button id="apply">Xem</button>
+    </section>
+    <p id="status" class="status">Đang tải…</p>
+
+    <section class="cards" id="cards"></section>
+
+    <h2>Theo combo</h2>
+    <div class="scroll"><table id="combo-table"><thead><tr>
+      <th>Mã</th><th>Combo</th><th class="num">Lệnh</th><th class="num">Thắng %</th><th class="num">Net PnL</th>
+    </tr></thead><tbody></tbody></table></div>
+
+    <h2>Vị thế đang mở</h2>
+    <div class="scroll"><table id="open-table"><thead><tr>
+      <th>Mã</th><th>Combo</th><th>Chiều</th><th class="num">Giá vào</th><th class="num">SL</th><th class="num">TP</th>
+    </tr></thead><tbody></tbody></table></div>
+
+    <h2>Lệnh đã đóng gần đây</h2>
+    <div class="scroll"><table id="trade-table"><thead><tr>
+      <th>Đóng lúc</th><th>Mã</th><th>Combo</th><th>Chiều</th><th>Cách đóng</th><th class="num">Net PnL</th><th class="num">ROI %</th>
+    </tr></thead><tbody></tbody></table></div>
+
+    <h2>Tín hiệu gần đây</h2>
+    <div class="scroll"><table id="signal-table"><thead><tr>
+      <th>Lúc</th><th>Mã</th><th>Combo</th><th>Chiều</th><th class="num">Entry</th><th class="num">TP</th><th class="num">SL</th>
+    </tr></thead><tbody></tbody></table></div>
+
+    <h2>Sức khỏe engine</h2>
+    <div id="health"></div>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

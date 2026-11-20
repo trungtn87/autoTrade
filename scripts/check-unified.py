@@ -46,19 +46,23 @@ with TestClient(app, follow_redirects=False) as client:
     assert 'Chỉ xem' in mobile.text
 
 
-    # The public JSON remains redacted and never requests trade privileges.
-    from dashboard.autotrade_live import mobile as web
-    previous_records = web._db_records
-    web._db_records = lambda: {
-        "orders": [], "fills": [], "links": [], "forces": [],
-        "incomes": [], "runs": [], "positions": [],
+    # The public JSON is read-only and redacted: no event IDs, order IDs or collector details.
+    import autotrade_v3.dashboard.app as live_terminal
+    previous_load, previous_engine = live_terminal.load_snapshot, live_terminal._get_engine
+    live_terminal.load_snapshot = lambda engine: {
+        "now_ms": 1_700_000_000_000, "orders": [], "results": [], "finances": {},
+        "signals": [], "errors": [], "candle_last_close": {},
     }
+    live_terminal._get_engine = lambda: None
     try:
-        summary = client.get("/api/dashboard")
+        summary = client.get("/api/v3/dashboard")
         assert summary.status_code == 200, summary.text
-        assert "trades" in summary.json()
+        body = summary.json()
+        assert body["public"] is True
+        assert "trades" in body and "by_combo" in body and "health" in body
+        assert "event_id" not in summary.text
     finally:
-        web._db_records = previous_records
+        live_terminal.load_snapshot, live_terminal._get_engine = previous_load, previous_engine
 
     # The V2 resource monitor was removed from the unified app.
     assert client.get("/monitor/resources").status_code == 404
