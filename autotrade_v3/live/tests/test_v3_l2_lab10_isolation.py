@@ -14,7 +14,7 @@ def test_l2_lab10_imports_without_duckdb_or_pyarrow() -> None:
                 if name.split('.')[0] in ('duckdb', 'pyarrow'):
                     raise ImportError('blocked ' + name)
         sys.meta_path.insert(0, Block())
-        import autotrade_v3.live.l2_lab10_flat as m
+        import autotrade_v3.live.l2_lab10 as m
         assert hasattr(m, 'V3Lab10Strategy')
         print('OK')
     """)

@@ -1,7 +1,7 @@
 """Frozen 20FINAL@1 strategy parameters for the live Lab 10 engine.
 
 Embedded from the former lab10_params/params/20final_v1.json (identical values).
-Read by l2_lab10_flat.StrategyCoreRegistry instead of a file, so live no longer
+Read by l2_lab10.StrategyCoreRegistry instead of a file, so live no longer
 depends on the params file or its lock file. Hashes are checked in tests against
 the frozen baseline values.
 """
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-EMBEDDED_20FINAL_PARAMS: dict[str, Any] = {'strategy_id': '20FINAL',
+EMBEDDED_LAB10_CORE_PARAMS: dict[str, Any] = {'strategy_id': '20FINAL',
  'version': '1',
  'parent': None,
  'warmup_bars': 3400,
@@ -361,7 +361,7 @@ EMBEDDED_20FINAL_PARAMS: dict[str, Any] = {'strategy_id': '20FINAL',
 
 
 # Frozen 20FINAL_FIXED_V1@1 params (fixed exit variant of 20FINAL@1), used by the live Lab 8 core.
-EMBEDDED_20FINAL_FIXED_PARAMS: dict[str, Any] = {'strategy_id': '20FINAL_FIXED_V1',
+EMBEDDED_LAB10_FIXED_PARAMS: dict[str, Any] = {'strategy_id': '20FINAL_FIXED_V1',
  'version': '1',
  'parent': '20FINAL@1',
  'warmup_bars': 3400,
