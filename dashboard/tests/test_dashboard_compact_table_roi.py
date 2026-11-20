@@ -24,9 +24,9 @@ def test_mobile_combo_table_fits_seven_columns_without_sideways_scroll(directory
     widths = [int(v) for v in re.findall(
         r"\.performance-table th:nth-child\(\d\)\{width:(\d+)%\}", css
     )]
-    # TP and SL share one CSS rule (two distinct 8% columns).
+    # TP and SL share a CSS rule; regex captures the second (8%) only.
     assert ".performance-table th:nth-child(3),.performance-table th:nth-child(4){width:8%}" in css
-    assert sum(widths) + 16 == 100
+    assert sum(widths) + 8 == 100
     assert '<span class="label-short" aria-hidden="true">Win%</span>' in html
     assert '<span class="label-short" aria-hidden="true">PnL</span>' in html
 
