@@ -74,7 +74,7 @@ class L2Strategy:
         reg = self.registry
         if reg is not None and reg.version.startswith(REGISTRY_LAB8_23):
             from .l2_lab5 import Lab5Engine
-            from autotrade_v3.l2_lab8.strategy.v3_lab_8 import V3Lab8Strategy
+            from autotrade_v3.live.l2_lab8_flat import V3Lab8Strategy
             self.lab5 = Lab5Engine(reg, strategy=V3Lab8Strategy())
         elif reg is not None and reg.version.startswith(REGISTRY_LAB5_23):
             from .l2_lab5 import Lab5Engine

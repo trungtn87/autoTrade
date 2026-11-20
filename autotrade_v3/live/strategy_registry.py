@@ -175,7 +175,7 @@ def _load_lab8_23() -> StrategyRegistry:
     if len(combos) != 23 or len({(c.symbol, c.combo_id) for c in combos}) != 23:
         raise ValueError(f"{REGISTRY_LAB8_23} phải có đúng 23 combo-symbol duy nhất")
     return StrategyRegistry(version=f"{REGISTRY_LAB8_23}@1.0.0", combos=combos, new6_signal_mode="virtual_position",
-                            provenance={"source": "autotrade_v3.l2_lab8 (V3_LAB_8@8.0.0)",
+                            provenance={"source": "autotrade_v3.live.l2_lab8_flat (V3_LAB_8@8.0.0)",
                                         "parent_source": dict(raw["parent_source"])})
 
 
