@@ -54,3 +54,15 @@ from autotrade_v3.lab.v3_lab_8_loader import (
     load_v3_lab_8_config,
     load_v3_lab_8_strategy,
 )
+from autotrade_v3.lab.v3_lab_9_loader import (
+    V3_LAB_9_ACTIVE_VERSION,
+    V3_LAB_9_STRATEGY_ID,
+    load_v3_lab_9_config,
+    load_v3_lab_9_strategy,
+)
+from autotrade_v3.lab.v3_lab_10_loader import (
+    V3_LAB_10_ACTIVE_VERSION,
+    V3_LAB_10_STRATEGY_ID,
+    load_v3_lab_10_config,
+    load_v3_lab_10_strategy,
+)
