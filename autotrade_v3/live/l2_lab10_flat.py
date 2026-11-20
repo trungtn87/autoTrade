@@ -68,6 +68,7 @@ from autotrade_v3.l2_core import (
     stochastic,
     true_range,
 )  # shared with live l2_core (identical bodies)
+from autotrade_v3.live.lab10_core_params import EMBEDDED_20FINAL_FIXED_PARAMS, EMBEDDED_20FINAL_PARAMS
 
 # --- from autotrade_v3/engine/candle_loader.py
 def datetime_index_to_ms(idx: pd.DatetimeIndex) -> np.ndarray:
@@ -2472,18 +2473,19 @@ class StrategyCoreRegistry:
         if key in cls._factories:
             return cls._factories[key]()
 
+        if key == ("20FINAL_FIXED_V1", "1"):
+            return Final20Strategy(
+                params_data=copy.deepcopy(EMBEDDED_20FINAL_FIXED_PARAMS),
+                enforce_lock=False,
+            )
+
         p_dir = Path(params_dir) if params_dir is not None else PARAMS_DIR
         if key == ("20FINAL", "1"):
-            p_path = p_dir / "20final_v1.json"
-            if not p_path.exists():
-                p_path = DEFAULT_PARAMS_PATH
-            l_path = p_dir / "20final_v1.lock"
-            if not l_path.exists():
-                l_path = DEFAULT_LOCK_PATH
+            # Embedded copy of the frozen 20FINAL@1 params (lab10_core_params.py). The
+            # params JSON and lock file are no longer read by live.
             return Final20Strategy(
-                params_path=p_path,
-                lock_path=l_path,
-                enforce_lock=True,
+                params_data=copy.deepcopy(EMBEDDED_20FINAL_PARAMS),
+                enforce_lock=False,
             )
 
         slug = f"{sid.lower()}_v{ver}"
