@@ -741,6 +741,21 @@ def sync_metadata(run):
                 completed_at=run.finished_at.isoformat() if run.finished_at else None)
 
 
+def _resolved_roi(row):
+    """Use recorded ROI, or derive it only from *known* PnL and entry margin.
+
+    Do not guess a leverage or margin from PnL, TP/SL, or outcome alone.
+    """
+    recorded = _signed_decimal(row.get('roi'))
+    if recorded is not None:
+        return float(recorded)
+    pnl = _signed_decimal(row.get('pnl'))
+    margin = _decimal(row.get('margin'))
+    if pnl is None or margin is None or margin <= 0:
+        return None
+    return float(Decimal(100) * pnl / margin)
+
+
 def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
     available = rows is not None
     rows = rows or []
@@ -767,8 +782,8 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
                             exit_ms=row.get('closed_ms') if (counted_close or is_pending_close) else None,
                             outcome=row.get('outcome') if counted_close else None,
                             result=row.get('outcome') if counted_close else 'UNRESOLVED',
-                            roi_pct=row.get('roi') if counted_close else None,
-                            recorded_roi_pct=row.get('roi') if counted_close else None,
+                            roi_pct=_resolved_roi(row) if counted_close else None,
+                            recorded_roi_pct=_resolved_roi(row) if counted_close else None,
                             pnl=row.get('pnl') if counted_close else None,
                             margin=row.get('margin') if counted_close else None,
                             source=row.get('source'), reason=row.get('reason'),
@@ -784,14 +799,17 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
         classified = wins + losses
         # Include ROI for all closed trades with data, even when other trades
         # in this Combo have not yet obtained a full set of fills.
-        priced = [t for t in closed if t.get('roi') is not None]
+        priced = [(trade, _resolved_roi(trade)) for trade in closed]
+        priced = [(trade, value) for trade, value in priced if value is not None]
         weighted = bool(priced) and all(
-            t.get('pnl') is not None and t.get('margin') is not None
-            and t['margin'] > 0 for t in priced)
-        actual_roi = (100 * sum(t['pnl'] for t in priced) /
-                      sum(t['margin'] for t in priced)) if weighted else (
-                          sum(t['roi'] for t in priced) if priced else None)
-        # Historical Excel ROI has no PnL/margin; its percentage is retained.
+            trade.get('pnl') is not None and _decimal(trade.get('margin')) is not None
+            and _decimal(trade.get('margin')) > 0 for trade, _ in priced)
+        actual_roi = (100 * sum(trade['pnl'] for trade, _ in priced) /
+                      sum(trade['margin'] for trade, _ in priced)) if weighted else (
+                          sum(value for _, value in priced) if priced else None)
+        # Keep historical ROI (which may lack PnL/margin) and avoid guessing
+        # missing margin. PnL coverage is independent of ROI coverage.
+        pnl_rows = [trade for trade in closed if trade.get('pnl') is not None]
         combos.append(dict(symbol=sym, combo=name, total=len(trades), closed=len(closed),
                            unresolved=len(trades)-len(closed), win=wins, loss=losses,
                            tp_count=wins,
@@ -799,12 +817,11 @@ def result_payload(rows, last_sync=None, symbol='', combo='', start_ms=0):
                            classified=classified,
                            win_rate=round(100*wins/classified, 2) if classified else None,
                            real_roi_total=round(actual_roi, 4) if actual_roi is not None else None,
-                           roi_estimated=any(t.get('source') in ('bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate') for t in priced),
+                           roi_estimated=any(trade.get('source') in ('bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate') for trade, _ in priced),
                            estimated_count=sum(t.get('status') == 'ESTIMATED_CLOSED' for t in closed),
                            roi_coverage=len(priced),
-                           pnl_total=round(sum(t['pnl'] for t in priced if t.get('pnl') is not None), 4)
-                           if any(t.get('pnl') is not None for t in priced) else None,
-                           pnl_coverage=sum(t.get('pnl') is not None for t in priced)))
+                           pnl_total=round(sum(t['pnl'] for t in pnl_rows), 4) if pnl_rows else None,
+                           pnl_coverage=len(pnl_rows)))
     return dict(theory=dict(available=available,
                             reason=None if available else 'Existing DB results are unavailable',
                             combos=combos,
