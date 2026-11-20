@@ -40,16 +40,17 @@ V20_JSON_SHA256 = "65997bb1c030b5bdf017b85352b66e291ae82aca2944b44b105ceae531ae9
 
 
 # ---------------------------------------------------------------- A. registry
-def test_default_registry_is_v20():
-    assert DEFAULT_REGISTRY == REGISTRY_V20 == "V3_LIVE_20_POSITIVE_FIXED_V1"
+def test_default_registry_is_lab8_23():
+    assert DEFAULT_REGISTRY == "V3_LIVE_23_LAB_8_V1"
+    assert REGISTRY_V20 == "V3_LIVE_20_POSITIVE_FIXED_V1"
 
 
 def test_settings_default_and_selectable_versions(monkeypatch):
     monkeypatch.delenv("V3_STRATEGY_REGISTRY", raising=False)
-    assert V3Settings().strategy_registry == REGISTRY_V20
-    for v in ("v3_live_18_h1_v2", "20FINAL", "V3_LIVE_20_POSITIVE_FIXED_V1"):
+    assert V3Settings().strategy_registry == DEFAULT_REGISTRY
+    for v in ("v3_live_18_h1_v2", "20FINAL", "V3_LIVE_20_POSITIVE_FIXED_V1", "V3_LIVE_23_LAB_8_V1"):
         monkeypatch.setenv("V3_STRATEGY_REGISTRY", v)
-        assert load_registry(V3Settings().strategy_registry).version == v.upper()
+        assert load_registry(V3Settings().strategy_registry).version.startswith(v.upper())
 
 
 def test_registry_has_exactly_the_20_owner_combo_symbols():

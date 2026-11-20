@@ -60,7 +60,7 @@ class V3Settings:
 
     # L2 strategy registry (immutable versions): V3_LIVE_20_POSITIVE_FIXED_V1 (20 combo-symbols,
     # default), V3_LIVE_18_H1_V2 (18) or 20FINAL (legacy rollback). Switching never touches open positions or their protection.
-    strategy_registry: str = field(default_factory=lambda: os.getenv("V3_STRATEGY_REGISTRY", "V3_LIVE_20_POSITIVE_FIXED_V1").strip().upper())
+    strategy_registry: str = field(default_factory=lambda: os.getenv("V3_STRATEGY_REGISTRY", "V3_LIVE_23_LAB_8_V1").strip().upper())
 
     log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO").upper())
 
