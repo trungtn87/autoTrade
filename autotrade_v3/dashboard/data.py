@@ -24,7 +24,20 @@ def make_engine(url: str | None = None):
     target = url if url is not None else database_url()
     if not target:
         raise RuntimeError("DATABASE_URL is not configured")
-    return create_engine(target, pool_pre_ping=True, pool_size=2, max_overflow=0)
+    # Same connection settings as the live engine (autotrade_v3/live/store.py):
+    # Supabase's transaction pooler rejects server-side prepared statements, and
+    # psycopg3 prepares them by default, so queries fail with 503 in production.
+    return create_engine(
+        target,
+        pool_pre_ping=True,
+        pool_size=2,
+        max_overflow=0,
+        connect_args={
+            "connect_timeout": 10,
+            "prepare_threshold": None,
+            "options": "-c statement_timeout=5000",
+        },
+    )
 
 
 def _rows(conn, sql: str, **params: Any) -> list[dict]:
