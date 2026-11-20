@@ -26,7 +26,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from autotrade_v2.app.strategy.final14_config import get_case
-from autotrade_v2.app.strategy.final14_exact_strategy import hard_tp_sl
+from autotrade_v3.l2_core.new6 import hard_tp_sl
 
 from .l4_control import (ACTIVE, FILLED, PARTIALLY_FILLED, TERMINAL_UNFILLED, ControlLog, L4Reader, OrderEvidence,
                          extract_order, order_id_of)

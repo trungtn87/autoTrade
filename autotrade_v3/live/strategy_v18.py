@@ -28,7 +28,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from autotrade_v2.app.strategy.final14_exact_strategy import (
+from autotrade_v3.l2_core.new6 import (
     MIN_LIVE_15M_BARS, _new6_filtered_signals, _new6_latest_action, _new6_raw_signals, _research_frame, hard_tp_sl)
 from autotrade_v3.l2_core.indicators import (
     atr, cci, dmi, edge_event, ema, mfi, rsi, sma, stochastic)
