@@ -28,15 +28,9 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from autotrade_v2.app.strategy.final14_exact_strategy import (
-    MIN_LIVE_15M_BARS, _new6_filtered_signals, _new6_latest_action, _new6_raw_signals, _research_frame, hard_tp_sl)
-from autotrade_v3.l2_core.indicators import (
-    atr, cci, dmi, edge_event, ema, mfi, rsi, sma, stochastic)
-from autotrade_v3.l2_core.layer3_long import entry_variants, precompute
-from autotrade_v3.l2_core.signals import align_confirmed, resample_ohlcv
-from autotrade_v3.l2_core.smc_ob import OBConfig, ob_context
-from autotrade_v3.l2_core.smc_structure import smc_direction
-from autotrade_v3.l2_core.two_trail_layer12 import approved
+
+from autotrade_v3.l2_core import (
+    MIN_LIVE_15M_BARS, _new6_filtered_signals, _new6_latest_action, _new6_raw_signals, _research_frame, hard_tp_sl, atr, cci, dmi, edge_event, ema, mfi, rsi, sma, stochastic, entry_variants, precompute, align_confirmed, resample_ohlcv, OBConfig, ob_context, smc_direction, approved)
 
 from .strategy_registry import ComboSpec, StrategyRegistry
 
