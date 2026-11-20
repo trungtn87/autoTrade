@@ -15,7 +15,7 @@ import logging
 
 from autotrade_v2.app.strategy.engine import StrategyEngine
 from autotrade_v2.app.strategy.final14_config import case_name, get_case
-from autotrade_v3.l2_core.new6 import hard_tp_sl
+from autotrade_v3.l2_core import hard_tp_sl
 
 from .l3_execution import V3Signal
 
