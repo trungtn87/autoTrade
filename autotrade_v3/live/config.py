@@ -43,7 +43,6 @@ class V3Settings:
     notional_usdt: float = 100.0
     leverage: int = 50
     # ETH-USDT/C1 only: H1_BOTH_1 L2 filter (Lab P3). off = pure V2 output (rollback).
-    eth_c1_h1_l2_enabled: bool = field(default_factory=lambda: _bool("V3_ETH_C1_H1_L2", True))
 
     discord_enabled: bool = field(default_factory=lambda: _bool("DISCORD_ENABLED", True))
     discord_webhook_btc: str = field(default_factory=lambda: os.getenv("DISCORD_WEBHOOK_BTC", ""))
@@ -58,9 +57,8 @@ class V3Settings:
     sl_resize_mode: str = field(default_factory=lambda: os.getenv("V3_SL_RESIZE_MODE", "shadow").strip().lower())
     sl_resize_poll_sec: int = field(default_factory=lambda: max(20, int(os.getenv("V3_SL_RESIZE_POLL_SEC", "30"))))
 
-    # L2 strategy registry (immutable versions): V3_LIVE_20_POSITIVE_FIXED_V1 (20 combo-symbols,
-    # default), V3_LIVE_18_H1_V2 (18) or 20FINAL (legacy rollback). Switching never touches open positions or their protection.
-    strategy_registry: str = field(default_factory=lambda: os.getenv("V3_STRATEGY_REGISTRY", "V3_LIVE_23_LAB_8_V1").strip().upper())
+    # L2 strategy registry: the only value is V3_LIVE_23_LAB_10_V1 (default, Lab 10 flat engine).
+    strategy_registry: str = field(default_factory=lambda: os.getenv("V3_STRATEGY_REGISTRY", "V3_LIVE_23_LAB_10_V1").strip().upper())
 
     log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO").upper())
 
