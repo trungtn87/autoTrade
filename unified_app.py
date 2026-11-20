@@ -31,11 +31,6 @@ if not os.getenv("BINGX_READ_API_KEY") and not os.getenv("BINGX_READ_API_SECRET"
     os.environ["BINGX_READ_API_SECRET"] = os.getenv("BINGX_API_SECRET", "")
 
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-from autotrade_v2.app.monitor_resources import container_resource_sampler
-
-from autotrade_v2.app.ai.page import router as ai_router, STATIC as AI_STATIC
 from autotrade_v3.live.app import app as engine_app
 from dashboard.autotrade_live.mobile import app as dashboard_app
 
@@ -59,14 +54,5 @@ app = FastAPI(
 )
 # Mount engine first; the Dashboard consumes / including /static, /login,
 # /mobile and /api/dashboard without altering existing absolute PWA URLs.
-@app.get("/monitor/resources", include_in_schema=False)
-def monitor_resources():
-    """Read-only per-container capacity; no trade or host secrets."""
-    return JSONResponse(container_resource_sampler.snapshot(),
-                        headers={"Cache-Control": "no-store"})
-
-
-app.include_router(ai_router)
-app.mount("/ai/static", StaticFiles(directory=str(AI_STATIC)), name="ai-static")
 app.mount("/engine", engine_app)
 app.mount("/", dashboard_app)
