@@ -61,6 +61,7 @@ function renderCombos(rows) {
   const items = (rows || []).filter(row => (row.total || row.closed) > 0 && row.symbol === symbol)
     .sort((a,b) => String(a.combo).localeCompare(String(b.combo), 'vi', {numeric:true}));
   setText('combo-count', items.length + ' Combo');
+  $('combo-roi-hint').hidden = !items.some(row => !valid(row.real_roi_total));
   if (!items.length) { emptyRow('combo-list', 7, 'Chưa có giao dịch trong database.'); return; }
   const body = $('combo-list'); body.replaceChildren();
   for (const row of items) {
@@ -243,6 +244,7 @@ async function loadSymbol() {
     comboRows = [];
     window.PnlChart.render(history, symbol);
     emptyRow('combo-list', 7, 'Không đọc được dữ liệu.');
+    $('combo-roi-hint').hidden = true;
     emptyRow('history-list', 7, 'Không đọc được dữ liệu.');
     setText('combo-count', '—'); setText('history-count','—');
     setText('sync', 'Lỗi kết nối dashboard · ' + error.message);
