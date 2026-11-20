@@ -27,7 +27,7 @@ V18_WINDOW_BARS = 3_400  # other combos keep the 3400-bar window (20FINAL semant
 from .lab_h1.eth_c1_h1 import (H1_BUY_MAX_SLOPE_4H_PCT, H1_SELL_MIN_DIST_EMA150_4H_PCT, M15_MS,
                               EthC1H1Both1Strategy, compute_eth_c1_l2_features)
 from .store import ms_to_dt
-from .strategy_registry import REGISTRY_20FINAL, REGISTRY_LAB5_23, StrategyRegistry, load_registry
+from .strategy_registry import REGISTRY_20FINAL, REGISTRY_LAB5_23, REGISTRY_LAB8_23, StrategyRegistry, load_registry
 from .strategy_v18 import V18Engine
 
 log = logging.getLogger("autotrade_v3.l2")
@@ -72,7 +72,11 @@ class L2Strategy:
         self._lab5_frames: dict = {}
         self.eth_c1_spec = None
         reg = self.registry
-        if reg is not None and reg.version.startswith(REGISTRY_LAB5_23):
+        if reg is not None and reg.version.startswith(REGISTRY_LAB8_23):
+            from .l2_lab5 import Lab5Engine
+            from autotrade_v3.live.l2_lab8_flat import V3Lab8Strategy
+            self.lab5 = Lab5Engine(reg, strategy=V3Lab8Strategy())
+        elif reg is not None and reg.version.startswith(REGISTRY_LAB5_23):
             from .l2_lab5 import Lab5Engine
             self.lab5 = Lab5Engine(reg)
             eth_c1_h1_enabled = False  # ETH-C1 H1_BOTH_1 is computed inside the lab strategy
