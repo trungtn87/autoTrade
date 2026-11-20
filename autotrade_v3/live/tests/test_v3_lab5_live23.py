@@ -85,9 +85,9 @@ def test_lab5_registry_matches_lab_config_per_combo():
         assert c.sl_pct == pytest.approx(float(lab["sl_pct"])), (c.symbol, c.combo_id)
 
 
-def test_default_registry_is_unchanged():
-    assert DEFAULT_REGISTRY == "V3_LIVE_20_POSITIVE_FIXED_V1"
-    assert len(load_registry(DEFAULT_REGISTRY).combos) == 20
+def test_default_registry_is_lab8_23():
+    assert DEFAULT_REGISTRY == "V3_LIVE_23_LAB_8_V1"
+    assert len(load_registry(DEFAULT_REGISTRY).combos) == 23
 
 
 # ---------------------------------------------------------------- engine wiring
