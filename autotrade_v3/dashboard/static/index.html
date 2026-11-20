@@ -1,56 +1,100 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>AutoTrade V3 · Live Terminal</title>
-  <link rel="manifest" href="/static/manifest.webmanifest">
-  <link rel="stylesheet" href="/static/app.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1120">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="Autotrade · Hiệu quả Combo và lịch sử theo ngày">
+<title>Autotrade · Hiệu quả giao dịch</title>
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="icon" href="/static/icon.svg">
+<link rel="stylesheet" href="/static/app.css?v=20261109-ai-link-v1">
+<script defer src="/static/pnl_chart.js?v=20261109-ai-link-v1"></script>
+<script defer src="/static/app.js?v=20261109-ai-link-v1"></script>
 </head>
 <body>
-  <header class="top">
-    <div class="brand">◈ LIVE TERMINAL <span class="sub">AutoTrade V3</span></div>
-    <div class="right"><!--LOGOUT--></div>
+<main class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">◈</div>
+      <div class="brand-copy">
+        <div class="eyebrow">AUTOTRADE V2 · LIVE TERMINAL</div>
+        <h1>Hiệu quả giao dịch</h1>
+        <div class="subtitle">Lịch sử có trong database · Giờ Việt Nam (UTC+7)</div>
+      </div>
+    </div>
+    <nav class="top-actions" aria-label="Điều hướng chính">
+      
+      <!--LOGOUT-->
+    </nav>
   </header>
-  <main>
-    <section class="filters">
-      <input id="symbol" placeholder="Symbol (ETH-USDT)" autocomplete="off">
-      <input id="combo" placeholder="Combo (C1, TIER…)" autocomplete="off">
-      <select id="days">
-        <option value="7">7 ngày</option>
-        <option value="30" selected>30 ngày</option>
-        <option value="90">90 ngày</option>
-        <option value="all">Tất cả</option>
-      </select>
-      <button id="apply">Xem</button>
-    </section>
-    <p id="status" class="status">Đang tải…</p>
-
-    <section class="cards" id="cards"></section>
-
-    <h2>Theo combo</h2>
-    <div class="scroll"><table id="combo-table"><thead><tr>
-      <th>Mã</th><th>Combo</th><th class="num">Lệnh</th><th class="num">Thắng %</th><th class="num">Net PnL</th>
-    </tr></thead><tbody></tbody></table></div>
-
-    <h2>Vị thế đang mở</h2>
-    <div class="scroll"><table id="open-table"><thead><tr>
-      <th>Mã</th><th>Combo</th><th>Chiều</th><th class="num">Giá vào</th><th class="num">SL</th><th class="num">TP</th>
-    </tr></thead><tbody></tbody></table></div>
-
-    <h2>Lệnh đã đóng gần đây</h2>
-    <div class="scroll"><table id="trade-table"><thead><tr>
-      <th>Đóng lúc</th><th>Mã</th><th>Combo</th><th>Chiều</th><th>Cách đóng</th><th class="num">Net PnL</th><th class="num">ROI %</th>
-    </tr></thead><tbody></tbody></table></div>
-
-    <h2>Tín hiệu gần đây</h2>
-    <div class="scroll"><table id="signal-table"><thead><tr>
-      <th>Lúc</th><th>Mã</th><th>Combo</th><th>Chiều</th><th class="num">Entry</th><th class="num">TP</th><th class="num">SL</th>
-    </tr></thead><tbody></tbody></table></div>
-
-    <h2>Sức khỏe engine</h2>
-    <div id="health"></div>
-  </main>
-  <script src="/static/app.js"></script>
+  <div class="statusline" aria-live="polite">
+    <span class="signal-dot" id="status-dot"></span>
+    <span id="sync">Đang đọc dữ liệu…</span>
+    <span id="updated" class="updated">—</span>
+  </div>
+  <div class="symbol-tabs" role="group" aria-label="Chọn cặp giao dịch">
+    <button id="tab-btc" type="button" class="symbol-tab active" aria-pressed="true">BTC</button>
+    <button id="tab-eth" type="button" class="symbol-tab" aria-pressed="false">ETH</button>
+  </div>
+  <section class="panel" id="combos" aria-labelledby="combos-heading">
+    <div class="section-head">
+      <div><div class="section-kicker">PERFORMANCE</div><h2 id="combos-heading">Hiệu quả từng Combo · <span id="active-symbol">BTC</span></h2></div>
+      <span id="combo-count" class="panel-count">—</span>
+    </div>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Bảng hiệu quả theo Combo, có thể cuộn ngang">
+      <table class="performance-table">
+        <thead><tr><th scope="col">Combo</th><th scope="col" title="Đã xác minh thắng/thua trên tổng số lệnh">Số lệnh</th><th scope="col">TP</th><th scope="col">SL</th><th scope="col">Tỉ lệ thắng</th><th scope="col">ROI ước tính</th><th scope="col">PnL (USDT)</th></tr></thead>
+        <tbody id="combo-list"><tr><td colspan="7" class="empty">Đang đọc dữ liệu…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+  <section class="panel pnl-chart-panel" aria-labelledby="pnl-chart-heading">
+    <div class="section-head">
+      <div><div class="section-kicker">PNL THEO NGÀY ĐÓNG LỆNH</div><h2 id="pnl-chart-heading">PnL tích lũy · <span id="pnl-active-symbol">BTC</span></h2></div>
+      <span id="pnl-trade-count" class="panel-count">—</span>
+    </div>
+    <div class="pnl-chart-toolbar">
+      <strong id="pnl-summary" aria-live="polite">—</strong>
+      <label for="pnl-combo-filter">Combo
+        <select id="pnl-combo-filter" aria-label="Chọn combo để làm nổi trên biểu đồ">
+          <option value="">Tất cả Combo</option>
+        </select>
+      </label>
+    </div>
+    <div class="pnl-chart-plot"><svg id="pnl-svg" role="img" aria-label="PnL tích lũy theo ngày đóng lệnh"></svg></div>
+    <p class="section-note" id="pnl-chart-note">Biểu đồ chỉ sử dụng PnL các lệnh đã đóng lưu trong database.</p>
+  </section>
+  <section class="panel calendar-panel" id="history" aria-labelledby="history-heading">
+    <div class="section-head">
+      <div><div class="section-kicker">TRADE JOURNAL · BTC + ETH</div><h2 id="history-heading">Lịch sử lệnh theo ngày</h2></div>
+      <span id="history-count" class="panel-count">—</span>
+    </div>
+    <div class="month-nav">
+      <button id="prev-month" type="button" aria-label="Tháng trước">‹</button>
+      <strong id="calendar-month" aria-live="polite">—</strong>
+      <button id="next-month" type="button" aria-label="Tháng sau">›</button>
+    </div>
+    <div class="calendar-weekdays" aria-hidden="true"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
+    <div id="calendar-grid" class="calendar-grid" role="group" aria-label="Chọn ngày giao dịch"></div>
+    <p class="calendar-hint">Lịch chung BTC + ETH theo ngày mở lệnh (Entry), giờ Việt Nam. Ngày đóng có trong chi tiết thời gian; lệnh chưa xác minh vẫn được hiển thị. Vị thế BingX gộp được bù trừ theo khối lượng khi đủ Entry, Exit và fill. Thắng/thua, ROI và PnL phân bổ hiển thị dấu ≈; thiếu dữ liệu vẫn cần đối chiếu. Số lệnh ở bảng Combo: đã xác minh thắng/thua / tổng Entry.</p>
+    <h3 id="selected-date" class="selected-date">—</h3>
+    <div class="daily-summary" aria-live="polite">
+      <div><small>Thắng</small><strong id="day-wins" class="positive">0</strong></div>
+      <div><small>Thua</small><strong id="day-losses" class="negative">0</strong></div>
+      <div><small>ROI ước tính</small><strong id="day-roi">—</strong></div>
+    </div>
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Danh sách giao dịch theo ngày, có thể cuộn ngang">
+      <table class="history-table">
+        <thead><tr><th scope="col">Giờ mở</th><th scope="col">Coin</th><th scope="col">Combo</th><th scope="col">Hướng</th><th scope="col">Kết quả</th><th scope="col">ROI</th><th scope="col">PnL (USDT)</th></tr></thead>
+        <tbody id="history-list"><tr><td colspan="6" class="empty">Chọn một ngày trên lịch.</td></tr></tbody>
+      </table>
+    </div>
+    <p id="roi-note" class="section-note">≈ là số phân bổ ước tính theo khối lượng của vị thế gộp, không phải PnL xác minh riêng từng Combo. ROI lịch sử giữ nguyên số đã ghi nhận. ROI mới ≈ (PnL đã khớp + phí giao dịch) / (giá vốn × khối lượng / đòn bẩy), chưa tính funding. Tổng ngày/Combo chỉ gồm các lệnh có ROI; dữ liệu thiếu vẫn hiện —.</p>
+  </section>
+  <footer><span class="footer-brand">◈ AUTOTRADE · READ ONLY</span>
+    <p>Dashboard chỉ đọc dữ liệu đã lưu, không gửi lệnh BingX.</p></footer>
+</main>
 </body>
 </html>
