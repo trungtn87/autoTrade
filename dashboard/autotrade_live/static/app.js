@@ -61,7 +61,6 @@ function renderCombos(rows) {
   const items = (rows || []).filter(row => (row.total || row.closed) > 0 && row.symbol === symbol)
     .sort((a,b) => String(a.combo).localeCompare(String(b.combo), 'vi', {numeric:true}));
   setText('combo-count', items.length + ' Combo');
-  $('combo-roi-hint').hidden = !items.some(row => !valid(row.real_roi_total));
   if (!items.length) { emptyRow('combo-list', 7, 'Chưa có giao dịch trong database.'); return; }
   const body = $('combo-list'); body.replaceChildren();
   for (const row of items) {
@@ -149,7 +148,7 @@ function renderDay() {
   const estimated = priced.some(row => ['bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate'].includes(row.source));
   setText('day-roi', displayRoi(total, estimated));
   $('day-roi').className = classFor(total);
-  if (!rows.length) { emptyRow('history-list', 7, 'Không có giao dịch trong ngày này.'); return; }
+  if (!rows.length) { emptyRow('history-list', 6, 'Không có giao dịch trong ngày này.'); return; }
   const body = $('history-list'); body.replaceChildren();
   for (const row of rows) {
     const tr = document.createElement('tr');
@@ -172,7 +171,6 @@ function renderDay() {
       [row.symbol === 'BTC-USDT' ? 'BTC' : 'ETH', 'coin-' + row.symbol.split('-')[0].toLowerCase()],
       [row.combo || '—', ''],
       [side, side === 'Long' ? 'positive' : side === 'Short' ? 'negative' : ''],
-      [status, status === 'THẮNG' ? 'positive' : status === 'THUA' ? 'negative' : ''],
       [displayRoi(row.recorded_roi_pct, ['bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate'].includes(row.source)), classFor(row.recorded_roi_pct)],
       [valid(row.pnl) ? (row.status === 'estimated_closed' ? '≈ ' : '') + money(row.pnl) : '—', classFor(row.pnl)]
     ];
@@ -182,8 +180,8 @@ function renderDay() {
         ' · Exit liên kết: ' + qtyText(row.matched_exit_qty) +
         ' · Chênh lệch: ' + (mismatch > 0 ? '+' : '') + qtyText(mismatch) +
         (row.status === 'estimated_closed' ? ' · Bù trừ theo khối lượng cân bằng.' : ' · Chưa đủ bằng chứng phân bổ PnL cho Combo.');
-      tr.cells[4].title = detail;
-      tr.cells[4].setAttribute('aria-label', status + '. ' + detail);
+      tr.cells[4].title = 'Trạng thái: ' + status + '. ' + detail;
+      tr.cells[4].setAttribute('aria-label', tr.cells[4].textContent + '. ' + tr.cells[4].title);
     }
     if (valid(row.exit_ms) && valid(row.entry_ms)) {
       const exit = dateParts(row.exit_ms);
@@ -244,8 +242,7 @@ async function loadSymbol() {
     comboRows = [];
     window.PnlChart.render(history, symbol);
     emptyRow('combo-list', 7, 'Không đọc được dữ liệu.');
-    $('combo-roi-hint').hidden = true;
-    emptyRow('history-list', 7, 'Không đọc được dữ liệu.');
+    emptyRow('history-list', 6, 'Không đọc được dữ liệu.');
     setText('combo-count', '—'); setText('history-count','—');
     setText('sync', 'Lỗi kết nối dashboard · ' + error.message);
   }
