@@ -1,6 +1,6 @@
 """L2 STRATEGY: run the active registry (``V3_LIVE_23_LAB_10_V1``); persist and hand off every signal.
 
-The signals come from the flat lab module ``autotrade_v3.live.l2_lab10_flat`` (V3_LAB_10@10.0.0) through
+The signals come from the flat lab module ``autotrade_v3.live.l2_lab10`` (V3_LAB_10@10.0.0) through
 ``l2_lab5.Lab5Engine``. This module only converts its output, stores the 9 agreed fields in
 ``strategy_signals`` and dispatches to L3 (execution). L5 emits a signal-only note when execution is disabled;
 live execution emits only the BingX-confirmed L3 result. No SMC/AI/extra condition is added here.
@@ -43,7 +43,7 @@ class L2Strategy:
         self._lab5_frames: dict = {}
         if self.registry is not None:
             from .l2_lab5 import Lab5Engine
-            from autotrade_v3.live.l2_lab10_flat import V3Lab10Strategy
+            from autotrade_v3.live.l2_lab10 import V3Lab10Strategy
             self.lab5 = Lab5Engine(self.registry, strategy=V3Lab10Strategy())
         self.last_signals: list[dict] = []
 

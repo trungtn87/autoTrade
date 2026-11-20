@@ -2,7 +2,7 @@
 
 Single registry: ``V3_LIVE_23_LAB_10_V1`` (default and only value of ``V3_STRATEGY_REGISTRY``).
 The 23 positive combo-symbols of lab ``V3_LAB_10@10.0.0`` with Fixed TP/SL. Signals come from the flat lab
-module ``autotrade_v3.live.l2_lab10_flat`` through ``l2_lab5.Lab5Engine``.
+module ``autotrade_v3.live.l2_lab10`` through ``l2_lab5.Lab5Engine``.
 
 Exit policy is the live FIXED_TP_SL for every new entry (one TP + one SL on the real fill). The registry never
 closes, reverses or reopens a position: it only decides which NEW signals L2 emits.
@@ -125,7 +125,7 @@ def _load_lab10_23() -> StrategyRegistry:
     if len(combos) != 23 or len({(c.symbol, c.combo_id) for c in combos}) != 23:
         raise ValueError(f"{REGISTRY_LAB10_23} phải có đúng 23 combo-symbol duy nhất")
     return StrategyRegistry(version=f"{REGISTRY_LAB10_23}@1.0.0", combos=combos, new6_signal_mode="virtual_position",
-                            provenance={"source": "autotrade_v3.live.l2_lab10_flat (V3_LAB_10@10.0.0)",
+                            provenance={"source": "autotrade_v3.live.l2_lab10 (V3_LAB_10@10.0.0)",
                                         "parent_source": dict(raw["parent_source"])})
 
 

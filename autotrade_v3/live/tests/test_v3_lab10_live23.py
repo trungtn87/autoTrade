@@ -8,7 +8,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from autotrade_v3.live.l2_lab10_flat import V3Lab10Strategy
+from autotrade_v3.live.l2_lab10 import V3Lab10Strategy
 from autotrade_v3.live.l2_lab5 import Lab5Engine
 from autotrade_v3.live.strategy_registry import DEFAULT_REGISTRY, REGISTRY_LAB10_23, load_registry
 
@@ -53,7 +53,7 @@ def _frame(n: int, seed: int, drift: float, noise: float, start_ms: int) -> pd.D
 
 
 def test_lab10_eth_c3_and_c13_filters_drop_and_keep_through_flat_module(monkeypatch) -> None:
-    from autotrade_v3.live import l2_lab10_flat as flat
+    from autotrade_v3.live import l2_lab10 as flat
 
     start = 1_700_000_000_000 // M15_MS * M15_MS
     # 3000 bars of strong uptrend (overextends 4H EMA20/50 for C3 BUY) then 1200 calm + 800 bars of vol burst.
