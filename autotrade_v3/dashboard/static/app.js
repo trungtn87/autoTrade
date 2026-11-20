@@ -66,7 +66,7 @@ function renderCombos(rows) {
   for (const row of items) {
     const tr = document.createElement('tr');
     const pair = $text('th', 'combo-cell', row.combo || '—'); pair.scope = 'row'; tr.append(pair);
-    for (const [value, className] of [
+    for (const [index, [value, className]] of [
       [((row.classified ?? ((row.win || 0) + (row.loss || 0))) === row.total)
         ? (row.classified ?? row.total)
         : (row.classified ?? ((row.win || 0) + (row.loss || 0))) + '/' + row.total, ''],
@@ -75,7 +75,13 @@ function renderCombos(rows) {
       [valid(row.win_rate) ? fmt(row.win_rate, 1) + '%' : '—', ''],
       [displayRoi(row.real_roi_total, row.roi_estimated), classFor(row.real_roi_total)],
       [valid(row.pnl_total) ? (row.estimated_count ? '≈ ' : '') + money(row.pnl_total) : '—', classFor(row.pnl_total)]
-    ]) tr.append($text('td', className, value));
+    ].entries()) {
+      const cell = $text('td', className, value);
+      if (index === 4 && !valid(row.real_roi_total)) {
+        cell.title = 'Chưa có đủ dữ liệu ROI hoặc ký quỹ/đòn bẩy để tính.';
+      }
+      tr.append(cell);
+    }
     body.append(tr);
   }
 }
