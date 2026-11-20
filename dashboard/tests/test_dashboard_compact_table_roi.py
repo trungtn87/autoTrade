@@ -31,6 +31,35 @@ def test_mobile_combo_table_fits_seven_columns_without_sideways_scroll(directory
     assert '<span class="label-short" aria-hidden="true">PnL</span>' in html
 
 
+
+@pytest.mark.parametrize("directory", [
+    "dashboard/autotrade_live/static",
+    "autotrade_v3/dashboard/static",
+])
+def test_mobile_journal_shows_six_columns_and_no_explanation_paragraphs(directory):
+    css = (ROOT / directory / "app.css").read_text(encoding="utf-8")
+    html = (ROOT / directory / "index.html").read_text(encoding="utf-8")
+    js = (ROOT / directory / "app.js").read_text(encoding="utf-8")
+    journal = html.split('<table class="history-table">', 1)[1].split("</table>", 1)[0]
+    heading = journal.split("<thead>", 1)[1].split("</thead>", 1)[0]
+    assert heading.count('<th scope="col"') == 6
+    assert "Kết quả" not in heading
+    assert 'id="history-list"' in journal
+    assert 'colspan="6"' in journal
+    assert ".history-table{min-width:0;table-layout:fixed}" in css
+    assert "#history .table-scroll{overflow-x:hidden}" in css
+    widths = [int(v) for v in re.findall(
+        r"\\.history-table th:nth-child\\(\\d\\)\\{width:(\\d+)%\\}", css
+    )]
+    assert sum(widths) == 100
+    assert "[status, status === 'THẮNG'" not in js
+    assert "emptyRow('history-list', 6" in js
+    assert 'class="calendar-hint"' not in html
+    assert 'id="roi-note"' not in html
+    assert 'id="combo-roi-hint"' not in html
+    assert 'id="pnl-chart-note" hidden' in html
+    assert "Dashboard chỉ đọc dữ liệu đã lưu" not in html
+
 def _trade(**changes):
     row = dict(
         symbol="ETH-USDT", combo="C4", side="BUY", status="CLOSED",
