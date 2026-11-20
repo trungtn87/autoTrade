@@ -49,7 +49,7 @@ def test_mobile_journal_shows_six_columns_and_no_explanation_paragraphs(director
     assert ".history-table{min-width:0;table-layout:fixed}" in css
     assert "#history .table-scroll{overflow-x:hidden}" in css
     widths = [int(v) for v in re.findall(
-        r"\\.history-table th:nth-child\\(\\d\\)\\{width:(\\d+)%\\}", css
+        r"\.history-table th:nth-child\(\d\)\{width:(\d+)%\}", css
     )]
     assert sum(widths) == 100
     assert "[status, status === 'THẮNG'" not in js
