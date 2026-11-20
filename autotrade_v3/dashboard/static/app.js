@@ -166,6 +166,10 @@ function renderDay() {
       row.status === 'partial' || row.reason === 'partial_exit' ? 'MỘT PHẦN' :
       row.reason === 'excess_exit_quantity' ? 'CẦN ĐỐI CHIẾU KHỐI LƯỢNG' :
       row.reason === 'no_archived_exit' ? 'CHƯA GHI NHẬN ĐÓNG' : winOrLoss(row);
+    // Preserve every result state for inspection and assistive technology,
+    // even though the compact journal no longer displays a Result column.
+    tr.title = 'Trạng thái: ' + status;
+    tr.setAttribute('aria-label', (row.combo || 'Combo') + ' · ' + tr.title);
     const columns = [
       [dateParts(row.entry_ms || row.exit_ms)?.time || '—', ''],
       [row.symbol === 'BTC-USDT' ? 'BTC' : 'ETH', 'coin-' + row.symbol.split('-')[0].toLowerCase()],
