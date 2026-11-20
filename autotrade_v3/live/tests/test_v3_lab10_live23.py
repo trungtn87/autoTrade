@@ -10,21 +10,26 @@ import pandas as pd
 
 from autotrade_v3.live.l2_lab10_flat import V3Lab10Strategy
 from autotrade_v3.live.l2_lab5 import Lab5Engine
-from autotrade_v3.live.strategy_registry import (REGISTRY_LAB8_23, REGISTRY_LAB10_23, load_registry)
+from autotrade_v3.live.strategy_registry import DEFAULT_REGISTRY, REGISTRY_LAB10_23, load_registry
 
 M15_MS = 900_000
 
 
-def test_lab10_registry_has_same_23_keys_and_fixed_tpsl_as_lab8() -> None:
-    r10 = load_registry(REGISTRY_LAB10_23)
-    r8 = load_registry(REGISTRY_LAB8_23)
-    assert len(r10.combos) == 23
-    assert r10.allowed() == r8.allowed()
-    spec8 = {c.key: (c.tp_pct, c.sl_pct, c.layer2, c.native_timeframe) for c in r8.combos}
-    spec10 = {c.key: (c.tp_pct, c.sl_pct, c.layer2, c.native_timeframe) for c in r10.combos}
-    assert spec10 == spec8
-    assert {c.signal_variant for c in r10.combos} == {"LAB_10"}
-    assert r10.get("ETH-USDT", 3) is not None and r10.get("ETH-USDT", 103) is not None
+EXPECTED_KEYS = {
+    ("BTC-USDT", 1), ("BTC-USDT", 2), ("BTC-USDT", 4), ("BTC-USDT", 6), ("BTC-USDT", 7), ("BTC-USDT", 9),
+    ("BTC-USDT", 10), ("BTC-USDT", 11), ("BTC-USDT", 101), ("BTC-USDT", 103), ("BTC-USDT", 104), ("BTC-USDT", 106),
+    ("ETH-USDT", 1), ("ETH-USDT", 3), ("ETH-USDT", 4), ("ETH-USDT", 6), ("ETH-USDT", 7), ("ETH-USDT", 10),
+    ("ETH-USDT", 101), ("ETH-USDT", 102), ("ETH-USDT", 103), ("ETH-USDT", 104), ("ETH-USDT", 105),
+}
+
+
+def test_lab10_registry_is_the_only_default_with_fixed_23_keys() -> None:
+    reg = load_registry(REGISTRY_LAB10_23)
+    assert DEFAULT_REGISTRY == REGISTRY_LAB10_23
+    assert len(reg.combos) == 23
+    assert reg.allowed() == EXPECTED_KEYS
+    assert {c.signal_variant for c in reg.combos} == {"LAB_10"}
+    assert all(c.tp_pct > 0 and c.sl_pct > 0 for c in reg.combos)
 
 
 def test_lab10_engine_wires_v3_lab10_strategy_for_registry() -> None:

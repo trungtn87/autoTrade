@@ -1020,13 +1020,13 @@ def _new6_raw_signals(d1: pd.DataFrame, combo: int) -> tuple[pd.Series, pd.Serie
 M15_MS = 900000
 
 # --- from autotrade_v3/strategy_core/strategies/final20/logic.py
-FINAL20_DIR = Path(__file__).resolve().parent / "lab8_final20"
+LAB10_PARAMS_DIR = Path(__file__).resolve().parent / "lab10_params"
 
 # --- from autotrade_v3/strategy_core/strategies/final20/logic.py
-DEFAULT_PARAMS_PATH = FINAL20_DIR / 'params' / '20final_v1.json'
+DEFAULT_PARAMS_PATH = LAB10_PARAMS_DIR / 'params' / '20final_v1.json'
 
 # --- from autotrade_v3/strategy_core/strategies/final20/logic.py
-DEFAULT_LOCK_PATH = FINAL20_DIR / 'params' / '20final_v1.lock'
+DEFAULT_LOCK_PATH = LAB10_PARAMS_DIR / 'params' / '20final_v1.lock'
 
 # --- from autotrade_v3/strategy_core/strategies/final20/logic.py
 _BASELINE_ENTRY_DEFAULTS: dict[tuple[int, str], dict[str, Any]] = {(1, 'MFI_L50_S50'): {'mfi_long': 50.0, 'mfi_short': 50.0}, (2, 'ADX_20'): {'adx': 20.0}, (3, 'ADX_34'): {'adx': 34.0}, (4, 'ADX_23'): {'adx': 23.0}, (6, 'BODY_1.4'): {'body_atr': 1.4}, (6, 'BODY_1.8'): {'body_atr': 1.8}, (7, 'BODY1.6_VOL2.0'): {'body_atr': 1.6, 'volume_mult': 2.0}, (7, 'BODY1.3_VOL1.5'): {'body_atr': 1.3, 'volume_mult': 1.5}, (9, 'RSI45_FIXST'): {'rsi_long_max': 45.0, 'rsi_short_min': 55.0, 'fix_short_supertrend': True}, (10, 'ADX_22'): {'adx': 22.0}, (10, 'ADX_28'): {'adx': 28.0}, (11, 'ADX30_T27_T35_V1.3'): {'adx': 30.0, 'tier2_score': 7.0, 'tier3_score': 5.0, 'volume_mult': 1.3}, (101, 'trend_n60_0.25_0.75'): {'indicator': 'DeMarker', 'period': 60, 'short_max': 0.25, 'long_min': 0.75}, (102, 'cross_n40_t70'): {'indicator': 'Aroon', 'period': 40, 'threshold': 70.0}, (103, 'momcross_n40_t40'): {'indicator': 'CMO', 'period': 40, 'threshold': 40.0}, (104, 'tkcross_12_30_60'): {'indicator': 'Ichimoku', 'conv': 12, 'base': 30, 'spanb': 60}, (105, 'state_e40_s40_t0.4'): {'indicator': 'KAMA_ER', 'er_len': 40, 'fast_len': 2, 'slow_len': 40, 'er_min': 0.4}, (106, 'cross_n14_r1.2'): {'indicator': 'Vortex', 'period': 14, 'ratio': 1.2}}
@@ -1324,7 +1324,7 @@ class Final20Strategy(Strategy):
     def __init__(self, params_data: dict[str, Any] | None=None, params_path: Path | None=None, lock_path: Path | None=None, core_root: Path | None=None, enforce_lock: bool=True):
         self._params_path = Path(params_path) if params_path is not None else DEFAULT_PARAMS_PATH
         self._lock_path = Path(lock_path) if lock_path is not None else DEFAULT_LOCK_PATH
-        self._core_root = Path(core_root) if core_root is not None else FINAL20_DIR.parents[1]
+        self._core_root = Path(core_root) if core_root is not None else LAB10_PARAMS_DIR.parents[1]
         if params_data is None:
             raw_text = normalize_lf(self._params_path.read_text(encoding='utf-8'))
             params_data = json.loads(raw_text)
@@ -2826,7 +2826,7 @@ class Final20LiveState:
         return evs
 
 # --- from autotrade_v3/strategy_core/registry.py
-PARAMS_DIR = FINAL20_DIR / "params"
+PARAMS_DIR = LAB10_PARAMS_DIR / "params"
 
 # --- from autotrade_v3/strategy_core/registry.py
 def parse_strategy_ref(
