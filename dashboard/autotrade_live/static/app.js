@@ -57,6 +57,29 @@ const winOrLoss = row => {
   return 'CHƯA XÁC MINH';
 };
 
+// Use the same closed-trade ROI basis as the daily journal when the API
+// reports no per-Combo total. Never infer ROI from PnL without a known margin.
+function comboRoiFromHistory(rows, coin, comboName) {
+  const priced = rows.filter(row =>
+    row.symbol === coin && row.combo === comboName &&
+    (row.status === 'closed' || row.status === 'estimated_closed') &&
+    valid(row.recorded_roi_pct));
+  if (!priced.length) return null;
+  const weighted = priced.every(row =>
+    valid(row.pnl) && valid(row.margin) && number(row.margin) > 0);
+  const result = weighted
+    ? 100 * priced.reduce((sum, row) => sum + number(row.pnl), 0) /
+      priced.reduce((sum, row) => sum + number(row.margin), 0)
+    : priced.reduce((sum, row) => sum + number(row.recorded_roi_pct), 0);
+  if (!Number.isFinite(result)) return null;
+  return {
+    value: result,
+    coverage: priced.length,
+    estimated: priced.some(row => ['bingx_db_roi_estimate',
+      'bingx_db_merged_allocation_estimate'].includes(row.source))
+  };
+}
+
 function renderCombos(rows) {
   const items = (rows || []).filter(row => (row.total || row.closed) > 0 && row.symbol === symbol)
     .sort((a,b) => String(a.combo).localeCompare(String(b.combo), 'vi', {numeric:true}));
@@ -64,6 +87,10 @@ function renderCombos(rows) {
   if (!items.length) { emptyRow('combo-list', 7, 'Chưa có giao dịch trong database.'); return; }
   const body = $('combo-list'); body.replaceChildren();
   for (const row of items) {
+    const recovered = valid(row.real_roi_total) ? null :
+      comboRoiFromHistory(history, row.symbol, row.combo);
+    const comboRoi = valid(row.real_roi_total) ? row.real_roi_total : recovered?.value;
+    const comboEstimated = row.roi_estimated || recovered?.estimated;
     const tr = document.createElement('tr');
     const pair = $text('th', 'combo-cell', row.combo || '—'); pair.scope = 'row'; tr.append(pair);
     for (const [index, [value, className]] of [
@@ -73,12 +100,18 @@ function renderCombos(rows) {
       [valid(row.tp_count) ? row.tp_count : '—', 'positive'],
       [valid(row.sl_count) ? row.sl_count : '—', 'negative'],
       [valid(row.win_rate) ? fmt(row.win_rate, 1) + '%' : '—', ''],
-      [displayRoi(row.real_roi_total, row.roi_estimated), classFor(row.real_roi_total)],
+      [displayRoi(comboRoi, comboEstimated), classFor(comboRoi)],
       [valid(row.pnl_total) ? (row.estimated_count ? '≈ ' : '') + money(row.pnl_total) : '—', classFor(row.pnl_total)]
     ].entries()) {
       const cell = $text('td', className, value);
-      if (index === 4 && !valid(row.real_roi_total)) {
-        cell.title = 'Chưa có đủ dữ liệu ROI hoặc ký quỹ/đòn bẩy để tính.';
+      if (index === 4) {
+        if (recovered) {
+          cell.title = 'ROI tổng hợp từ ' + recovered.coverage +
+            ' lệnh đã đóng có ROI trong lịch sử.';
+          cell.dataset.roiSource = 'history';
+        } else if (!valid(comboRoi)) {
+          cell.title = 'Chưa có lệnh đóng đủ dữ liệu ROI hoặc ký quỹ/đòn bẩy.';
+        }
       }
       tr.append(cell);
     }
@@ -222,11 +255,11 @@ async function loadSymbol() {
     if (!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
     if (token !== requestId) return;
-    comboRows = data.theory?.combos || [];
-    renderCombos(comboRows);
     history = (data.theory?.history || []).filter(row =>
       (row.symbol === 'BTC-USDT' || row.symbol === 'ETH-USDT') &&
       valid(row.entry_ms || row.exit_ms));
+    comboRows = data.theory?.combos || [];
+    renderCombos(comboRows);
     window.PnlChart.render(history, symbol);
     const months = history.map(tradeDate).filter(Boolean).sort();
     if (months.length) firstMonth = months[0].slice(0, 7);

@@ -107,11 +107,48 @@ def check():
                 assert page.evaluate("document.querySelector('#history .table-scroll').scrollWidth <= document.querySelector('#history .table-scroll').clientWidth"), 'journal horizontal overflow'
                 assert page.locator('#day-losses').inner_text() == '1'
 
+                # Regression: daily journal carries ROI but the server's Combo
+                # aggregate is null (the reported production symptom).
+                page.evaluate("""() => {
+                    for (const row of comboRows) {
+                      if (row.symbol === 'BTC-USDT') row.real_roi_total = null;
+                    }
+                    renderCombos(comboRows);
+                }""")
+                assert page.locator('#combo-list tr').nth(0).locator('td').nth(4).inner_text() == '+1,20%'
+                assert page.locator('#combo-list tr').nth(1).locator('td').nth(4).inner_text() == '-0,50%'
+                assert page.locator('#combo-list td[data-roi-source=history]').count() == 2
+                # Weighted when every trade has known margin; fallback to
+                # recorded ROI sum when margin is missing, without inventing it.
+                recovered = page.evaluate("""() => ({
+                  weighted: comboRoiFromHistory([
+                    {symbol:'ETH-USDT',combo:'C4',status:'closed',
+                     recorded_roi_pct:10,pnl:0.2,margin:2},
+                    {symbol:'ETH-USDT',combo:'C4',status:'closed',
+                     recorded_roi_pct:-10,pnl:-0.1,margin:1}
+                  ],'ETH-USDT','C4'),
+                  unweighted: comboRoiFromHistory([
+                    {symbol:'ETH-USDT',combo:'C4',status:'closed',
+                     recorded_roi_pct:10,pnl:0.2,margin:null},
+                    {symbol:'ETH-USDT',combo:'C4',status:'closed',
+                     recorded_roi_pct:-10,pnl:-0.1,margin:1}
+                  ],'ETH-USDT','C4'),
+                  missing: comboRoiFromHistory([
+                    {symbol:'ETH-USDT',combo:'C4',status:'closed',
+                     recorded_roi_pct:null,pnl:3.25,margin:null}
+                  ],'ETH-USDT','C4')
+                })""")
+                assert abs(recovered['weighted']['value'] - 100 * 0.1 / 3) < 1e-8
+                assert recovered['unweighted']['value'] == 0
+                assert recovered['missing'] is None
+
                 # BTC/ETH toggle changes the existing Combo table and the new PnL chart,
                 # but NEVER the shared calendar.
                 date_before = page.locator('#selected-date').inner_text()
                 page.locator('#tab-eth').click()
                 assert page.locator('#combo-list tr').count() == 1
+                # ETH C1 has PnL but no ROI/margin: never display an invented ROI.
+                assert page.locator('#combo-list tr').nth(0).locator('td').nth(4).inner_text() == '—'
                 assert page.locator('#pnl-active-symbol').inner_text() == 'ETH'
                 assert page.locator('#pnl-summary').inner_text() == '+3,25 USDT'
                 assert page.locator('#pnl-trade-count').inner_text() == '1 lệnh có PnL'
