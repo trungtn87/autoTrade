@@ -10,8 +10,6 @@ Immutable registry versions, chosen by ``V3_STRATEGY_REGISTRY``:
   ETH-USDT/C1 = H1_BOTH_1. Spec data is the frozen JSON next to this module.
 * ``V3_LIVE_23_LAB_5_V1``: the 23 positive combo-symbols of lab ``V3_LAB_5@5.0.0`` (Owner decision
   2026-11-19). Signals come from the lab strategy (``l2_lab5.Lab5Engine``), not from ``V18Engine``.
-* ``20FINAL``: the previous 20 combos, computed by the untouched V2 engine
-  (``autotrade_v2.app.strategy``). Rollback = set the variable to ``20FINAL``
   and restart; no order, position or protection is touched by switching.
 
 Exit policy is the live FIXED_TP_SL for every new entry (one TP + one SL on the
@@ -26,16 +24,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from autotrade_v2.app.strategy.final14_config import case_name, enabled_combos, enabled_new6_combos, get_case
 
 REGISTRY_V20 = "V3_LIVE_20_POSITIVE_FIXED_V1"
 REGISTRY_V18 = "V3_LIVE_18_H1_V2"
-REGISTRY_20FINAL = "20FINAL"
 REGISTRY_LAB5_23 = "V3_LIVE_23_LAB_5_V1"
 REGISTRY_LAB8_23 = "V3_LIVE_23_LAB_8_V1"
 DEFAULT_REGISTRY = REGISTRY_LAB8_23
 JSON_REGISTRIES = (REGISTRY_V20, REGISTRY_V18)
-KNOWN_REGISTRIES = (REGISTRY_V20, REGISTRY_V18, REGISTRY_20FINAL, REGISTRY_LAB5_23, REGISTRY_LAB8_23)
+KNOWN_REGISTRIES = (REGISTRY_V20, REGISTRY_V18, REGISTRY_LAB5_23, REGISTRY_LAB8_23)
 _PROVENANCE_KEYS = ("baseline_id", "baseline_source", "baseline_registry_sha256", "baseline_signals_sha256",
                     "c1_eth_research_source_sha256", "audit_id", "audit_source", "audit_source_run",
                     "audit_repro_run", "lab_git_sha", "audit_sha256", "audit_signal_spec_hash",
@@ -47,6 +43,14 @@ _DIR = Path(__file__).resolve().parent / "registries"
 def canonical_sha256(obj: Any) -> str:
     raw = json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def case_name(combo: int) -> str:
+    """Live token for a combo id: C1..C10, TIER (C11 in the lab), C11..C16 (NEW6 ids 101..106)."""
+    combo = int(combo)
+    if 101 <= combo <= 106:
+        return f"C{combo - 90}"
+    return "TIER" if combo == 11 else f"C{combo}"
 
 
 @dataclass(frozen=True)
@@ -82,7 +86,7 @@ class ComboSpec:
         return canonical_sha256(self.signal_spec())
 
     def as_case(self) -> dict:
-        """Same shape as ``final14_config.get_case`` (what L3 needs for TP/SL)."""
+        """Per-combo entry/TP/SL config (what L3 needs for TP/SL)."""
         return {"entry_variant": self.entry_variant, "entry": dict(self.entry), "layer2": self.layer2,
                 "tp_pct": self.tp_pct, "sl_pct": self.sl_pct}
 
@@ -179,24 +183,6 @@ def _load_lab8_23() -> StrategyRegistry:
                                         "parent_source": dict(raw["parent_source"])})
 
 
-def _load_20final() -> StrategyRegistry:
-    from autotrade_v2.app.strategy.final14_research.layer3_long import NATIVE
-    combos = []
-    for sym in ("BTC-USDT", "ETH-USDT"):
-        for cid in enabled_combos(sym):
-            cfg = get_case(sym, cid) or {}
-            combos.append(ComboSpec(symbol=sym, combo_id=cid, native_timeframe=NATIVE[case_name(cid)],
-                                    is_new6=False, entry_variant=cfg["entry_variant"], entry=dict(cfg.get("entry", {})),
-                                    layer2=cfg["layer2"], tp_pct=float(cfg["tp_pct"]), sl_pct=float(cfg["sl_pct"])))
-        for cid in enabled_new6_combos(sym):
-            cfg = get_case(sym, cid) or {}
-            combos.append(ComboSpec(symbol=sym, combo_id=cid, native_timeframe="1h", is_new6=True,
-                                    entry_variant=cfg["entry_variant"], entry={"indicator": cfg.get("indicator")},
-                                    layer2=cfg["layer2"], tp_pct=float(cfg["tp_pct"]), sl_pct=float(cfg["sl_pct"])))
-    return StrategyRegistry(version=REGISTRY_20FINAL, combos=tuple(combos), new6_signal_mode="virtual_position",
-                            provenance={"source": "autotrade_v2.app.strategy (FINAL14 + NEW6, frozen)"})
-
-
 _CACHE: dict[str, StrategyRegistry] = {}
 
 
@@ -210,14 +196,13 @@ def load_registry(version: str | None = None) -> StrategyRegistry:
         elif v == REGISTRY_LAB8_23:
             _CACHE[v] = _load_lab8_23()
         else:
-            _CACHE[v] = _load_json(v) if v in JSON_REGISTRIES else _load_20final()
+            _CACHE[v] = _load_json(v)
     return _CACHE[v]
 
 
 def case_for(symbol: str, combo_id: int, registry: StrategyRegistry | None = None) -> dict | None:
-    """TP/SL config for L3: the active registry first, then the frozen 20FINAL table."""
-    if registry is not None:
-        spec = registry.get(symbol, combo_id)
-        if spec is not None:
-            return spec.as_case()
-    return get_case(symbol, combo_id)
+    """TP/SL config for L3 from the active registry only (None if the combo is not in it)."""
+    if registry is None:
+        return None
+    spec = registry.get(symbol, combo_id)
+    return spec.as_case() if spec is not None else None

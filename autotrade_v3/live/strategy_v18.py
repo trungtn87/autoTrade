@@ -1,7 +1,7 @@
 """Signal engine for registry V3_LIVE_18_H1_V2 (pure: no network, DB or logging).
 
 Every rule below reuses the frozen 20FINAL indicator code in
-``autotrade_v2.app.strategy`` (identical to the lab ``strategy_core``):
+Identical to the lab ``strategy_core``:
 
 * FINAL14 combos: the same ``precompute``/``entry_variants``/``approved`` path
   as ``final14_exact_strategy.scan_latest``.
@@ -264,7 +264,7 @@ class V18Engine:
 
     def calculate(self, symbol: str, m15: pd.DataFrame) -> list[LiveSignal]:
         if len(m15) < MIN_LIVE_15M_BARS:
-            from autotrade_v2.app.control.errors import StrategyInsufficientCandlesError
+            from .exchange.errors import StrategyInsufficientCandlesError
             raise StrategyInsufficientCandlesError(symbol, available=int(len(m15)), required=MIN_LIVE_15M_BARS)
         sigs = self.frame_signals(symbol, m15, latest_only=True)
         allowed = self.registry.allowed()

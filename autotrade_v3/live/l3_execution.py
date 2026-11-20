@@ -25,7 +25,6 @@ from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from autotrade_v2.app.strategy.final14_config import get_case
 from autotrade_v3.l2_core import hard_tp_sl
 
 from .l4_control import (ACTIVE, FILLED, PARTIALLY_FILLED, TERMINAL_UNFILLED, ControlLog, L4Reader, OrderEvidence,
@@ -62,10 +61,10 @@ class V3Signal:
     signal_variant: str | None = None
 
     def case(self) -> dict | None:
-        """TP/SL config: the signal's own registry spec, else the frozen 20FINAL table."""
+        """TP/SL config from the signal's own registry spec (None if the spec did not carry it)."""
         if self.tp_pct is not None and self.sl_pct is not None:
             return {"tp_pct": float(self.tp_pct), "sl_pct": float(self.sl_pct)}
-        return get_case(self.symbol, self.combo)
+        return None
 
     def identity(self) -> dict:
         return {"registry_version": self.registry_version, "spec_hash": self.spec_hash,

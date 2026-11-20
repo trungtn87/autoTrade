@@ -301,26 +301,6 @@ def _candles(seed: int, n: int) -> pd.DataFrame:
                          "volume": rng.lognormal(5, 1, n), "close_time": t + 899_999})
 
 
-def test_mock_l2_output_identical_to_20final_scan_latest():
-    from autotrade_v2.app.contracts import MarketSnapshot
-    from autotrade_v2.app.strategy.final14_config import case_name
-    from autotrade_v2.app.strategy.final14_exact_strategy import scan_latest
-    l2 = L2Strategy(MemoryStore(), control=None, eth_c1_h1_enabled=False)   # rollback path = pure V2
-    total = 0
-    # windows chosen so that the fixture produces real 20FINAL signals, plus quiet windows
-    for seed, ends in ((0, (3400, 3415)), (1, (3403, 3427, 3430))):
-        full = _candles(seed, 3500)
-        for end in ends:
-            m15 = full.iloc[end - 3400:end].reset_index(drop=True)
-            for symbol in ("BTC-USDT", "ETH-USDT"):
-                snap = MarketSnapshot(symbol, "15m", m15, int(m15.iloc[-1].open_time), int(m15.iloc[-1].close_time), {})
-                got = [(s.event_id, s.side, s.entry, s.tp, s.sl, s.combo_name) for s in l2.calculate(snap)]
-                want = [(x.event_id, x.side, x.entry, x.tp, x.sl, case_name(x.combo)) for x in scan_latest(symbol, m15)]
-                assert got == want
-                total += len(want)
-    assert total >= 4, "fixture must exercise real signals"
-
-
 def test_mock_strategy_signals_has_exactly_nine_fields():
     row = signal_row(sig())
     assert set(row) == {"event_id", "symbol", "combo", "side", "signal_time", "entry", "tp", "sl"}

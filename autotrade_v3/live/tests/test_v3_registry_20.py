@@ -21,7 +21,7 @@ from autotrade_v3.live.l2_strategy import L2Strategy
 from autotrade_v3.live.l3_execution import V3Signal
 from autotrade_v3.live.l4_control import project_results
 from autotrade_v3.live.store import MemoryStore
-from autotrade_v3.live.strategy_registry import (DEFAULT_REGISTRY, REGISTRY_20FINAL, REGISTRY_V18, REGISTRY_V20,
+from autotrade_v3.live.strategy_registry import (DEFAULT_REGISTRY, REGISTRY_V18, REGISTRY_V20,
                                                  load_registry)
 from autotrade_v3.live.strategy_v18 import V18Engine
 from autotrade_v3.live.tests.fakes import PRICE, FakeBingX, build, settings
@@ -48,7 +48,7 @@ def test_default_registry_is_lab8_23():
 def test_settings_default_and_selectable_versions(monkeypatch):
     monkeypatch.delenv("V3_STRATEGY_REGISTRY", raising=False)
     assert V3Settings().strategy_registry == DEFAULT_REGISTRY
-    for v in ("v3_live_18_h1_v2", "20FINAL", "V3_LIVE_20_POSITIVE_FIXED_V1", "V3_LIVE_23_LAB_8_V1"):
+    for v in ("v3_live_18_h1_v2", "V3_LIVE_20_POSITIVE_FIXED_V1", "V3_LIVE_23_LAB_8_V1"):
         monkeypatch.setenv("V3_STRATEGY_REGISTRY", v)
         assert load_registry(V3Settings().strategy_registry).version.startswith(v.upper())
 
@@ -107,9 +107,13 @@ def test_18_shared_combos_are_byte_identical_and_only_c9_btc_c6_eth_are_new():
 
 
 def test_added_combos_equal_the_frozen_20final_spec():
-    r20, legacy = load_registry(REGISTRY_V20), load_registry(REGISTRY_20FINAL)
+    from autotrade_v2.app.strategy.final14_config import get_case  # test-only oracle: frozen V2 table
+    r20 = load_registry(REGISTRY_V20)
     for sym, cid in ADDED:
-        assert r20.get(sym, cid).signal_spec() == legacy.get(sym, cid).signal_spec()
+        cfg = get_case(sym, cid)
+        spec = r20.get(sym, cid)
+        assert (spec.entry_variant, spec.layer2, spec.tp_pct, spec.sl_pct) == (
+            cfg["entry_variant"], cfg["layer2"], float(cfg["tp_pct"]), float(cfg["sl_pct"]))
     assert (r20.get("BTC-USDT", 9).tp_pct, r20.get("BTC-USDT", 9).sl_pct) == (0.01, 0.004)
     assert (r20.get("ETH-USDT", 6).tp_pct, r20.get("ETH-USDT", 6).sl_pct) == (0.02, 0.00666667)
 
@@ -197,7 +201,7 @@ def test_switching_registry_never_touches_open_positions():
     _, store, client, *_r, executor = build()
     executor.execute(_sig20("ETH-USDT", 6, "BUY"))
     posts_before = list(client.order_posts)
-    for version in (REGISTRY_V20, REGISTRY_V18, REGISTRY_20FINAL, REGISTRY_V20, "BROKEN"):
+    for version in (REGISTRY_V20, REGISTRY_V18, REGISTRY_V20, "BROKEN"):
         L2Strategy(store, control=None, executor=executor, registry=version)
     assert client.order_posts == posts_before
     assert getattr(client, "cancels", []) == [] and getattr(client, "amends", []) == []
@@ -210,15 +214,15 @@ def test_l4_has_no_registry_dependency():
         assert not re.search(r"strategy_registry|l2_strategy|strategy_v18|enabled_combos|get_case", src), f.name
 
 
-@pytest.mark.parametrize("opened_under,now_active", [(REGISTRY_20FINAL, REGISTRY_V20), (REGISTRY_V20, REGISTRY_V18),
-                                                     (REGISTRY_V20, REGISTRY_20FINAL)])
+@pytest.mark.parametrize("opened_under,now_active", [(REGISTRY_V18, REGISTRY_V20), (REGISTRY_V20, REGISTRY_V18)])
 def test_l4_keeps_managing_a_position_opened_under_a_previous_registry(opened_under, now_active):
-    """e.g. legacy ETH C14 (combo 104, NOT in V20) opened under 20FINAL; after switching, L4 still projects its close."""
+    """e.g. legacy BTC C14 (combo 104, NOT in V20) opened under the V18 path; after switching, L4 still projects its close."""
     _, store, client, sender, alert, control, _reader, executor = build()
-    if opened_under == REGISTRY_20FINAL:
+    if opened_under == REGISTRY_V18:
         entry = PRICE["BTC-USDT"]
         s = V3Signal(event_id="BTC-USDT|1h|C14|BUY|1763003699999", symbol="BTC-USDT", combo=104, combo_name="C14",
-                     side="BUY", timeframe="1h", close_time=1763003699999, entry=entry, tp=entry * 1.02, sl=entry * 0.99333)
+                     side="BUY", timeframe="1h", close_time=1763003699999, entry=entry, tp=entry * 1.02, sl=entry * 0.99333,
+                     tp_pct=0.020, sl_pct=0.006666666666666667)
     else:
         s = _sig20("BTC-USDT", 9, "BUY")
     r = executor.execute(s)
