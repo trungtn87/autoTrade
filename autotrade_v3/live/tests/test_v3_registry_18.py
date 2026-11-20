@@ -124,7 +124,7 @@ def test_unknown_registry_blocks_new_entries_only():
 
 def test_settings_default_registry_and_env_override(monkeypatch):
     monkeypatch.delenv("V3_STRATEGY_REGISTRY", raising=False)
-    assert V3Settings().strategy_registry == REGISTRY_V20
+    assert V3Settings().strategy_registry == "V3_LIVE_23_LAB_8_V1"
     monkeypatch.setenv("V3_STRATEGY_REGISTRY", "20final")
     assert V3Settings().strategy_registry == REGISTRY_20FINAL
 
