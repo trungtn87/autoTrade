@@ -66,7 +66,7 @@ function renderCombos(rows) {
   for (const row of items) {
     const tr = document.createElement('tr');
     const pair = $text('th', 'combo-cell', row.combo || '—'); pair.scope = 'row'; tr.append(pair);
-    for (const [value, className] of [
+    for (const [index, [value, className]] of [
       [((row.classified ?? ((row.win || 0) + (row.loss || 0))) === row.total)
         ? (row.classified ?? row.total)
         : (row.classified ?? ((row.win || 0) + (row.loss || 0))) + '/' + row.total, ''],
@@ -75,7 +75,13 @@ function renderCombos(rows) {
       [valid(row.win_rate) ? fmt(row.win_rate, 1) + '%' : '—', ''],
       [displayRoi(row.real_roi_total, row.roi_estimated), classFor(row.real_roi_total)],
       [valid(row.pnl_total) ? (row.estimated_count ? '≈ ' : '') + money(row.pnl_total) : '—', classFor(row.pnl_total)]
-    ]) tr.append($text('td', className, value));
+    ].entries()) {
+      const cell = $text('td', className, value);
+      if (index === 4 && !valid(row.real_roi_total)) {
+        cell.title = 'Chưa có đủ dữ liệu ROI hoặc ký quỹ/đòn bẩy để tính.';
+      }
+      tr.append(cell);
+    }
     body.append(tr);
   }
 }
@@ -142,7 +148,7 @@ function renderDay() {
   const estimated = priced.some(row => ['bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate'].includes(row.source));
   setText('day-roi', displayRoi(total, estimated));
   $('day-roi').className = classFor(total);
-  if (!rows.length) { emptyRow('history-list', 7, 'Không có giao dịch trong ngày này.'); return; }
+  if (!rows.length) { emptyRow('history-list', 6, 'Không có giao dịch trong ngày này.'); return; }
   const body = $('history-list'); body.replaceChildren();
   for (const row of rows) {
     const tr = document.createElement('tr');
@@ -160,12 +166,15 @@ function renderDay() {
       row.status === 'partial' || row.reason === 'partial_exit' ? 'MỘT PHẦN' :
       row.reason === 'excess_exit_quantity' ? 'CẦN ĐỐI CHIẾU KHỐI LƯỢNG' :
       row.reason === 'no_archived_exit' ? 'CHƯA GHI NHẬN ĐÓNG' : winOrLoss(row);
+    // Preserve every result state for inspection and assistive technology,
+    // even though the compact journal no longer displays a Result column.
+    tr.title = 'Trạng thái: ' + status;
+    tr.setAttribute('aria-label', (row.combo || 'Combo') + ' · ' + tr.title);
     const columns = [
       [dateParts(row.entry_ms || row.exit_ms)?.time || '—', ''],
       [row.symbol === 'BTC-USDT' ? 'BTC' : 'ETH', 'coin-' + row.symbol.split('-')[0].toLowerCase()],
       [row.combo || '—', ''],
       [side, side === 'Long' ? 'positive' : side === 'Short' ? 'negative' : ''],
-      [status, status === 'THẮNG' ? 'positive' : status === 'THUA' ? 'negative' : ''],
       [displayRoi(row.recorded_roi_pct, ['bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate'].includes(row.source)), classFor(row.recorded_roi_pct)],
       [valid(row.pnl) ? (row.status === 'estimated_closed' ? '≈ ' : '') + money(row.pnl) : '—', classFor(row.pnl)]
     ];
@@ -175,8 +184,8 @@ function renderDay() {
         ' · Exit liên kết: ' + qtyText(row.matched_exit_qty) +
         ' · Chênh lệch: ' + (mismatch > 0 ? '+' : '') + qtyText(mismatch) +
         (row.status === 'estimated_closed' ? ' · Bù trừ theo khối lượng cân bằng.' : ' · Chưa đủ bằng chứng phân bổ PnL cho Combo.');
-      tr.cells[4].title = detail;
-      tr.cells[4].setAttribute('aria-label', status + '. ' + detail);
+      tr.cells[4].title = 'Trạng thái: ' + status + '. ' + detail;
+      tr.cells[4].setAttribute('aria-label', tr.cells[4].textContent + '. ' + tr.cells[4].title);
     }
     if (valid(row.exit_ms) && valid(row.entry_ms)) {
       const exit = dateParts(row.exit_ms);
@@ -237,7 +246,7 @@ async function loadSymbol() {
     comboRows = [];
     window.PnlChart.render(history, symbol);
     emptyRow('combo-list', 7, 'Không đọc được dữ liệu.');
-    emptyRow('history-list', 7, 'Không đọc được dữ liệu.');
+    emptyRow('history-list', 6, 'Không đọc được dữ liệu.');
     setText('combo-count', '—'); setText('history-count','—');
     setText('sync', 'Lỗi kết nối dashboard · ' + error.message);
   }

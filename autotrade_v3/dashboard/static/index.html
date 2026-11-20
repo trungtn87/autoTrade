@@ -9,9 +9,9 @@
 <title>Autotrade · Hiệu quả giao dịch</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg">
-<link rel="stylesheet" href="/static/app.css?v=20261109-ai-link-v1">
-<script defer src="/static/pnl_chart.js?v=20261109-ai-link-v1"></script>
-<script defer src="/static/app.js?v=20261109-ai-link-v1"></script>
+<link rel="stylesheet" href="/static/app.css?v=20261121-journal-compact-v2">
+<script defer src="/static/pnl_chart.js?v=20261121-journal-compact-v2"></script>
+<script defer src="/static/app.js?v=20261121-journal-compact-v2"></script>
 </head>
 <body>
 <main class="app">
@@ -43,9 +43,9 @@
       <div><div class="section-kicker">PERFORMANCE</div><h2 id="combos-heading">Hiệu quả từng Combo · <span id="active-symbol">BTC</span></h2></div>
       <span id="combo-count" class="panel-count">—</span>
     </div>
-    <div class="table-scroll" tabindex="0" role="region" aria-label="Bảng hiệu quả theo Combo, có thể cuộn ngang">
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Bảng hiệu quả theo Combo">
       <table class="performance-table">
-        <thead><tr><th scope="col">Combo</th><th scope="col" title="Đã xác minh thắng/thua trên tổng số lệnh">Số lệnh</th><th scope="col">TP</th><th scope="col">SL</th><th scope="col">Tỉ lệ thắng</th><th scope="col">ROI ước tính</th><th scope="col">PnL (USDT)</th></tr></thead>
+        <thead><tr><th scope="col">Combo</th><th scope="col" aria-label="Số lệnh" title="Đã xác minh thắng/thua trên tổng số lệnh"><span class="label-full">Số lệnh</span><span class="label-short" aria-hidden="true">Lệnh</span></th><th scope="col">TP</th><th scope="col">SL</th><th scope="col" aria-label="Tỉ lệ thắng"><span class="label-full">Tỉ lệ thắng</span><span class="label-short" aria-hidden="true">Win%</span></th><th scope="col" aria-label="ROI ước tính"><span class="label-full">ROI ước tính</span><span class="label-short" aria-hidden="true">ROI</span></th><th scope="col" aria-label="PnL (USDT)"><span class="label-full">PnL (USDT)</span><span class="label-short" aria-hidden="true">PnL</span></th></tr></thead>
         <tbody id="combo-list"><tr><td colspan="7" class="empty">Đang đọc dữ liệu…</td></tr></tbody>
       </table>
     </div>
@@ -64,7 +64,7 @@
       </label>
     </div>
     <div class="pnl-chart-plot"><svg id="pnl-svg" role="img" aria-label="PnL tích lũy theo ngày đóng lệnh"></svg></div>
-    <p class="section-note" id="pnl-chart-note">Biểu đồ chỉ sử dụng PnL các lệnh đã đóng lưu trong database.</p>
+    <p class="section-note" id="pnl-chart-note" hidden></p>
   </section>
   <section class="panel calendar-panel" id="history" aria-labelledby="history-heading">
     <div class="section-head">
@@ -78,23 +78,20 @@
     </div>
     <div class="calendar-weekdays" aria-hidden="true"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
     <div id="calendar-grid" class="calendar-grid" role="group" aria-label="Chọn ngày giao dịch"></div>
-    <p class="calendar-hint">Lịch chung BTC + ETH theo ngày mở lệnh (Entry), giờ Việt Nam. Ngày đóng có trong chi tiết thời gian; lệnh chưa xác minh vẫn được hiển thị. Vị thế BingX gộp được bù trừ theo khối lượng khi đủ Entry, Exit và fill. Thắng/thua, ROI và PnL phân bổ hiển thị dấu ≈; thiếu dữ liệu vẫn cần đối chiếu. Số lệnh ở bảng Combo: đã xác minh thắng/thua / tổng Entry.</p>
     <h3 id="selected-date" class="selected-date">—</h3>
     <div class="daily-summary" aria-live="polite">
       <div><small>Thắng</small><strong id="day-wins" class="positive">0</strong></div>
       <div><small>Thua</small><strong id="day-losses" class="negative">0</strong></div>
       <div><small>ROI ước tính</small><strong id="day-roi">—</strong></div>
     </div>
-    <div class="table-scroll" tabindex="0" role="region" aria-label="Danh sách giao dịch theo ngày, có thể cuộn ngang">
+    <div class="table-scroll" tabindex="0" role="region" aria-label="Danh sách giao dịch theo ngày">
       <table class="history-table">
-        <thead><tr><th scope="col">Giờ mở</th><th scope="col">Coin</th><th scope="col">Combo</th><th scope="col">Hướng</th><th scope="col">Kết quả</th><th scope="col">ROI</th><th scope="col">PnL (USDT)</th></tr></thead>
+        <thead><tr><th scope="col">Giờ mở</th><th scope="col">Coin</th><th scope="col">Combo</th><th scope="col">Hướng</th><th scope="col">ROI</th><th scope="col" aria-label="PnL (USDT)"><span class="label-full">PnL (USDT)</span><span class="label-short" aria-hidden="true">PnL</span></th></tr></thead>
         <tbody id="history-list"><tr><td colspan="6" class="empty">Chọn một ngày trên lịch.</td></tr></tbody>
       </table>
     </div>
-    <p id="roi-note" class="section-note">≈ là số phân bổ ước tính theo khối lượng của vị thế gộp, không phải PnL xác minh riêng từng Combo. ROI lịch sử giữ nguyên số đã ghi nhận. ROI mới ≈ (PnL đã khớp + phí giao dịch) / (giá vốn × khối lượng / đòn bẩy), chưa tính funding. Tổng ngày/Combo chỉ gồm các lệnh có ROI; dữ liệu thiếu vẫn hiện —.</p>
   </section>
-  <footer><span class="footer-brand">◈ AUTOTRADE · READ ONLY</span>
-    <p>Dashboard chỉ đọc dữ liệu đã lưu, không gửi lệnh BingX.</p></footer>
+  <footer><span class="footer-brand">◈ AUTOTRADE · READ ONLY</span></footer>
 </main>
 </body>
 </html>

@@ -226,16 +226,27 @@ footer p{margin:6px 0 0}
 .table-scroll{overflow-x:auto;max-width:100%;border:1px solid #2b3e55;border-radius:12px;scrollbar-width:thin;scrollbar-color:#415b78 transparent}
 .table-scroll:focus-visible{outline:2px solid #5abde8;outline-offset:2px}
 .performance-table,.history-table{width:100%;border-collapse:collapse;text-align:center;font-variant-numeric:tabular-nums}
-.performance-table{min-width:450px;table-layout:fixed}
-.history-table{min-width:370px;table-layout:fixed}
+.performance-table{min-width:0;table-layout:fixed}
+.history-table{min-width:0;table-layout:fixed}
+.history-table th:nth-child(1){width:14%}
+.history-table th:nth-child(2){width:10%}
+.history-table th:nth-child(3){width:13%}
+.history-table th:nth-child(4){width:16%}
+.history-table th:nth-child(5){width:21%}
+.history-table th:nth-child(6){width:26%}
+.history-table .label-short{display:none}
+#history .table-scroll{overflow-x:hidden}
 .performance-table th,.history-table th{font-weight:650;color:#acc2db;font-size:11px;background:#1a2a40;padding:12px 4px;line-height:1.3}
 .performance-table td,.history-table td,.performance-table tbody th{font-weight:600;color:#eaf2ff;font-size:12px;padding:12px 4px;border-top:1px solid #24394e;white-space:nowrap}
 .performance-table thead th:first-child,.performance-table .combo-cell,.history-table thead th:first-child,.history-table tbody td:first-child{text-align:left;padding-left:10px}
-.performance-table th:nth-child(1){width:18%}
-.performance-table th:nth-child(2){width:16%}
-.performance-table th:nth-child(3),.performance-table th:nth-child(4){width:11%}
-.performance-table th:nth-child(5){width:20%}
-.performance-table th:nth-child(6){width:24%}
+.performance-table th:nth-child(1){width:14%}
+.performance-table th:nth-child(2){width:13%}
+.performance-table th:nth-child(3),.performance-table th:nth-child(4){width:8%}
+.performance-table th:nth-child(5){width:15%}
+.performance-table th:nth-child(6){width:19%}
+.performance-table th:nth-child(7){width:23%}
+.performance-table .label-short{display:none}
+#combos .table-scroll{overflow-x:hidden}
 .performance-table .combo-cell{font-weight:800;color:#7ac6ff}
 .performance-table tbody tr:nth-child(even),.history-table tbody tr:nth-child(even){background:rgba(27,42,63,.35)}
 .performance-table tbody td.positive,.history-table tbody td.positive{color:#4ce8b5}
@@ -274,15 +285,21 @@ footer p{margin:6px 0 0}
   h1{font-size:19px}
   .brand-mark{width:38px;height:38px;font-size:23px}
   .panel{padding:14px 10px}
-  .performance-table th,.history-table th{font-size:10px;padding:10px 2px}
-  .performance-table td,.performance-table tbody th,.history-table td{font-size:11px;padding:11px 2px}
-  .performance-table thead th:first-child,.performance-table .combo-cell{padding-left:7px}
+  .history-table th{font-size:clamp(9px,2.65vw,11px);padding:10px 1px;white-space:nowrap}
+  .history-table td{font-size:clamp(9px,2.8vw,11px);padding:11px 1px;white-space:nowrap}
+  .history-table thead th:first-child,.history-table tbody td:first-child{padding-left:3px}
+  .history-table .label-full{display:none}
+  .history-table .label-short{display:inline}
+  .performance-table th{font-size:clamp(9px,2.75vw,11px);padding:10px 1px;white-space:nowrap}
+  .performance-table td,.performance-table tbody th{font-size:clamp(9px,2.75vw,11px);padding:11px 1px;white-space:normal;overflow-wrap:anywhere}
+  .performance-table thead th:first-child,.performance-table .combo-cell{padding-left:3px}
+  .performance-table .label-full{display:none}
+  .performance-table .label-short{display:inline}
   .calendar-grid{gap:2px;padding:5px}
   .calendar-day{min-height:39px}
   .daily-summary strong{font-size:17px}
 }
 @media(max-width:350px){
-  .performance-table{min-width:345px}
   .calendar-day{min-height:35px}
   .daily-summary strong{font-size:15px}
 }
