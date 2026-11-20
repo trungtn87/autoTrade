@@ -99,7 +99,12 @@ def check():
                 assert page.locator('#day-wins').inner_text() == '1'
                 # Summaries use known closed-trade ROI even if a peer lacks ROI.
                 assert page.locator('#day-roi').inner_text() == '+0,70%'
-                assert 'CHƯA XÁC MINH' in page.locator('#history-list').inner_text()
+                # The removed Result column must not reappear visibly. The state
+                # remains available as a row tooltip / accessible label.
+                assert 'CHƯA XÁC MINH' not in page.locator('#history-list').inner_text()
+                assert page.locator('#history-list tr[title*="CHƯA XÁC MINH"]').count() == 1
+                assert page.locator('#history-list td').count() == 18  # 3 rows × 6 columns
+                assert page.evaluate("document.querySelector('#history .table-scroll').scrollWidth <= document.querySelector('#history .table-scroll').clientWidth"), 'journal horizontal overflow'
                 assert page.locator('#day-losses').inner_text() == '1'
 
                 # BTC/ETH toggle changes the existing Combo table and the new PnL chart,
