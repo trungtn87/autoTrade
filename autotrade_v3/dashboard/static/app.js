@@ -1,115 +1,261 @@
-"use strict";
-// Renders the V3 Live Terminal payload. Every value goes through textContent: no HTML from data.
-(function () {
-  const $ = (id) => document.getElementById(id);
-  const fmtNum = (v, d = 4) => (v === null || v === undefined || Number.isNaN(Number(v))) ? "—" : Number(v).toFixed(d);
-  const fmtTime = (ms) => (ms ? new Date(ms).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" }) : "—");
-  const fmtPnl = (v) => (v === null || v === undefined ? "—" : (Number(v) >= 0 ? "+" : "") + Number(v).toFixed(2));
+/* Autotrade read-only · BTC/ETH Combo table and entry-date calendar. */
+'use strict';
+const $ = id => document.getElementById(id);
+const fmt = (value, decimals = 2) => Number(value).toLocaleString('vi-VN', {
+  minimumFractionDigits: decimals, maximumFractionDigits: decimals
+});
+const number = value => value === null || value === undefined || value === '' ? NaN : Number(value);
+const valid = value => Number.isFinite(number(value));
+const roi = value => valid(value) ? (number(value) > 0 ? '+' : '') + fmt(value) + '%' : '—';
+const money = value => valid(value) ? (number(value) > 0 ? '+' : '') + fmt(value, 3) : '—';
+const displayRoi = (value, estimated = false) =>
+  valid(value) ? (estimated ? '≈ ' : '') + roi(value) : '—';
+const classFor = value => valid(value) && number(value) > 0 ? 'positive' :
+  valid(value) && number(value) < 0 ? 'negative' : '';
+const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
+  timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit',
+  day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+});
+function dateParts(ms) {
+  if (!valid(ms) || number(ms) <= 0) return null;
+  const parts = Object.fromEntries(dateFormatter.formatToParts(new Date(Number(ms)))
+    .filter(x => x.type !== 'literal').map(x => [x.type, x.value]));
+  return { key: parts.year + '-' + parts.month + '-' + parts.day,
+    date: parts.day + '/' + parts.month + '/' + parts.year,
+    time: parts.hour + ':' + parts.minute };
+}
+const todayKey = () => dateParts(Date.now()).key;
+let firstMonth = '2026-09';
+const $text = (tag, name, value) => {
+  const node = document.createElement(tag);
+  if (name) node.className = name;
+  node.textContent = String(value);
+  return node;
+};
+function emptyRow(bodyId, columns, message) {
+  const body = $(bodyId); body.replaceChildren();
+  const tr = document.createElement('tr');
+  const td = $text('td', 'empty', message);
+  td.colSpan = columns;
+  tr.append(td); body.append(tr);
+}
+function setText(id, value) { $(id).textContent = String(value); }
+let symbol = 'BTC-USDT';
+let history = [];
+let comboRows = [];
+let selectedDay = '';
+let monthKey = '';
+let requestId = 0;
+// A trade belongs to its ENTRY day. An exit can happen hours/days later.
+// Fall back to exit time only for legacy records without an entry timestamp.
+const tradeDate = row => dateParts(row.entry_ms || row.exit_ms)?.key;
+const dayRows = key => history.filter(row => tradeDate(row) === key);
+const winOrLoss = row => {
+  if (row.outcome === 'WIN') return 'THẮNG';
+  if (row.outcome === 'LOSS') return 'THUA';
+  if (row.outcome === 'BREAKEVEN') return 'HÒA';
+  return 'CHƯA XÁC MINH';
+};
 
-  function cell(tr, text, cls) {
-    const td = document.createElement("td");
-    if (cls) td.className = cls;
-    if (cls && cls.indexOf("pos") >= 0) td.classList.add("pos");
-    td.textContent = text;
-    tr.appendChild(td);
+function renderCombos(rows) {
+  const items = (rows || []).filter(row => (row.total || row.closed) > 0 && row.symbol === symbol)
+    .sort((a,b) => String(a.combo).localeCompare(String(b.combo), 'vi', {numeric:true}));
+  setText('combo-count', items.length + ' Combo');
+  if (!items.length) { emptyRow('combo-list', 7, 'Chưa có giao dịch trong database.'); return; }
+  const body = $('combo-list'); body.replaceChildren();
+  for (const row of items) {
+    const tr = document.createElement('tr');
+    const pair = $text('th', 'combo-cell', row.combo || '—'); pair.scope = 'row'; tr.append(pair);
+    for (const [value, className] of [
+      [((row.classified ?? ((row.win || 0) + (row.loss || 0))) === row.total)
+        ? (row.classified ?? row.total)
+        : (row.classified ?? ((row.win || 0) + (row.loss || 0))) + '/' + row.total, ''],
+      [valid(row.tp_count) ? row.tp_count : '—', 'positive'],
+      [valid(row.sl_count) ? row.sl_count : '—', 'negative'],
+      [valid(row.win_rate) ? fmt(row.win_rate, 1) + '%' : '—', ''],
+      [displayRoi(row.real_roi_total, row.roi_estimated), classFor(row.real_roi_total)],
+      [valid(row.pnl_total) ? (row.estimated_count ? '≈ ' : '') + money(row.pnl_total) : '—', classFor(row.pnl_total)]
+    ]) tr.append($text('td', className, value));
+    body.append(tr);
   }
-  function fill(tableId, rows, render) {
-    const body = document.querySelector("#" + tableId + " tbody");
-    body.replaceChildren();
-    if (!rows.length) {
-      const tr = document.createElement("tr");
-      const td = document.createElement("td");
-      td.colSpan = document.querySelectorAll("#" + tableId + " thead th").length;
-      td.className = "empty";
-      td.textContent = "Chưa có dữ liệu";
-      tr.appendChild(td);
-      body.appendChild(tr);
-      return;
+}
+function monthParts(month) { const p = month.split('-').map(Number); return {year:p[0],month:p[1]}; }
+function monthShift(value, delta) {
+  const {year, month} = monthParts(value);
+  return new Date(Date.UTC(year, month - 1 + delta, 1)).toISOString().slice(0, 7);
+}
+function renderCalendar() {
+  const {year,month} = monthParts(monthKey);
+  setText('calendar-month', 'Tháng ' + month + ', ' + year);
+  const currentMonth = todayKey().slice(0,7);
+  $('prev-month').disabled = monthKey <= firstMonth;
+  $('next-month').disabled = monthKey >= currentMonth;
+  const firstWeekday = (new Date(Date.UTC(year, month-1, 1)).getUTCDay() + 6) % 7;
+  const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const root = $('calendar-grid'); root.replaceChildren();
+  const counts = new Map();
+  for (const row of history) {
+    const key = tradeDate(row);
+    if (key) counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  for (let i=0; i<firstWeekday; i++) {
+    const blank = $text('span','calendar-blank','');blank.setAttribute('aria-hidden','true');root.append(blank);
+  }
+  for (let day=1; day<=days; day++) {
+    const key = monthKey + '-' + String(day).padStart(2,'0');
+    const count = counts.get(key) || 0;
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'calendar-day';
+    button.textContent = String(day);
+    button.setAttribute('aria-label', day + '/' + month + '/' + year +
+      (count ? ': ' + count + ' giao dịch' : ': không có giao dịch'));
+    button.setAttribute('aria-pressed', String(key === selectedDay));
+    if (count) {
+      button.classList.add('has-trades');
+      const dot = $text('span','trade-dot','');
+      dot.setAttribute('aria-hidden','true'); button.append(dot);
     }
-    rows.forEach((r) => { const tr = document.createElement("tr"); render(tr, r); body.appendChild(tr); });
+    if (key === selectedDay) button.classList.add('selected');
+    if (key === todayKey()) button.classList.add('today');
+    if (key > todayKey() || key < firstMonth + '-01') button.disabled = true;
+    button.addEventListener('click', () => {
+      selectedDay = key;
+      renderCalendar();
+      renderDay();
+    });
+    root.append(button);
   }
-  function card(label, value, cls) {
-    const el = document.createElement("div");
-    el.className = "card";
-    const k = document.createElement("div"); k.className = "k"; k.textContent = label;
-    const v = document.createElement("div"); v.className = "v" + (cls ? " " + cls : ""); v.textContent = value;
-    el.append(k, v);
-    return el;
-  }
-  function pnlClass(v) { return Number(v) > 0 ? "pos" : Number(v) < 0 ? "neg" : ""; }
-
-  function render(data) {
-    const s = data.summary;
-    const cards = $("cards"); cards.replaceChildren();
-    cards.append(
-      card("Net PnL", fmtPnl(s.net_pnl), pnlClass(s.net_pnl)),
-      card("Lệnh đã đóng", String(s.closed_trades)),
-      card("Thắng / Thua", s.wins + " / " + s.losses),
-      card("Tỉ lệ thắng", s.win_rate_pct === null ? "—" : fmtNum(s.win_rate_pct, 1) + " %"),
-      card("ROI TB", s.avg_roi_pct === null ? "—" : fmtNum(s.avg_roi_pct, 2) + " %"),
-      card("Đang mở", String(s.open_positions)),
-      card("Tín hiệu (cửa sổ)", String(s.signals_in_window)),
-      card("Lỗi 24h", String(s.errors_last_24h), s.errors_last_24h ? "neg" : "")
-    );
-    fill("combo-table", data.by_combo, (tr, r) => {
-      cell(tr, r.symbol); cell(tr, r.combo); cell(tr, String(r.trades), "num");
-      cell(tr, r.win_rate_pct === null ? "—" : fmtNum(r.win_rate_pct, 1), "num");
-      cell(tr, fmtPnl(r.net_pnl), "num " + pnlClass(r.net_pnl));
-    });
-    fill("open-table", data.open_positions, (tr, r) => {
-      cell(tr, r.symbol); cell(tr, r.combo); cell(tr, r.side);
-      cell(tr, fmtNum(r.avg_price, 4), "num"); cell(tr, fmtNum(r.sl, 4), "num"); cell(tr, fmtNum(r.tp, 4), "num");
-    });
-    fill("trade-table", data.trades, (tr, r) => {
-      cell(tr, fmtTime(r.exit_ms)); cell(tr, r.symbol); cell(tr, r.combo); cell(tr, r.side);
-      cell(tr, r.close_type || "—");
-      cell(tr, fmtPnl(r.net_pnl), "num " + pnlClass(r.net_pnl));
-      cell(tr, r.roi_pct === null || r.roi_pct === undefined ? "—" : fmtNum(r.roi_pct, 2), "num");
-    });
-    fill("signal-table", data.signals, (tr, r) => {
-      cell(tr, fmtTime(r.signal_ms)); cell(tr, r.symbol); cell(tr, r.combo); cell(tr, r.side);
-      cell(tr, fmtNum(r.entry, 4), "num"); cell(tr, fmtNum(r.tp, 4), "num"); cell(tr, fmtNum(r.sl, 4), "num");
-    });
-
-    const health = $("health"); health.replaceChildren();
-    data.health.candles.forEach((c) => {
-      const item = document.createElement("div"); item.className = "item";
-      item.textContent = "Nến 15m " + c.symbol + " mới nhất: " + fmtTime(c.last_close_ms);
-      health.appendChild(item);
-    });
-    data.health.errors_last_24h.slice(0, 20).forEach((e) => {
-      const item = document.createElement("div"); item.className = "item";
-      const title = document.createElement("div");
-      title.textContent = "[" + e.layer + "] " + (e.error_code || "") + " " + (e.symbol || "");
-      const meta = document.createElement("div"); meta.className = "meta";
-      meta.textContent = fmtTime(e.time_ms) + " · " + (e.message || "") + (e.discord_status ? " · Discord: " + e.discord_status : "");
-      item.append(title, meta);
-      health.appendChild(item);
-    });
-    if (!data.health.errors_last_24h.length) {
-      const item = document.createElement("div"); item.className = "item";
-      item.textContent = "Không có lỗi trong 24 giờ qua.";
-      health.appendChild(item);
+}
+function renderDay() {
+  const rows = dayRows(selectedDay).sort((a,b) => number(b.entry_ms || b.exit_ms) - number(a.entry_ms || a.exit_ms));
+  const parts = selectedDay.split('-');
+  setText('selected-date', 'Ngày ' + parts[2] + '/' + parts[1] + '/' + parts[0]);
+  setText('history-count', rows.length + ' lệnh');
+  setText('day-wins', rows.filter(r=>winOrLoss(r)==='THẮNG').length);
+  setText('day-losses', rows.filter(r=>winOrLoss(r)==='THUA').length);
+  const priced = rows.filter(row => (row.status === 'closed' || row.status === 'estimated_closed') && valid(row.recorded_roi_pct));
+  const weighted = priced.length > 0 && priced.every(row =>
+    valid(row.pnl) && valid(row.margin) && number(row.margin) > 0);
+  const total = weighted ? 100 * priced.reduce((sum,row)=>sum+number(row.pnl),0) /
+    priced.reduce((sum,row)=>sum+number(row.margin),0) :
+    priced.length ? priced.reduce((sum,row)=>sum+number(row.recorded_roi_pct),0) : null;
+  const estimated = priced.some(row => ['bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate'].includes(row.source));
+  setText('day-roi', displayRoi(total, estimated));
+  $('day-roi').className = classFor(total);
+  if (!rows.length) { emptyRow('history-list', 7, 'Không có giao dịch trong ngày này.'); return; }
+  const body = $('history-list'); body.replaceChildren();
+  for (const row of rows) {
+    const tr = document.createElement('tr');
+    const side = row.side === 'BUY' ? 'Long' : row.side === 'SELL' ? 'Short' : '—';
+    const mismatch = valid(row.entry_qty) && valid(row.matched_exit_qty)
+      ? number(row.matched_exit_qty) - number(row.entry_qty) : NaN;
+    const qtyText = value => number(value).toLocaleString('vi-VN', {maximumFractionDigits: 8});
+    const status = row.status === 'estimated_closed' ? '≈ ' + winOrLoss(row) + ' · BÙ TRỪ' :
+      row.status === 'closed_pending' ? 'ĐÃ ĐÓNG · CHỜ PnL' :
+      row.status === 'open' ? 'ĐANG MỞ' :
+      row.reason === 'merged_excess_exit' ? 'VỊ THẾ GỘP · DƯ ' + qtyText(mismatch) :
+      row.reason === 'merged_short_exit' ? 'VỊ THẾ GỘP · THIẾU ' + qtyText(-mismatch) :
+      row.reason === 'merged_identity_unverified' ? 'VỊ THẾ GỘP · CHƯA XÁC MINH' :
+      row.reason === 'merged_no_exit' ? 'VỊ THẾ GỘP · THIẾU EXIT' :
+      row.status === 'partial' || row.reason === 'partial_exit' ? 'MỘT PHẦN' :
+      row.reason === 'excess_exit_quantity' ? 'CẦN ĐỐI CHIẾU KHỐI LƯỢNG' :
+      row.reason === 'no_archived_exit' ? 'CHƯA GHI NHẬN ĐÓNG' : winOrLoss(row);
+    const columns = [
+      [dateParts(row.entry_ms || row.exit_ms)?.time || '—', ''],
+      [row.symbol === 'BTC-USDT' ? 'BTC' : 'ETH', 'coin-' + row.symbol.split('-')[0].toLowerCase()],
+      [row.combo || '—', ''],
+      [side, side === 'Long' ? 'positive' : side === 'Short' ? 'negative' : ''],
+      [status, status === 'THẮNG' ? 'positive' : status === 'THUA' ? 'negative' : ''],
+      [displayRoi(row.recorded_roi_pct, ['bingx_db_roi_estimate', 'bingx_db_merged_allocation_estimate'].includes(row.source)), classFor(row.recorded_roi_pct)],
+      [valid(row.pnl) ? (row.status === 'estimated_closed' ? '≈ ' : '') + money(row.pnl) : '—', classFor(row.pnl)]
+    ];
+    for (const [value,cl] of columns) tr.append($text('td', cl, value));
+    if (row.shared_position && valid(row.entry_qty) && valid(row.matched_exit_qty)) {
+      const detail = (row.status === 'estimated_closed' ? 'PnL/ROI phân bổ ước tính, không phải kết quả từng Combo từ BingX. ' : '') + 'Entry: ' + qtyText(row.entry_qty) +
+        ' · Exit liên kết: ' + qtyText(row.matched_exit_qty) +
+        ' · Chênh lệch: ' + (mismatch > 0 ? '+' : '') + qtyText(mismatch) +
+        (row.status === 'estimated_closed' ? ' · Bù trừ theo khối lượng cân bằng.' : ' · Chưa đủ bằng chứng phân bổ PnL cho Combo.');
+      tr.cells[4].title = detail;
+      tr.cells[4].setAttribute('aria-label', status + '. ' + detail);
     }
-  }
-
-  async function load() {
-    const status = $("status");
-    const params = new URLSearchParams({
-      symbol: $("symbol").value.trim(), combo: $("combo").value.trim(), days: $("days").value,
-    });
-    status.textContent = "Đang tải…";
-    try {
-      const res = await fetch("/api/v3/dashboard?" + params.toString(), { cache: "no-store", credentials: "same-origin" });
-      const data = await res.json();
-      if (!res.ok) { status.textContent = data.error || "Lỗi tải dữ liệu"; return; }
-      render(data);
-      status.textContent = "Cập nhật: " + fmtTime(data.generated_ms);
-    } catch (err) {
-      status.textContent = "Không kết nối được máy chủ.";
+    if (valid(row.exit_ms) && valid(row.entry_ms)) {
+      const exit = dateParts(row.exit_ms);
+      if (exit) tr.cells[0].title = 'Mở: ' + dateParts(row.entry_ms).date + ' ' + dateParts(row.entry_ms).time +
+        ' · Đóng: ' + exit.date + ' ' + exit.time;
     }
+    body.append(tr);
   }
-  $("apply").addEventListener("click", load);
-  load();
-  setInterval(load, 60000);
-})();
+}
+function chooseLatestDate() {
+  const current = todayKey();
+  if (selectedDay && selectedDay >= firstMonth + '-01' && selectedDay <= current) return selectedDay;
+  const dates = history.map(tradeDate).filter(x=>x && x<=current).sort();
+  return dates.length ? dates[dates.length - 1] : current;
+}
+function setTabs() {
+  for (const key of ['BTC','ETH']) {
+    const btn = $('tab-' + key.toLowerCase());
+    const active = symbol === key + '-USDT';
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  }
+  setText('active-symbol', symbol.split('-')[0]);
+}
+async function loadSymbol() {
+  const token = ++requestId;
+  setTabs();
+  setText('sync','Đang đọc dữ liệu BTC và ETH…');
+  $('status-dot').classList.add('status-muted');
+  try {
+    const response = await fetch('/api/dashboard?days=all', {
+      cache:'no-store', credentials:'same-origin'
+    });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+    if (token !== requestId) return;
+    comboRows = data.theory?.combos || [];
+    renderCombos(comboRows);
+    history = (data.theory?.history || []).filter(row =>
+      (row.symbol === 'BTC-USDT' || row.symbol === 'ETH-USDT') &&
+      valid(row.entry_ms || row.exit_ms));
+    window.PnlChart.render(history, symbol);
+    const months = history.map(tradeDate).filter(Boolean).sort();
+    if (months.length) firstMonth = months[0].slice(0, 7);
+    selectedDay = chooseLatestDate();
+    monthKey = selectedDay.slice(0, 7);
+    renderCalendar();
+    renderDay();
+    const sync = data.last_sync?.time ? dateParts(Date.parse(data.last_sync.time)) : null;
+    const synced = data.last_sync?.status === 'success' && sync &&
+      Date.now() - Date.parse(data.last_sync.time) < 2.5 * 3600000;
+    $('status-dot').classList.toggle('status-muted', !synced);
+    setText('sync', 'Dữ liệu từ 01/10/2026');
+    setText('updated', 'Xem lúc ' + (dateParts(Date.now())?.time || '—'));
+  } catch (error) {
+    if (token !== requestId) return;
+    history = [];
+    comboRows = [];
+    window.PnlChart.render(history, symbol);
+    emptyRow('combo-list', 7, 'Không đọc được dữ liệu.');
+    emptyRow('history-list', 7, 'Không đọc được dữ liệu.');
+    setText('combo-count', '—'); setText('history-count','—');
+    setText('sync', 'Lỗi kết nối dashboard · ' + error.message);
+  }
+}
+for (const name of ['BTC','ETH']) {
+  $('tab-' + name.toLowerCase()).addEventListener('click', () => {
+    if (symbol === name + '-USDT') return;
+    symbol = name + '-USDT';
+    setTabs();
+    renderCombos(comboRows);
+    window.PnlChart.render(history, symbol);
+  });
+}
+$('prev-month').addEventListener('click', () => {
+  if (monthKey > firstMonth) { monthKey = monthShift(monthKey,-1); renderCalendar(); }
+});
+$('next-month').addEventListener('click', () => {
+  if (monthKey < todayKey().slice(0,7)) { monthKey = monthShift(monthKey,1); renderCalendar(); }
+});
+loadSymbol();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});

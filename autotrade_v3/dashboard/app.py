@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 
 from .data import load_snapshot, make_engine
+from .legacy_view import to_legacy
 from .payload import build_payload
 
 STATIC = Path(__file__).resolve().parent / "static"
@@ -149,6 +150,25 @@ def mobile(request: Request):
     else:
         html = html.replace("<!--LOGOUT-->", '<form method="post" action="/logout"><button class="quiet">Đăng xuất</button></form>')
     return _no_cache(HTMLResponse(html))
+
+
+@app.get("/api/dashboard")
+def api_dashboard_v2_shape(request: Request, days: str = "all"):
+    """Same response shape as the V2 Dashboard API, so the existing UI keeps working on V3 data."""
+    _require_auth(request)
+    try:
+        window_days = None if days.strip().lower() == "all" else max(1, min(int(days), 3650))
+    except ValueError:
+        return _no_cache(JSONResponse({"error": "days phải là số hoặc 'all'"}, status_code=400))
+    try:
+        snapshot = load_snapshot(_get_engine())
+        full = build_payload(orders=snapshot["orders"], results=snapshot["results"],
+                             finances=snapshot["finances"], signals=snapshot["signals"],
+                             errors=snapshot["errors"], candle_last_close=snapshot["candle_last_close"],
+                             now_ms=snapshot["now_ms"], days=window_days, public=False)
+        return _no_cache(JSONResponse(to_legacy(full, snapshot["candle_last_close"])))
+    except Exception:
+        return _no_cache(JSONResponse({"error": "Không đọc được dữ liệu. Kiểm tra engine/database."}, status_code=503))
 
 
 @app.get("/api/v3/dashboard")
