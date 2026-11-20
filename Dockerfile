@@ -11,6 +11,8 @@ COPY unified_app.py /app/unified_app.py
 COPY autotrade_v3/__init__.py /app/autotrade_v3/__init__.py
 COPY autotrade_v3/live/ /app/autotrade_v3/live/
 COPY autotrade_v3/l2_core.py /app/autotrade_v3/l2_core.py
+# V3 Live Terminal (read-only dashboard over the autotrade_v3 tables; no V2 imports).
+COPY autotrade_v3/dashboard/ /app/autotrade_v3/dashboard/
 # V2 modules reused by V3 unchanged (BingX transport, kline stream, 20FINAL
 # strategy, hourly archive) plus the AI page. V2's engine is not started.
 COPY autotrade_v2/app/ /app/autotrade_v2/app/
