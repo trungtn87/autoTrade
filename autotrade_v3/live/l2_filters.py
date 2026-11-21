@@ -474,6 +474,9 @@ def generate_c6_cci_audit_sell_signals(
     warmup_end_ms: int | None = None,
 ) -> list[Signal]:
     """Generate corrected CCI-Audit SELL signals for ETH-USDT/C6 on closed 1H candles."""
+    # Import at call time: l2_lab10 imports l2_filters during module initialization.
+    from autotrade_v3.live.l2_lab10 import Signal
+
     d1h = ensure_dt(resample_ohlcv(df_15m, "1h"))
     if d1h.empty:
         return []
