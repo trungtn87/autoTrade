@@ -410,3 +410,84 @@ def test_all_sources_dry_run_and_coverage_schema(tmp_path: Path) -> None:
     for i in range(1, 6):
         assert (data_dir / "live_events" / f"v3_tbl_{i}.parquet").exists()
     assert not (data_dir / "market" / "spread").exists()
+
+
+def test_all_supabase_sources_emit_only_select_sql(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Chứng minh mọi câu lệnh SQL từ 5 nguồn Supabase đều là SELECT và chạy trong READ ONLY."""
+    recorded_sqls: list[str] = []
+
+    class _RecordingDbReader:
+        is_configured = True
+
+        def fetch_rows(self, sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+            assert_select_only_sql(sql)
+            recorded_sqls.append(sql.strip())
+            if "information_schema.tables" in sql:
+                return [{"table_name": "v3_events"}]
+            return []
+
+    res = run_collector(
+        data_dir=tmp_path / "bingx",
+        only=[
+            "execution_orders",
+            "execution_fills",
+            "execution_positions",
+            "execution_income",
+            "live_events_v3",
+        ],
+        db_reader=_RecordingDbReader(),
+    )
+    assert res.overall_status == "COMPLETE"
+    assert len(recorded_sqls) >= 5
+    for sql in recorded_sqls:
+        assert sql.upper().startswith("SELECT ")
+        assert_select_only_sql(sql)
+
+    # Kiểm tra SupabaseReadOnlyReader thiết lập transaction READ ONLY và chặn lệnh ghi
+    from autotrade_v3.collector_v3.sources.supabase_ro import SupabaseReadOnlyReader
+    import sys
+    import types
+
+    executed: list[tuple[str, tuple[Any, ...]]] = []
+    connect_kwargs: list[dict[str, Any]] = []
+
+    class _FakeCursor:
+        def __enter__(self) -> "_FakeCursor":
+            return self
+
+        def __exit__(self, *args: Any) -> None:
+            return None
+
+        def execute(self, sql: str, params: tuple[Any, ...] = ()) -> None:
+            executed.append((sql, params))
+
+        def fetchall(self) -> list[dict[str, Any]]:
+            return [{"ok": 1}]
+
+    class _FakeConn:
+        def __enter__(self) -> "_FakeConn":
+            return self
+
+        def __exit__(self, *args: Any) -> None:
+            return None
+
+        def cursor(self, **kwargs: Any) -> _FakeCursor:
+            return _FakeCursor()
+
+    fake_psycopg = types.ModuleType("psycopg")
+    fake_psycopg.connect = lambda dsn, **kw: (connect_kwargs.append(kw), _FakeConn())[1]  # type: ignore[attr-defined]
+    fake_rows = types.ModuleType("psycopg.rows")
+    fake_rows.dict_row = object()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "psycopg", fake_psycopg)
+    monkeypatch.setitem(sys.modules, "psycopg.rows", fake_rows)
+
+    reader = SupabaseReadOnlyReader("postgresql://user:pass@localhost:5432/db")
+    with pytest.raises(ValueError):
+        reader.fetch_rows("DELETE FROM autotrade_analytics.bingx_orders")
+    assert executed == []
+
+    rows = reader.fetch_rows("SELECT 1 AS ok")
+    assert rows == [{"ok": 1}]
+    assert connect_kwargs[0]["options"] == "-c default_transaction_read_only=on"
+    assert executed[0][0] == "SET TRANSACTION READ ONLY"
+    assert executed[1][0] == "SELECT 1 AS ok"

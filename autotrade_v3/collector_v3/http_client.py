@@ -34,9 +34,9 @@ class BingXPublicClient:
         self,
         *,
         base_url: str = BINGX_PUBLIC_BASE,
-        min_interval_sec: float = 0.35,
+        min_interval_sec: float = 0.5,
         timeout_sec: float = 20.0,
-        max_retries: int = 3,
+        max_retries: int = 4,
         session: requests.Session | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -100,6 +100,13 @@ class BingXPublicClient:
             code = str(payload.get("code", ""))
             if code in ("429", "100429", "1015"):
                 raise RateLimitError(f"BingX trả về mã giới hạn tần suất code={code} tại {path}")
+            if code == "100410":
+                msg = str(payload.get("msg", ""))
+                last_exc = NetworkError(f"BingX trả lỗi tạm thời code=100410 tại {path}: {msg}")
+                if attempt < self.max_retries - 1:
+                    time.sleep(min(10.0, 1.5 * (2**attempt)))
+                    continue
+                raise last_exc
             if code != "0":
                 msg = str(payload.get("msg", ""))
                 raise NetworkError(f"BingX trả lỗi code={code} tại {path}: {msg}")
