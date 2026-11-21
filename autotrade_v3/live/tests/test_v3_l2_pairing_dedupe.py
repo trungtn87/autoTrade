@@ -1,4 +1,4 @@
-"""Regression tests: aligned dual-symbol L2 dispatch, idempotency, no stale replay."""
+"""Regression tests: independent M15 L2 calculation, idempotency and no stale replay."""
 from __future__ import annotations
 
 import threading
@@ -51,15 +51,16 @@ class FakeCore:
 
     def generate_signals_for_combos(self, data, *, allowed_combos, symbols,
                                     only_approved, only_warmup_ready):
-        self.calls.append((tuple(symbols), data[BTC].index[-1], data[ETH].index[-1]))
-        close_ms = int(data[BTC].index[-1].value // 1_000_000) + M15_MS - 1
-        return [
-            SimpleNamespace(
-                symbol=sym, combo_id=1, combo_name="C1", side="BUY",
-                timeframe="15m", signal_close_ms=close_ms,
-                entry_price=100., tp_price=102., sl_price=99., tp_pct=.02, sl_pct=.01,
-            ) for sym in symbols
-        ]
+        assert len(symbols) == 1
+        sym = symbols[0]
+        assert list(data) == [sym]
+        self.calls.append((sym, data[sym].index[-1], len(data[sym])))
+        close_ms = int(data[sym].index[-1].value // 1_000_000) + M15_MS - 1
+        return [SimpleNamespace(
+            symbol=sym, combo_id=1, combo_name="C1", side="BUY",
+            timeframe="15m", signal_close_ms=close_ms,
+            entry_price=100., tp_price=102., sl_price=99., tp_pct=.02, sl_pct=.01,
+        )]
 
 
 def _lab5(fake_core: FakeCore) -> Lab5Engine:
@@ -71,31 +72,36 @@ def _lab5(fake_core: FakeCore) -> Lab5Engine:
     return lab
 
 
-def test_lab5_aligns_actual_timestamp_not_different_candle_row_indexes():
+@pytest.mark.parametrize("symbol,count", [(BTC, 3400), (ETH, 12000)])
+def test_lab5_needs_only_its_own_candles_not_both_coin_frames(symbol, count):
     core = FakeCore()
     lab = _lab5(core)
-    frames = {BTC: _frame(OPEN_MS, 3), ETH: _frame(OPEN_MS, 5)}
-    assert frames[BTC].index[-1] != frames[ETH].index[-1]
-    result = lab.calculate_for_symbols(frames, symbols=[BTC, ETH])
-    assert {(s.symbol, s.combo) for s in result} == {(BTC, 1), (ETH, 1)}
-    assert len(core.calls) == 1
-    assert core.calls[0][1] == core.calls[0][2]
+    frame = _frame(OPEN_MS, count)
+    got = lab.calculate(symbol, {symbol: frame})
+    assert [(s.symbol, s.combo) for s in got] == [(symbol, 1)]
+    assert got[0].close_time == OPEN_MS + M15_MS - 1
+    assert core.calls == [(symbol, pd.Timestamp(OPEN_MS, unit="ms", tz="UTC"), count)]
 
-    # Both frames are required to finish at the SAME open timestamp.
-    assert lab.calculate_for_symbols({BTC: frames[BTC], ETH: _frame(OPEN_MS - M15_MS, 5)},
-                                     symbols=[BTC, ETH]) == []
-    assert len(core.calls) == 1
+
+def test_lab5_does_not_wait_for_other_symbol_or_compare_range_index_lengths():
+    core = FakeCore()
+    lab = _lab5(core)
+    frames = {BTC: _frame(OPEN_MS, 3400), ETH: _frame(OPEN_MS - M15_MS, 12000)}
+    assert frames[BTC].index[-1] != frames[ETH].index[-1]
+    assert {s.symbol for s in lab.calculate(BTC, frames)} == {BTC}
+    assert {s.symbol for s in lab.calculate(ETH, frames)} == {ETH}
+    assert [x[0] for x in core.calls] == [BTC, ETH]
 
 
 class FakeLab:
     def __init__(self):
         self.calls = []
 
-    def calculate_for_symbols(self, frames, *, symbols):
-        opened = int(frames[BTC]["open_time"].iloc[-1])
-        assert opened == int(frames[ETH]["open_time"].iloc[-1])
-        self.calls.append((opened, tuple(symbols)))
-        return [_signal(sym, opened) for sym in symbols]
+    def calculate(self, symbol, frames):
+        assert list(frames) == [symbol]
+        opened = int(frames[symbol]["open_time"].iloc[-1])
+        self.calls.append((symbol, opened))
+        return [_signal(symbol, opened)]
 
 
 class Recorder:
@@ -116,13 +122,12 @@ class Control:
 
 
 def _l2() -> L2Strategy:
-    # Do not instantiate the live engine or load any private exchange credentials.
+    # No real engine, exchange credentials, or database connection.
     l2 = object.__new__(L2Strategy)
     l2.registry = object()
     l2.lab5 = FakeLab()
-    l2._lab5_frames = {}
-    l2._frame_lock = threading.Lock()
-    l2._last_evaluated_m15_open = -1
+    l2._calculate_locks = {BTC: threading.Lock(), ETH: threading.Lock()}
+    l2._last_calculated_open = {}
     l2._dispatch_lock = threading.Lock()
     l2._last_dispatched_by_combo = {}
     l2.store = MemoryStore()
@@ -134,34 +139,34 @@ def _l2() -> L2Strategy:
 
 
 @pytest.mark.parametrize("first,second", [(BTC, ETH), (ETH, BTC)])
-def test_second_arrival_evaluates_both_symbols_once(first, second):
+def test_each_coin_calculates_on_its_own_arrival(first, second):
     l2 = _l2()
-    assert l2.calculate(_snapshot(first, count=3 if first == BTC else 5)) == []
-    signals = l2.calculate(_snapshot(second, count=3 if second == BTC else 5))
-    assert {(s.symbol, s.combo) for s in signals} == {(BTC, 1), (ETH, 1)}
-    assert l2.lab5.calls == [(OPEN_MS, (BTC, ETH))]
-    assert l2.calculate(_snapshot(first)) == []
-    assert l2.calculate(_snapshot(second)) == []
-    assert len(l2.lab5.calls) == 1
+    assert [s.symbol for s in l2.calculate(_snapshot(first))] == [first]
+    assert [s.symbol for s in l2.calculate(_snapshot(second))] == [second]
+    assert l2.lab5.calls == [(first, OPEN_MS), (second, OPEN_MS)]
 
 
-def test_concurrent_callbacks_do_not_compute_the_pair_twice():
+def test_concurrent_callbacks_each_coin_calculates_once():
     l2 = _l2()
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(l2.calculate, (_snapshot(BTC), _snapshot(ETH))))
-    assert sum(map(len, results)) == 2
-    assert len(l2.lab5.calls) == 1
+    assert {s.symbol for batch in results for s in batch} == {BTC, ETH}
+    assert sorted(l2.lab5.calls) == sorted([(BTC, OPEN_MS), (ETH, OPEN_MS)])
+    # Repeat both callbacks concurrently: no second signal per symbol/bar.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        again = list(pool.map(l2.calculate, (_snapshot(BTC), _snapshot(ETH))))
+    assert again == []
+    assert len(l2.lab5.calls) == 2
 
 
-def test_lagging_symbol_and_old_snapshot_do_not_replay():
+def test_stale_duplicate_one_coin_cannot_block_new_bar_of_other():
     l2 = _l2()
     l2.calculate(_snapshot(BTC))
     l2.calculate(_snapshot(ETH))
-    assert l2.calculate(_snapshot(BTC, OPEN_MS + M15_MS)) == []
-    assert l2.calculate(_snapshot(BTC, OPEN_MS)) == []  # older callback
-    got = l2.calculate(_snapshot(ETH, OPEN_MS + M15_MS))
-    assert {s.symbol for s in got} == {BTC, ETH}
-    assert [x[0] for x in l2.lab5.calls] == [OPEN_MS, OPEN_MS + M15_MS]
+    assert [s.symbol for s in l2.calculate(_snapshot(BTC, OPEN_MS + M15_MS))] == [BTC]
+    assert l2.calculate(_snapshot(BTC, OPEN_MS)) == []
+    assert [s.symbol for s in l2.calculate(_snapshot(ETH, OPEN_MS + M15_MS))] == [ETH]
+    assert len(l2.lab5.calls) == 4
 
 
 def test_dispatch_dedupes_same_side_and_rejects_opposing_sides():
@@ -195,15 +200,14 @@ def test_runtime_ignores_prestart_and_superseded_websocket_candles():
     called = []
     rt._run_strategy = lambda symbol, snapshot: called.append(symbol)
     rt.on_closed(BTC, _frame(OPEN_MS).tail(1))
-    assert called == []  # pre-start closed candle
+    assert called == []
 
-    # Even a current snapshot must not be fired by a replayed older WS frame.
     newer = _snapshot(BTC, OPEN_MS + M15_MS)
     rt.started_ms = OPEN_MS
     rt.l1.ingest = lambda symbol, frame: newer
     rt.on_closed(BTC, _frame(OPEN_MS + M15_MS).tail(1))
     assert called == [BTC]
-    # A new Runtime simulates a delayed WS backfill with a DB snapshot ahead.
+    # Simulate a delayed WebSocket frame when the store already has newer data.
     rt._processed = {}
     rt.on_closed(BTC, _frame(OPEN_MS).tail(1))
     assert called == [BTC]
