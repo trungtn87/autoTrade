@@ -1,13 +1,15 @@
 """Nguồn dữ liệu chỉ-đọc từ Supabase (autotrade_analytics.* và autotrade_v3.*)."""
 from __future__ import annotations
 
-from datetime import datetime
+import base64
+from datetime import date, datetime, timezone
 from decimal import Decimal
 import hashlib
 import json
 import os
 import re
 from typing import Any
+from uuid import UUID
 
 import pyarrow as pa
 
@@ -19,7 +21,7 @@ from ..models import (
     to_decimal_str,
     to_id_str,
 )
-from ..storage import upsert_parquet, write_raw_json
+from ..storage import _json_default, redact_secrets, upsert_parquet, write_raw_json
 from .base import CollectContext
 
 OVERLAP_MS = 5 * 60_000
@@ -53,15 +55,51 @@ def _validate_ident(name: str) -> str:
     return name
 
 
+_FATAL_DB_PATTERNS = (
+    "password authentication failed",
+    "ecircuitbreaker",
+    "circuit breaker",
+    "authentication failed",
+    "connection refused",
+    "could not connect",
+    "connection timed out",
+    "timeout expired",
+    "network is unreachable",
+    "name or service not known",
+    "ssl connection has been closed",
+    "server closed the connection unexpectedly",
+    "too many connections",
+    "connection reset by peer",
+    "broken pipe",
+)
+
+
+def is_fatal_db_connection_error(exc: BaseException) -> bool:
+    """Nhận diện lỗi đăng nhập, circuit breaker hoặc lỗi kết nối DB cần dừng sớm."""
+    if isinstance(exc, (ConnectionError, TimeoutError)):
+        return True
+    if type(exc).__name__ in {"OperationalError", "InterfaceError"}:
+        return True
+    msg = str(exc).lower()
+    return any(pat in msg for pat in _FATAL_DB_PATTERNS)
+
+
 def _normalize_cell(val: Any) -> Any:
     if val is None:
         return None
     if isinstance(val, Decimal):
         return to_decimal_str(val, allow_none=True)
     if isinstance(val, datetime):
+        dt = val if val.tzinfo is not None else val.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    if isinstance(val, date):
         return val.isoformat()
+    if isinstance(val, UUID):
+        return str(val)
+    if isinstance(val, (bytes, bytearray, memoryview)):
+        return base64.b64encode(bytes(val)).decode("ascii")
     if isinstance(val, (dict, list)):
-        return json.dumps(val, ensure_ascii=False, sort_keys=True)
+        return json.dumps(val, ensure_ascii=False, sort_keys=True, default=_json_default)
     return val
 
 
@@ -70,6 +108,7 @@ class SupabaseReadOnlyReader:
 
     def __init__(self, dsn: str | None = None) -> None:
         self._dsn = dsn if dsn is not None else (os.getenv("SUPABASE_DB_URL") or os.getenv("DATABASE_URL") or "")
+        self._aborted_reason: str | None = None
 
     @property
     def is_configured(self) -> bool:
@@ -80,19 +119,27 @@ class SupabaseReadOnlyReader:
         assert_select_only_sql(sql)
         if not self.is_configured:
             raise RuntimeError("Chưa cấu hình biến môi trường SUPABASE_DB_URL hoặc DATABASE_URL")
+        if self._aborted_reason is not None:
+            raise RuntimeError(f"Đã dừng sớm kết nối Supabase: {self._aborted_reason}")
         import psycopg  # type: ignore[import-not-found]
         from psycopg.rows import dict_row  # type: ignore[import-not-found]
 
-        with psycopg.connect(
-            self._dsn,
-            options="-c default_transaction_read_only=on",
-            connect_timeout=15,
-        ) as conn:
-            with conn.cursor(row_factory=dict_row) as cur:
-                cur.execute("SET TRANSACTION READ ONLY")
-                cur.execute(sql, params)
-                rows = cur.fetchall()
-                return [dict(r) for r in rows]
+        try:
+            with psycopg.connect(
+                self._dsn,
+                options="-c default_transaction_read_only=on",
+                connect_timeout=15,
+            ) as conn:
+                with conn.cursor(row_factory=dict_row) as cur:
+                    cur.execute("SET TRANSACTION READ ONLY")
+                    cur.execute(sql, params)
+                    rows = cur.fetchall()
+                    return [dict(r) for r in rows]
+        except Exception as exc:
+            safe_msg = redact_secrets(f"{type(exc).__name__}: {exc}")
+            if is_fatal_db_connection_error(exc):
+                self._aborted_reason = safe_msg
+            raise RuntimeError(safe_msg) from None
 
 
 def _unconfigured_result(source_name: str, ctx: CollectContext) -> SourceResult:
@@ -103,6 +150,18 @@ def _unconfigured_result(source_name: str, ctx: CollectContext) -> SourceResult:
         collected_at=ctx.collected_at,
         gaps=[{"reason": "Chưa cấu hình DATABASE_URL/SUPABASE_DB_URL trên máy local"}],
         message_vi=f"Nguồn {source_name}: chưa cấu hình DATABASE_URL/SUPABASE_DB_URL trên máy local (bỏ qua an toàn).",
+    )
+
+
+def _aborted_result(source_name: str, ctx: CollectContext, reason: str) -> SourceResult:
+    safe_reason = redact_secrets(reason)
+    return SourceResult(
+        source=source_name,
+        status="INCOMPLETE",
+        provenance="UNRESOLVED",
+        collected_at=ctx.collected_at,
+        error=safe_reason,
+        message_vi=f"Nguồn {source_name} dừng sớm do lỗi kết nối/đăng nhập Supabase: {safe_reason}",
     )
 
 
@@ -159,6 +218,8 @@ class SupabaseAnalyticsTableSource:
     def collect(self, ctx: CollectContext) -> SourceResult:
         if ctx.db_reader is None or not ctx.db_reader.is_configured:
             return _unconfigured_result(self.name, ctx)
+        if ctx.db_abort_state.get("reason"):
+            return _aborted_result(self.name, ctx, ctx.db_abort_state["reason"] or "")
 
         state = ctx.source_state
         pending = state.get("pending_resume") or {}
@@ -198,7 +259,10 @@ class SupabaseAnalyticsTableSource:
             try:
                 batch = ctx.db_reader.fetch_rows(sql, (cursor_val, self.page_size, offset))
             except Exception as exc:
-                interrupted_err = f"Lỗi đọc Supabase ({self.table}): {exc}"
+                safe_err = redact_secrets(f"{type(exc).__name__}: {exc}")
+                if is_fatal_db_connection_error(exc) and not ctx.db_abort_state.get("reason"):
+                    ctx.db_abort_state["reason"] = safe_err
+                interrupted_err = f"Lỗi đọc Supabase ({self.table}): {safe_err}"
                 if not ctx.dry_run:
                     state["pending_resume"] = {"cursor_ms": cursor_val, "offset": offset}
                 break
@@ -255,12 +319,18 @@ class SupabaseAnalyticsTableSource:
             if max_cursor > 0:
                 state["cursor_ms"] = max_cursor
 
-        status = "INCOMPLETE" if interrupted_err else "COMPLETE"
-        msg = (
-            f"Nguồn {self.name} chưa hoàn tất ({interrupted_err}); lần sau tiếp tục."
-            if status == "INCOMPLETE"
-            else f"Nguồn {self.name} hoàn tất: +{new_cnt} bản ghi mới (tổng {tot_cnt})."
-        )
+        gaps: list[dict[str, Any]] = []
+        if interrupted_err:
+            status = "INCOMPLETE"
+            msg = f"Nguồn {self.name} chưa hoàn tất ({interrupted_err}); lần sau tiếp tục."
+        elif tot_cnt == 0:
+            status = "GAP"
+            gaps = [{"reason": "bảng nguồn rỗng"}]
+            msg = f"Nguồn {self.name}: bảng nguồn rỗng (0 bản ghi, không phải lỗi)."
+        else:
+            status = "COMPLETE"
+            msg = f"Nguồn {self.name} hoàn tất: +{new_cnt} bản ghi mới (tổng {tot_cnt})."
+
         return SourceResult(
             source=self.name,
             status=status,
@@ -273,6 +343,7 @@ class SupabaseAnalyticsTableSource:
             cursor=max_cursor if max_cursor > 0 else state.get("cursor_ms"),
             raw_files=raw_files,
             parquet_files=parquet_files,
+            gaps=gaps,
             schema_version=SCHEMA_VERSION,
             error=interrupted_err,
             message_vi=msg,
@@ -385,6 +456,8 @@ class SupabaseAutotradeV3Source:
     def collect(self, ctx: CollectContext) -> SourceResult:
         if ctx.db_reader is None or not ctx.db_reader.is_configured:
             return _unconfigured_result(self.name, ctx)
+        if ctx.db_abort_state.get("reason"):
+            return _aborted_result(self.name, ctx, ctx.db_abort_state["reason"] or "")
 
         try:
             tables_rows = ctx.db_reader.fetch_rows(
@@ -394,13 +467,16 @@ class SupabaseAutotradeV3Source:
                 (),
             )
         except Exception as exc:
+            safe_err = redact_secrets(f"{type(exc).__name__}: {exc}")
+            if is_fatal_db_connection_error(exc) and not ctx.db_abort_state.get("reason"):
+                ctx.db_abort_state["reason"] = safe_err
             return SourceResult(
                 source=self.name,
                 status="INCOMPLETE",
                 provenance="UNRESOLVED",
                 collected_at=ctx.collected_at,
-                error=str(exc),
-                message_vi=f"Không thể liệt kê bảng trong schema autotrade_v3: {exc}",
+                error=safe_err,
+                message_vi=f"Không thể liệt kê bảng trong schema autotrade_v3: {safe_err}",
             )
 
         table_names = [_validate_ident(str(r["table_name"])) for r in tables_rows]
@@ -417,16 +493,25 @@ class SupabaseAutotradeV3Source:
         cursors: dict[str, str] = dict(ctx.source_state.get("cursors") or {})
         raw_files: list[RawArtifact] = []
         parquet_files: list[ParquetArtifact] = []
+        table_counts: dict[str, int] = {}
         total_new = 0
         total_rows = 0
         seq = 0
+        interrupted_err: str | None = None
 
         for tbl in table_names:
             sql = f"SELECT * FROM autotrade_v3.{tbl} LIMIT %s OFFSET %s"
             offset = 0
             tbl_rows: list[dict[str, Any]] = []
             while True:
-                batch = ctx.db_reader.fetch_rows(sql, (self.page_size, offset))
+                try:
+                    batch = ctx.db_reader.fetch_rows(sql, (self.page_size, offset))
+                except Exception as exc:
+                    safe_err = redact_secrets(f"{type(exc).__name__}: {exc}")
+                    if is_fatal_db_connection_error(exc) and not ctx.db_abort_state.get("reason"):
+                        ctx.db_abort_state["reason"] = safe_err
+                    interrupted_err = f"Lỗi đọc autotrade_v3.{tbl}: {safe_err}"
+                    break
                 if not batch:
                     break
                 if not ctx.dry_run:
@@ -452,8 +537,12 @@ class SupabaseAutotradeV3Source:
                     break
                 offset += len(batch)
 
+            if interrupted_err:
+                break
+
             cursors[tbl] = ctx.collected_at
             if ctx.dry_run:
+                table_counts[tbl] = len(tbl_rows)
                 total_new += len(tbl_rows)
             elif tbl_rows:
                 cols = sorted({k for r in tbl_rows for k in r.keys()})
@@ -465,23 +554,41 @@ class SupabaseAutotradeV3Source:
                     ["_row_hash"],
                     pq_schema,
                 )
+                table_counts[tbl] = tot_cnt
                 total_new += new_cnt
                 total_rows += tot_cnt
                 if pq_art is not None:
                     parquet_files.append(pq_art)
+            else:
+                table_counts[tbl] = 0
 
-        if not ctx.dry_run:
+        if not ctx.dry_run and not interrupted_err:
             ctx.source_state["cursors"] = cursors
+
+        counts_summary = ", ".join(f"{t}={table_counts.get(t, 0)}" for t in table_names)
+        gaps: list[dict[str, Any]] = []
+        if interrupted_err:
+            status = "INCOMPLETE"
+            msg = f"Nguồn {self.name} chưa hoàn tất ({interrupted_err}); lần sau tiếp tục."
+        elif (ctx.dry_run and total_new == 0) or (not ctx.dry_run and total_rows == 0):
+            status = "GAP"
+            gaps = [{"reason": "bảng nguồn rỗng"}]
+            msg = f"Nguồn {self.name} ({len(table_names)} bảng): bảng nguồn rỗng (0 bản ghi, không phải lỗi) [{counts_summary}]."
+        else:
+            status = "COMPLETE"
+            msg = f"Thu {len(table_names)} bảng autotrade_v3 hoàn tất: +{total_new} bản ghi mới (tổng {total_rows}) [{counts_summary}]."
 
         return SourceResult(
             source=self.name,
-            status="COMPLETE",
-            provenance="EXACT",
+            status=status,
+            provenance="EXACT" if not interrupted_err else "UNRESOLVED",
             collected_at=ctx.collected_at,
             new_records=total_new,
             total_records=total_rows,
             cursor=cursors,
             raw_files=raw_files,
             parquet_files=parquet_files,
-            message_vi=f"Thu {len(table_names)} bảng autotrade_v3 hoàn tất: +{total_new} bản ghi mới (tổng {total_rows}).",
+            gaps=gaps,
+            error=interrupted_err,
+            message_vi=msg,
         )

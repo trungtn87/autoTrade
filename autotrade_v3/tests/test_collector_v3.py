@@ -437,7 +437,10 @@ def test_all_supabase_sources_emit_only_select_sql(tmp_path: Path, monkeypatch: 
         ],
         db_reader=_RecordingDbReader(),
     )
-    assert res.overall_status == "COMPLETE"
+    assert res.overall_status == "GAP"
+    for src_name in ("execution_orders", "execution_fills", "execution_positions", "execution_income", "live_events_v3"):
+        assert res.sources[src_name].status == "GAP"
+        assert res.sources[src_name].gaps == [{"reason": "bảng nguồn rỗng"}]
     assert len(recorded_sqls) >= 5
     for sql in recorded_sqls:
         assert sql.upper().startswith("SELECT ")
@@ -491,3 +494,231 @@ def test_all_supabase_sources_emit_only_select_sql(tmp_path: Path, monkeypatch: 
     assert connect_kwargs[0]["options"] == "-c default_transaction_read_only=on"
     assert executed[0][0] == "SET TRANSACTION READ ONLY"
     assert executed[1][0] == "SELECT 1 AS ok"
+
+
+def test_live_events_v3_json_serialization_all_pg_types(tmp_path: Path) -> None:
+    """live_events_v3 tuần tự hóa đủ 6 bảng với timestamptz, date, numeric/Decimal, UUID, bytes, jsonb."""
+    from datetime import date, datetime, timedelta, timezone
+    from decimal import Decimal
+    from uuid import UUID
+
+    tz_plus7 = timezone(timedelta(hours=7))
+    uid = UUID("12345678-1234-5678-1234-567812345678")
+    tables_data = {
+        "candles": [{
+            "id": uid,
+            "symbol": "BTC-USDT",
+            "ts": datetime(2026, 11, 21, 18, 27, 53, tzinfo=tz_plus7),
+            "trade_date": date(2026, 11, 21),
+            "close": Decimal("98765.43210987654321"),
+            "meta": {"source": "bingx", "nested_dec": Decimal("0.00000001")},
+        }],
+        "strategy_signals": [{
+            "id": uid,
+            "created_at": datetime(2026, 11, 21, 11, 27, 53),  # naive -> UTC
+            "score": Decimal("0.987654321012345678"),
+            "payload": [{"k": "v", "ts": datetime(2026, 11, 21, 12, 0, 0, tzinfo=timezone.utc)}],
+        }],
+        "execution_orders": [{
+            "order_id": "1987654321098765432",
+            "price": Decimal("95123.4500"),
+            "created_at": datetime(2026, 11, 21, 18, 0, 0, tzinfo=timezone.utc),
+            "raw_bytes": b"\x00\x01\xfe\xff",
+        }],
+        "execution_results": [{
+            "result_id": uid,
+            "pnl": Decimal("-12.34567890"),
+            "closed_at": datetime(2026, 11, 21, 18, 5, 0, tzinfo=timezone.utc),
+        }],
+        "execution_finances": [{
+            "finance_id": "fin-1",
+            "amount": Decimal("0.00000001"),
+            "recorded_at": datetime(2026, 11, 21, 18, 10, 0, tzinfo=timezone.utc),
+        }],
+        "control_logs": [{
+            "log_id": 101,
+            "level": "INFO",
+            "details": {"uid": uid, "ok": True},
+            "logged_at": datetime(2026, 11, 21, 18, 15, 0, tzinfo=timezone.utc),
+        }],
+    }
+
+    class _V3FakeDbReader(_FakeDbReader):
+        def fetch_rows(self, sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+            if "information_schema.tables" in sql:
+                return [{"table_name": k} for k in tables_data]
+            return super().fetch_rows(sql, params)
+
+    data_dir = tmp_path / "bingx"
+    res = run_collector(
+        data_dir=data_dir,
+        only=["live_events_v3"],
+        db_reader=_V3FakeDbReader(tables_data),
+    )
+    assert res.overall_status == "COMPLETE"
+    v3_res = res.sources["live_events_v3"]
+    assert v3_res.status == "COMPLETE"
+    assert v3_res.total_records == 6
+    for tbl in tables_data:
+        assert (data_dir / "live_events" / f"{tbl}.parquet").exists()
+        assert f"{tbl}=1" in v3_res.message_vi
+
+    # Kiểm tra raw JSON không mất precision Decimal và datetime chuẩn UTC Z
+    raw_order_files = list((data_dir / "raw" / "live_events_v3" / "execution_orders").rglob("*.json"))
+    assert len(raw_order_files) == 1
+    raw_text = raw_order_files[0].read_text(encoding="utf-8")
+    assert "95123.4500" in raw_text
+    assert "2026-11-21T18:00:00Z" in raw_text
+    assert verify_warehouse(data_dir)["ok"] is True
+
+
+def test_empty_source_table_marks_gap_not_error(tmp_path: Path) -> None:
+    """Bảng nguồn rỗng (0 dòng) phải đánh trạng thái GAP với lý do 'bảng nguồn rỗng', không giả vờ COMPLETE."""
+    data_dir = tmp_path / "bingx"
+    fake_db = _FakeDbReader({
+        "bingx_orders": [{
+            "order_id": "1001",
+            "symbol": "BTC-USDT",
+            "side": "BUY",
+            "position_side": "LONG",
+            "type": "LIMIT",
+            "status": "FILLED",
+            "price": "95000",
+            "avg_price": "95000",
+            "quantity": "0.01",
+            "filled_qty": "0.01",
+            "created_ms": 1794670000000,
+            "updated_ms": 1794670001000,
+        }],
+        "bingx_position_history": [],
+    })
+    res = run_collector(
+        data_dir=data_dir,
+        only=["execution_orders", "execution_positions"],
+        db_reader=fake_db,
+    )
+    assert res.sources["execution_orders"].status == "COMPLETE"
+    pos = res.sources["execution_positions"]
+    assert pos.status == "GAP"
+    assert pos.total_records == 0
+    assert pos.error is None
+    assert pos.gaps == [{"reason": "bảng nguồn rỗng"}]
+    assert "bảng nguồn rỗng" in pos.message_vi
+    assert res.overall_status == "GAP"
+
+
+@pytest.mark.parametrize(
+    "err_msg",
+    [
+        "FATAL: password authentication failed for user \"postgres\"",
+        "FATAL: ECIRCUITBREAKER: Too many authentication errors",
+        "connection refused to host",
+    ],
+)
+def test_supabase_early_stop_on_auth_or_circuit_breaker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, err_msg: str) -> None:
+    """Khi gặp lỗi đăng nhập / ECIRCUITBREAKER / kết nối, dừng mọi nguồn Supabase còn lại trong đợt đó."""
+    calls: list[str] = []
+
+    class _FailingDbReader:
+        is_configured = True
+
+        def fetch_rows(self, sql: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+            calls.append(sql)
+            raise RuntimeError(err_msg)
+
+    res = run_collector(
+        data_dir=tmp_path / "bingx",
+        only=[
+            "execution_orders",
+            "execution_fills",
+            "execution_income",
+            "execution_positions",
+            "live_events_v3",
+        ],
+        db_reader=_FailingDbReader(),
+    )
+    assert len(calls) == 1, f"Kỳ vọng chỉ thử 1 lần rồi dừng sớm, thực tế gọi {len(calls)} lần"
+    assert res.overall_status == "INCOMPLETE"
+    for name in ("execution_orders", "execution_fills", "execution_income", "execution_positions", "live_events_v3"):
+        assert res.sources[name].status == "INCOMPLETE"
+        assert res.sources[name].error
+
+    # Kiểm tra cả ở tầng SupabaseReadOnlyReader: lần 2 không gọi psycopg.connect nữa
+    from autotrade_v3.collector_v3.sources.supabase_ro import SupabaseReadOnlyReader
+    import sys
+    import types
+
+    connect_calls = 0
+
+    def _fail_connect(*args: Any, **kwargs: Any) -> Any:
+        nonlocal connect_calls
+        connect_calls += 1
+        raise ConnectionError(err_msg)
+
+    fake_psycopg = types.ModuleType("psycopg")
+    fake_psycopg.connect = _fail_connect  # type: ignore[attr-defined]
+    fake_rows = types.ModuleType("psycopg.rows")
+    fake_rows.dict_row = object()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "psycopg", fake_psycopg)
+    monkeypatch.setitem(sys.modules, "psycopg.rows", fake_rows)
+
+    reader = SupabaseReadOnlyReader("postgresql://u:secret@db.example.com:5432/postgres")
+    with pytest.raises(RuntimeError):
+        reader.fetch_rows("SELECT 1")
+    with pytest.raises(RuntimeError, match="dừng sớm"):
+        reader.fetch_rows("SELECT 1")
+    assert connect_calls == 1
+
+
+def test_log_and_manifest_redact_db_secrets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Lỗi kết nối không được in URL, mật khẩu, hoặc thông tin kết nối ra log hay manifest."""
+    import logging
+    from autotrade_v3.collector_v3.sources.supabase_ro import SupabaseReadOnlyReader
+    import sys
+    import types
+
+    secret_dsn = "postgresql://postgres.abc:SuperSecretPass123@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require"
+    leaky_err = (
+        f"connection failed to {secret_dsn} "
+        "host=aws-0-ap-southeast-1.pooler.supabase.com port=6543 dbname=postgres user=postgres password=AnotherSecret456 "
+        "url=https://xyzproject.supabase.co/rest/v1"
+    )
+
+    fake_psycopg = types.ModuleType("psycopg")
+
+    def _boom(*args: Any, **kwargs: Any) -> Any:
+        raise ConnectionError(leaky_err)
+
+    fake_psycopg.connect = _boom  # type: ignore[attr-defined]
+    fake_rows = types.ModuleType("psycopg.rows")
+    fake_rows.dict_row = object()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "psycopg", fake_psycopg)
+    monkeypatch.setitem(sys.modules, "psycopg.rows", fake_rows)
+
+    # Reset logger handlers để setup_logger ghi vào tmp_path/bingx/logs/collector.log
+    logger = logging.getLogger("autotrade_v3.collector_v3")
+    for h in list(logger.handlers):
+        h.close()
+        logger.removeHandler(h)
+
+    data_dir = tmp_path / "bingx"
+    res = run_collector(
+        data_dir=data_dir,
+        only=["execution_orders", "execution_fills"],
+        db_reader=SupabaseReadOnlyReader(secret_dsn),
+    )
+    assert res.overall_status == "INCOMPLETE"
+
+    forbidden_tokens = [
+        "SuperSecretPass123",
+        "AnotherSecret456",
+        "aws-0-ap-southeast-1.pooler.supabase.com",
+        "xyzproject.supabase.co",
+        "postgres.abc",
+    ]
+    scanned_files = list((data_dir / "logs").glob("*.log*")) + list((data_dir / "manifests").rglob("*.json"))
+    assert scanned_files, "Phải có file log và manifest để quét"
+    for fpath in scanned_files:
+        text = fpath.read_text(encoding="utf-8")
+        for tok in forbidden_tokens:
+            assert tok not in text, f"Phát hiện bí mật bị rò rỉ ({tok}) trong {fpath}"

@@ -22,6 +22,7 @@ class CollectContext:
     db_reader: Any = None
     max_pages_per_run: int | None = None
     logger: logging.Logger = field(default_factory=lambda: logging.getLogger("autotrade_v3.collector_v3"))
+    db_abort_state: dict[str, str | None] = field(default_factory=dict)
 
 
 class BaseSource(Protocol):

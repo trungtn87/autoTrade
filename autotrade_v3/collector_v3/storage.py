@@ -1,7 +1,8 @@
 """Lưu trữ nguyên tử, khóa tiến trình, raw JSON không ghi đè, Parquet và manifest/sha256."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import base64
+from datetime import date, datetime, timezone
 from decimal import Decimal
 import json
 import logging
@@ -11,6 +12,7 @@ from pathlib import Path
 import re
 import time
 from typing import Any
+from uuid import UUID
 
 import pandas as pd
 import pyarrow as pa
@@ -27,8 +29,10 @@ from .models import (
 )
 
 _SECRET_PATTERNS = (
-    re.compile(r"(postgres(?:ql)?://)[^\s'\"@]+@", re.IGNORECASE),
-    re.compile(r"((?:API_KEY|API_SECRET|SECRET|TOKEN|PASSWORD|DATABASE_URL|SUPABASE_DB_URL)\s*=\s*)[^\s'\";]+", re.IGNORECASE),
+    re.compile(r"(postgres(?:ql)?://)[^\s'\"<>]+", re.IGNORECASE),
+    re.compile(r"(https?://)[^\s'\"<>]*supabase[^\s'\"<>]*", re.IGNORECASE),
+    re.compile(r"((?:API_KEY|API_SECRET|SECRET|TOKEN|PASSWORD|PWD|DATABASE_URL|SUPABASE_DB_URL)\s*[=:]\s*)[^\s'\";,]+", re.IGNORECASE),
+    re.compile(r"\b((?:host|port|dbname|user|password|sslmode)\s*=\s*)[^\s'\";,]+", re.IGNORECASE),
 )
 
 
@@ -46,17 +50,35 @@ class _RedactFilter(logging.Filter):
         return True
 
 
+class _RedactingFormatter(logging.Formatter):
+    """Formatter che bí mật trên cả thông điệp và traceback ngoại lệ."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        return redact_secrets(super().format(record))
+
+
 def redact_secrets(text: str) -> str:
-    """Ẩn thông tin nhạy cảm (chuỗi kết nối DB, khóa) trước khi ghi log."""
+    """Ẩn thông tin nhạy cảm (URL DB, chuỗi kết nối, mật khẩu, khóa) trước khi ghi log."""
     out = text
-    out = _SECRET_PATTERNS[0].sub(r"\1***:***@", out)
-    out = _SECRET_PATTERNS[1].sub(r"\1***", out)
+    out = _SECRET_PATTERNS[0].sub(r"\1***REDACTED***", out)
+    out = _SECRET_PATTERNS[1].sub(r"\1***REDACTED***", out)
+    out = _SECRET_PATTERNS[2].sub(r"\1***", out)
+    out = _SECRET_PATTERNS[3].sub(r"\1***", out)
     return out
 
 
 def _json_default(obj: Any) -> Any:
+    if isinstance(obj, datetime):
+        dt = obj if obj.tzinfo is not None else obj.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+    if isinstance(obj, date):
+        return obj.isoformat()
     if isinstance(obj, Decimal):
-        return format(obj, "f")
+        return format(obj, "f") if obj.is_finite() else str(obj)
+    if isinstance(obj, UUID):
+        return str(obj)
+    if isinstance(obj, (bytes, bytearray, memoryview)):
+        return base64.b64encode(bytes(obj)).decode("ascii")
     raise TypeError(f"Không thể tuần tự hóa JSON cho kiểu {type(obj).__name__}")
 
 
@@ -134,7 +156,7 @@ def setup_logger(log_dir: Path, name: str = "autotrade_v3.collector_v3") -> logg
     logger = logging.getLogger(name)
     logger.setLevel(logging.INFO)
     if not logger.handlers:
-        fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+        fmt = _RedactingFormatter("%(asctime)s [%(levelname)s] %(message)s")
         fh = RotatingFileHandler(
             log_dir / "collector.log",
             maxBytes=5 * 1024 * 1024,

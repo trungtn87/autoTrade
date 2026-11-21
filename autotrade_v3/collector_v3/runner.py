@@ -26,10 +26,12 @@ from .sources.supabase_ro import (
     SupabaseAutotradeV3Source,
     SupabaseReadOnlyReader,
     build_analytics_sources,
+    is_fatal_db_connection_error,
 )
 from .storage import (
     CollectorLock,
     StateStore,
+    redact_secrets,
     save_run_manifest_and_coverage,
     setup_logger,
 )
@@ -91,6 +93,7 @@ def run_collector(
         state = state_store.load()
         sources_state: dict[str, Any] = state.setdefault("sources", {})
         results: dict[str, SourceResult] = {}
+        db_abort_state: dict[str, str | None] = {"reason": None}
 
         logger.info(
             "Bắt đầu đợt thu %s (dry_run=%s, số nguồn=%d)",
@@ -113,18 +116,22 @@ def run_collector(
                 db_reader=reader,
                 max_pages_per_run=max_pages_per_run,
                 logger=logger,
+                db_abort_state=db_abort_state,
             )
             try:
                 res = src.collect(ctx)
             except Exception as exc:
-                logger.exception("Nguồn %s gặp lỗi độc lập: %s", src.name, exc)
+                safe_err = redact_secrets(f"{type(exc).__name__}: {exc}")
+                if is_fatal_db_connection_error(exc) and not db_abort_state.get("reason"):
+                    db_abort_state["reason"] = safe_err
+                logger.exception("Nguồn %s gặp lỗi độc lập: %s", src.name, safe_err)
                 res = SourceResult(
                     source=src.name,
                     status="INCOMPLETE",
                     provenance="UNRESOLVED",
                     collected_at=collected_at,
-                    error=f"{type(exc).__name__}: {exc}",
-                    message_vi=f"Nguồn {src.name} lỗi: {type(exc).__name__}: {exc}",
+                    error=safe_err,
+                    message_vi=f"Nguồn {src.name} lỗi: {safe_err}",
                 )
 
             results[src.name] = res
