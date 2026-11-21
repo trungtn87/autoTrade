@@ -155,7 +155,7 @@ def test_concurrent_callbacks_each_coin_calculates_once():
     # Repeat both callbacks concurrently: no second signal per symbol/bar.
     with ThreadPoolExecutor(max_workers=2) as pool:
         again = list(pool.map(l2.calculate, (_snapshot(BTC), _snapshot(ETH))))
-    assert again == []
+    assert again == [[], []]
     assert len(l2.lab5.calls) == 2
 
 
