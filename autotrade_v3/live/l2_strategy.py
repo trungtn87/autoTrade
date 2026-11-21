@@ -8,6 +8,7 @@ live execution emits only the BingX-confirmed L3 result. No SMC/AI/extra conditi
 from __future__ import annotations
 
 import logging
+import threading
 
 from .l3_execution import V3Signal
 from .store import ms_to_dt
@@ -41,6 +42,10 @@ class L2Strategy:
                 self.registry, self.registry_error = None, str(exc)
         self.lab5 = None
         self._lab5_frames: dict = {}
+        self._frame_lock = threading.Lock()
+        self._last_evaluated_m15_open = -1
+        self._dispatch_lock = threading.Lock()
+        self._last_dispatched_by_combo: dict[tuple[str, int], int] = {}
         if self.registry is not None:
             from .l2_lab5 import Lab5Engine
             from autotrade_v3.live.l2_lab10 import V3Lab10Strategy
@@ -57,17 +62,67 @@ class L2Strategy:
         return {**self.registry.summary(), "provenance": dict(self.registry.provenance)}
 
     def calculate(self, snapshot) -> list[V3Signal]:
+        """On the second closed candle of a pair, evaluate BOTH symbols exactly once.
+
+        Data callbacks and watchdog recovery can arrive on different threads and
+        in either order. Keep the latest snapshot per symbol, but never advance
+        a symbol backwards or recompute an already-evaluated M15 pair.
+        """
         if self.registry is None or self.lab5 is None:
             raise RuntimeError(self.registry_error or "registry chưa nạp được")
-        from .l2_lab5 import LAB5_WINDOW_BARS
+        from .l2_lab5 import BTC, ETH, LAB5_WINDOW_BARS
         sym = str(snapshot.symbol).upper()
-        self._lab5_frames[sym] = snapshot.candles.tail(LAB5_WINDOW_BARS)
-        return self.lab5.calculate(sym, self._lab5_frames)
+        incoming_open = int(snapshot.latest_open_time)
+        with self._frame_lock:
+            if incoming_open <= self._last_evaluated_m15_open:
+                return []
+            previous = self._lab5_frames.get(sym)
+            if previous is not None and not previous.empty:
+                if incoming_open < int(previous["open_time"].iloc[-1]):
+                    return []  # late callback must not roll back this symbol
+            self._lab5_frames[sym] = snapshot.candles.tail(LAB5_WINDOW_BARS)
+            if BTC not in self._lab5_frames or ETH not in self._lab5_frames:
+                return []
+            btc_frame, eth_frame = self._lab5_frames[BTC], self._lab5_frames[ETH]
+            if btc_frame.empty or eth_frame.empty:
+                return []
+            btc_open = int(btc_frame["open_time"].iloc[-1])
+            eth_open = int(eth_frame["open_time"].iloc[-1])
+            if btc_open != eth_open or btc_open <= self._last_evaluated_m15_open:
+                return []  # wait for the lagging symbol; do NOT discard the leading one
+            signals = self.lab5.calculate_for_symbols(self._lab5_frames, symbols=[BTC, ETH])
+            self._last_evaluated_m15_open = btc_open
+            return signals
 
     def dispatch(self, signals: list[V3Signal]) -> list:
-        """Persist + alert + execute each signal independently. Never raises."""
-        threads = []
+        """Dispatch at most one side per (symbol, combo, candle close), never replay older bars.
+
+        L3 additionally enforces a durable exact-event entry claim across restarts.
+        This guard covers duplicate and opposing-side signals inside the running
+        process; historical candles are rejected in Runtime before reaching L2.
+        """
+        selected: dict[tuple[str, int, int], V3Signal] = {}
+        conflicts: set[tuple[str, int, int]] = set()
         for sig in signals:
+            key = (str(sig.symbol).upper(), int(sig.combo), int(sig.close_time))
+            prior = selected.setdefault(key, sig)
+            if prior.side != sig.side:
+                conflicts.add(key)
+        for sym, combo, close_ms in sorted(conflicts):
+            self._report("signal_conflict",
+                         f"Không thực thi hai chiều cùng nến: combo={combo} close_ms={close_ms}", symbol=sym)
+        to_dispatch: list[V3Signal] = []
+        with self._dispatch_lock:
+            for key, sig in selected.items():
+                if key in conflicts:
+                    continue  # conflicting BUY/SELL: fail closed, never choose an arbitrary side
+                combo_key = key[:2]
+                if key[2] <= self._last_dispatched_by_combo.get(combo_key, -1):
+                    continue
+                self._last_dispatched_by_combo[combo_key] = key[2]  # reserve before any L3 submit
+                to_dispatch.append(sig)
+        threads = []
+        for sig in to_dispatch:
             # Hand to L3 first: a slow database or Discord never delays the Entry.
             if self.executor is not None:
                 try:
