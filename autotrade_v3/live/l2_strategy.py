@@ -41,9 +41,10 @@ class L2Strategy:
             except ValueError as exc:
                 self.registry, self.registry_error = None, str(exc)
         self.lab5 = None
-        self._lab5_frames: dict = {}
-        self._frame_lock = threading.Lock()
-        self._last_evaluated_m15_open = -1
+        # Only serialize repeated callbacks for the SAME symbol. BTC and ETH
+        # calculate independently; no cross-symbol candle readiness gate.
+        self._calculate_locks = {"BTC-USDT": threading.Lock(), "ETH-USDT": threading.Lock()}
+        self._last_calculated_open: dict[str, int] = {}
         self._dispatch_lock = threading.Lock()
         self._last_dispatched_by_combo: dict[tuple[str, int], int] = {}
         if self.registry is not None:
@@ -62,36 +63,25 @@ class L2Strategy:
         return {**self.registry.summary(), "provenance": dict(self.registry.provenance)}
 
     def calculate(self, snapshot) -> list[V3Signal]:
-        """On the second closed candle of a pair, evaluate BOTH symbols exactly once.
+        """Calculate this symbol once per newly closed M15 candle.
 
-        Data callbacks and watchdog recovery can arrive on different threads and
-        in either order. Keep the latest snapshot per symbol, but never advance
-        a symbol backwards or recompute an already-evaluated M15 pair.
+        WebSocket and watchdog callbacks for one symbol are serialized; the
+        other symbol has its own lock and never needs to wait for this one.
+        No backfill/replay of older candles can advance the per-symbol cursor.
         """
         if self.registry is None or self.lab5 is None:
             raise RuntimeError(self.registry_error or "registry chưa nạp được")
-        from .l2_lab5 import BTC, ETH, LAB5_WINDOW_BARS
+        from .l2_lab5 import LAB5_WINDOW_BARS
         sym = str(snapshot.symbol).upper()
+        lock = self._calculate_locks.get(sym)
+        if lock is None:
+            return []
         incoming_open = int(snapshot.latest_open_time)
-        with self._frame_lock:
-            if incoming_open <= self._last_evaluated_m15_open:
+        with lock:
+            if incoming_open <= self._last_calculated_open.get(sym, -1):
                 return []
-            previous = self._lab5_frames.get(sym)
-            if previous is not None and not previous.empty:
-                if incoming_open < int(previous["open_time"].iloc[-1]):
-                    return []  # late callback must not roll back this symbol
-            self._lab5_frames[sym] = snapshot.candles.tail(LAB5_WINDOW_BARS)
-            if BTC not in self._lab5_frames or ETH not in self._lab5_frames:
-                return []
-            btc_frame, eth_frame = self._lab5_frames[BTC], self._lab5_frames[ETH]
-            if btc_frame.empty or eth_frame.empty:
-                return []
-            btc_open = int(btc_frame["open_time"].iloc[-1])
-            eth_open = int(eth_frame["open_time"].iloc[-1])
-            if btc_open != eth_open or btc_open <= self._last_evaluated_m15_open:
-                return []  # wait for the lagging symbol; do NOT discard the leading one
-            signals = self.lab5.calculate_for_symbols(self._lab5_frames, symbols=[BTC, ETH])
-            self._last_evaluated_m15_open = btc_open
+            signals = self.lab5.calculate(sym, {sym: snapshot.candles.tail(LAB5_WINDOW_BARS)})
+            self._last_calculated_open[sym] = incoming_open
             return signals
 
     def dispatch(self, signals: list[V3Signal]) -> list:
