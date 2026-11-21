@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 
 from autotrade_v3.engine.signal_engine import Signal
+from autotrade_v3.filters.btc_c4_b1_vol_confirm import BtcC4B1VolConfirmFilter
+from autotrade_v3.filters.btc_c7_b1_no_chase_1h import BtcC7B1NoChase1HFilter
 from autotrade_v3.filters.c13_b1_vol_regime import C13B1VolRegimeFilter
 from autotrade_v3.lab import (
     V3_LAB_10_ACTIVE_VERSION,
@@ -77,3 +79,78 @@ def test_c13_b1_vol_regime_filter_thresholds_and_lookahead() -> None:
     assert flt.evaluate_signal(make_sig(2000)).action == "KEEP"
     assert flt.evaluate_signal(make_sig(2999)).action == "KEEP"
     assert flt.evaluate_signal(make_sig(3000)).action == "DROP"
+
+
+def test_btc_c4_b1_vol_confirm_thresholds_and_lookahead() -> None:
+    close_ms_1h = np.array([1000, 2000, 3000], dtype=np.int64)
+    vol_ratio_20 = np.array([2.19, 2.20, 2.50], dtype=float)
+    flt = BtcC4B1VolConfirmFilter(close_ms_1h, vol_ratio_20)
+
+    def make_sig(ts: int) -> Signal:
+        return Signal(
+            symbol="BTC-USDT",
+            combo_id=4,
+            combo_name="C4",
+            timeframe="1h",
+            side="BUY",
+            signal_close_ms=ts,
+            signal_close_dt=pd.Timestamp(ts, unit="ms", tz="UTC"),
+            bar_position=0,
+            bar_open_ms=ts - 100,
+            entry_price=60000.0,
+            tp_pct=0.018,
+            sl_pct=0.009,
+            tp_price=61080.0,
+            sl_price=59460.0,
+            approved=True,
+            warmup_ready=True,
+            smc_dir=0,
+            ob_blocked=False,
+            provider="V3_LAB_10",
+            is_new6=False,
+            signal_id=f"test_C4_BUY_{ts}",
+        )
+
+    assert flt.evaluate_signal(make_sig(999)).action == "DROP"
+    assert flt.evaluate_signal(make_sig(1000)).action == "DROP"
+    assert flt.evaluate_signal(make_sig(1999)).action == "DROP"
+    assert flt.evaluate_signal(make_sig(2000)).action == "KEEP"
+    assert flt.evaluate_signal(make_sig(3000)).action == "KEEP"
+
+
+def test_btc_c7_b1_no_chase_1h_thresholds_and_lookahead() -> None:
+    close_ms_1h = np.array([1000, 2000, 3000], dtype=np.int64)
+    ema_trend_1h = np.array([0.50, 0.75, 0.76], dtype=float)
+    flt = BtcC7B1NoChase1HFilter(close_ms_1h, ema_trend_1h)
+
+    def make_sig(ts: int, side: str = "BUY") -> Signal:
+        return Signal(
+            symbol="BTC-USDT",
+            combo_id=7,
+            combo_name="C7",
+            timeframe="15m",
+            side=side,
+            signal_close_ms=ts,
+            signal_close_dt=pd.Timestamp(ts, unit="ms", tz="UTC"),
+            bar_position=0,
+            bar_open_ms=ts - 100,
+            entry_price=60000.0,
+            tp_pct=0.02,
+            sl_pct=0.008,
+            tp_price=61200.0,
+            sl_price=59520.0,
+            approved=True,
+            warmup_ready=True,
+            smc_dir=0,
+            ob_blocked=False,
+            provider="V3_LAB_10",
+            is_new6=False,
+            signal_id=f"test_C7_{side}_{ts}",
+        )
+
+    assert flt.evaluate_signal(make_sig(999)).action == "DROP"
+    assert flt.evaluate_signal(make_sig(1000)).action == "KEEP"
+    assert flt.evaluate_signal(make_sig(2000)).action == "KEEP"
+    assert flt.evaluate_signal(make_sig(2999)).action == "KEEP"
+    assert flt.evaluate_signal(make_sig(3000)).action == "DROP"
+    assert flt.evaluate_signal(make_sig(3000, side="SELL")).action == "KEEP"

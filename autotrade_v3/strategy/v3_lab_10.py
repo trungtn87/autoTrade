@@ -18,6 +18,18 @@ from typing import Any
 import pandas as pd
 
 from autotrade_v3.engine.signal_engine import Signal
+from autotrade_v3.filters.btc_c4_b1_vol_confirm import (
+    BTC_C4_COMBO_ID,
+    BTC_C4_MIN_VOL_RATIO_20,
+    BTC_C4_SYMBOL,
+    BtcC4B1VolConfirmFilter,
+)
+from autotrade_v3.filters.btc_c7_b1_no_chase_1h import (
+    BTC_C7_COMBO_ID,
+    BTC_C7_MAX_EMA_TREND_1H_DIR,
+    BTC_C7_SYMBOL,
+    BtcC7B1NoChase1HFilter,
+)
 from autotrade_v3.filters.c13_b1_vol_regime import (
     C13_COMBO_ID,
     C13_MAX_ATR_RATIO_50,
@@ -50,7 +62,9 @@ class V3Lab10Strategy(V3Lab9Strategy):
             "eth_c1": f"H1_BOTH_1({H1_BUY_MAX_SLOPE_4H_PCT},{H1_SELL_MIN_DIST_EMA150_4H_PCT})",
             "btc_c1": "H2_BUY_VOLUME_1_8",
             "eth_c3": f"B2_NOT_OVEREXTENDED_4H(ema_trend_4h_dir<={C3_MAX_EMA_TREND_4H_DIR})",
+            "btc_c4": f"B1_VOL_CONFIRM(vol_ratio_20>={BTC_C4_MIN_VOL_RATIO_20})",
             "eth_c6": "R2_V4_COMBINED(buy>=1.2,sell>=0.9)",
+            "btc_c7": f"B1_NO_CHASE_1H(ema_trend_1h_dir<={BTC_C7_MAX_EMA_TREND_1H_DIR})",
             "eth_c7": "R2_V2_ASYM_BUY_VOL20_SELL_TREND",
             "btc_c11": "H1_BUY_0_78",
             "eth_c11": "H3_B1_DEMARKER",
@@ -79,24 +93,31 @@ class V3Lab10Strategy(V3Lab9Strategy):
         )
 
         eth_df = data.get(C13_SYMBOL)
-        if eth_df is None or eth_df.empty:
-            return base_signals
+        btc_df = data.get(BTC_C4_SYMBOL)
 
-        c13_filter = C13B1VolRegimeFilter.from_m15_dataframe(eth_df)
+        c13_filter = C13B1VolRegimeFilter.from_m15_dataframe(eth_df) if eth_df is not None and not eth_df.empty else None
+        btc_c4_filter = BtcC4B1VolConfirmFilter.from_m15_dataframe(btc_df) if btc_df is not None and not btc_df.empty else None
+        btc_c7_filter = BtcC7B1NoChase1HFilter.from_m15_dataframe(btc_df) if btc_df is not None and not btc_df.empty else None
 
         out: list[Signal] = []
         for sig in base_signals:
-            if sig.symbol == C13_SYMBOL and int(sig.combo_id) == C13_COMBO_ID:
+            dec = None
+            if c13_filter is not None and sig.symbol == C13_SYMBOL and int(sig.combo_id) == C13_COMBO_ID:
                 dec = c13_filter.evaluate_signal(sig)
-                if dec.action != "KEEP":
-                    if only_approved:
-                        continue
-                    sig = Signal(
-                        **{
-                            **sig.__dict__,
-                            "approved": False,
-                            "rejection_reason": dec.reason,
-                        }
-                    )
+            elif btc_c4_filter is not None and sig.symbol == BTC_C4_SYMBOL and int(sig.combo_id) == BTC_C4_COMBO_ID:
+                dec = btc_c4_filter.evaluate_signal(sig)
+            elif btc_c7_filter is not None and sig.symbol == BTC_C7_SYMBOL and int(sig.combo_id) == BTC_C7_COMBO_ID:
+                dec = btc_c7_filter.evaluate_signal(sig)
+
+            if dec is not None and dec.action != "KEEP":
+                if only_approved:
+                    continue
+                sig = Signal(
+                    **{
+                        **sig.__dict__,
+                        "approved": False,
+                        "rejection_reason": dec.reason,
+                    }
+                )
             out.append(sig)
         return out
