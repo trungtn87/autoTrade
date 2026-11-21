@@ -1,6 +1,6 @@
-"""L2 for ``V3_LIVE_23_LAB_5_V1``: the lab ``V3_LAB_5@5.0.0`` strategy called directly.
+"""L2 adapter for ``V3_LIVE_23_LAB_10_V1``: call the lab strategy on aligned BTC/ETH candles.
 
-No strategy logic is re-implemented here. ``V3Lab5Strategy.generate_signals_for_combos`` is the single
+No strategy logic is re-implemented here. ``V3Lab10Strategy.generate_signals_for_combos`` is the single
 source of signals (indicators, Layer 2, ETH-C15 V5 filter, BTC-C14 H3a Kumo band, ETH-C1 H1_BOTH_1, exit
 parameters). This module only:
 
@@ -9,8 +9,8 @@ parameters). This module only:
 * keeps only signals that close on the latest closed M15 bar of the symbol,
 * maps each lab ``Signal`` to the ``V3Signal`` that L3 already consumes.
 
-Cross-symbol filters need BTC and ETH history together, so a symbol is evaluated only when both
-frames exist and end on the same closed M15 bar (fail closed otherwise).
+Cross-symbol filters need BTC and ETH history together. Evaluate both symbols together only when
+both frames end on the same closed M15 bar (fail closed otherwise).
 """
 from __future__ import annotations
 
@@ -53,28 +53,38 @@ class Lab5Engine:
             raise ValueError(f"{registry.version}: combo không có trong V3_LAB_5: {sorted(self.allowed - lab_keys)}")
 
     def calculate(self, symbol: str, frames: dict[str, pd.DataFrame]) -> list[V3Signal]:
-        symbol = str(symbol).upper()
-        if symbol not in frames or BTC not in frames or ETH not in frames:
-            return []  # fail closed: cross-symbol filters need both histories
-        if frames[BTC].index[-1] != frames[ETH].index[-1]:
-            return []  # fail closed: BTC and ETH must be cut at the same closed M15 bar
+        """Compatibility entrypoint for single-symbol offline callers."""
+        return self.calculate_for_symbols(frames, symbols=[symbol])
+
+    def calculate_for_symbols(
+        self, frames: dict[str, pd.DataFrame], *, symbols: list[str] | tuple[str, ...]
+    ) -> list[V3Signal]:
+        """Evaluate an aligned BTC/ETH closed M15 pair in one Lab invocation.
+
+        CandleStore.load returns independent RangeIndexes (BTC 3400 rows, ETH
+        12000), so compare the actual UTC candle open timestamps only AFTER
+        to_lab_frame has built a DatetimeIndex. Never compare row indices.
+        """
+        if BTC not in frames or ETH not in frames or frames[BTC].empty or frames[ETH].empty:
+            return []  # fail closed until both symbols have closed candles
         data = {BTC: to_lab_frame(frames[BTC].tail(LAB5_WINDOW_BARS)),
                 ETH: to_lab_frame(frames[ETH].tail(LAB5_WINDOW_BARS))}
-        mine = data[symbol]
-        if mine.empty:
+        if data[BTC].index[-1] != data[ETH].index[-1]:
+            return []  # fail closed until both symbols end at exactly the same M15 open time
+        targets = [sym for sym in (BTC, ETH)
+                   if sym in {str(s).upper() for s in symbols}
+                   and any(allowed_sym == sym for allowed_sym, _ in self.allowed)]
+        if not targets:
             return []
-        latest_close_ms = int(mine.index[-1].value // 1_000_000) + M15_MS - 1
-        sym_allowed = [sym for sym in (BTC, ETH) if any(s == sym for s, _ in self.allowed)]
-        if symbol not in sym_allowed:
-            return []
+        latest_close_ms = int(data[BTC].index[-1].value // 1_000_000) + M15_MS - 1
         sigs = self.strategy.generate_signals_for_combos(
-            data, allowed_combos=self.allowed, symbols=[symbol], only_approved=True, only_warmup_ready=True)
+            data, allowed_combos=self.allowed, symbols=targets, only_approved=True, only_warmup_ready=True)
         out: list[V3Signal] = []
         for s in sigs:
-            if s.symbol != symbol or int(s.signal_close_ms) != latest_close_ms:
+            if s.symbol not in targets or int(s.signal_close_ms) != latest_close_ms:
                 continue
             if (s.symbol, int(s.combo_id)) not in self.allowed:
-                continue  # defensive: never hand a combo outside the registry to L3
+                continue  # never hand a combo outside the registry to L3
             out.append(V3Signal(
                 event_id=f"{s.symbol}|{s.timeframe}|{s.combo_name}|{s.side}|{int(s.signal_close_ms)}",
                 symbol=s.symbol, combo=int(s.combo_id), combo_name=str(s.combo_name), side=s.side,
