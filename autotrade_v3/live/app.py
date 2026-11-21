@@ -80,7 +80,12 @@ class Runtime:
                 self.last_run = {"ok": False, "symbol": symbol, "stage": "data", "error": str(exc)}
                 return
             self._processed[symbol] = open_time
-            self.l1.set_health(symbol, True, latest_open_time=open_time, source="pipeline")
+            self.l1.set_health(symbol, True, latest_open_time=int(snapshot.latest_open_time), source="pipeline")
+            # A delayed WebSocket event cannot replay a candle from before
+            # this runtime started, or reprocess an older candle already in DB.
+            if (int(snapshot.latest_open_time) != open_time
+                    or int(snapshot.latest_close_time) < self.started_ms):
+                return
             self._run_strategy(symbol, snapshot)
 
     def on_recovered(self, symbol: str, snapshot) -> None:

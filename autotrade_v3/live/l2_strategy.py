@@ -8,6 +8,7 @@ live execution emits only the BingX-confirmed L3 result. No SMC/AI/extra conditi
 from __future__ import annotations
 
 import logging
+import threading
 
 from .l3_execution import V3Signal
 from .store import ms_to_dt
@@ -40,7 +41,12 @@ class L2Strategy:
             except ValueError as exc:
                 self.registry, self.registry_error = None, str(exc)
         self.lab5 = None
-        self._lab5_frames: dict = {}
+        # Only serialize repeated callbacks for the SAME symbol. BTC and ETH
+        # calculate independently; no cross-symbol candle readiness gate.
+        self._calculate_locks = {"BTC-USDT": threading.Lock(), "ETH-USDT": threading.Lock()}
+        self._last_calculated_open: dict[str, int] = {}
+        self._dispatch_lock = threading.Lock()
+        self._last_dispatched_by_combo: dict[tuple[str, int], int] = {}
         if self.registry is not None:
             from .l2_lab5 import Lab5Engine
             from autotrade_v3.live.l2_lab10 import V3Lab10Strategy
@@ -57,17 +63,56 @@ class L2Strategy:
         return {**self.registry.summary(), "provenance": dict(self.registry.provenance)}
 
     def calculate(self, snapshot) -> list[V3Signal]:
+        """Calculate this symbol once per newly closed M15 candle.
+
+        WebSocket and watchdog callbacks for one symbol are serialized; the
+        other symbol has its own lock and never needs to wait for this one.
+        No backfill/replay of older candles can advance the per-symbol cursor.
+        """
         if self.registry is None or self.lab5 is None:
             raise RuntimeError(self.registry_error or "registry chưa nạp được")
         from .l2_lab5 import LAB5_WINDOW_BARS
         sym = str(snapshot.symbol).upper()
-        self._lab5_frames[sym] = snapshot.candles.tail(LAB5_WINDOW_BARS)
-        return self.lab5.calculate(sym, self._lab5_frames)
+        lock = self._calculate_locks.get(sym)
+        if lock is None:
+            return []
+        incoming_open = int(snapshot.latest_open_time)
+        with lock:
+            if incoming_open <= self._last_calculated_open.get(sym, -1):
+                return []
+            signals = self.lab5.calculate(sym, {sym: snapshot.candles.tail(LAB5_WINDOW_BARS)})
+            self._last_calculated_open[sym] = incoming_open
+            return signals
 
     def dispatch(self, signals: list[V3Signal]) -> list:
-        """Persist + alert + execute each signal independently. Never raises."""
-        threads = []
+        """Dispatch at most one side per (symbol, combo, candle close), never replay older bars.
+
+        L3 additionally enforces a durable exact-event entry claim across restarts.
+        This guard covers duplicate and opposing-side signals inside the running
+        process; historical candles are rejected in Runtime before reaching L2.
+        """
+        selected: dict[tuple[str, int, int], V3Signal] = {}
+        conflicts: set[tuple[str, int, int]] = set()
         for sig in signals:
+            key = (str(sig.symbol).upper(), int(sig.combo), int(sig.close_time))
+            prior = selected.setdefault(key, sig)
+            if prior.side != sig.side:
+                conflicts.add(key)
+        for sym, combo, close_ms in sorted(conflicts):
+            self._report("signal_conflict",
+                         f"Không thực thi hai chiều cùng nến: combo={combo} close_ms={close_ms}", symbol=sym)
+        to_dispatch: list[V3Signal] = []
+        with self._dispatch_lock:
+            for key, sig in selected.items():
+                if key in conflicts:
+                    continue  # conflicting BUY/SELL: fail closed, never choose an arbitrary side
+                combo_key = key[:2]
+                if key[2] <= self._last_dispatched_by_combo.get(combo_key, -1):
+                    continue
+                self._last_dispatched_by_combo[combo_key] = key[2]  # reserve before any L3 submit
+                to_dispatch.append(sig)
+        threads = []
+        for sig in to_dispatch:
             # Hand to L3 first: a slow database or Discord never delays the Entry.
             if self.executor is not None:
                 try:

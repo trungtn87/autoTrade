@@ -1,6 +1,6 @@
-"""L2 for ``V3_LIVE_23_LAB_5_V1``: the lab ``V3_LAB_5@5.0.0`` strategy called directly.
+"""L2 adapter for ``V3_LIVE_23_LAB_10_V1``: calculate each symbol independently.
 
-No strategy logic is re-implemented here. ``V3Lab5Strategy.generate_signals_for_combos`` is the single
+No strategy logic is re-implemented here. ``V3Lab10Strategy.generate_signals_for_combos`` is the single
 source of signals (indicators, Layer 2, ETH-C15 V5 filter, BTC-C14 H3a Kumo band, ETH-C1 H1_BOTH_1, exit
 parameters). This module only:
 
@@ -9,8 +9,8 @@ parameters). This module only:
 * keeps only signals that close on the latest closed M15 bar of the symbol,
 * maps each lab ``Signal`` to the ``V3Signal`` that L3 already consumes.
 
-Cross-symbol filters need BTC and ETH history together, so a symbol is evaluated only when both
-frames exist and end on the same closed M15 bar (fail closed otherwise).
+The active Lab 10 signal rules consume each symbol's own closed M15 candles. BTC
+must never wait for ETH or vice versa. Time alignment uses each frame's UTC timestamps.
 """
 from __future__ import annotations
 
@@ -53,22 +53,27 @@ class Lab5Engine:
             raise ValueError(f"{registry.version}: combo không có trong V3_LAB_5: {sorted(self.allowed - lab_keys)}")
 
     def calculate(self, symbol: str, frames: dict[str, pd.DataFrame]) -> list[V3Signal]:
+        """Evaluate only this symbol's latest closed M15 bar; never gate on the other symbol.
+
+        CandleStore.load gives BTC (3400 bars) and ETH (12000 bars) distinct
+        RangeIndexes. Convert the requested symbol's own M15 open_time to UTC
+        timestamps before computing signals; the last closed M15 bar remains
+        the sole publishable bar.
+        """
         symbol = str(symbol).upper()
-        if symbol not in frames or BTC not in frames or ETH not in frames:
-            return []  # fail closed: cross-symbol filters need both histories
-        if frames[BTC].index[-1] != frames[ETH].index[-1]:
-            return []  # fail closed: BTC and ETH must be cut at the same closed M15 bar
-        data = {BTC: to_lab_frame(frames[BTC].tail(LAB5_WINDOW_BARS)),
-                ETH: to_lab_frame(frames[ETH].tail(LAB5_WINDOW_BARS))}
+        frame = frames.get(symbol)
+        if frame is None or frame.empty:
+            return []
+        if not any(allowed_sym == symbol for allowed_sym, _ in self.allowed):
+            return []
+        data = {symbol: to_lab_frame(frame.tail(LAB5_WINDOW_BARS))}
         mine = data[symbol]
         if mine.empty:
             return []
         latest_close_ms = int(mine.index[-1].value // 1_000_000) + M15_MS - 1
-        sym_allowed = [sym for sym in (BTC, ETH) if any(s == sym for s, _ in self.allowed)]
-        if symbol not in sym_allowed:
-            return []
         sigs = self.strategy.generate_signals_for_combos(
-            data, allowed_combos=self.allowed, symbols=[symbol], only_approved=True, only_warmup_ready=True)
+            data, allowed_combos=self.allowed, symbols=[symbol],
+            only_approved=True, only_warmup_ready=True)
         out: list[V3Signal] = []
         for s in sigs:
             if s.symbol != symbol or int(s.signal_close_ms) != latest_close_ms:
