@@ -107,6 +107,7 @@ class SimulationResult:
     ambiguity_stats: dict[str, int]
     summary_dict: dict[str, Any] = field(default_factory=dict)
     signal_decisions: list[Any] = field(default_factory=list)
+    funding_events: list[Any] = field(default_factory=list)
 
     @property
     def total_signals_count(self) -> int:

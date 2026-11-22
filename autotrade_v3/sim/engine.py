@@ -13,6 +13,7 @@ from autotrade_v3.sim.account import AccountLedger, verify_mode_c_accounting_inv
 from autotrade_v3.sim.admission import AllSignals, OneTradePerCombo, Portfolio
 from autotrade_v3.sim.ambiguity import AmbiguityPolicy, normalize_ambiguity_policy
 from autotrade_v3.sim.costs import CostModel
+from autotrade_v3.sim.funding import FundingEventRecord, FundingTable, compute_funding_cashflow
 from autotrade_v3.sim.leg import extract_m1_arrays, simulate_leg
 from autotrade_v3.sim.types import Event, ExitRules, LegOutcome, LegSpec, M1BarArrays, SignalDecision
 from autotrade_v3.strategy.base import ExitPolicy
@@ -168,12 +169,14 @@ class UnifiedSimulator:
         trailing_cb_pct: float = 0.005,
         cost_model: CostModel | None = None,
         ambiguity_policy: str = "LEGACY",
+        funding_table: FundingTable | None = None,
     ) -> None:
         self.risk = risk_config or RiskConfig()
         self.final14_exit_mode = final14_exit_mode
         self.trailing_act_pct = trailing_act_pct
         self.trailing_cb_pct = trailing_cb_pct
         self.ambiguity_policy: AmbiguityPolicy = normalize_ambiguity_policy(ambiguity_policy)
+        self.funding_table = funding_table
         if cost_model is not None:
             self.cost_model = cost_model
         elif getattr(self.risk, "cost_model", None) is not None:
@@ -548,6 +551,13 @@ class UnifiedSimulator:
                 )
 
         legs_closing_at: dict[int, dict[tuple[str, str], list[_PendingPortfolioLeg]]] = {}
+        active_legs: dict[str, _PendingPortfolioLeg] = {}
+        leg_funding_cashflow: dict[str, float] = {}
+        funding_events: list[FundingEventRecord] = []
+        funding_paid = 0.0
+        funding_received = 0.0
+        funding_tbl = self.funding_table
+        funding_ts_set = funding_tbl.all_timestamps if funding_tbl is not None else set()
         closed_trades: list[TradeRecord] = []
         events: list[ExecutionEvent] = []
         accepted_sigs: list[Signal] = []
@@ -558,6 +568,50 @@ class UnifiedSimulator:
 
         for bar_idx in range(n_bars):
             ts = int(t_ms_array[bar_idx])
+
+            if funding_tbl is not None and ts in funding_ts_set and active_legs:
+                ts_dt_str = str(arrays_by_sym[first_sym].index[bar_idx])
+                for leg_id, pending_leg in active_legs.items():
+                    f_info = funding_tbl.get(pending_leg.sig.symbol, ts)
+                    if f_info is None:
+                        continue
+                    rate, mpx, src = f_info
+                    settle_px = (
+                        mpx
+                        if (mpx is not None and mpx > 0.0)
+                        else float(opens_by_sym[pending_leg.sig.symbol][bar_idx])
+                    )
+                    pos_notional = pending_leg.leg_qty * settle_px
+                    cf = compute_funding_cashflow(
+                        position_notional=pos_notional,
+                        funding_rate=rate,
+                        side=pending_leg.sig.side,
+                    )
+                    account.balance += cf
+                    leg_funding_cashflow[leg_id] = leg_funding_cashflow.get(leg_id, 0.0) + cf
+                    if cf < 0.0:
+                        funding_paid += -cf
+                    elif cf > 0.0:
+                        funding_received += cf
+                    funding_events.append(
+                        FundingEventRecord(
+                            funding_time_ms=ts,
+                            funding_time_utc=ts_dt_str,
+                            symbol=pending_leg.sig.symbol,
+                            side=pending_leg.sig.side,
+                            trade_id=pending_leg.trade_id,
+                            leg_id=leg_id,
+                            combo_id=int(pending_leg.sig.combo_id),
+                            combo_name=pending_leg.sig.combo_name,
+                            leg_qty=pending_leg.leg_qty,
+                            settlement_price=settle_px,
+                            position_notional=pos_notional,
+                            funding_rate=rate,
+                            direction=1 if pending_leg.sig.side == "BUY" else -1,
+                            funding_cashflow=cf,
+                            source=src,
+                        )
+                    )
 
             for sig in signals_by_bar.get(bar_idx, []):
                 sig_id = _resolve_signal_id(sig)
@@ -667,6 +721,7 @@ class UnifiedSimulator:
                         exit_rules=exit_rules,
                         provider=provider,
                     )
+                    active_legs[leg_spec.leg_id] = pending
                     legs_closing_at.setdefault(outcome.exit_bar_idx, {}).setdefault(
                         (sig.symbol, sig.side), []
                     ).append(pending)
@@ -698,6 +753,8 @@ class UnifiedSimulator:
                         exit_notional = pending.leg_qty * exec_exit_px
                         exit_fee = cb.fee_exit
 
+                        active_legs.pop(pending.leg_spec.leg_id, None)
+                        leg_cf = leg_funding_cashflow.get(pending.leg_spec.leg_id, 0.0)
                         effective_entry, gross_pnl, total_fee, net_pnl = account.close_leg(
                             symbol=sig.symbol,
                             side=sig.side,
@@ -707,8 +764,10 @@ class UnifiedSimulator:
                             exec_exit_price=exec_exit_px,
                             entry_fee=cb.fee_entry,
                             exit_fee=exit_fee,
-                            funding_cost=cb.funding_cost,
+                            funding_cost=0.0 if funding_tbl is not None else cb.funding_cost,
                         )
+                        net_pnl_with_funding = net_pnl + leg_cf
+                        pnl_own_with_funding = cb.net_pnl + leg_cf
                         portfolio_policy.record_close_leg(
                             sig.symbol, sig.combo_id, pending.leg_spec.leg_id
                         )
@@ -763,9 +822,9 @@ class UnifiedSimulator:
                                 margin=pending.leg_margin,
                                 gross_pnl=gross_pnl,
                                 fee_total=total_fee,
-                                net_pnl=net_pnl,
+                                net_pnl=net_pnl_with_funding,
                                 return_pct=(
-                                    net_pnl / pending.leg_spec.notional
+                                    net_pnl_with_funding / pending.leg_spec.notional
                                     if pending.leg_spec.notional > 0
                                     else 0.0
                                 ),
@@ -788,12 +847,12 @@ class UnifiedSimulator:
                                 fee_exit=cb.fee_exit,
                                 spread_cost=cb.spread_cost,
                                 slippage_cost=cb.slippage_cost,
-                                funding_cost=cb.funding_cost,
+                                funding_cost=-leg_cf if funding_tbl is not None else cb.funding_cost,
                                 gross_pnl_raw=cb.gross_pnl_raw,
                                 ambiguity_type=outcome.ambiguity_type,
                                 ambiguity_policy=outcome.ambiguity_policy,
-                                pnl_own_entry=cb.net_pnl,
-                                pnl_vwap=net_pnl,
+                                pnl_own_entry=pnl_own_with_funding,
+                                pnl_vwap=net_pnl_with_funding,
                             )
                         )
 
@@ -837,6 +896,9 @@ class UnifiedSimulator:
             initial_equity=self.risk.initial_equity,
             final_equity=account.final_equity,
         )
+        sim_limits = dict(MODE_C_SIMULATION_LIMITS)
+        if funding_tbl is not None:
+            sim_limits["funding_rate"] = "HISTORICAL_SETTLEMENT_CASHFLOW_MODELED"
         m2m_summary = {
             "status": liq_warning["status"] if liq_warning else "OK",
             "initial_equity": self.risk.initial_equity,
@@ -846,12 +908,17 @@ class UnifiedSimulator:
             "m2m_max_drawdown_pct": round(account.max_m2m_dd_pct, 2),
             "intrabar_tp_sl_ambiguous_count": intrabar_tp_sl_count,
             "intrabar_trailing_ambiguous_count": intrabar_trail_count,
-            "simulation_limits": dict(MODE_C_SIMULATION_LIMITS),
+            "funding_enabled": funding_tbl is not None,
+            "funding_events_count": len(funding_events),
+            "funding_paid": round(funding_paid, 6),
+            "funding_received": round(funding_received, 6),
+            "funding_net_cashflow": round(funding_received - funding_paid, 6),
+            "simulation_limits": sim_limits,
             "accounting_invariant": acct_inv,
         }
         if liq_warning:
             m2m_summary.update(liq_warning)
-        return self._build_result(
+        res = self._build_result(
             mode=out_mode,
             trades=closed_trades,
             events=events,
@@ -860,6 +927,8 @@ class UnifiedSimulator:
             snapshots=account.snapshots_df(),
             extra_summary=m2m_summary,
         )
+        res.funding_events = funding_events
+        return res
 
     def _build_result(
         self,
