@@ -30,6 +30,19 @@ def _file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def text_sha256_matches_eol(path: Path, expected: Any) -> bool:
+    """So khớp SHA-256 tệp văn bản bất kể LF/CRLF do Git autocrlf chuyển đổi trên Windows."""
+    raw = path.read_bytes()
+    lf = raw.replace(b"\r\n", b"\n")
+    crlf = lf.replace(b"\n", b"\r\n")
+    variants = {
+        hashlib.sha256(raw).hexdigest(),
+        hashlib.sha256(lf).hexdigest(),
+        hashlib.sha256(crlf).hexdigest(),
+    }
+    return isinstance(expected, str) and expected in variants
+
+
 def verify_evidence_dir(
     evidence_dir: Path | None = None,
     *,
@@ -68,26 +81,26 @@ def verify_evidence_dir(
     cfg = load_research_config(cfg_path)
 
     cfg_canon = canonical_json_sha256(cfg)
-    cfg_file_sha = _file_sha256(cfg_path)
+    cfg_file_ok = text_sha256_matches_eol(cfg_path, manifest.get("config_file_sha256"))
     record(
         "config_hashes",
-        cfg_canon == manifest.get("config_canonical_sha256")
-        and cfg_file_sha == manifest.get("config_file_sha256"),
-        f"manifest_cfg={manifest.get('config_canonical_sha256')} actual={cfg_canon}",
+        cfg_canon == manifest.get("config_canonical_sha256") and cfg_file_ok,
+        f"manifest_cfg={manifest.get('config_canonical_sha256')} actual={cfg_canon}"
+        + ("" if cfg_file_ok else " file_ok=False"),
     )
 
     rep_sha_recorded = report.get("report_sha256")
     rep_body = {k: v for k, v in report.items() if k != "report_sha256"}
     rep_canon_actual = canonical_json_sha256(rep_body)
-    rep_file_sha_actual = _file_sha256(report_path)
-    html_file_sha_actual = _file_sha256(html_path)
+    rep_file_ok = text_sha256_matches_eol(report_path, manifest.get("report_file_sha256"))
+    html_file_ok = text_sha256_matches_eol(html_path, manifest.get("html_file_sha256"))
     record(
         "report_and_html_hashes",
         rep_sha_recorded == manifest.get("report_canonical_sha256")
         and rep_canon_actual == rep_sha_recorded
-        and rep_file_sha_actual == manifest.get("report_file_sha256")
-        and html_file_sha_actual == manifest.get("html_file_sha256"),
-        f"canon_ok={rep_canon_actual == rep_sha_recorded} file_ok={rep_file_sha_actual == manifest.get('report_file_sha256')} html_ok={html_file_sha_actual == manifest.get('html_file_sha256')}",
+        and rep_file_ok
+        and html_file_ok,
+        f"canon_ok={rep_canon_actual == rep_sha_recorded} file_ok={rep_file_ok} html_ok={html_file_ok}",
     )
 
     if verify_data_hash:

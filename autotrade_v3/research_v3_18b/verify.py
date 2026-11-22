@@ -11,6 +11,7 @@ from autotrade_v3.research_v3_18.combo_regime_analyzer import SPLIT_ORDER
 from autotrade_v3.research_v3_18.combos_30 import get_live_23_pairs
 from autotrade_v3.research_v3_18.portfolio_experiments import evaluate_portfolio_candidate_flag
 from autotrade_v3.research_v3_18.regime_features import load_research_config
+from autotrade_v3.research_v3_18.verify import text_sha256_matches_eol
 from autotrade_v3.research_v3_18b import DEFAULT_CONFIG_PATH
 from autotrade_v3.research_v3_18b.labels_vi import find_english_label_leaks_v3_18b
 from autotrade_v3.strategy.v3_lab_11 import V3Lab11Strategy
@@ -68,25 +69,26 @@ def verify_v3_18b_evidence(
     cfg = load_research_config(cfg_path)
 
     cfg_canon = canonical_json_sha256(cfg)
-    cfg_file = _file_sha256(cfg_path)
+    cfg_file_ok = text_sha256_matches_eol(cfg_path, manifest.get("config_file_sha256"))
     record(
         "config_hashes",
-        cfg_canon == manifest.get("config_canonical_sha256") and cfg_file == manifest.get("config_file_sha256"),
-        f"manifest_cfg={manifest.get('config_canonical_sha256')} actual={cfg_canon}",
+        cfg_canon == manifest.get("config_canonical_sha256") and cfg_file_ok,
+        f"manifest_cfg={manifest.get('config_canonical_sha256')} actual={cfg_canon}"
+        + ("" if cfg_file_ok else " file_ok=False"),
     )
 
     rep_recorded = report.get("report_sha256")
     rep_body = {k: v for k, v in report.items() if k != "report_sha256"}
     rep_canon = canonical_json_sha256(rep_body)
-    rep_file = _file_sha256(report_path)
-    html_file = _file_sha256(html_path)
+    rep_file_ok = text_sha256_matches_eol(report_path, manifest.get("report_file_sha256"))
+    html_file_ok = text_sha256_matches_eol(html_path, manifest.get("html_file_sha256"))
     record(
         "report_and_html_hashes",
         rep_recorded == manifest.get("report_canonical_sha256")
         and rep_canon == rep_recorded
-        and rep_file == manifest.get("report_file_sha256")
-        and html_file == manifest.get("html_file_sha256"),
-        f"canon_ok={rep_canon == rep_recorded} rep_file_ok={rep_file == manifest.get('report_file_sha256')} html_ok={html_file == manifest.get('html_file_sha256')}",
+        and rep_file_ok
+        and html_file_ok,
+        f"canon_ok={rep_canon == rep_recorded} rep_file_ok={rep_file_ok} html_ok={html_file_ok}",
     )
 
     if verify_data_hash:
