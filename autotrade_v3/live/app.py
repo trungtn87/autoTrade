@@ -90,8 +90,7 @@ class Runtime:
             # A delayed WebSocket event cannot replay a candle from before
             # this runtime started, or reprocess an older candle already in DB.
             if (int(snapshot.latest_open_time) != open_time
-                    or int(snapshot.latest_close_time) < self.started_ms
-                    or open_time != expected_closed_open(int(time.time() * 1000))):
+                    or int(snapshot.latest_close_time) < self.started_ms):
                 return
             self._run_strategy(symbol, snapshot)
 
@@ -103,9 +102,8 @@ class Runtime:
             if open_time <= self.processed_open(symbol):
                 return
             self._processed[symbol] = open_time
-            if (int(snapshot.latest_close_time) < self.started_ms
-                    or open_time != expected_closed_open(int(time.time() * 1000))):
-                return  # never trade old/superseded candles
+            if int(snapshot.latest_close_time) < self.started_ms:
+                return  # never replay candles that closed before this process existed
             self._run_strategy(symbol, snapshot)
 
     def _run_strategy(self, symbol: str, snapshot) -> None:
