@@ -43,11 +43,11 @@ def _metric_field(
 
 
 def _governance_period_for_ym(year_month: str) -> str:
-    if year_month.startswith("2026-"):
-        if year_month >= "2026-11":
-            return LABELS_VI["gov_forward"]
+    if year_month < "2025-11":
+        return LABELS_VI["gov_development"]
+    if year_month < "2026-11":
         return LABELS_VI["gov_2026_validation"]
-    return LABELS_VI["gov_development"]
+    return LABELS_VI["gov_forward"]
 
 
 def _pf_from_series(pnl: pd.Series) -> float | str:
@@ -147,45 +147,77 @@ def _compute_symbol_rows(trades_df: pd.DataFrame, decisions_df: pd.DataFrame | N
     return rows
 
 
+def _make_monthly_row(ym_label: str, gov_period: str, grp: pd.DataFrame) -> dict[str, Any]:
+    entries = int(grp["trade_id"].nunique())
+    legs = int(len(grp))
+    leg_wins = int((grp["net_pnl"].astype(float) > 0.0).sum())
+    leg_wr = (leg_wins / legs * 100.0) if legs > 0 else 0.0
+    gross_pnl = float(grp["gross_pnl"].astype(float).sum())
+    fees = float(grp["fee_total"].astype(float).sum())
+    net_pnl = float(grp["net_pnl"].astype(float).sum())
+    net_pf_leg = _pf_from_series(grp["net_pnl"].astype(float))
+    return {
+        "year_month": ym_label,
+        "governance_period": gov_period,
+        "entries": _metric_field(value=entries, unit="count", source="trades.parquet#trade_id", label_vi=LABELS_VI["accepted_entries"]),
+        "legs": _metric_field(value=legs, unit="count", source="trades.parquet#leg_id", label_vi=LABELS_VI["total_legs"]),
+        "leg_win_rate_pct": _metric_field(value=leg_wr, unit="pct", source="trades.parquet#net_pnl", label_vi=LABELS_VI["leg_win_rate_pct"]),
+        "gross_pnl": _metric_field(value=gross_pnl, unit="USD", source="trades.parquet#gross_pnl", label_vi=LABELS_VI["gross_pnl_before_costs"]),
+        "fees": _metric_field(value=fees, unit="USD", source="trades.parquet#fee_total", label_vi=LABELS_VI["total_fees"]),
+        "net_pnl": _metric_field(value=net_pnl, unit="USD", source="trades.parquet#net_pnl", label_vi=LABELS_VI["total_net_profit"]),
+        "net_pf_leg": _metric_field(value=net_pf_leg, unit="ratio", source="trades.parquet#net_pnl", label_vi=LABELS_VI["net_pf_leg"]),
+    }
+
+
 def _compute_monthly_rows(trades_df: pd.DataFrame) -> list[dict[str, Any]]:
     df = trades_df.copy()
     df["_ym"] = pd.to_datetime(df["exit_time_ms"], unit="ms", utc=True).dt.strftime("%Y-%m")
+    forward_cutoff = pd.Timestamp("2026-11-14T00:00:00Z")
     rows: list[dict[str, Any]] = []
     for ym, grp in df.groupby("_ym", sort=True):
         ym_str = str(ym)
-        entries = int(grp["trade_id"].nunique())
-        legs = int(len(grp))
-        leg_wins = int((grp["net_pnl"].astype(float) > 0.0).sum())
-        leg_wr = (leg_wins / legs * 100.0) if legs > 0 else 0.0
-        gross_pnl = float(grp["gross_pnl"].astype(float).sum())
-        fees = float(grp["fee_total"].astype(float).sum())
-        net_pnl = float(grp["net_pnl"].astype(float).sum())
-        net_pf_leg = _pf_from_series(grp["net_pnl"].astype(float))
-        rows.append(
-            {
-                "year_month": ym_str,
-                "governance_period": _governance_period_for_ym(ym_str),
-                "entries": _metric_field(value=entries, unit="count", source="trades.parquet#trade_id", label_vi=LABELS_VI["accepted_entries"]),
-                "legs": _metric_field(value=legs, unit="count", source="trades.parquet#leg_id", label_vi=LABELS_VI["total_legs"]),
-                "leg_win_rate_pct": _metric_field(value=leg_wr, unit="pct", source="trades.parquet#net_pnl", label_vi=LABELS_VI["leg_win_rate_pct"]),
-                "gross_pnl": _metric_field(value=gross_pnl, unit="USD", source="trades.parquet#gross_pnl", label_vi=LABELS_VI["gross_pnl_before_costs"]),
-                "fees": _metric_field(value=fees, unit="USD", source="trades.parquet#fee_total", label_vi=LABELS_VI["total_fees"]),
-                "net_pnl": _metric_field(value=net_pnl, unit="USD", source="trades.parquet#net_pnl", label_vi=LABELS_VI["total_net_profit"]),
-                "net_pf_leg": _metric_field(value=net_pf_leg, unit="ratio", source="trades.parquet#net_pnl", label_vi=LABELS_VI["net_pf_leg"]),
-            }
-        )
+        if ym_str == "2026-11":
+            exit_ts = pd.to_datetime(grp["exit_time_ms"], unit="ms", utc=True)
+            pre_grp = grp.loc[exit_ts < forward_cutoff]
+            post_grp = grp.loc[exit_ts >= forward_cutoff]
+            if not pre_grp.empty and not post_grp.empty:
+                rows.append(_make_monthly_row("2026-11 (01–13)", LABELS_VI["gov_2026_validation"], pre_grp))
+                rows.append(_make_monthly_row("2026-11 (từ 14)", LABELS_VI["gov_forward"], post_grp))
+            elif not pre_grp.empty:
+                rows.append(_make_monthly_row(ym_str, LABELS_VI["gov_2026_validation"], pre_grp))
+            else:
+                rows.append(_make_monthly_row(ym_str, LABELS_VI["gov_forward"], post_grp))
+        else:
+            rows.append(_make_monthly_row(ym_str, _governance_period_for_ym(ym_str), grp))
     return rows
+
+
+def _downsample_indices(
+    n: int,
+    max_points: int = 160,
+    required_indices: Sequence[int] = (),
+) -> list[int]:
+    if n <= 0:
+        return []
+    if n <= max_points:
+        return list(range(n))
+    step = max(1, n // max_points)
+    idx_set = set(range(0, n, step))
+    idx_set.add(0)
+    idx_set.add(n - 1)
+    for i in required_indices:
+        if 0 <= i < n:
+            idx_set.add(int(i))
+    return sorted(idx_set)
 
 
 def _downsample_series(values: Sequence[float], max_points: int = 160) -> list[float]:
     n = len(values)
     if n <= max_points:
         return [float(v) for v in values]
-    step = max(1, n // max_points)
-    sampled = [float(values[i]) for i in range(0, n, step)]
-    if sampled[-1] != float(values[-1]):
-        sampled.append(float(values[-1]))
-    return sampled
+    raw = [float(v) for v in values]
+    req = [raw.index(min(raw)), raw.index(max(raw))]
+    return [raw[i] for i in _downsample_indices(n, max_points=max_points, required_indices=req)]
 
 
 def _build_chart_series(
@@ -194,16 +226,25 @@ def _build_chart_series(
     initial_equity: float,
 ) -> dict[str, Any]:
     if snapshots_df is not None and not snapshots_df.empty:
-        bal = _downsample_series(snapshots_df["balance"].astype(float).tolist())
-        eq = _downsample_series(snapshots_df["equity"].astype(float).tolist())
-        dd_usd = _downsample_series(snapshots_df["drawdown_dollars"].astype(float).tolist())
-        dd_pct = _downsample_series(snapshots_df["drawdown_pct"].astype(float).tolist())
+        bal_raw = snapshots_df["balance"].astype(float).tolist()
+        eq_raw = snapshots_df["equity"].astype(float).tolist()
+        dd_usd_raw = snapshots_df["drawdown_dollars"].astype(float).tolist()
+        dd_pct_raw = snapshots_df["drawdown_pct"].astype(float).tolist()
+        req = [
+            bal_raw.index(min(bal_raw)),
+            bal_raw.index(max(bal_raw)),
+            eq_raw.index(min(eq_raw)),
+            eq_raw.index(max(eq_raw)),
+            dd_usd_raw.index(max(dd_usd_raw)),
+            dd_pct_raw.index(max(dd_pct_raw)),
+        ]
+        idxs = _downsample_indices(len(bal_raw), max_points=160, required_indices=req)
         return {
             "has_equity_mtm": True,
-            "balance": bal,
-            "equity_mtm": eq,
-            "dd_dollars": dd_usd,
-            "dd_pct": dd_pct,
+            "balance": [bal_raw[i] for i in idxs],
+            "equity_mtm": [eq_raw[i] for i in idxs],
+            "dd_dollars": [dd_usd_raw[i] for i in idxs],
+            "dd_pct": [dd_pct_raw[i] for i in idxs],
         }
 
     ordered = trades_df.sort_values(["exit_time_ms", "entry_time_ms", "trade_id", "leg_id"], kind="mergesort")
@@ -222,12 +263,19 @@ def _build_chart_series(
         dd_usd_list.append(dd)
         dd_pct_list.append(dd_p)
 
+    req_fb = [
+        bal_list.index(min(bal_list)),
+        bal_list.index(max(bal_list)),
+        dd_usd_list.index(max(dd_usd_list)),
+        dd_pct_list.index(max(dd_pct_list)),
+    ]
+    idxs_fb = _downsample_indices(len(bal_list), max_points=160, required_indices=req_fb)
     return {
         "has_equity_mtm": False,
-        "balance": _downsample_series(bal_list),
+        "balance": [bal_list[i] for i in idxs_fb],
         "equity_mtm": None,
-        "dd_dollars": _downsample_series(dd_usd_list),
-        "dd_pct": _downsample_series(dd_pct_list),
+        "dd_dollars": [dd_usd_list[i] for i in idxs_fb],
+        "dd_pct": [dd_pct_list[i] for i in idxs_fb],
     }
 
 
@@ -798,12 +846,17 @@ def render_html_report(payload: dict[str, Any]) -> str:
     monthly_rows_html = []
     for m in brk["monthly"]:
         ym = m["year_month"]
-        is_2026 = ym.startswith("2026-")
-        badge_cls = "badge-val" if is_2026 else "badge-dev"
+        gov_p = m["governance_period"]
+        if gov_p == LABELS_VI["gov_forward"]:
+            badge_cls = "badge-pass"
+        elif gov_p == LABELS_VI["gov_2026_validation"]:
+            badge_cls = "badge-val"
+        else:
+            badge_cls = "badge-dev"
         np_m = float(m["net_pnl"]["value"])
         monthly_rows_html.append(
             f"<tr><td class='sticky-col fw-600'>{html.escape(ym)}</td>"
-            f"<td><span class='badge {badge_cls}'>{html.escape(m['governance_period'])}</span></td>"
+            f"<td><span class='badge {badge_cls}'>{html.escape(gov_p)}</span></td>"
             f"<td class='num'>{int(m['entries']['value']):,}</td>"
             f"<td class='num'>{int(m['legs']['value']):,}</td>"
             f"<td class='num'>{float(m['leg_win_rate_pct']['value']):.2f}%</td>"
