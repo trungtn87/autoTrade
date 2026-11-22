@@ -30,7 +30,7 @@
     {
       "check": "catalog_30_23_7_exact",
       "ok": true,
-      "detail": "count=30 live=23 non_live=7"
+      "detail": "count=30 live=23 non_live=7 pos20=20"
     },
     {
       "check": "combo_regime_accounting",
