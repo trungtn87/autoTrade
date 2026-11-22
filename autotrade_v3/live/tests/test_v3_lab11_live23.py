@@ -1,4 +1,4 @@
-"""V3_LIVE_23_LAB_10_V1: registry parity with LAB_8 keys, L2 wiring, and ETH C3/C13 filter wiring.
+"""V3_LIVE_23_LAB_11_V1: registry parity with LAB_8 keys, L2 wiring, and ETH C3/C13 filter wiring.
 
 MOCK / offline tests: no network, no broker, no DB. The base lab generator is replaced by fixed candidate
 signals, so only the Lab 10 filter wrappers (ETH-USDT/C3 4H overextension, ETH-USDT/C13 1H vol regime) run.
@@ -10,7 +10,7 @@ import pandas as pd
 
 from autotrade_v3.live.l2_lab10 import V3Lab10Strategy
 from autotrade_v3.live.l2_lab5 import Lab5Engine
-from autotrade_v3.live.strategy_registry import DEFAULT_REGISTRY, REGISTRY_LAB10_23, load_registry
+from autotrade_v3.live.strategy_registry import DEFAULT_REGISTRY, REGISTRY_LAB11_23, load_registry
 
 M15_MS = 900_000
 
@@ -24,8 +24,8 @@ EXPECTED_KEYS = {
 
 
 def test_lab10_registry_is_the_only_default_with_fixed_23_keys() -> None:
-    reg = load_registry(REGISTRY_LAB10_23)
-    assert DEFAULT_REGISTRY == REGISTRY_LAB10_23
+    reg = load_registry(REGISTRY_LAB11_23)
+    assert DEFAULT_REGISTRY == REGISTRY_LAB11_23
     assert len(reg.combos) == 23
     assert reg.allowed() == EXPECTED_KEYS
     assert {c.signal_variant for c in reg.combos} == {"LAB_10"}
@@ -33,7 +33,7 @@ def test_lab10_registry_is_the_only_default_with_fixed_23_keys() -> None:
 
 
 def test_lab10_engine_wires_v3_lab10_strategy_for_registry() -> None:
-    reg = load_registry(REGISTRY_LAB10_23)
+    reg = load_registry(REGISTRY_LAB11_23)
     eng = Lab5Engine(reg, strategy=V3Lab10Strategy())
     assert type(eng.strategy).__name__ == "V3Lab10Strategy"
     assert eng.strategy.strategy_id == "V3_LAB_10"

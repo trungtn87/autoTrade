@@ -1,4 +1,4 @@
-"""Lab 10 L2 signal module for live (V3_LIVE_23_LAB_10_V1).
+"""Lab 10 L2 signal module for live (V3_LIVE_23_LAB_11_V1).
 
 Hand-maintained since the pruning PR: unused incremental/live-state, annotation and
 registry-extension code was removed; logic was kept as-is and proven identical by a

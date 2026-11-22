@@ -1,7 +1,7 @@
 """L2 strategy registry: which combo-symbols the live engine may trade, and how.
 
-Single registry: ``V3_LIVE_23_LAB_10_V1`` (default and only value of ``V3_STRATEGY_REGISTRY``).
-The 23 positive combo-symbols of lab ``V3_LAB_10@10.0.0`` with Fixed TP/SL. Signals come from the flat lab
+Single registry: ``V3_LIVE_23_LAB_11_V1`` (default and only value of ``V3_STRATEGY_REGISTRY``).
+The 23 combo-symbols of lab ``V3_LAB_11_PRUNE23@11.0.0`` (Lab 10 signals plus BTC C1/C4/C7 filters) with Fixed TP/SL. Signals come from the flat lab
 module ``autotrade_v3.live.l2_lab10`` through ``l2_lab5.Lab5Engine``.
 
 Exit policy is the live FIXED_TP_SL for every new entry (one TP + one SL on the real fill). The registry never
@@ -16,9 +16,9 @@ from pathlib import Path
 from typing import Any
 
 
-REGISTRY_LAB10_23 = "V3_LIVE_23_LAB_10_V1"
-DEFAULT_REGISTRY = REGISTRY_LAB10_23
-KNOWN_REGISTRIES = (REGISTRY_LAB10_23,)
+REGISTRY_LAB11_23 = "V3_LIVE_23_LAB_11_V1"
+DEFAULT_REGISTRY = REGISTRY_LAB11_23
+KNOWN_REGISTRIES = (REGISTRY_LAB11_23,)
 
 _DIR = Path(__file__).resolve().parent / "registries"
 
@@ -113,9 +113,9 @@ class StrategyRegistry:
 
 
 def _load_lab10_23() -> StrategyRegistry:
-    """23 combo-symbols of V3_LAB_10@10.0.0 (file ``V3_LIVE_23_LAB_10_V1.json``)."""
-    raw = json.loads((_DIR / f"{REGISTRY_LAB10_23}.json").read_text(encoding="utf-8"))
-    if raw["registry_version"] != REGISTRY_LAB10_23:
+    """23 combo-symbols of V3_LAB_11_PRUNE23@11.0.0 (file ``V3_LIVE_23_LAB_11_V1.json``)."""
+    raw = json.loads((_DIR / f"{REGISTRY_LAB11_23}.json").read_text(encoding="utf-8"))
+    if raw["registry_version"] != REGISTRY_LAB11_23:
         raise ValueError(f"registry file declares {raw['registry_version']!r}")
     combos = tuple(
         ComboSpec(symbol=c["symbol"], combo_id=int(c["combo_id"]), native_timeframe=c["timeframe"],
@@ -123,9 +123,9 @@ def _load_lab10_23() -> StrategyRegistry:
                   tp_pct=float(c["tp_pct"]), sl_pct=float(c["sl_pct"]), signal_variant="LAB_10")
         for c in raw["combos"])
     if len(combos) != 23 or len({(c.symbol, c.combo_id) for c in combos}) != 23:
-        raise ValueError(f"{REGISTRY_LAB10_23} phải có đúng 23 combo-symbol duy nhất")
-    return StrategyRegistry(version=f"{REGISTRY_LAB10_23}@1.0.0", combos=combos, new6_signal_mode="virtual_position",
-                            provenance={"source": "autotrade_v3.live.l2_lab10 (V3_LAB_10@10.0.0)",
+        raise ValueError(f"{REGISTRY_LAB11_23} phải có đúng 23 combo-symbol duy nhất")
+    return StrategyRegistry(version=f"{REGISTRY_LAB11_23}@1.0.0", combos=combos, new6_signal_mode="virtual_position",
+                            provenance={"source": "autotrade_v3.live.l2_lab10 (V3_LAB_11_PRUNE23@11.0.0)",
                                         "parent_source": dict(raw["parent_source"])})
 
 
