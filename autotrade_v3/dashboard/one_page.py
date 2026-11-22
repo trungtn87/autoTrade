@@ -310,8 +310,8 @@ def _live_status_badge(live_n: int, threshold: int, has_reconcile: bool, drifted
 def _build_main_equity_chart(payload: dict[str, Any], rec: dict[str, Any]) -> go.Figure:
     eq = payload.get("series", {}).get("equity_mtm") or []
     tw = payload.get("run_info", {}).get("time_window_utc", {})
-    start_s = tw.get("start", "2023-11-01")
-    end_s = tw.get("end", "2026-11-01")
+    start_s = pd.to_datetime(tw.get("start", "2023-11-01"), utc=True)
+    end_s = pd.to_datetime(tw.get("end", "2026-11-01"), utc=True)
     x_dates = pd.date_range(start_s, end_s, periods=max(len(eq), 2), tz="UTC") if eq else []
 
     fig = go.Figure()

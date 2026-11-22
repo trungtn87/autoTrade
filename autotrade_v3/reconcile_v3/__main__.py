@@ -28,10 +28,11 @@ def cmd_refresh(
     output_dir: Path,
     repo_root: Path,
     skip_collector: bool = False,
+    with_backtest: bool = False,
 ) -> int:
-    """Chạy collector (dừng ngay nếu lỗi xác thực), verify kho, chạy đối soát 17a và in tóm tắt 1 dòng."""
+    """Chạy collector (dừng ngay nếu lỗi xác thực), verify kho, chạy đối soát 17a và tùy chọn cập nhật báo cáo chi tiết."""
+    sub_env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
     if not skip_collector:
-        sub_env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
         proc = subprocess.run(
             [sys.executable, "-m", "autotrade_v3.collector_v3", "run"],
             cwd=str(repo_root),
@@ -60,6 +61,27 @@ def cmd_refresh(
         output_dir=output_dir,
         repo_root=repo_root,
     )
+
+    backtest_tag = ""
+    if with_backtest:
+        export_script = repo_root / "scripts" / "export_prune23_to_dashboard.py"
+        if export_script.is_file():
+            bt_proc = subprocess.run(
+                [sys.executable, str(export_script)],
+                cwd=str(repo_root),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=sub_env,
+                check=False,
+            )
+            if bt_proc.returncode != 0:
+                err_txt = (bt_proc.stderr or bt_proc.stdout or f"exit={bt_proc.returncode}").strip()[:400]
+                print(f"LỖI CẬP NHẬT BÁO CÁO CHI TIẾT: {err_txt}", file=sys.stderr)
+                return bt_proc.returncode or 1
+            backtest_tag = " | bao_cao_chi_tiet=DA_CAP_NHAT"
+
     sg = payload["sample_governance"]
     sr = payload["signal_reconciliation"]
     n_orders = int(sg.get("closed_orders") or 0)
@@ -68,7 +90,7 @@ def cmd_refresh(
         f"LÀM MỚI 17a HOÀN TẤT | compare_from={payload['compare_from_utc']} | "
         f"lệnh_từ_mốc={n_orders} | "
         f"tín_hiệu(khớp/thiếu/thừa/new6_vp)={sr['matched_count']}/{sr['missing_count']}/{sr['extra_count']}/{sr['new6_virtual_position_count']} | "
-        f"dashboard={dash_status} | sha256={payload['report_sha256'][:16]}"
+        f"dashboard={dash_status} | sha256={payload['report_sha256'][:16]}{backtest_tag}"
     )
     return 0
 
@@ -81,6 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     p_ref.add_argument("--output-dir", type=Path, default=Path("D:/AutoTrade/evidence/v3-17a"))
     p_ref.add_argument("--repo-root", type=Path, default=Path("D:/AutoTrade"))
     p_ref.add_argument("--skip-collector", action="store_true", help="Bỏ qua bước gọi collector (chỉ dùng kho local hiện có).")
+    p_ref.add_argument("--with-backtest", action="store_true", help="Chạy lại báo cáo chi tiết 23 mã đến nến mới nhất.")
 
     args = parser.parse_args(argv)
     if args.command == "refresh":
@@ -89,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=args.output_dir,
             repo_root=args.repo_root,
             skip_collector=bool(args.skip_collector),
+            with_backtest=bool(args.with_backtest),
         )
     return 1
 

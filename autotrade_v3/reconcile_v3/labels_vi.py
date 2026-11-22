@@ -70,7 +70,7 @@ RECONCILE_LABELS_VI: dict[str, str] = {
     "sig_new6_vp": "NEW6_VIRTUAL_POSITION (tách riêng)",
     "engine_unavailable": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
     "sync_btn_label": "Đồng bộ",
-    "sync_running": "Đang đồng bộ...",
+    "sync_running": "Đang đồng bộ dữ liệu & báo cáo chi tiết...",
     "sync_done_at": "Xong lúc {time}",
     "sync_error_prefix": "Lỗi: {reason}",
     "sync_last_at": "Lần đồng bộ cuối: {time} (giờ VN)",
@@ -79,7 +79,8 @@ RECONCILE_LABELS_VI: dict[str, str] = {
     "sync_already_running": "Đang có tiến trình đồng bộ chạy nền, không thể chạy đồng thời.",
     "sync_readonly_exception_note": (
         "Ngoại lệ có chủ ý của nguyên tắc dashboard chỉ đọc: nút 'Đồng bộ' chỉ ghi vào "
-        "data/bingx/, evidence/v3-17a/ và cache dashboard; chỉ đọc Supabase qua collector_v3 (SUPABASE_DB_URL)."
+        "data/bingx/, evidence/v3-17a/, runs/v3_16_all_signals/V3_LAB_11_PRUNE23_* và cache dashboard; "
+        "chỉ đọc Supabase qua collector_v3 (SUPABASE_DB_URL)."
     ),
 }
 

@@ -1,8 +1,9 @@
 """Trình chạy đồng bộ thủ công trên dashboard một trang (nút 'Đồng bộ').
 
 NGOẠI LỆ CÓ CHỦ Ý CỦA NGUYÊN TẮC DASHBOARD CHỈ ĐỌC:
-- Nút 'Đồng bộ' chạy `python -m autotrade_v3.reconcile_v3 refresh` trong tiến trình con (không chặn UI).
-- Chỉ ghi vào `data/bingx/`, `evidence/v3-17a/` và cache dashboard; KHÔNG ghi vào bất kỳ bảng Supabase/BingX nào.
+- Nút 'Đồng bộ' chạy `python -m autotrade_v3.reconcile_v3 refresh --with-backtest` trong tiến trình con (không chặn UI).
+- Chỉ ghi vào `data/bingx/`, `evidence/v3-17a/`, `runs/v3_16_all_signals/V3_LAB_11_PRUNE23_*` và cache dashboard;
+  KHÔNG ghi vào bất kỳ bảng Supabase/BingX nào.
 - Chỉ đọc Supabase qua collector_v3 bằng biến môi trường `SUPABASE_DB_URL` của tiến trình.
 - An toàn: khóa chống chạy đồng thời, chặn bấm liên tiếp (tối thiểu 60s), dừng ngay khi lỗi xác thực (không retry),
   và che toàn bộ chuỗi kết nối / mật khẩu / API key trước khi hiển thị hoặc ghi trạng thái.
@@ -133,6 +134,7 @@ def trigger_manual_sync(
     evidence_dir: Path,
     cooldown_seconds: int = 60,
     skip_collector: bool = False,
+    with_backtest: bool = True,
 ) -> tuple[bool, str]:
     """Khởi chạy đồng bộ thủ công trong tiến trình con (không chặn giao diện).
 
@@ -196,6 +198,8 @@ def trigger_manual_sync(
     ]
     if skip_collector:
         cmd.append("--skip-collector")
+    if with_backtest:
+        cmd.append("--with-backtest")
 
     def _worker() -> None:
         try:
@@ -220,7 +224,7 @@ def trigger_manual_sync(
                     "pid": proc.pid,
                 },
             )
-            stdout, stderr = proc.communicate(timeout=600)
+            stdout, stderr = proc.communicate(timeout=900)
             fin_dt = datetime.now(timezone.utc)
             fin_iso = fin_dt.isoformat().replace("+00:00", "Z")
             fin_vn = fin_dt.astimezone(VN_TZ).strftime("%H:%M")
