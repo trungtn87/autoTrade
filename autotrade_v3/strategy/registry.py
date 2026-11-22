@@ -8,6 +8,20 @@ from autotrade_v3.strategy.baseline_20final import Baseline20FinalStrategy
 from autotrade_v3.strategy_core.registry import StrategyCoreRegistry, parse_strategy_ref
 
 
+_PARAMS_FIXED_V1 = Path(__file__).resolve().parents[1] / "reconcile_v3" / "params" / "20final_fixed_v1_v1" / "params.json"
+
+
+def _ensure_fixed_v1_registered() -> None:
+    """Register runtime 20FINAL_FIXED_V1@1 from reconcile_v3 copy without touching strategy_core."""
+    try:
+        StrategyCoreRegistry.get("20FINAL_FIXED_V1", "1")
+    except KeyError:
+        if _PARAMS_FIXED_V1.is_file():
+            from autotrade_v3.strategy_core.strategies.final20.logic import Final20Strategy
+
+            StrategyCoreRegistry.register(Final20Strategy(params_path=_PARAMS_FIXED_V1))
+
+
 class StrategyRegistry:
     """Registry maintaining available research strategies indexed by (strategy_id, version)."""
 
@@ -43,6 +57,23 @@ class StrategyRegistry:
             for (k_sid, k_ver), inst in cls._strategies.items():
                 if k_sid.lower() == sid.lower():
                     return inst
+
+        # 2b. Lazy registration for V3_LAB_11 / V3_LAB_11_PRUNE23 without polluting StrategyCoreRegistry
+        sid_upper = sid.upper()
+        if sid_upper in ("V3_LAB_11", "V3_LAB_11_PRUNE23") and ver in (None, "11.0.0"):
+            _ensure_fixed_v1_registered()
+            strat_inst: BaseStrategy
+            if sid_upper == "V3_LAB_11_PRUNE23":
+                from autotrade_v3.strategy.v3_lab_11_prune23 import V3Lab11Prune23Strategy
+
+                strat_inst = V3Lab11Prune23Strategy(params_dir=params_dir, version="11.0.0")
+            else:
+                from autotrade_v3.strategy.v3_lab_11 import V3Lab11Strategy
+
+                strat_inst = V3Lab11Strategy(params_dir=params_dir, version="11.0.0")
+            if params_dir is None:
+                cls.register(strat_inst, version="11.0.0")
+            return strat_inst
 
         # 3. Delegate to StrategyCoreRegistry for '20FINAL@1' or cloned strategies
         try:

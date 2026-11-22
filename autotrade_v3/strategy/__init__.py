@@ -2,10 +2,14 @@
 from autotrade_v3.strategy.base import BaseStrategy, ExitPolicy
 from autotrade_v3.strategy.baseline_20final import Baseline20FinalStrategy
 from autotrade_v3.strategy.registry import StrategyRegistry
+from autotrade_v3.strategy.v3_lab_11 import V3Lab11Strategy
+from autotrade_v3.strategy.v3_lab_11_prune23 import V3Lab11Prune23Strategy
 
 __all__ = [
     "BaseStrategy",
     "ExitPolicy",
     "Baseline20FinalStrategy",
     "StrategyRegistry",
+    "V3Lab11Strategy",
+    "V3Lab11Prune23Strategy",
 ]
