@@ -55,10 +55,20 @@ RECONCILE_LABELS_VI: dict[str, str] = {
     "cause_SYSTEM": "HỆ_THỐNG",
     "cause_VPS_OFF": "VPS_TẮT",
     "cause_UNEXPLAINED": "CHƯA_GIẢI_THÍCH",
+    "cause_SHARED_UNRESOLVED": "VỊ_THẾ_GỘP_KHÔNG_PHÂN_BỔ_ĐƯỢC",
     "cause_WITHIN_TOL": "TRONG_DUNG_SAI",
     "verify_pass": "KIỂM TRA TÁI LẬP & TỔNG HỢP: ĐẠT",
     "verify_fail": "KIỂM TRA TÁI LẬP & TỔNG HỢP: KHÔNG ĐẠT",
     "funding_note": "Lưu ý: execution_finances.funding = NULL theo thiết kế; cột Funding chỉ mang tính ESTIMATED (notional * funding_rate), KHÔNG cộng vào PnL ròng thực tế.",
+    "compare_from_note": "Mốc bắt đầu so sánh chính thức (compare_from): {compare_from}. Mọi số tổng chính chỉ tính từ mốc này.",
+    "no_orders_after_compare_from": "CHƯA CÓ LỆNH SAU MỐC SO SÁNH",
+    "sec_historical": "Lịch sử (không dùng để kết luận)",
+    "historical_note": "Các lệnh và tín hiệu trước mốc {compare_from} chỉ hiển thị tham khảo theo từng kỷ nguyên cũ, không cộng vào số tổng chính.",
+    "slippage_convention_title": "Quy ước dấu và công thức trượt giá vào lệnh (đơn vị: bps)",
+    "slippage_convention_desc": "Nguồn giá tham chiếu: strategy_signals.entry. Dấu (+) là BẤT LỢI (mua cao hơn hoặc bán thấp hơn tham chiếu); dấu (-) là CÓ LỢI (mua thấp hơn hoặc bán cao hơn tham chiếu). Công thức: BUY = ((avg_price - entry) / entry) * 10000; SELL = ((entry - avg_price) / entry) * 10000.",
+    "col_latency_sec": "Độ trễ khớp (giây)",
+    "sig_new6_vp": "NEW6_VIRTUAL_POSITION (tách riêng)",
+    "engine_unavailable": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
 }
 
 RECONCILE_FORBIDDEN_ENGLISH: tuple[str, ...] = FORBIDDEN_ENGLISH_LABELS + (

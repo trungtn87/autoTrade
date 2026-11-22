@@ -25,9 +25,15 @@ def run_reconcile_pipeline(
     data_root: Path,
     output_dir: Path,
     repo_root: Path | None = None,
+    compare_from_override: str | None = None,
 ) -> tuple[dict, str]:
     """Chạy toàn bộ pipeline đối soát V3-17a và ghi artifact ra output_dir."""
     tolerances = load_tolerances()
+    if compare_from_override:
+        tolerances = dict(tolerances)
+        tolerances["compare_from"] = compare_from_override
+    compare_from_utc = str(tolerances.get("compare_from", "2026-11-22T02:30:33Z"))
+
     store = load_local_store(data_root)
     verify_live_signals_against_combos(store.strategy_signals)
 
@@ -44,6 +50,7 @@ def run_reconcile_pipeline(
         execution_orders=store.execution_orders,
         execution_results=store.execution_results,
         vps_off_windows=vps_off_windows,
+        compare_from_utc=compare_from_utc,
     )
 
     mirror_results = run_live_mirror_simulation(

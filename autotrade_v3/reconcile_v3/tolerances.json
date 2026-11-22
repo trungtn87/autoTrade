@@ -1,5 +1,6 @@
 {
   "schema_version": "1.0.0",
+  "compare_from": "2026-11-22T02:30:33Z",
   "entry_slippage_bps_warn": "10.0",
   "entry_slippage_bps_system": "25.0",
   "tp_sl_price_diff_pct_tol": "0.05",

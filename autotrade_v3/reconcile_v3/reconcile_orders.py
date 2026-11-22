@@ -1,7 +1,7 @@
 """Đối soát từng lệnh (9 hạng mục / event_id) và phân loại nguyên nhân sai lệch."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 import json
@@ -46,6 +46,22 @@ def _parse_iso_ms(val: Any) -> int | None:
     return int(dt.timestamp() * 1000)
 
 
+def compute_entry_slippage_bps(side: str, expected_entry: Decimal, filled_price: Decimal) -> Decimal:
+    """Tính trượt giá vào lệnh (bps) so với strategy_signals.entry.
+
+    Quy ước dấu:
+    - (+) BẤT LỢI: BUY khớp cao hơn tham chiếu; SELL khớp thấp hơn tham chiếu.
+    - (-) CÓ LỢI: BUY khớp thấp hơn tham chiếu; SELL khớp cao hơn tham chiếu.
+    """
+    if expected_entry <= ZERO or filled_price <= ZERO:
+        return ZERO
+    if side.upper() == "BUY":
+        return ((filled_price - expected_entry) / expected_entry) * BPS_MULT
+    if side.upper() == "SELL":
+        return ((expected_entry - filled_price) / expected_entry) * BPS_MULT
+    raise ValueError(f"Chiều lệnh không hợp lệ: {side!r}")
+
+
 def load_tolerances(path: Path | None = None) -> dict[str, Any]:
     tol_path = path or (Path(__file__).resolve().parent / "tolerances.json")
     return json.loads(tol_path.read_text(encoding="utf-8"))
@@ -60,9 +76,12 @@ class OrderReconcileRow:
     combo: str
     side: str
     era: str
+    is_after_compare_from: bool
     is_fully_closed: bool
     is_shared_position: bool
     shared_peers: list[str]
+    entry_latency_sec: str | None
+    is_large_favorable_outlier: bool
     bingx_cross_check: dict[str, Any]
     items: dict[str, dict[str, Any]]
     root_cause: str
@@ -95,7 +114,6 @@ def _estimate_funding(
         fts = int(r["funding_time_ms"])
         if entry_ms < fts <= exit_ms:
             rate = _d(r["funding_rate"])
-            # Short nhận khi rate > 0, Long trả khi rate > 0
             signed = (notional * rate) if side == "SELL" else -(notional * rate)
             total += signed
             count += 1
@@ -119,6 +137,7 @@ def reconcile_orders(
 ) -> list[OrderReconcileRow]:
     """Xây dựng bảng đối soát 9 hạng mục cho từng event_id."""
     tol = tolerances or load_tolerances()
+    compare_from_ms = _parse_iso_ms(tol.get("compare_from", "2026-11-22T02:30:33Z")) or 0
 
     sig_by_eid = {str(s["event_id"]): s for s in live_signals}
     fin_by_eid = {str(f["event_id"]): f for f in execution_finances}
@@ -127,7 +146,6 @@ def reconcile_orders(
         res_by_eid.setdefault(str(r["event_id"]), []).append(r)
     sig_rec_by_eid = {it.event_id: it for it in signal_summary.items}
 
-    # Index bằng chứng phụ bingx_orders & bingx_fills theo exact string order_id
     bx_order_by_id = {to_id_str(o["order_id"], field_name="order_id"): o for o in bingx_orders if o.get("order_id")}
     bx_fills_by_oid: dict[str, list[dict[str, Any]]] = {}
     for f in bingx_fills:
@@ -170,6 +188,7 @@ def reconcile_orders(
         pk = parse_event_id(eid)
         sid = event_id_to_signal_id(eid)
         era = classify_order_era(o)
+        is_after_cf = pk.close_ms >= compare_from_ms
         sig = sig_by_eid.get(eid, {})
         fin = fin_by_eid.get(eid, {})
         legs_live = sorted(res_by_eid.get(eid, []), key=lambda x: str(x.get("closed_at") or ""))
@@ -177,7 +196,15 @@ def reconcile_orders(
         sim_i = mirror_ideal.get(eid)
         sig_rec = sig_rec_by_eid.get(eid)
 
-        # Bằng chứng phụ BingX (chỉ có đến 14/11 15:36 UTC)
+        # Độ trễ từ đóng nến đến khớp lệnh (giây)
+        filled_ms = _parse_iso_ms(o.get("filled_at"))
+        latency_sec_dec = (
+            ((Decimal(filled_ms - pk.close_ms)) / Decimal("1000")).quantize(Decimal("0.001"))
+            if filled_ms is not None
+            else None
+        )
+        latency_sec_str = _d_str(latency_sec_dec)
+
         entry_oid = to_id_str(o.get("entry_order_id"), field_name="entry_order_id", allow_none=True)
         bx_ord = bx_order_by_id.get(entry_oid) if entry_oid else None
         bx_entry_fills = bx_fills_by_oid.get(entry_oid, []) if entry_oid else []
@@ -197,17 +224,11 @@ def reconcile_orders(
             "provenance": "EXACT",
         }
 
-        # 2. Giá Entry & trượt giá
+        # 2. Giá Entry & trượt giá (quy ước: + bất lợi, - có lợi)
         expected_entry = _d(sig.get("entry"))
         live_avg_entry = _d(o.get("avg_price"))
-        # Trượt giá bất lợi dương (+): BUY khớp cao hơn kỳ vọng, SELL khớp thấp hơn kỳ vọng
-        if expected_entry > ZERO and live_avg_entry > ZERO:
-            if pk.side == "BUY":
-                live_slip_bps = ((live_avg_entry - expected_entry) / expected_entry) * BPS_MULT
-            else:
-                live_slip_bps = ((expected_entry - live_avg_entry) / expected_entry) * BPS_MULT
-        else:
-            live_slip_bps = ZERO
+        live_slip_bps = compute_entry_slippage_bps(pk.side, expected_entry, live_avg_entry)
+        is_favorable_outlier = live_slip_bps <= -slip_sys
 
         sim_entry_b = _d(sim_b.entry_price) if (sim_b and sim_b.entry_price is not None) else None
         sim_entry_raw = _d(sim_b.entry_px_raw) if (sim_b and sim_b.entry_px_raw is not None) else None
@@ -218,6 +239,8 @@ def reconcile_orders(
             "expected_entry": _d_str(expected_entry),
             "live_avg_price": _d_str(live_avg_entry),
             "live_slippage_bps": _d_str(live_slip_bps.quantize(Decimal("0.01"))),
+            "entry_latency_sec": latency_sec_str,
+            "is_large_favorable_outlier": is_favorable_outlier,
             "sim_base_entry": _d_str(sim_entry_b),
             "sim_raw_entry_m1_open": _d_str(sim_entry_raw),
             "sim_ideal_entry": _d_str(_d(sim_i.entry_price) if (sim_i and sim_i.entry_price is not None) else None),
@@ -226,20 +249,22 @@ def reconcile_orders(
             "provenance": "EXACT",
         }
 
-        # 3. TP / SL
+        # 3. TP / SL (live đặt theo avg_price thật là thiết kế V3 đã biết)
         live_tp = _d(o.get("tp_price") or sig.get("tp"))
         live_sl = _d(o.get("sl_price") or sig.get("sl"))
         sig_tp = _d(sig.get("tp"))
         sig_sl = _d(sig.get("sl"))
         tp_diff_pct = _pct_diff(live_tp, sig_tp) if sig_tp > ZERO else ZERO
         sl_diff_pct = _pct_diff(live_sl, sig_sl) if sig_sl > ZERO else ZERO
+        tp_oid = to_id_str(o.get("tp_order_id"), field_name="tp_order_id", allow_none=True)
+        sl_oid = to_id_str(o.get("sl_order_id"), field_name="sl_order_id", allow_none=True)
         item_tp_sl = {
             "live_tp_price": _d_str(live_tp),
             "live_sl_price": _d_str(live_sl),
             "live_tp_status": str(o.get("tp_status") or ""),
             "live_sl_status": str(o.get("sl_status") or ""),
-            "tp_order_id": to_id_str(o.get("tp_order_id"), field_name="tp_order_id", allow_none=True),
-            "sl_order_id": to_id_str(o.get("sl_order_id"), field_name="sl_order_id", allow_none=True),
+            "tp_order_id": tp_oid,
+            "sl_order_id": sl_oid,
             "sim_ref_tp_price": _d_str(sig_tp),
             "sim_ref_sl_price": _d_str(sig_sl),
             "tp_pct_diff": _d_str(tp_diff_pct.quantize(Decimal("0.0001"))) if tp_diff_pct is not None else "0",
@@ -341,7 +366,7 @@ def reconcile_orders(
             funding_rows=funding_rates.get(pk.symbol, []),
         )
         item_funding = {
-            "live_db_funding": None,  # NULL theo thiết kế
+            "live_db_funding": None,
             "estimated_funding_usd": _d_str(est_funding.quantize(Decimal("0.000001"))),
             "funding_periods": fund_periods,
             "formula": fund_formula,
@@ -364,10 +389,11 @@ def reconcile_orders(
         gross_abs_diff = live_gross - sim_gross_b
         gross_pct_diff = _pct_diff(live_gross, sim_gross_b)
 
+        leg_vs_gross_mismatch = abs(sum_leg_pnl - live_gross) > Decimal("0.01")
         pnl_prov = "EXACT"
-        if not fin or not is_fully_closed:
+        if not fin or not is_fully_closed or (is_shared and leg_vs_gross_mismatch):
             pnl_prov = "UNRESOLVED"
-        elif abs(sum_leg_pnl - live_gross) > Decimal("0.0001"):
+        elif leg_vs_gross_mismatch:
             pnl_prov = "RECONCILED"
 
         item_pnl = {
@@ -400,42 +426,65 @@ def reconcile_orders(
             "provenance": "EXACT" if legs_live else "UNRESOLVED",
         }
 
-        # Phân loại nguyên nhân sai lệch vượt dung sai
+        # Phân loại nguyên nhân (đã chỉnh theo bước 2)
         root_cause = "TRONG_DUNG_SAI"
         root_detail = "Các hạng mục chính nằm trong ngưỡng dung sai cấu hình"
         sys_note: str | None = None
 
         exec_qty = _d(o.get("executed_qty"))
         closed_qty = _d(fin.get("closed_qty"))
-        if str(o.get("entry_status") or "") != "FILLED" or not is_fully_closed or abs(exec_qty - closed_qty) > Decimal("1e-8"):
+        tp_sl_shifted = (tp_diff_pct is not None and abs(tp_diff_pct) > tp_sl_tol_pct) or (
+            sl_diff_pct is not None and abs(sl_diff_pct) > tp_sl_tol_pct
+        )
+
+        # Chỉ gán HỆ_THỐNG khi có bằng chứng lỗi thực sự (thiếu leg, sai qty, mất TP/SL, trượt giá BẤT LỢI >= slip_sys)
+        if str(o.get("entry_status") or "") != "FILLED" or not is_fully_closed or abs(exec_qty - closed_qty) > Decimal("1e-8") or not legs_live:
             root_cause = "HỆ_THỐNG"
-            root_detail = f"Trạng thái lệnh/đóng chưa hoàn chỉnh: entry_status={o.get('entry_status')}, exec_qty={exec_qty}, closed_qty={closed_qty}"
+            root_detail = f"Thiếu leg hoặc sai khối lượng đóng: entry_status={o.get('entry_status')}, exec_qty={exec_qty}, closed_qty={closed_qty}, legs={len(legs_live)}"
             sys_note = root_detail
-        elif abs(live_slip_bps) >= slip_sys:
+        elif not tp_oid or not sl_oid:
             root_cause = "HỆ_THỐNG"
-            root_detail = f"Trượt giá vào lệnh bất thường ({live_slip_bps:.2f} bps >= ngưỡng hệ thống {slip_sys} bps)"
+            root_detail = f"Mất lệnh bảo vệ TP/SL: tp_order_id={tp_oid}, sl_order_id={sl_oid}"
             sys_note = root_detail
-        elif abs(sum_leg_pnl - live_gross) > Decimal("0.01"):
+        elif live_slip_bps >= slip_sys:
             root_cause = "HỆ_THỐNG"
-            root_detail = f"Tổng realized_pnl các leg ({sum_leg_pnl}) lệch gross_pnl ({live_gross})"
+            root_detail = f"Trượt giá vào lệnh bất lợi vượt ngưỡng hệ thống (+{live_slip_bps:.2f} bps >= {slip_sys} bps)"
+            sys_note = root_detail
+        elif is_shared and leg_vs_gross_mismatch:
+            # Vị thế gộp hedge nhiều combo chung positionId -> UNRESOLVED, KHÔNG báo HỆ_THỐNG
+            root_cause = "VỊ_THẾ_GỘP_KHÔNG_PHÂN_BỔ_ĐƯỢC"
+            root_detail = (
+                f"Vị thế gộp với {', '.join(peers)}: tổng realized_pnl các leg ({sum_leg_pnl}) "
+                f"khác gross_pnl ({live_gross}); giữ UNRESOLVED, không quy lỗi HỆ_THỐNG."
+            )
+        elif leg_vs_gross_mismatch:
+            root_cause = "HỆ_THỐNG"
+            root_detail = f"Tổng realized_pnl các leg ({sum_leg_pnl}) lệch gross_pnl ({live_gross}) trên vị thế độc lập"
             sys_note = root_detail
         elif sim_b is None or sim_b.status != "ACCEPTED":
             root_cause = "DỮ_LIỆU"
             root_detail = f"Mô phỏng M1 không khớp lệnh (status={sim_b.status if sim_b else 'MISSING'})"
-        elif sig_rec is not None and sig_rec.status != "KHỚP":
-            if sig_rec.reason_code == "L2_REGISTRY_CHANGED":
-                root_cause = "CHIẾN_LƯỢC"
-                root_detail = sig_rec.reason_detail_vi
-            elif sig_rec.reason_code == "WARMUP_WINDOW_3400":
+        elif is_favorable_outlier:
+            # Trượt giá có lợi vượt ngưỡng -> MÔ_HÌNH_THỰC_THI kèm cờ ngoại lệ lớn + độ trễ
+            root_cause = "MÔ_HÌNH_THỰC_THI"
+            root_detail = (
+                f"Ngoại lệ lớn, cần xem độ trễ giữa đóng nến và khớp lệnh "
+                f"(trượt giá {live_slip_bps:+.2f} bps có lợi, độ trễ={latency_sec_str}s)"
+            )
+        elif sig_rec is not None and sig_rec.status not in ("KHỚP", "KHÔNG_DỰNG_ĐƯỢC_ENGINE"):
+            if sig_rec.reason_code == "WARMUP_WINDOW_3400":
                 root_cause = "DỮ_LIỆU"
                 root_detail = sig_rec.reason_detail_vi
             else:
                 root_cause = "CHƯA_GIẢI_THÍCH"
                 root_detail = sig_rec.reason_detail_vi
         elif (
-            abs(pnl_abs_diff) > pnl_tol_usd
-            and (pnl_pct_diff is None or abs(pnl_pct_diff) > pnl_tol_pct)
-        ) or not matched_outcome or abs(live_slip_bps) > slip_warn or abs(fee_abs_diff) > fee_tol_usd:
+            (abs(pnl_abs_diff) > pnl_tol_usd and (pnl_pct_diff is None or abs(pnl_pct_diff) > pnl_tol_pct))
+            or not matched_outcome
+            or abs(live_slip_bps) > slip_warn
+            or abs(fee_abs_diff) > fee_tol_usd
+            or tp_sl_shifted
+        ):
             root_cause = "MÔ_HÌNH_THỰC_THI"
             reasons: list[str] = []
             if not matched_outcome:
@@ -443,14 +492,12 @@ def reconcile_orders(
             if abs(pnl_abs_diff) > pnl_tol_usd:
                 reasons.append(f"Lệch PnL ròng {pnl_abs_diff:+.4f} USD")
             if abs(live_slip_bps) > slip_warn:
-                reasons.append(f"Trượt giá vào {live_slip_bps:+.2f} bps")
+                reasons.append(f"Trượt giá vào {live_slip_bps:+.2f} bps (độ trễ={latency_sec_str}s)")
             if abs(fee_abs_diff) > fee_tol_usd:
                 reasons.append(f"Lệch phí {fee_abs_diff:+.4f} USD")
+            if tp_sl_shifted:
+                reasons.append(f"TP/SL tính từ avg_price thật (lệch tín hiệu tp={tp_diff_pct}%, sl={sl_diff_pct}% — thiết kế V3)")
             root_detail = "; ".join(reasons)
-        elif (tp_diff_pct is not None and abs(tp_diff_pct) > tp_sl_tol_pct) or (sl_diff_pct is not None and abs(sl_diff_pct) > tp_sl_tol_pct):
-            root_cause = "HỆ_THỐNG"
-            root_detail = f"Giá đặt TP/SL lệch so với tín hiệu (tp_diff={tp_diff_pct}%, sl_diff={sl_diff_pct}%)"
-            sys_note = root_detail
 
         rows.append(
             OrderReconcileRow(
@@ -461,9 +508,12 @@ def reconcile_orders(
                 combo=pk.combo_name,
                 side=pk.side,
                 era=era,
+                is_after_compare_from=is_after_cf,
                 is_fully_closed=is_fully_closed,
                 is_shared_position=is_shared,
                 shared_peers=peers,
+                entry_latency_sec=latency_sec_str,
+                is_large_favorable_outlier=is_favorable_outlier,
                 bingx_cross_check=bingx_cross,
                 items={
                     "signal": item_signal,

@@ -1,7 +1,7 @@
-"""Đối soát tín hiệu Lab (20FINAL) vs Live (strategy_signals) trên khoảng thời gian live."""
+"""Đối soát tín hiệu Lab vs Live theo đúng engine của từng kỷ nguyên và mốc compare_from."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
@@ -12,10 +12,68 @@ from autotrade_v3.reconcile_v3.eras import VpsOffWindow, is_in_vps_off_window
 from autotrade_v3.reconcile_v3.keys import build_combo_table, parse_event_id
 from autotrade_v3.strategy_core.registry import StrategyCoreRegistry
 
-# Thời điểm live bắt đầu (2026-11-14T00:00:00Z)
-DEFAULT_LIVE_START_MS = 1794614400000
-# PR #129 (41ab58e, 2026-11-16 22:06:50 +0700 = 15:06:50 UTC) bắt đầu thay đổi L2 registry live
-L2_REGISTRY_CHANGE_MS = int(datetime(2026, 11, 16, 15, 6, 50, tzinfo=timezone.utc).timestamp() * 1000)
+DEFAULT_LIVE_START_MS = 1794614400000  # 2026-11-14T00:00:00Z
+
+
+def _iso_ms(ts_str: str) -> int:
+    dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return int(dt.timestamp() * 1000)
+
+
+# Các kỷ nguyên engine tín hiệu live đã xác nhận từ git log origin/main -- autotrade_v3/live
+SIGNAL_ENGINE_ERAS: tuple[dict[str, Any], ...] = (
+    {
+        "era_id": "SIGNAL_ERA_20FINAL",
+        "label_vi": "20FINAL (14/11 – trước PR #129 16/11 15:06:50 UTC)",
+        "start_utc": "2026-11-14T00:00:00Z",
+        "end_utc": "2026-11-16T15:06:50Z",
+        "engine_ref": "20FINAL@1",
+        "engine_status": "AVAILABLE",
+    },
+    {
+        "era_id": "SIGNAL_ERA_V3_LIVE_20_POSITIVE_FIXED_V1",
+        "label_vi": "V3_LIVE_20_POSITIVE_FIXED_V1 (PR #129: 16/11 15:06:50 – 19/11 12:47:21 UTC)",
+        "start_utc": "2026-11-16T15:06:50Z",
+        "end_utc": "2026-11-19T12:47:21Z",
+        "engine_ref": "V3_LIVE_20_POSITIVE_FIXED_V1",
+        "engine_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+    },
+    {
+        "era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_5_V1",
+        "label_vi": "V3_LIVE_23_LAB_5_V1 (PR #148: 19/11 12:47:21 – 20/11 03:16:27 UTC)",
+        "start_utc": "2026-11-19T12:47:21Z",
+        "end_utc": "2026-11-20T03:16:27Z",
+        "engine_ref": "V3_LIVE_23_LAB_5_V1",
+        "engine_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+    },
+    {
+        "era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_8_V1",
+        "label_vi": "V3_LIVE_23_LAB_8_V1 (PR #159: 20/11 03:16:27 – 20/11 04:35:34 UTC)",
+        "start_utc": "2026-11-20T03:16:27Z",
+        "end_utc": "2026-11-20T04:35:34Z",
+        "engine_ref": "V3_LIVE_23_LAB_8_V1",
+        "engine_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+    },
+    {
+        "era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "label_vi": "V3_LIVE_23_LAB_10_V1 (PR #160+: từ 20/11 04:35:34 UTC)",
+        "start_utc": "2026-11-20T04:35:34Z",
+        "end_utc": None,
+        "engine_ref": "V3_LIVE_23_LAB_10_V1",
+        "engine_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+    },
+)
+
+
+def classify_signal_engine_era(ts_ms: int) -> dict[str, Any]:
+    for era in SIGNAL_ENGINE_ERAS:
+        s_ms = _iso_ms(era["start_utc"])
+        e_ms = _iso_ms(era["end_utc"]) if era["end_utc"] else None
+        if ts_ms >= s_ms and (e_ms is None or ts_ms < e_ms):
+            return era
+    return SIGNAL_ENGINE_ERAS[0]
 
 
 @dataclass(frozen=True)
@@ -28,24 +86,49 @@ class SignalReconcileItem:
     side: str
     signal_close_ms: int
     signal_close_utc: str
-    status: str  # KHỚP | THIẾU | THỪA | VPS_TẮT | LỆCH_THỜI_GIAN
+    signal_era_id: str
+    status: str  # KHỚP | THIẾU | THỪA | VPS_TẮT | NEW6_VIRTUAL_POSITION | LỆCH_THỜI_GIAN | KHÔNG_DỰNG_ĐƯỢC_ENGINE
     reason_code: str
     reason_detail_vi: str
     time_diff_ms: int = 0
 
 
-@dataclass
-class SignalReconcileSummary:
-    lab_total_in_window: int
+@dataclass(frozen=True)
+class SignalEraBreakdown:
+    era_id: str
+    label_vi: str
+    engine_ref: str
+    engine_status: str
+    lab_total: int
     live_total: int
     matched_count: int
     missing_count: int
     extra_count: int
+    new6_virtual_position_count: int
     vps_off_count: int
     time_skew_count: int
-    match_rate_vs_live_pct: float
-    items: list[SignalReconcileItem]
-    notes: list[str]
+
+
+@dataclass
+class SignalReconcileSummary:
+    compare_from_utc: str
+    compare_from_ms: int
+    # Số liệu chính (CHỈ tính từ compare_from)
+    since_compare_from: dict[str, Any] = field(default_factory=dict)
+    # Tổng hợp theo từng kỷ nguyên engine
+    era_breakdown: list[SignalEraBreakdown] = field(default_factory=list)
+    # Tổng hợp toàn bộ lịch sử (để hiển thị khối Lịch sử, không dùng kết luận)
+    lab_total_in_window: int = 0
+    live_total: int = 0
+    matched_count: int = 0
+    missing_count: int = 0
+    extra_count: int = 0
+    new6_virtual_position_count: int = 0
+    vps_off_count: int = 0
+    time_skew_count: int = 0
+    match_rate_vs_live_pct: float = 0.0
+    items: list[SignalReconcileItem] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
 
 def _ms_to_iso(ts_ms: int) -> str:
@@ -79,101 +162,81 @@ def reconcile_signals(
     execution_orders: list[dict[str, Any]],
     execution_results: list[dict[str, Any]],
     vps_off_windows: list[VpsOffWindow],
+    compare_from_utc: str = "2026-11-22T02:30:33Z",
     live_start_ms: int = DEFAULT_LIVE_START_MS,
 ) -> SignalReconcileSummary:
-    """Chạy lại engine tín hiệu 20FINAL trên nến 15m qua khoảng live và đối soát với strategy_signals."""
+    """Đối soát tín hiệu theo đúng engine từng kỷ nguyên; tách riêng NEW6_VIRTUAL_POSITION và compare_from."""
+    compare_from_ms = _iso_ms(compare_from_utc)
     strat = StrategyCoreRegistry.get("20FINAL", "1")
     eng = SignalEngine(core_strategy=strat)
     combo_table = build_combo_table()
 
-    # Khoảng thời gian phủ của nến 15m
+    # Kỷ nguyên 20FINAL kết thúc tại 2026-11-16T15:06:50Z
+    era_20final_end_ms = _iso_ms(str(SIGNAL_ENGINE_ERAS[0]["end_utc"]))
     max_candle_close_ms = max(int(r["close_time"]) for r in candles_15m)
+    window_start_ms = live_start_ms
     if live_signals:
-        min_live_ms = min(parse_event_id(str(r["event_id"])).close_ms for r in live_signals)
-        window_start_ms = min(live_start_ms, min_live_ms)
-    else:
-        window_start_ms = live_start_ms
+        window_start_ms = min(live_start_ms, min(parse_event_id(str(r["event_id"])).close_ms for r in live_signals))
 
-    lab_by_eid: dict[str, Signal] = {}
+    # Chỉ chạy 20FINAL cho đúng khoảng thời gian kỷ nguyên 20FINAL
+    lab_20final_by_eid: dict[str, Signal] = {}
     notes: list[str] = []
     for sym in ("BTC-USDT", "ETH-USDT"):
         df_m15 = _build_m15_df(candles_15m, sym)
-        # BTC-USDT trong live_events chỉ lưu 3400 nến rolling nên only_warmup_ready=False để kiểm tra các nến đầu cửa sổ
         only_warmup = sym == "ETH-USDT"
         if not only_warmup:
             notes.append(
                 f"{sym}: live_events/candles.parquet chỉ giữ {len(df_m15)} nến 15m (rolling 3400), "
-                "chạy replay với only_warmup_ready=False để bao phủ từ 14/11."
+                "chạy 20FINAL với only_warmup_ready=False cho kỷ nguyên 20FINAL."
             )
         sigs = eng.generate_signals(sym, df_m15, only_approved=True, only_warmup_ready=only_warmup)
         for s in sigs:
-            if window_start_ms <= s.signal_close_ms <= max_candle_close_ms:
-                eid = _signal_to_event_id(s)
-                lab_by_eid[eid] = s
+            if window_start_ms <= s.signal_close_ms < min(era_20final_end_ms, max_candle_close_ms + 1):
+                lab_20final_by_eid[_signal_to_event_id(s)] = s
 
     live_by_eid: dict[str, dict[str, Any]] = {str(r["event_id"]): r for r in live_signals}
-
-    # Xây dựng khoảng nắm giữ thực tế theo (symbol, combo) từ execution_orders & execution_results
-    live_active_intervals: dict[tuple[str, str], list[tuple[int, int]]] = {}
-    res_by_eid: dict[str, list[dict[str, Any]]] = {}
-    for r in execution_results:
-        res_by_eid.setdefault(str(r["event_id"]), []).append(r)
-    for o in execution_orders:
-        eid = str(o["event_id"])
-        pk = parse_event_id(eid)
-        filled_ms = pk.close_ms
-        if o.get("filled_at"):
-            dt = datetime.fromisoformat(str(o["filled_at"]).replace("Z", "+00:00"))
-            filled_ms = int(dt.timestamp() * 1000)
-        closes = res_by_eid.get(eid, [])
-        if closes:
-            last_close_ms = max(
-                int(datetime.fromisoformat(str(c["closed_at"]).replace("Z", "+00:00")).timestamp() * 1000)
-                for c in closes
-                if c.get("closed_at")
-            )
-        else:
-            last_close_ms = filled_ms
-        live_active_intervals.setdefault((pk.symbol, pk.combo_name), []).append((filled_ms, last_close_ms))
+    live_20final_eids = {eid for eid in live_by_eid if parse_event_id(eid).close_ms < era_20final_end_ms}
 
     items: list[SignalReconcileItem] = []
-    matched_eids = set(lab_by_eid.keys()) & set(live_by_eid.keys())
-    lab_only_eids = sorted(set(lab_by_eid.keys()) - set(live_by_eid.keys()))
-    live_only_eids = sorted(set(live_by_eid.keys()) - set(lab_by_eid.keys()))
 
-    # Kiểm tra lệch thời gian (±1h cùng symbol, combo, side)
+    # 1. Đối soát kỷ nguyên 20FINAL (engine AVAILABLE)
+    matched_20 = set(lab_20final_by_eid.keys()) & live_20final_eids
+    lab_only_20 = sorted(set(lab_20final_by_eid.keys()) - live_20final_eids)
+    live_only_20 = sorted(live_20final_eids - set(lab_20final_by_eid.keys()))
+
     skew_lab_used: set[str] = set()
     skew_live_used: set[str] = set()
-    for live_eid in live_only_eids:
-        lp = parse_event_id(live_eid)
-        for lab_eid in lab_only_eids:
-            if lab_eid in skew_lab_used:
+    for le in live_only_20:
+        lp = parse_event_id(le)
+        for be in lab_only_20:
+            if be in skew_lab_used:
                 continue
-            bp = parse_event_id(lab_eid)
+            bp = parse_event_id(be)
             if (lp.symbol, lp.combo_name, lp.side) == (bp.symbol, bp.combo_name, bp.side):
                 diff = lp.close_ms - bp.close_ms
                 if 0 < abs(diff) <= 3_600_000:
-                    skew_lab_used.add(lab_eid)
-                    skew_live_used.add(live_eid)
+                    skew_lab_used.add(be)
+                    skew_live_used.add(le)
                     items.append(
                         SignalReconcileItem(
-                            event_id=live_eid,
-                            signal_id=f"SIG_{lp.symbol.replace('-', '')}_{lp.combo_name}_{lp.timeframe}_{lp.side}_{lp.close_ms}",
+                            event_id=le,
+                            signal_id=lp.signal_id,
                             symbol=lp.symbol,
                             timeframe=lp.timeframe,
                             combo=lp.combo_name,
                             side=lp.side,
                             signal_close_ms=lp.close_ms,
                             signal_close_utc=_ms_to_iso(lp.close_ms),
+                            signal_era_id="SIGNAL_ERA_20FINAL",
                             status="LỆCH_THỜI_GIAN",
                             reason_code="CHƯA_GIẢI_THÍCH",
-                            reason_detail_vi=f"Lệch {diff // 1000}s so với tín hiệu Lab {lab_eid}",
+                            reason_detail_vi=f"Lệch {diff // 1000}s so với tín hiệu Lab {be}",
                             time_diff_ms=diff,
                         )
                     )
                     break
 
-    for eid in sorted(matched_eids):
+    for eid in sorted(matched_20):
         pk = parse_event_id(eid)
         items.append(
             SignalReconcileItem(
@@ -185,13 +248,14 @@ def reconcile_signals(
                 side=pk.side,
                 signal_close_ms=pk.close_ms,
                 signal_close_utc=_ms_to_iso(pk.close_ms),
+                signal_era_id="SIGNAL_ERA_20FINAL",
                 status="KHỚP",
                 reason_code="KHỚP",
-                reason_detail_vi="Khớp chính xác event_id giữa Lab 20FINAL và Live",
+                reason_detail_vi="Khớp chính xác event_id với engine 20FINAL",
             )
         )
 
-    for eid in lab_only_eids:
+    for eid in lab_only_20:
         if eid in skew_lab_used:
             continue
         pk = parse_event_id(eid)
@@ -207,6 +271,7 @@ def reconcile_signals(
                     side=pk.side,
                     signal_close_ms=pk.close_ms,
                     signal_close_utc=_ms_to_iso(pk.close_ms),
+                    signal_era_id="SIGNAL_ERA_20FINAL",
                     status="VPS_TẮT",
                     reason_code="VPS_TẮT",
                     reason_detail_vi=f"Nằm trong cửa sổ VPS_TẮT ({vps_win.start_utc} -> {vps_win.end_utc})",
@@ -214,21 +279,26 @@ def reconcile_signals(
             )
             continue
 
-        # Tìm lý do có bằng chứng cho tín hiệu Lab có mà Live không có
         spec = combo_table.get((pk.symbol, pk.combo_name))
-        reason_code = "CHƯA_GIẢI_THÍCH"
-        reason_detail = "Không tìm thấy bằng chứng trực tiếp trong log/kỷ nguyên"
-
-        if pk.close_ms >= L2_REGISTRY_CHANGE_MS:
-            reason_code = "L2_REGISTRY_CHANGED"
-            reason_detail = "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL"
-        elif spec is not None and spec.is_new6:
-            # Kiểm tra xem live có vị thế hoặc tín hiệu NEW6 gần đó không
-            intervals = live_active_intervals.get((pk.symbol, pk.combo_name), [])
-            in_active = any(start <= pk.close_ms <= end + 3_600_000 for start, end in intervals)
-            if in_active or intervals:
-                reason_code = "NEW6_VIRTUAL_POSITION"
-                reason_detail = "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live"
+        if spec is not None and spec.is_new6:
+            # Tín hiệu thừa của lab do NEW6 virtual_position: tách nhãn riêng, KHÔNG tính vào THIẾU thật
+            items.append(
+                SignalReconcileItem(
+                    event_id=eid,
+                    signal_id=pk.signal_id,
+                    symbol=pk.symbol,
+                    timeframe=pk.timeframe,
+                    combo=pk.combo_name,
+                    side=pk.side,
+                    signal_close_ms=pk.close_ms,
+                    signal_close_utc=_ms_to_iso(pk.close_ms),
+                    signal_era_id="SIGNAL_ERA_20FINAL",
+                    status="NEW6_VIRTUAL_POSITION",
+                    reason_code="NEW6_VIRTUAL_POSITION",
+                    reason_detail_vi="Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+                )
+            )
+            continue
 
         items.append(
             SignalReconcileItem(
@@ -240,25 +310,23 @@ def reconcile_signals(
                 side=pk.side,
                 signal_close_ms=pk.close_ms,
                 signal_close_utc=_ms_to_iso(pk.close_ms),
+                signal_era_id="SIGNAL_ERA_20FINAL",
                 status="THIẾU",
-                reason_code=reason_code,
-                reason_detail_vi=reason_detail,
+                reason_code="CHƯA_GIẢI_THÍCH",
+                reason_detail_vi="Lab 20FINAL phát tín hiệu nhưng Live không có",
             )
         )
 
-    for eid in live_only_eids:
+    for eid in live_only_20:
         if eid in skew_live_used:
             continue
         pk = parse_event_id(eid)
-        reason_code = "CHƯA_GIẢI_THÍCH"
-        reason_detail = "Live có tín hiệu nhưng replay 20FINAL không phát"
-        if pk.symbol == "BTC-USDT":
-            reason_code = "WARMUP_WINDOW_3400"
-            reason_detail = "BTC-USDT chỉ có 3400 nến rolling trong cache; trạng thái warmup/L2 tại thời điểm live có thể khác"
-        elif pk.close_ms >= L2_REGISTRY_CHANGE_MS:
-            reason_code = "L2_REGISTRY_CHANGED"
-            reason_detail = "Sau PR #129/#148/#159/#160, bộ lọc L2 live đã đổi khỏi 20FINAL"
-
+        reason_code = "WARMUP_WINDOW_3400" if pk.symbol == "BTC-USDT" else "CHƯA_GIẢI_THÍCH"
+        reason_detail = (
+            "BTC-USDT chỉ có 3400 nến rolling; warmup/L2 tại thời điểm live có thể khác"
+            if pk.symbol == "BTC-USDT"
+            else "Live có tín hiệu nhưng 20FINAL không phát"
+        )
         items.append(
             SignalReconcileItem(
                 event_id=eid,
@@ -269,29 +337,98 @@ def reconcile_signals(
                 side=pk.side,
                 signal_close_ms=pk.close_ms,
                 signal_close_utc=_ms_to_iso(pk.close_ms),
+                signal_era_id="SIGNAL_ERA_20FINAL",
                 status="THỪA",
                 reason_code=reason_code,
                 reason_detail_vi=reason_detail,
             )
         )
 
-    items.sort(key=lambda x: (x.signal_close_ms, x.symbol, x.combo, x.status))
-    matched_cnt = sum(1 for x in items if x.status == "KHỚP")
-    missing_cnt = sum(1 for x in items if x.status == "THIẾU")
-    extra_cnt = sum(1 for x in items if x.status == "THỪA")
-    vps_off_cnt = sum(1 for x in items if x.status == "VPS_TẮT")
-    skew_cnt = sum(1 for x in items if x.status == "LỆCH_THỜI_GIAN")
-    match_rate = (matched_cnt / len(live_by_eid) * 100.0) if live_by_eid else 0.0
+    # 2. Các kỷ nguyên sau 20FINAL (KHÔNG_DỰNG_ĐƯỢC_ENGINE trong repo lab)
+    for eid in sorted(set(live_by_eid.keys()) - live_20final_eids):
+        pk = parse_event_id(eid)
+        era_info = classify_signal_engine_era(pk.close_ms)
+        items.append(
+            SignalReconcileItem(
+                event_id=eid,
+                signal_id=pk.signal_id,
+                symbol=pk.symbol,
+                timeframe=pk.timeframe,
+                combo=pk.combo_name,
+                side=pk.side,
+                signal_close_ms=pk.close_ms,
+                signal_close_utc=_ms_to_iso(pk.close_ms),
+                signal_era_id=str(era_info["era_id"]),
+                status="KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+                reason_code="KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+                reason_detail_vi=f"Engine {era_info['engine_ref']} chưa có trong nhánh lab hiện tại",
+            )
+        )
 
+    items.sort(key=lambda x: (x.signal_close_ms, x.symbol, x.combo, x.status))
+
+    # Tổng hợp theo từng kỷ nguyên engine
+    era_breakdown: list[SignalEraBreakdown] = []
+    for era in SIGNAL_ENGINE_ERAS:
+        eid_key = str(era["era_id"])
+        sub = [x for x in items if x.signal_era_id == eid_key]
+        s_ms = _iso_ms(era["start_utc"])
+        e_ms = _iso_ms(era["end_utc"]) if era["end_utc"] else None
+        live_in_era = sum(
+            1
+            for le in live_by_eid
+            if parse_event_id(le).close_ms >= s_ms and (e_ms is None or parse_event_id(le).close_ms < e_ms)
+        )
+        lab_in_era = len(lab_20final_by_eid) if eid_key == "SIGNAL_ERA_20FINAL" else 0
+        era_breakdown.append(
+            SignalEraBreakdown(
+                era_id=eid_key,
+                label_vi=str(era["label_vi"]),
+                engine_ref=str(era["engine_ref"]),
+                engine_status=str(era["engine_status"]),
+                lab_total=lab_in_era,
+                live_total=live_in_era,
+                matched_count=sum(1 for x in sub if x.status == "KHỚP"),
+                missing_count=sum(1 for x in sub if x.status == "THIẾU"),
+                extra_count=sum(1 for x in sub if x.status == "THỪA"),
+                new6_virtual_position_count=sum(1 for x in sub if x.status == "NEW6_VIRTUAL_POSITION"),
+                vps_off_count=sum(1 for x in sub if x.status == "VPS_TẮT"),
+                time_skew_count=sum(1 for x in sub if x.status == "LỆCH_THỜI_GIAN"),
+            )
+        )
+
+    # Thống kê CHỈ từ compare_from
+    items_since = [x for x in items if x.signal_close_ms >= compare_from_ms]
+    live_since = [le for le in live_by_eid if parse_event_id(le).close_ms >= compare_from_ms]
+    since_matched = sum(1 for x in items_since if x.status == "KHỚP")
+    since_compare_from = {
+        "compare_from_utc": compare_from_utc,
+        "live_total": len(live_since),
+        "matched_count": since_matched,
+        "missing_count": sum(1 for x in items_since if x.status == "THIẾU"),
+        "extra_count": sum(1 for x in items_since if x.status == "THỪA"),
+        "new6_virtual_position_count": sum(1 for x in items_since if x.status == "NEW6_VIRTUAL_POSITION"),
+        "vps_off_count": sum(1 for x in items_since if x.status == "VPS_TẮT"),
+        "time_skew_count": sum(1 for x in items_since if x.status == "LỆCH_THỜI_GIAN"),
+        "match_rate_vs_live_pct": round((since_matched / len(live_since) * 100.0), 2) if live_since else None,
+        "engine_status_at_compare_from": str(classify_signal_engine_era(compare_from_ms)["engine_status"]),
+    }
+
+    matched_cnt = sum(1 for x in items if x.status == "KHỚP")
     return SignalReconcileSummary(
-        lab_total_in_window=len(lab_by_eid),
+        compare_from_utc=compare_from_utc,
+        compare_from_ms=compare_from_ms,
+        since_compare_from=since_compare_from,
+        era_breakdown=era_breakdown,
+        lab_total_in_window=len(lab_20final_by_eid),
         live_total=len(live_by_eid),
         matched_count=matched_cnt,
-        missing_count=missing_cnt,
-        extra_count=extra_cnt,
-        vps_off_count=vps_off_cnt,
-        time_skew_count=skew_cnt,
-        match_rate_vs_live_pct=round(match_rate, 2),
+        missing_count=sum(1 for x in items if x.status == "THIẾU"),
+        extra_count=sum(1 for x in items if x.status == "THỪA"),
+        new6_virtual_position_count=sum(1 for x in items if x.status == "NEW6_VIRTUAL_POSITION"),
+        vps_off_count=sum(1 for x in items if x.status == "VPS_TẮT"),
+        time_skew_count=sum(1 for x in items if x.status == "LỆCH_THỜI_GIAN"),
+        match_rate_vs_live_pct=round((matched_cnt / len(live_20final_eids) * 100.0), 2) if live_20final_eids else 0.0,
         items=items,
         notes=notes,
     )

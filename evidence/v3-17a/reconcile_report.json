@@ -1,91 +1,131 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "tool": "autotrade_v3.reconcile_v3",
+  "compare_from_utc": "2026-11-22T02:30:33Z",
   "manifest_run_id": "run_20261122T024038Z",
   "manifest_sha256": "9404622c50c5ff431f48e5f935f4d727d2a1194b62128b0df29f479e6b5055af",
+  "slippage_convention": {
+    "reference_source": "strategy_signals.entry",
+    "unit": "bps",
+    "positive_meaning": "ADVERSE",
+    "negative_meaning": "FAVORABLE",
+    "formula_buy": "((avg_price - entry) / entry) * 10000",
+    "formula_sell": "((entry - avg_price) / entry) * 10000",
+    "description_vi": "Nguồn giá tham chiếu: strategy_signals.entry. Dấu (+) là BẤT LỢI (mua cao hơn hoặc bán thấp hơn tham chiếu); dấu (-) là CÓ LỢI (mua thấp hơn hoặc bán cao hơn tham chiếu). Công thức: BUY = ((avg_price - entry) / entry) * 10000; SELL = ((entry - avg_price) / entry) * 10000."
+  },
   "sample_governance": {
-    "total_orders": 22,
-    "closed_orders": 22,
+    "total_orders": 0,
+    "closed_orders": 0,
+    "has_orders_since_compare_from": false,
+    "empty_state_label_vi": "CHƯA CÓ LỆNH SAU MỐC SO SÁNH",
     "min_closed_orders_conclusive": 60,
     "is_small_sample": true,
     "conclusive": false,
-    "warning_vi": "Cảnh báo: Mẫu nhỏ (22 lệnh đóng hẳn < 60), chưa kết luận."
+    "warning_vi": "CHƯA CÓ LỆNH SAU MỐC SO SÁNH"
   },
   "summary_overall_stats": {
-    "signal_match_rate_vs_live_pct": 95.45,
-    "avg_entry_slippage_bps": "-2.86",
-    "p95_entry_slippage_bps": "19.84",
-    "note_vi": "Không gộp PnL hai kỷ nguyên thành một con số; xem era_summaries."
+    "signal_match_rate_vs_live_pct": null,
+    "avg_entry_slippage_bps": null,
+    "p95_entry_slippage_bps": null,
+    "note_vi": "Mốc bắt đầu so sánh chính thức (compare_from): 2026-11-22T02:30:33Z. Mọi số tổng chính chỉ tính từ mốc này."
   },
   "era_summaries": {
     "ERA_1_50TP_50TRAIL": {
       "era": "ERA_1_50TP_50TRAIL",
-      "orders_count": 18,
-      "closed_orders_count": 18,
+      "orders_count": 0,
+      "closed_orders_count": 0,
       "matched_outcome_count": 0,
-      "avg_entry_slippage_bps": "-3.08",
-      "p95_entry_slippage_bps": "23.02",
-      "live_gross_pnl_usd": "1.07808",
-      "live_net_pnl_usd": "-0.644269",
-      "live_total_fee_usd": "1.722349",
-      "sim_base_gross_pnl_usd": "0.1853904812011833",
-      "sim_base_net_pnl_usd": "-1.6145168235583039",
-      "sim_base_total_fee_usd": "1.79990730475939947",
-      "sim_ideal_gross_pnl_usd": "0.17118803574838473",
-      "sim_ideal_net_pnl_usd": "-1.62872637023374108",
-      "sim_ideal_total_fee_usd": "1.79991440598212584",
-      "net_pnl_diff_vs_base_usd": "0.9702478235583039",
-      "fee_diff_vs_base_usd": "-0.07755830475939947",
-      "estimated_funding_usd": "0.018828"
+      "avg_entry_slippage_bps": "0",
+      "p95_entry_slippage_bps": "0",
+      "live_gross_pnl_usd": "0",
+      "live_net_pnl_usd": "0",
+      "live_total_fee_usd": "0",
+      "sim_base_gross_pnl_usd": "0",
+      "sim_base_net_pnl_usd": "0",
+      "sim_base_total_fee_usd": "0",
+      "sim_ideal_gross_pnl_usd": "0",
+      "sim_ideal_net_pnl_usd": "0",
+      "sim_ideal_total_fee_usd": "0",
+      "net_pnl_diff_vs_base_usd": "0",
+      "fee_diff_vs_base_usd": "0",
+      "estimated_funding_usd": "0"
     },
     "ERA_2_FIXED_TP_SL": {
       "era": "ERA_2_FIXED_TP_SL",
-      "orders_count": 4,
-      "closed_orders_count": 4,
-      "matched_outcome_count": 3,
-      "avg_entry_slippage_bps": "-1.84",
-      "p95_entry_slippage_bps": "11.69",
-      "live_gross_pnl_usd": "-0.5251",
-      "live_net_pnl_usd": "-0.915023",
-      "live_total_fee_usd": "0.389923",
-      "sim_base_gross_pnl_usd": "1.0202200000000237",
-      "sim_base_net_pnl_usd": "0.620730110000013",
-      "sim_base_total_fee_usd": "0.39948989000000001",
-      "sim_ideal_gross_pnl_usd": "1.1000000000000127",
-      "sim_ideal_net_pnl_usd": "0.7005500000000126",
-      "sim_ideal_total_fee_usd": "0.39945000000000001",
-      "net_pnl_diff_vs_base_usd": "-1.535753110000013",
-      "fee_diff_vs_base_usd": "-0.00956689000000001",
+      "orders_count": 0,
+      "closed_orders_count": 0,
+      "matched_outcome_count": 0,
+      "avg_entry_slippage_bps": "0",
+      "p95_entry_slippage_bps": "0",
+      "live_gross_pnl_usd": "0",
+      "live_net_pnl_usd": "0",
+      "live_total_fee_usd": "0",
+      "sim_base_gross_pnl_usd": "0",
+      "sim_base_net_pnl_usd": "0",
+      "sim_base_total_fee_usd": "0",
+      "sim_ideal_gross_pnl_usd": "0",
+      "sim_ideal_net_pnl_usd": "0",
+      "sim_ideal_total_fee_usd": "0",
+      "net_pnl_diff_vs_base_usd": "0",
+      "fee_diff_vs_base_usd": "0",
       "estimated_funding_usd": "0"
     }
   },
-  "cause_distribution": {
-    "DỮ_LIỆU": 1,
-    "HỆ_THỐNG": 4,
-    "MÔ_HÌNH_THỰC_THI": 17
+  "cause_distribution": {},
+  "system_issues": [],
+  "historical": {
+    "total_orders": 22,
+    "closed_orders": 22,
+    "era_summaries": {
+      "ERA_1_50TP_50TRAIL": {
+        "era": "ERA_1_50TP_50TRAIL",
+        "orders_count": 18,
+        "closed_orders_count": 18,
+        "matched_outcome_count": 0,
+        "avg_entry_slippage_bps": "-3.08",
+        "p95_entry_slippage_bps": "23.02",
+        "live_gross_pnl_usd": "1.07808",
+        "live_net_pnl_usd": "-0.644269",
+        "live_total_fee_usd": "1.722349",
+        "sim_base_gross_pnl_usd": "0.1853904812011833",
+        "sim_base_net_pnl_usd": "-1.6145168235583039",
+        "sim_base_total_fee_usd": "1.79990730475939947",
+        "sim_ideal_gross_pnl_usd": "0.17118803574838473",
+        "sim_ideal_net_pnl_usd": "-1.62872637023374108",
+        "sim_ideal_total_fee_usd": "1.79991440598212584",
+        "net_pnl_diff_vs_base_usd": "0.9702478235583039",
+        "fee_diff_vs_base_usd": "-0.07755830475939947",
+        "estimated_funding_usd": "0.018828"
+      },
+      "ERA_2_FIXED_TP_SL": {
+        "era": "ERA_2_FIXED_TP_SL",
+        "orders_count": 4,
+        "closed_orders_count": 4,
+        "matched_outcome_count": 3,
+        "avg_entry_slippage_bps": "-1.84",
+        "p95_entry_slippage_bps": "11.69",
+        "live_gross_pnl_usd": "-0.5251",
+        "live_net_pnl_usd": "-0.915023",
+        "live_total_fee_usd": "0.389923",
+        "sim_base_gross_pnl_usd": "1.0202200000000237",
+        "sim_base_net_pnl_usd": "0.620730110000013",
+        "sim_base_total_fee_usd": "0.39948989000000001",
+        "sim_ideal_gross_pnl_usd": "1.1000000000000127",
+        "sim_ideal_net_pnl_usd": "0.7005500000000126",
+        "sim_ideal_total_fee_usd": "0.39945000000000001",
+        "net_pnl_diff_vs_base_usd": "-1.535753110000013",
+        "fee_diff_vs_base_usd": "-0.00956689000000001",
+        "estimated_funding_usd": "0"
+      }
+    },
+    "cause_distribution": {
+      "DỮ_LIỆU": 1,
+      "MÔ_HÌNH_THỰC_THI": 19,
+      "VỊ_THẾ_GỘP_KHÔNG_PHÂN_BỔ_ĐƯỢC": 2
+    },
+    "system_issues": [],
+    "note_vi": "Các lệnh và tín hiệu trước mốc 2026-11-22T02:30:33Z chỉ hiển thị tham khảo theo từng kỷ nguyên cũ, không cộng vào số tổng chính."
   },
-  "system_issues": [
-    {
-      "event_id": "ETH-USDT|1h|C13|SELL|1794697199999",
-      "era": "ERA_1_50TP_50TRAIL",
-      "detail_vi": "Tổng realized_pnl các leg (-0.5458) lệch gross_pnl (-0.3058)"
-    },
-    {
-      "event_id": "ETH-USDT|1h|C15|SELL|1794697199999",
-      "era": "ERA_1_50TP_50TRAIL",
-      "detail_vi": "Tổng realized_pnl các leg (-0.1021) lệch gross_pnl (-0.3421)"
-    },
-    {
-      "event_id": "ETH-USDT|1h|C4|SELL|1795125599999",
-      "era": "ERA_2_FIXED_TP_SL",
-      "detail_vi": "Giá đặt TP/SL lệch so với tín hiệu (tp_diff=-0.07525491885681459141174780985%, sl_diff=-0.07525491885681459141174780985%)"
-    },
-    {
-      "event_id": "BTC-USDT|1h|TIER|SELL|1795237199999",
-      "era": "ERA_2_FIXED_TP_SL",
-      "detail_vi": "Trượt giá vào lệnh bất thường (-28.63 bps >= ngưỡng hệ thống 25.0 bps)"
-    }
-  ],
   "sources_coverage": [
     {
       "source": "live_events_v3.strategy_signals",
@@ -611,6 +651,7 @@
   ],
   "tolerances": {
     "schema_version": "1.0.0",
+    "compare_from": "2026-11-22T02:30:33Z",
     "entry_slippage_bps_warn": "10.0",
     "entry_slippage_bps_system": "25.0",
     "tp_sl_price_diff_pct_tol": "0.05",
@@ -623,16 +664,101 @@
     "min_closed_orders_conclusive": 60
   },
   "signal_reconciliation": {
-    "lab_total_in_window": 58,
+    "since_compare_from": {
+      "compare_from_utc": "2026-11-22T02:30:33Z",
+      "live_total": 0,
+      "matched_count": 0,
+      "missing_count": 0,
+      "extra_count": 0,
+      "new6_virtual_position_count": 0,
+      "vps_off_count": 0,
+      "time_skew_count": 0,
+      "match_rate_vs_live_pct": null,
+      "engine_status_at_compare_from": "KHÔNG_DỰNG_ĐƯỢC_ENGINE"
+    },
+    "era_breakdown": [
+      {
+        "era_id": "SIGNAL_ERA_20FINAL",
+        "label_vi": "20FINAL (14/11 – trước PR #129 16/11 15:06:50 UTC)",
+        "engine_ref": "20FINAL@1",
+        "engine_status": "AVAILABLE",
+        "lab_total": 33,
+        "live_total": 18,
+        "matched_count": 17,
+        "missing_count": 0,
+        "extra_count": 1,
+        "new6_virtual_position_count": 16,
+        "vps_off_count": 0,
+        "time_skew_count": 0
+      },
+      {
+        "era_id": "SIGNAL_ERA_V3_LIVE_20_POSITIVE_FIXED_V1",
+        "label_vi": "V3_LIVE_20_POSITIVE_FIXED_V1 (PR #129: 16/11 15:06:50 – 19/11 12:47:21 UTC)",
+        "engine_ref": "V3_LIVE_20_POSITIVE_FIXED_V1",
+        "engine_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "lab_total": 0,
+        "live_total": 1,
+        "matched_count": 0,
+        "missing_count": 0,
+        "extra_count": 0,
+        "new6_virtual_position_count": 0,
+        "vps_off_count": 0,
+        "time_skew_count": 0
+      },
+      {
+        "era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_5_V1",
+        "label_vi": "V3_LIVE_23_LAB_5_V1 (PR #148: 19/11 12:47:21 – 20/11 03:16:27 UTC)",
+        "engine_ref": "V3_LIVE_23_LAB_5_V1",
+        "engine_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "lab_total": 0,
+        "live_total": 1,
+        "matched_count": 0,
+        "missing_count": 0,
+        "extra_count": 0,
+        "new6_virtual_position_count": 0,
+        "vps_off_count": 0,
+        "time_skew_count": 0
+      },
+      {
+        "era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_8_V1",
+        "label_vi": "V3_LIVE_23_LAB_8_V1 (PR #159: 20/11 03:16:27 – 20/11 04:35:34 UTC)",
+        "engine_ref": "V3_LIVE_23_LAB_8_V1",
+        "engine_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "lab_total": 0,
+        "live_total": 0,
+        "matched_count": 0,
+        "missing_count": 0,
+        "extra_count": 0,
+        "new6_virtual_position_count": 0,
+        "vps_off_count": 0,
+        "time_skew_count": 0
+      },
+      {
+        "era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "label_vi": "V3_LIVE_23_LAB_10_V1 (PR #160+: từ 20/11 04:35:34 UTC)",
+        "engine_ref": "V3_LIVE_23_LAB_10_V1",
+        "engine_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "lab_total": 0,
+        "live_total": 2,
+        "matched_count": 0,
+        "missing_count": 0,
+        "extra_count": 0,
+        "new6_virtual_position_count": 0,
+        "vps_off_count": 0,
+        "time_skew_count": 0
+      }
+    ],
+    "lab_total_in_window": 33,
     "live_total": 22,
-    "matched_count": 21,
-    "missing_count": 37,
+    "matched_count": 17,
+    "missing_count": 0,
     "extra_count": 1,
+    "new6_virtual_position_count": 16,
     "vps_off_count": 0,
     "time_skew_count": 0,
-    "match_rate_vs_live_pct": 95.45,
+    "match_rate_vs_live_pct": 94.44,
     "notes": [
-      "BTC-USDT: live_events/candles.parquet chỉ giữ 3400 nến 15m (rolling 3400), chạy replay với only_warmup_ready=False để bao phủ từ 14/11."
+      "BTC-USDT: live_events/candles.parquet chỉ giữ 3400 nến 15m (rolling 3400), chạy 20FINAL với only_warmup_ready=False cho kỷ nguyên 20FINAL."
     ],
     "items": [
       {
@@ -644,9 +770,10 @@
         "side": "SELL",
         "signal_close_ms": 1794625199999,
         "signal_close_utc": "2026-11-14T02:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -658,9 +785,10 @@
         "side": "SELL",
         "signal_close_ms": 1794628799999,
         "signal_close_utc": "2026-11-14T03:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -672,9 +800,10 @@
         "side": "SELL",
         "signal_close_ms": 1794632399999,
         "signal_close_utc": "2026-11-14T04:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -686,9 +815,10 @@
         "side": "SELL",
         "signal_close_ms": 1794635999999,
         "signal_close_utc": "2026-11-14T05:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -700,9 +830,10 @@
         "side": "SELL",
         "signal_close_ms": 1794639599999,
         "signal_close_utc": "2026-11-14T06:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -714,9 +845,10 @@
         "side": "SELL",
         "signal_close_ms": 1794643199999,
         "signal_close_utc": "2026-11-14T07:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -728,9 +860,10 @@
         "side": "SELL",
         "signal_close_ms": 1794646799999,
         "signal_close_utc": "2026-11-14T08:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -742,9 +875,10 @@
         "side": "SELL",
         "signal_close_ms": 1794650399999,
         "signal_close_utc": "2026-11-14T09:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -756,9 +890,10 @@
         "side": "SELL",
         "signal_close_ms": 1794653999999,
         "signal_close_utc": "2026-11-14T10:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -770,9 +905,10 @@
         "side": "SELL",
         "signal_close_ms": 1794657599999,
         "signal_close_utc": "2026-11-14T11:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -784,9 +920,10 @@
         "side": "SELL",
         "signal_close_ms": 1794661199999,
         "signal_close_utc": "2026-11-14T12:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -798,9 +935,10 @@
         "side": "SELL",
         "signal_close_ms": 1794664799999,
         "signal_close_utc": "2026-11-14T13:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -812,9 +950,10 @@
         "side": "SELL",
         "signal_close_ms": 1794668399999,
         "signal_close_utc": "2026-11-14T14:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -826,9 +965,10 @@
         "side": "SELL",
         "signal_close_ms": 1794668399999,
         "signal_close_utc": "2026-11-14T14:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -840,9 +980,10 @@
         "side": "SELL",
         "signal_close_ms": 1794668399999,
         "signal_close_utc": "2026-11-14T14:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -854,9 +995,10 @@
         "side": "SELL",
         "signal_close_ms": 1794671999999,
         "signal_close_utc": "2026-11-14T15:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -868,9 +1010,10 @@
         "side": "SELL",
         "signal_close_ms": 1794675599999,
         "signal_close_utc": "2026-11-14T16:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -882,9 +1025,10 @@
         "side": "SELL",
         "signal_close_ms": 1794675599999,
         "signal_close_utc": "2026-11-14T16:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "THỪA",
         "reason_code": "WARMUP_WINDOW_3400",
-        "reason_detail_vi": "BTC-USDT chỉ có 3400 nến rolling trong cache; trạng thái warmup/L2 tại thời điểm live có thể khác",
+        "reason_detail_vi": "BTC-USDT chỉ có 3400 nến rolling; warmup/L2 tại thời điểm live có thể khác",
         "time_diff_ms": 0
       },
       {
@@ -896,9 +1040,10 @@
         "side": "SELL",
         "signal_close_ms": 1794675599999,
         "signal_close_utc": "2026-11-14T16:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -910,9 +1055,10 @@
         "side": "SELL",
         "signal_close_ms": 1794675599999,
         "signal_close_utc": "2026-11-14T16:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -924,9 +1070,10 @@
         "side": "SELL",
         "signal_close_ms": 1794679199999,
         "signal_close_utc": "2026-11-14T17:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -938,9 +1085,10 @@
         "side": "SELL",
         "signal_close_ms": 1794682799999,
         "signal_close_utc": "2026-11-14T18:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -952,9 +1100,10 @@
         "side": "SELL",
         "signal_close_ms": 1794686399999,
         "signal_close_utc": "2026-11-14T19:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -966,9 +1115,10 @@
         "side": "SELL",
         "signal_close_ms": 1794689999999,
         "signal_close_utc": "2026-11-14T20:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -980,9 +1130,10 @@
         "side": "SELL",
         "signal_close_ms": 1794693599999,
         "signal_close_utc": "2026-11-14T21:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -994,9 +1145,10 @@
         "side": "SELL",
         "signal_close_ms": 1794697199999,
         "signal_close_utc": "2026-11-14T22:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -1008,9 +1160,10 @@
         "side": "SELL",
         "signal_close_ms": 1794697199999,
         "signal_close_utc": "2026-11-14T22:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -1022,9 +1175,10 @@
         "side": "SELL",
         "signal_close_ms": 1794697199999,
         "signal_close_utc": "2026-11-14T22:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -1036,9 +1190,10 @@
         "side": "SELL",
         "signal_close_ms": 1794700799999,
         "signal_close_utc": "2026-11-14T23:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -1050,9 +1205,10 @@
         "side": "SELL",
         "signal_close_ms": 1794704399999,
         "signal_close_utc": "2026-11-15T00:59:59.999000Z",
-        "status": "THIẾU",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
+        "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -1064,9 +1220,10 @@
         "side": "SELL",
         "signal_close_ms": 1794707999999,
         "signal_close_utc": "2026-11-15T01:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -1078,9 +1235,10 @@
         "side": "SELL",
         "signal_close_ms": 1794707999999,
         "signal_close_utc": "2026-11-15T01:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -1092,9 +1250,10 @@
         "side": "SELL",
         "signal_close_ms": 1794707999999,
         "signal_close_utc": "2026-11-15T01:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -1106,9 +1265,10 @@
         "side": "SELL",
         "signal_close_ms": 1794707999999,
         "signal_close_utc": "2026-11-15T01:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
         "time_diff_ms": 0
       },
       {
@@ -1120,23 +1280,10 @@
         "side": "SELL",
         "signal_close_ms": 1795046399999,
         "signal_close_utc": "2026-11-18T23:59:59.999000Z",
-        "status": "KHỚP",
-        "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "BTC-USDT|1h|C14|SELL|1795111199999",
-        "signal_id": "SIG_BTCUSDT_C14_1h_SELL_1795111199999",
-        "symbol": "BTC-USDT",
-        "timeframe": "1h",
-        "combo": "C14",
-        "side": "SELL",
-        "signal_close_ms": 1795111199999,
-        "signal_close_utc": "2026-11-19T17:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_20_POSITIVE_FIXED_V1",
+        "status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "reason_detail_vi": "Engine V3_LIVE_20_POSITIVE_FIXED_V1 chưa có trong nhánh lab hiện tại",
         "time_diff_ms": 0
       },
       {
@@ -1148,261 +1295,10 @@
         "side": "SELL",
         "signal_close_ms": 1795125599999,
         "signal_close_utc": "2026-11-19T21:59:59.999000Z",
-        "status": "KHỚP",
-        "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "BTC-USDT|1h|C14|SELL|1795132799999",
-        "signal_id": "SIG_BTCUSDT_C14_1h_SELL_1795132799999",
-        "symbol": "BTC-USDT",
-        "timeframe": "1h",
-        "combo": "C14",
-        "side": "SELL",
-        "signal_close_ms": 1795132799999,
-        "signal_close_utc": "2026-11-19T23:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C12|SELL|1795139999999",
-        "signal_id": "SIG_ETHUSDT_C12_1h_SELL_1795139999999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C12",
-        "side": "SELL",
-        "signal_close_ms": 1795139999999,
-        "signal_close_utc": "2026-11-20T01:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "BTC-USDT|1h|C4|SELL|1795190399999",
-        "signal_id": "SIG_BTCUSDT_C4_1h_SELL_1795190399999",
-        "symbol": "BTC-USDT",
-        "timeframe": "1h",
-        "combo": "C4",
-        "side": "SELL",
-        "signal_close_ms": 1795190399999,
-        "signal_close_utc": "2026-11-20T15:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C4|SELL|1795190399999",
-        "signal_id": "SIG_ETHUSDT_C4_1h_SELL_1795190399999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C4",
-        "side": "SELL",
-        "signal_close_ms": 1795190399999,
-        "signal_close_utc": "2026-11-20T15:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "BTC-USDT|1h|TIER|SELL|1795193999999",
-        "signal_id": "SIG_BTCUSDT_TIER_1h_SELL_1795193999999",
-        "symbol": "BTC-USDT",
-        "timeframe": "1h",
-        "combo": "TIER",
-        "side": "SELL",
-        "signal_close_ms": 1795193999999,
-        "signal_close_utc": "2026-11-20T16:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C13|SELL|1795204799999",
-        "signal_id": "SIG_ETHUSDT_C13_1h_SELL_1795204799999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C13",
-        "side": "SELL",
-        "signal_close_ms": 1795204799999,
-        "signal_close_utc": "2026-11-20T19:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C15|SELL|1795204799999",
-        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795204799999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C15",
-        "side": "SELL",
-        "signal_close_ms": 1795204799999,
-        "signal_close_utc": "2026-11-20T19:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C15|SELL|1795208399999",
-        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795208399999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C15",
-        "side": "SELL",
-        "signal_close_ms": 1795208399999,
-        "signal_close_utc": "2026-11-20T20:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C15|SELL|1795211999999",
-        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795211999999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C15",
-        "side": "SELL",
-        "signal_close_ms": 1795211999999,
-        "signal_close_utc": "2026-11-20T21:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C15|SELL|1795215599999",
-        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795215599999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C15",
-        "side": "SELL",
-        "signal_close_ms": 1795215599999,
-        "signal_close_utc": "2026-11-20T22:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C15|SELL|1795219199999",
-        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795219199999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C15",
-        "side": "SELL",
-        "signal_close_ms": 1795219199999,
-        "signal_close_utc": "2026-11-20T23:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C15|SELL|1795222799999",
-        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795222799999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C15",
-        "side": "SELL",
-        "signal_close_ms": 1795222799999,
-        "signal_close_utc": "2026-11-21T00:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C15|SELL|1795226399999",
-        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795226399999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C15",
-        "side": "SELL",
-        "signal_close_ms": 1795226399999,
-        "signal_close_utc": "2026-11-21T01:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C15|SELL|1795229999999",
-        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795229999999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C15",
-        "side": "SELL",
-        "signal_close_ms": 1795229999999,
-        "signal_close_utc": "2026-11-21T02:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "BTC-USDT|15m|C7|SELL|1795232699999",
-        "signal_id": "SIG_BTCUSDT_C7_15m_SELL_1795232699999",
-        "symbol": "BTC-USDT",
-        "timeframe": "15m",
-        "combo": "C7",
-        "side": "SELL",
-        "signal_close_ms": 1795232699999,
-        "signal_close_utc": "2026-11-21T03:44:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|15m|C7|SELL|1795232699999",
-        "signal_id": "SIG_ETHUSDT_C7_15m_SELL_1795232699999",
-        "symbol": "ETH-USDT",
-        "timeframe": "15m",
-        "combo": "C7",
-        "side": "SELL",
-        "signal_close_ms": 1795232699999,
-        "signal_close_utc": "2026-11-21T03:44:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "BTC-USDT|1h|C4|SELL|1795233599999",
-        "signal_id": "SIG_BTCUSDT_C4_1h_SELL_1795233599999",
-        "symbol": "BTC-USDT",
-        "timeframe": "1h",
-        "combo": "C4",
-        "side": "SELL",
-        "signal_close_ms": 1795233599999,
-        "signal_close_utc": "2026-11-21T03:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C15|SELL|1795233599999",
-        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795233599999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C15",
-        "side": "SELL",
-        "signal_close_ms": 1795233599999,
-        "signal_close_utc": "2026-11-21T03:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_5_V1",
+        "status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "reason_detail_vi": "Engine V3_LIVE_23_LAB_5_V1 chưa có trong nhánh lab hiện tại",
         "time_diff_ms": 0
       },
       {
@@ -1414,23 +1310,10 @@
         "side": "SELL",
         "signal_close_ms": 1795237199999,
         "signal_close_utc": "2026-11-21T04:59:59.999000Z",
-        "status": "KHỚP",
-        "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C15|SELL|1795237199999",
-        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795237199999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C15",
-        "side": "SELL",
-        "signal_close_ms": 1795237199999,
-        "signal_close_utc": "2026-11-21T04:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "reason_detail_vi": "Engine V3_LIVE_23_LAB_10_V1 chưa có trong nhánh lab hiện tại",
         "time_diff_ms": 0
       },
       {
@@ -1442,23 +1325,10 @@
         "side": "SELL",
         "signal_close_ms": 1795240799999,
         "signal_close_utc": "2026-11-21T05:59:59.999000Z",
-        "status": "KHỚP",
-        "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
-        "time_diff_ms": 0
-      },
-      {
-        "event_id": "ETH-USDT|1h|C15|SELL|1795240799999",
-        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795240799999",
-        "symbol": "ETH-USDT",
-        "timeframe": "1h",
-        "combo": "C15",
-        "side": "SELL",
-        "signal_close_ms": 1795240799999,
-        "signal_close_utc": "2026-11-21T05:59:59.999000Z",
-        "status": "THIẾU",
-        "reason_code": "L2_REGISTRY_CHANGED",
-        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "reason_detail_vi": "Engine V3_LIVE_23_LAB_10_V1 chưa có trong nhánh lab hiện tại",
         "time_diff_ms": 0
       }
     ]
@@ -1472,11 +1342,14 @@
       "combo": "C4",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "BTC-USDT|1h|C11|SELL|1794628799999"
       ],
+      "entry_latency_sec": "27.644",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121438081244680192",
         "in_bingx_orders": true,
@@ -1495,6 +1368,8 @@
           "expected_entry": "67655.5",
           "live_avg_price": "67666.5",
           "live_slippage_bps": "-1.63",
+          "entry_latency_sec": "27.644",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "67641.9689",
           "sim_raw_entry_m1_open": "67655.5",
           "sim_ideal_entry": "67655.5",
@@ -1631,11 +1506,14 @@
       "combo": "C11",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "BTC-USDT|1h|C4|SELL|1794625199999"
       ],
+      "entry_latency_sec": "23.875",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121453164926554112",
         "in_bingx_orders": true,
@@ -1654,6 +1532,8 @@
           "expected_entry": "66722.3",
           "live_avg_price": "66631",
           "live_slippage_bps": "13.68",
+          "entry_latency_sec": "23.875",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "66708.95554000001",
           "sim_raw_entry_m1_open": "66722.3",
           "sim_ideal_entry": "66722.3",
@@ -1769,7 +1649,7 @@
         }
       },
       "root_cause": "MÔ_HÌNH_THỰC_THI",
-      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Lệch PnL ròng +0.5545 USD; Trượt giá vào +13.68 bps",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Lệch PnL ròng +0.5545 USD; Trượt giá vào +13.68 bps (độ trễ=23.875s); TP/SL tính từ avg_price thật (lệch tín hiệu tp=-0.1368358105161242942764263222%, sl=-0.1368358105161242942764263222% — thiết kế V3)",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -1781,9 +1661,12 @@
       "combo": "C11",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": false,
       "shared_peers": [],
+      "entry_latency_sec": "26.129",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121498472863715328",
         "in_bingx_orders": true,
@@ -1802,6 +1685,8 @@
           "expected_entry": "67345.8",
           "live_avg_price": "67334.5",
           "live_slippage_bps": "1.68",
+          "entry_latency_sec": "26.129",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "67332.33084000001",
           "sim_raw_entry_m1_open": "67345.8",
           "sim_ideal_entry": "67345.8",
@@ -1936,12 +1821,15 @@
       "combo": "C11",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "BTC-USDT|1h|C4|SELL|1794668399999",
         "BTC-USDT|1h|TIER|SELL|1794675599999"
       ],
+      "entry_latency_sec": "36.352",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121619311697285120",
         "in_bingx_orders": true,
@@ -1960,6 +1848,8 @@
           "expected_entry": "65889.6",
           "live_avg_price": "65939.9",
           "live_slippage_bps": "-7.63",
+          "entry_latency_sec": "36.352",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "65876.42208",
           "sim_raw_entry_m1_open": "65889.6",
           "sim_ideal_entry": "65889.6",
@@ -2085,7 +1975,7 @@
         }
       },
       "root_cause": "MÔ_HÌNH_THỰC_THI",
-      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL); TP/SL tính từ avg_price thật (lệch tín hiệu tp=0.07633981690585464170369830747%, sl=0.07633981690585464170369830747% — thiết kế V3)",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -2097,12 +1987,15 @@
       "combo": "C4",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "BTC-USDT|1h|C11|SELL|1794668399999",
         "BTC-USDT|1h|TIER|SELL|1794675599999"
       ],
+      "entry_latency_sec": "35.036",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121619306177581056",
         "in_bingx_orders": true,
@@ -2121,6 +2014,8 @@
           "expected_entry": "65889.6",
           "live_avg_price": "65922",
           "live_slippage_bps": "-4.92",
+          "entry_latency_sec": "35.036",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "65876.42208",
           "sim_raw_entry_m1_open": "65889.6",
           "sim_ideal_entry": "65889.6",
@@ -2258,9 +2153,12 @@
       "combo": "C4",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": false,
       "shared_peers": [],
+      "entry_latency_sec": "24.786",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121619263185965056",
         "in_bingx_orders": true,
@@ -2279,6 +2177,8 @@
           "expected_entry": "1853.03",
           "live_avg_price": "1854.62",
           "live_slippage_bps": "-8.58",
+          "entry_latency_sec": "24.786",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "1852.659394",
           "sim_raw_entry_m1_open": "1853.03",
           "sim_ideal_entry": "1853.03",
@@ -2401,7 +2301,7 @@
         }
       },
       "root_cause": "MÔ_HÌNH_THỰC_THI",
-      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL); TP/SL tính từ avg_price thật (lệch tín hiệu tp=0.08580541059777769383118460036%, sl=0.08580541059777769383118460036% — thiết kế V3)",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -2413,12 +2313,15 @@
       "combo": "TIER",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "BTC-USDT|1h|C11|SELL|1794668399999",
         "BTC-USDT|1h|C4|SELL|1794668399999"
       ],
+      "entry_latency_sec": "29.558",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121649482189983744",
         "in_bingx_orders": false,
@@ -2437,6 +2340,8 @@
           "expected_entry": "65317.3",
           "live_avg_price": "65193.7",
           "live_slippage_bps": "18.92",
+          "entry_latency_sec": "29.558",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "65304.236540000005",
           "sim_raw_entry_m1_open": "65317.3",
           "sim_ideal_entry": "65317.3",
@@ -2553,7 +2458,7 @@
         }
       },
       "root_cause": "DỮ_LIỆU",
-      "root_cause_detail_vi": "BTC-USDT chỉ có 3400 nến rolling trong cache; trạng thái warmup/L2 tại thời điểm live có thể khác",
+      "root_cause_detail_vi": "BTC-USDT chỉ có 3400 nến rolling; warmup/L2 tại thời điểm live có thể khác",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -2565,11 +2470,14 @@
       "combo": "C13",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "ETH-USDT|1h|C15|SELL|1794675599999"
       ],
+      "entry_latency_sec": "20.465",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121649444055371776",
         "in_bingx_orders": false,
@@ -2588,6 +2496,8 @@
           "expected_entry": "1824.82",
           "live_avg_price": "1821.2",
           "live_slippage_bps": "19.84",
+          "entry_latency_sec": "20.465",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "1824.455036",
           "sim_raw_entry_m1_open": "1824.82",
           "sim_ideal_entry": "1824.82",
@@ -2712,7 +2622,7 @@
         }
       },
       "root_cause": "MÔ_HÌNH_THỰC_THI",
-      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+SL vs Sim=SL+TRAIL); Trượt giá vào +19.84 bps",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+SL vs Sim=SL+TRAIL); Trượt giá vào +19.84 bps (độ trễ=20.465s); TP/SL tính từ avg_price thật (lệch tín hiệu tp=-0.1983757302090069157505945792%, sl=-0.1983757302090069157505945792% — thiết kế V3)",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -2724,11 +2634,14 @@
       "combo": "C15",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "ETH-USDT|1h|C13|SELL|1794675599999"
       ],
+      "entry_latency_sec": "24.605",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121649461407207424",
         "in_bingx_orders": false,
@@ -2747,6 +2660,8 @@
           "expected_entry": "1824.82",
           "live_avg_price": "1820.62",
           "live_slippage_bps": "23.02",
+          "entry_latency_sec": "24.605",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "1824.455036",
           "sim_raw_entry_m1_open": "1824.82",
           "sim_ideal_entry": "1824.82",
@@ -2862,7 +2777,7 @@
         }
       },
       "root_cause": "MÔ_HÌNH_THỰC_THI",
-      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào +23.02 bps",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào +23.02 bps (độ trễ=24.605s); TP/SL tính từ avg_price thật (lệch tín hiệu tp=-0.2301596869828257033570434344%, sl=-0.2301596869828257033570434344% — thiết kế V3)",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -2874,9 +2789,12 @@
       "combo": "C11",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": false,
       "shared_peers": [],
+      "entry_latency_sec": "28.593",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121709876115886080",
         "in_bingx_orders": false,
@@ -2895,6 +2813,8 @@
           "expected_entry": "64737.6",
           "live_avg_price": "64861.8",
           "live_slippage_bps": "-19.19",
+          "entry_latency_sec": "28.593",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "64724.5525",
           "sim_raw_entry_m1_open": "64737.5",
           "sim_ideal_entry": "64737.5",
@@ -3017,7 +2937,7 @@
         }
       },
       "root_cause": "MÔ_HÌNH_THỰC_THI",
-      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL); Trượt giá vào -19.19 bps",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL); Trượt giá vào -19.19 bps (độ trễ=28.593s); TP/SL tính từ avg_price thật (lệch tín hiệu tp=0.1918514124712686290501964855%, sl=0.1918514124712686290501964855% — thiết kế V3)",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -3029,9 +2949,12 @@
       "combo": "C11",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": false,
       "shared_peers": [],
+      "entry_latency_sec": "14.805",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121740017277816832",
         "in_bingx_orders": false,
@@ -3050,6 +2973,8 @@
           "expected_entry": "63515.4",
           "live_avg_price": "63545.1",
           "live_slippage_bps": "-4.68",
+          "entry_latency_sec": "14.805",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "63502.69692",
           "sim_raw_entry_m1_open": "63515.4",
           "sim_ideal_entry": "63515.4",
@@ -3175,11 +3100,14 @@
       "combo": "C13",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "ETH-USDT|1h|C15|SELL|1794697199999"
       ],
+      "entry_latency_sec": "21.396",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121740044922474496",
         "in_bingx_orders": false,
@@ -3198,6 +3126,8 @@
           "expected_entry": "1744.12",
           "live_avg_price": "1746.96",
           "live_slippage_bps": "-16.28",
+          "entry_latency_sec": "21.396",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "1743.75118",
           "sim_raw_entry_m1_open": "1744.1",
           "sim_ideal_entry": "1744.1",
@@ -3311,7 +3241,7 @@
           "gross_pct_diff": "28.11",
           "net_abs_diff": "0.1322892529649678",
           "net_pct_diff": "25.17",
-          "provenance": "RECONCILED"
+          "provenance": "UNRESOLVED"
         },
         "close_outcome": {
           "live_outcome": "TRAILING+SL",
@@ -3321,10 +3251,10 @@
           "provenance": "EXACT"
         }
       },
-      "root_cause": "HỆ_THỐNG",
-      "root_cause_detail_vi": "Tổng realized_pnl các leg (-0.5458) lệch gross_pnl (-0.3058)",
-      "overall_provenance": "RECONCILED",
-      "system_issue_note": "Tổng realized_pnl các leg (-0.5458) lệch gross_pnl (-0.3058)"
+      "root_cause": "VỊ_THẾ_GỘP_KHÔNG_PHÂN_BỔ_ĐƯỢC",
+      "root_cause_detail_vi": "Vị thế gộp với ETH-USDT|1h|C15|SELL|1794697199999: tổng realized_pnl các leg (-0.5458) khác gross_pnl (-0.3058); giữ UNRESOLVED, không quy lỗi HỆ_THỐNG.",
+      "overall_provenance": "UNRESOLVED",
+      "system_issue_note": null
     },
     {
       "event_id": "ETH-USDT|1h|C15|SELL|1794697199999",
@@ -3334,11 +3264,14 @@
       "combo": "C15",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "ETH-USDT|1h|C13|SELL|1794697199999"
       ],
+      "entry_latency_sec": "22.72",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121740050475732992",
         "in_bingx_orders": false,
@@ -3357,6 +3290,8 @@
           "expected_entry": "1744.12",
           "live_avg_price": "1747.9",
           "live_slippage_bps": "-21.67",
+          "entry_latency_sec": "22.72",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "1743.75118",
           "sim_raw_entry_m1_open": "1744.1",
           "sim_ideal_entry": "1744.1",
@@ -3470,7 +3405,7 @@
           "gross_pct_diff": "19.58",
           "net_abs_diff": "0.0959464529649678",
           "net_pct_diff": "18.25",
-          "provenance": "RECONCILED"
+          "provenance": "UNRESOLVED"
         },
         "close_outcome": {
           "live_outcome": "TRAILING+SL",
@@ -3480,10 +3415,10 @@
           "provenance": "EXACT"
         }
       },
-      "root_cause": "HỆ_THỐNG",
-      "root_cause_detail_vi": "Tổng realized_pnl các leg (-0.1021) lệch gross_pnl (-0.3421)",
-      "overall_provenance": "RECONCILED",
-      "system_issue_note": "Tổng realized_pnl các leg (-0.1021) lệch gross_pnl (-0.3421)"
+      "root_cause": "VỊ_THẾ_GỘP_KHÔNG_PHÂN_BỔ_ĐƯỢC",
+      "root_cause_detail_vi": "Vị thế gộp với ETH-USDT|1h|C13|SELL|1794697199999: tổng realized_pnl các leg (-0.1021) khác gross_pnl (-0.3421); giữ UNRESOLVED, không quy lỗi HỆ_THỐNG.",
+      "overall_provenance": "UNRESOLVED",
+      "system_issue_note": null
     },
     {
       "event_id": "BTC-USDT|1h|C11|SELL|1794700799999",
@@ -3493,9 +3428,12 @@
       "combo": "C11",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": false,
       "shared_peers": [],
+      "entry_latency_sec": "25.038",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121755159692529664",
         "in_bingx_orders": false,
@@ -3514,6 +3452,8 @@
           "expected_entry": "64121.7",
           "live_avg_price": "64079.8",
           "live_slippage_bps": "6.53",
+          "entry_latency_sec": "25.038",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "64108.87566",
           "sim_raw_entry_m1_open": "64121.7",
           "sim_ideal_entry": "64121.7",
@@ -3636,7 +3576,7 @@
         }
       },
       "root_cause": "MÔ_HÌNH_THỰC_THI",
-      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL); TP/SL tính từ avg_price thật (lệch tín hiệu tp=-0.06534449336184162303869049011%, sl=-0.06534449336184162303869049011% — thiết kế V3)",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -3648,11 +3588,14 @@
       "combo": "C11",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "BTC-USDT|1h|C4|SELL|1794707999999"
       ],
+      "entry_latency_sec": "18.414",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121785330898259968",
         "in_bingx_orders": false,
@@ -3671,6 +3614,8 @@
           "expected_entry": "62593.8",
           "live_avg_price": "62671.4",
           "live_slippage_bps": "-12.4",
+          "entry_latency_sec": "18.414",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "62581.281240000004",
           "sim_raw_entry_m1_open": "62593.8",
           "sim_ideal_entry": "62593.8",
@@ -3786,7 +3731,7 @@
         }
       },
       "root_cause": "MÔ_HÌNH_THỰC_THI",
-      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -12.40 bps",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -12.40 bps (độ trễ=18.414s); TP/SL tính từ avg_price thật (lệch tín hiệu tp=0.1239739399109815988164962025%, sl=0.1239739399109815988164962025% — thiết kế V3)",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -3798,11 +3743,14 @@
       "combo": "C4",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "BTC-USDT|1h|C11|SELL|1794707999999"
       ],
+      "entry_latency_sec": "16.966",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121785324824907776",
         "in_bingx_orders": false,
@@ -3821,6 +3769,8 @@
           "expected_entry": "62593.8",
           "live_avg_price": "62685",
           "live_slippage_bps": "-14.57",
+          "entry_latency_sec": "16.966",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "62581.281240000004",
           "sim_raw_entry_m1_open": "62593.8",
           "sim_ideal_entry": "62593.8",
@@ -3936,7 +3886,7 @@
         }
       },
       "root_cause": "MÔ_HÌNH_THỰC_THI",
-      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -14.57 bps",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -14.57 bps (độ trễ=16.966s); TP/SL tính từ avg_price thật (lệch tín hiệu tp=0.1457013314417721882997996607%, sl=0.1457013314417721882997996607% — thiết kế V3)",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -3948,11 +3898,14 @@
       "combo": "C13",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "ETH-USDT|1h|C15|SELL|1794707999999"
       ],
+      "entry_latency_sec": "25.234",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121785359503413248",
         "in_bingx_orders": false,
@@ -3971,6 +3924,8 @@
           "expected_entry": "1729.89",
           "live_avg_price": "1732.22",
           "live_slippage_bps": "-13.47",
+          "entry_latency_sec": "25.234",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "1729.544022",
           "sim_raw_entry_m1_open": "1729.89",
           "sim_ideal_entry": "1729.89",
@@ -4086,7 +4041,7 @@
         }
       },
       "root_cause": "MÔ_HÌNH_THỰC_THI",
-      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -13.47 bps",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -13.47 bps (độ trễ=25.234s); TP/SL tính từ avg_price thật (lệch tín hiệu tp=0.1346906450699177404343628786%, sl=0.1346906450699177404343628786% — thiết kế V3)",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -4098,11 +4053,14 @@
       "combo": "C15",
       "side": "SELL",
       "era": "ERA_1_50TP_50TRAIL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "ETH-USDT|1h|C13|SELL|1794707999999"
       ],
+      "entry_latency_sec": "26.725",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2121785365757120512",
         "in_bingx_orders": false,
@@ -4121,6 +4079,8 @@
           "expected_entry": "1729.89",
           "live_avg_price": "1732.34",
           "live_slippage_bps": "-14.16",
+          "entry_latency_sec": "26.725",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "1729.544022",
           "sim_raw_entry_m1_open": "1729.89",
           "sim_ideal_entry": "1729.89",
@@ -4236,7 +4196,7 @@
         }
       },
       "root_cause": "MÔ_HÌNH_THỰC_THI",
-      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -14.16 bps",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -14.16 bps (độ trễ=26.725s); TP/SL tính từ avg_price thật (lệch tín hiệu tp=0.1416275023267375382249738423%, sl=0.1416275023267375382249738423% — thiết kế V3)",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -4248,9 +4208,12 @@
       "combo": "C10",
       "side": "SELL",
       "era": "ERA_2_FIXED_TP_SL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": false,
       "shared_peers": [],
+      "entry_latency_sec": "26.007",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2123204715219210240",
         "in_bingx_orders": false,
@@ -4261,14 +4224,16 @@
         "signal": {
           "live_signal_time": "2026-11-18T23:59:59.999000Z",
           "live_ref_entry": "63035.8",
-          "reconcile_status": "KHỚP",
-          "reason_code": "KHỚP",
+          "reconcile_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+          "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
           "provenance": "EXACT"
         },
         "entry": {
           "expected_entry": "63035.8",
           "live_avg_price": "62962.1",
           "live_slippage_bps": "11.69",
+          "entry_latency_sec": "26.007",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "63023.19284",
           "sim_raw_entry_m1_open": "63035.8",
           "sim_ideal_entry": "63035.8",
@@ -4367,7 +4332,7 @@
         }
       },
       "root_cause": "MÔ_HÌNH_THỰC_THI",
-      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=TP); Lệch PnL ròng -1.7952 USD; Trượt giá vào +11.69 bps",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=TP); Lệch PnL ròng -1.7952 USD; Trượt giá vào +11.69 bps (độ trễ=26.007s); TP/SL tính từ avg_price thật (lệch tín hiệu tp=-0.1169176880439369374228612947%, sl=-0.1169176880439369374228612947% — thiết kế V3)",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -4379,9 +4344,12 @@
       "combo": "C4",
       "side": "SELL",
       "era": "ERA_2_FIXED_TP_SL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": false,
       "shared_peers": [],
+      "entry_latency_sec": "25.611",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2123536902401511424",
         "in_bingx_orders": false,
@@ -4392,14 +4360,16 @@
         "signal": {
           "live_signal_time": "2026-11-19T21:59:59.999000Z",
           "live_ref_entry": "1740.75",
-          "reconcile_status": "KHỚP",
-          "reason_code": "KHỚP",
+          "reconcile_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+          "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
           "provenance": "EXACT"
         },
         "entry": {
           "expected_entry": "1740.75",
           "live_avg_price": "1739.44",
           "live_slippage_bps": "7.53",
+          "entry_latency_sec": "25.611",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "1740.40185",
           "sim_raw_entry_m1_open": "1740.75",
           "sim_ideal_entry": "1740.75",
@@ -4497,10 +4467,10 @@
           "provenance": "EXACT"
         }
       },
-      "root_cause": "HỆ_THỐNG",
-      "root_cause_detail_vi": "Giá đặt TP/SL lệch so với tín hiệu (tp_diff=-0.07525491885681459141174780985%, sl_diff=-0.07525491885681459141174780985%)",
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "TP/SL tính từ avg_price thật (lệch tín hiệu tp=-0.07525491885681459141174780985%, sl=-0.07525491885681459141174780985% — thiết kế V3)",
       "overall_provenance": "EXACT",
-      "system_issue_note": "Giá đặt TP/SL lệch so với tín hiệu (tp_diff=-0.07525491885681459141174780985%, sl_diff=-0.07525491885681459141174780985%)"
+      "system_issue_note": null
     },
     {
       "event_id": "BTC-USDT|1h|TIER|SELL|1795237199999",
@@ -4510,11 +4480,14 @@
       "combo": "TIER",
       "side": "SELL",
       "era": "ERA_2_FIXED_TP_SL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "BTC-USDT|1h|C11|SELL|1795240799999"
       ],
+      "entry_latency_sec": "40.965",
+      "is_large_favorable_outlier": true,
       "bingx_cross_check": {
         "entry_order_id": "2124005051160809472",
         "in_bingx_orders": false,
@@ -4525,14 +4498,16 @@
         "signal": {
           "live_signal_time": "2026-11-21T04:59:59.999000Z",
           "live_ref_entry": "56268.8",
-          "reconcile_status": "KHỚP",
-          "reason_code": "KHỚP",
+          "reconcile_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+          "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
           "provenance": "EXACT"
         },
         "entry": {
           "expected_entry": "56268.8",
           "live_avg_price": "56429.9",
           "live_slippage_bps": "-28.63",
+          "entry_latency_sec": "40.965",
+          "is_large_favorable_outlier": true,
           "sim_base_entry": "56257.54624",
           "sim_raw_entry_m1_open": "56268.8",
           "sim_ideal_entry": "56268.8",
@@ -4632,10 +4607,10 @@
           "provenance": "EXACT"
         }
       },
-      "root_cause": "HỆ_THỐNG",
-      "root_cause_detail_vi": "Trượt giá vào lệnh bất thường (-28.63 bps >= ngưỡng hệ thống 25.0 bps)",
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Ngoại lệ lớn, cần xem độ trễ giữa đóng nến và khớp lệnh (trượt giá -28.63 bps có lợi, độ trễ=40.965s)",
       "overall_provenance": "EXACT",
-      "system_issue_note": "Trượt giá vào lệnh bất thường (-28.63 bps >= ngưỡng hệ thống 25.0 bps)"
+      "system_issue_note": null
     },
     {
       "event_id": "BTC-USDT|1h|C11|SELL|1795240799999",
@@ -4645,11 +4620,14 @@
       "combo": "C11",
       "side": "SELL",
       "era": "ERA_2_FIXED_TP_SL",
+      "is_after_compare_from": false,
       "is_fully_closed": true,
       "is_shared_position": true,
       "shared_peers": [
         "BTC-USDT|1h|TIER|SELL|1795237199999"
       ],
+      "entry_latency_sec": "50.096",
+      "is_large_favorable_outlier": false,
       "bingx_cross_check": {
         "entry_order_id": "2124020188949204992",
         "in_bingx_orders": false,
@@ -4660,14 +4638,16 @@
         "signal": {
           "live_signal_time": "2026-11-21T05:59:59.999000Z",
           "live_ref_entry": "55775.3",
-          "reconcile_status": "KHỚP",
-          "reason_code": "KHỚP",
+          "reconcile_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+          "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
           "provenance": "EXACT"
         },
         "entry": {
           "expected_entry": "55775.3",
           "live_avg_price": "55763.9",
           "live_slippage_bps": "2.04",
+          "entry_latency_sec": "50.096",
+          "is_large_favorable_outlier": false,
           "sim_base_entry": "55764.144940000006",
           "sim_raw_entry_m1_open": "55775.3",
           "sim_ideal_entry": "55775.3",
@@ -4773,5 +4753,5 @@
       "system_issue_note": null
     }
   ],
-  "report_sha256": "1821da3f87b6562c72a0d5bfc3db75bfb0ce32fba07a0bb407568a5443c225cb"
+  "report_sha256": "2179af564223f6899c40d485eb180ef291e17a27ba6f6c650c1a9b3506f08ff6"
 }

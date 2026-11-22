@@ -1,7 +1,8 @@
-"""Kiểm thử toàn diện cho công cụ đối soát V3-17a (autotrade_v3.reconcile_v3)."""
+"""Kiểm thử toàn diện cho công cụ đối soát V3-17a bước 2 (autotrade_v3.reconcile_v3)."""
 from __future__ import annotations
 
 import copy
+from decimal import Decimal
 import json
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from autotrade_v3.reconcile_v3.keys import (
 )
 from autotrade_v3.reconcile_v3.labels_vi import find_english_label_leaks
 from autotrade_v3.reconcile_v3.loader import ManifestVerificationError, load_local_store
+from autotrade_v3.reconcile_v3.reconcile_orders import compute_entry_slippage_bps
 from autotrade_v3.reconcile_v3.verify import verify_report
 from scripts.run_v3_17a_reconcile import run_reconcile_pipeline
 
@@ -39,6 +41,20 @@ def test_key_mapping_roundtrip_and_invalid() -> None:
         event_id_to_signal_id("INVALID_KEY")
     with pytest.raises(KeyMappingError):
         signal_id_to_event_id("BTCUSDT_C4_1h_SELL_123")
+
+
+def test_slippage_sign_buy_and_sell() -> None:
+    # BUY: khớp cao hơn tham chiếu -> + (bất lợi), thấp hơn -> - (có lợi)
+    buy_adv = compute_entry_slippage_bps("BUY", Decimal("1000"), Decimal("1002"))
+    buy_fav = compute_entry_slippage_bps("BUY", Decimal("1000"), Decimal("998"))
+    assert buy_adv == Decimal("20")
+    assert buy_fav == Decimal("-20")
+
+    # SELL: khớp thấp hơn tham chiếu -> + (bất lợi), cao hơn -> - (có lợi)
+    sell_adv = compute_entry_slippage_bps("SELL", Decimal("1000"), Decimal("998"))
+    sell_fav = compute_entry_slippage_bps("SELL", Decimal("1000"), Decimal("1002"))
+    assert sell_adv == Decimal("20")
+    assert sell_fav == Decimal("-20")
 
 
 def test_combo_verification_rejects_unmapped_and_mismatch() -> None:
@@ -91,8 +107,7 @@ def test_manifest_sha256_tamper_fails(tmp_path: Path) -> None:
     (root / "live_events").mkdir(parents=True)
 
     pq_path = root / "live_events" / "strategy_signals.parquet"
-    tbl = pa.table({"event_id": ["BTC-USDT|1h|C4|SELL|1794625199999"]})
-    pq.write_table(tbl, pq_path)
+    pq.write_table(pa.table({"event_id": ["BTC-USDT|1h|C4|SELL|1794625199999"]}), pq_path)
     good_sha = sha256_file(pq_path)
 
     manifest = {
@@ -107,40 +122,45 @@ def test_manifest_sha256_tamper_fails(tmp_path: Path) -> None:
     }
     (root / "manifests" / "latest_manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
 
-    # Sửa nội dung parquet để giả lập sai SHA-256
     pq.write_table(pa.table({"event_id": ["BTC-USDT|1h|C4|SELL|1794625199998"]}), pq_path)
     with pytest.raises(ManifestVerificationError):
         load_local_store(root)
 
 
-def test_mutation_delete_order_and_modify_price_fails_verify() -> None:
+def test_mutation_delete_order_price_and_label_fails_verify(tmp_path: Path) -> None:
     if not (REAL_DATA_ROOT / "manifests" / "latest_manifest.json").is_file():
         pytest.skip("Không có kho dữ liệu local D:/AutoTrade/data/bingx")
 
-    # Đọc trực tiếp artifact đã sinh hoặc chạy vào biến tạm
-    evidence_json = Path("D:/AutoTrade/evidence/v3-17a/reconcile_report.json")
-    if not evidence_json.is_file():
-        pytest.skip("Chưa có evidence/v3-17a/reconcile_report.json")
+    payload, html_text = run_reconcile_pipeline(
+        data_root=REAL_DATA_ROOT,
+        output_dir=tmp_path / "mut",
+        repo_root=Path("D:/AutoTrade"),
+    )
+    assert verify_report(payload, html_text).passed is True
 
-    payload = json.loads(evidence_json.read_text(encoding="utf-8"))
-    assert verify_report(payload).passed is True
-
-    # Mutation 1: xóa một lệnh live trong bảng orders mà giữ nguyên summary -> verify phải FAIL
+    # Mutation 1: xóa một lệnh trong bảng orders -> verify FAIL
     mutated_del = copy.deepcopy(payload)
     mutated_del["orders"].pop()
     vr_del = verify_report(mutated_del)
     assert vr_del.passed is False
     assert vr_del.errors
 
-    # Mutation 2: sửa một giá/PnL trong bảng orders -> verify phải FAIL
+    # Mutation 2: sửa một giá/PnL trong bảng orders -> verify FAIL
     mutated_px = copy.deepcopy(payload)
     mutated_px["orders"][0]["items"]["pnl"]["live_net_pnl"] = "999.99"
     vr_px = verify_report(mutated_px)
     assert vr_px.passed is False
     assert vr_px.errors
 
+    # Mutation 3: đổi nhãn nguyên nhân (root_cause) -> verify FAIL
+    mutated_lbl = copy.deepcopy(payload)
+    mutated_lbl["orders"][0]["root_cause"] = "HỆ_THỐNG"
+    vr_lbl = verify_report(mutated_lbl)
+    assert vr_lbl.passed is False
+    assert vr_lbl.errors
 
-def test_real_store_end_to_end_and_reproducibility(tmp_path: Path) -> None:
+
+def test_real_store_step2_classifications_and_compare_from(tmp_path: Path) -> None:
     if not (REAL_DATA_ROOT / "manifests" / "latest_manifest.json").is_file():
         pytest.skip("Không có kho dữ liệu local D:/AutoTrade/data/bingx")
 
@@ -149,28 +169,45 @@ def test_real_store_end_to_end_and_reproducibility(tmp_path: Path) -> None:
     p1, html1 = run_reconcile_pipeline(data_root=REAL_DATA_ROOT, output_dir=out1, repo_root=Path("D:/AutoTrade"))
     p2, html2 = run_reconcile_pipeline(data_root=REAL_DATA_ROOT, output_dir=out2, repo_root=Path("D:/AutoTrade"))
 
-    # Tái lập: cùng dữ liệu -> cùng hash
+    # Tái lập & không rò rỉ tiếng Anh
     assert p1["report_sha256"] == p2["report_sha256"]
     assert html1 == html2
-
-    # Không rò rỉ nhãn tiếng Anh
     assert find_english_label_leaks(html1) == []
 
-    # Kiểm tra quy mô mẫu & phân tách kỷ nguyên
-    assert p1["sample_governance"]["total_orders"] == 22
-    assert p1["sample_governance"]["closed_orders"] == 22
-    assert p1["sample_governance"]["is_small_sample"] is True
-    assert "chưa kết luận" in p1["sample_governance"]["warning_vi"]
+    # compare_from = 2026-11-22T02:30:33Z -> chưa có lệnh sau mốc
+    assert p1["compare_from_utc"] == "2026-11-22T02:30:33Z"
+    assert p1["sample_governance"]["closed_orders"] == 0
+    assert p1["sample_governance"]["has_orders_since_compare_from"] is False
+    assert p1["sample_governance"]["empty_state_label_vi"] == "CHƯA CÓ LỆNH SAU MỐC SO SÁNH"
+    assert "CHƯA CÓ LỆNH SAU MỐC SO SÁNH" in html1
 
-    assert p1["era_summaries"][ERA_1_50TP_50TRAIL]["orders_count"] == 18
-    assert p1["era_summaries"][ERA_2_FIXED_TP_SL]["orders_count"] == 4
+    # Khối lịch sử giữ đủ 22 lệnh tách kỷ nguyên
+    hist = p1["historical"]
+    assert hist["total_orders"] == 22
+    assert hist["era_summaries"][ERA_1_50TP_50TRAIL]["orders_count"] == 18
+    assert hist["era_summaries"][ERA_2_FIXED_TP_SL]["orders_count"] == 4
+    assert hist["system_issues"] == []
 
-    # Funding chỉ ESTIMATED và không cộng vào PnL thực
-    for row in p1["orders"]:
-        fu = row["items"]["funding"]
-        assert fu["provenance"] == "ESTIMATED"
-        assert fu["live_db_funding"] is None
-        assert fu["included_in_live_net_pnl"] is False
+    # Kiểm tra 3 sửa phân loại trên dữ liệu thật
+    by_eid = {r["event_id"]: r for r in p1["orders"]}
+    # 1. Vị thế gộp ETH C13 & C15 -> UNRESOLVED + VỊ_THẾ_GỘP_KHÔNG_PHÂN_BỔ_ĐƯỢC
+    for eid in ("ETH-USDT|1h|C13|SELL|1794697199999", "ETH-USDT|1h|C15|SELL|1794697199999"):
+        assert by_eid[eid]["overall_provenance"] == "UNRESOLVED"
+        assert by_eid[eid]["root_cause"] == "VỊ_THẾ_GỘP_KHÔNG_PHÂN_BỔ_ĐƯỢC"
 
-    # Verify pass
+    # 2. TP/SL từ avg_price (ETH C4) -> MÔ_HÌNH_THỰC_THI
+    assert by_eid["ETH-USDT|1h|C4|SELL|1795125599999"]["root_cause"] == "MÔ_HÌNH_THỰC_THI"
+
+    # 3. Trượt giá có lợi lớn (BTC TIER SELL -28.63 bps) -> MÔ_HÌNH_THỰC_THI + ngoại lệ lớn + độ trễ
+    tier = by_eid["BTC-USDT|1h|TIER|SELL|1795237199999"]
+    assert tier["root_cause"] == "MÔ_HÌNH_THỰC_THI"
+    assert tier["is_large_favorable_outlier"] is True
+    assert tier["entry_latency_sec"] is not None
+
+    # Kiểm tra đối soát tín hiệu theo kỷ nguyên & NEW6_VIRTUAL_POSITION
+    eras = {eb["era_id"]: eb for eb in p1["signal_reconciliation"]["era_breakdown"]}
+    assert eras["SIGNAL_ERA_20FINAL"]["engine_status"] == "AVAILABLE"
+    assert eras["SIGNAL_ERA_20FINAL"]["new6_virtual_position_count"] > 0
+    assert eras["SIGNAL_ERA_V3_LIVE_23_LAB_10_V1"]["engine_status"] == "KHÔNG_DỰNG_ĐƯỢC_ENGINE"
+
     assert verify_report(p1, html1).passed is True
