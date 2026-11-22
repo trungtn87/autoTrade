@@ -478,7 +478,7 @@ def test_all_supabase_sources_emit_only_select_sql(tmp_path: Path, monkeypatch: 
             return _FakeCursor()
 
     fake_psycopg = types.ModuleType("psycopg")
-    fake_psycopg.connect = lambda dsn, **kw: (connect_kwargs.append(kw), _FakeConn())[1]  # type: ignore[attr-defined]
+    fake_psycopg.connect = lambda dsn, **kw: (connect_kwargs.append(kw), _FakeConn())[1]  # type: ignore[attr-defined, func-returns-value]
     fake_rows = types.ModuleType("psycopg.rows")
     fake_rows.dict_row = object()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "psycopg", fake_psycopg)
