@@ -69,6 +69,18 @@ RECONCILE_LABELS_VI: dict[str, str] = {
     "col_latency_sec": "Độ trễ khớp (giây)",
     "sig_new6_vp": "NEW6_VIRTUAL_POSITION (tách riêng)",
     "engine_unavailable": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+    "sync_btn_label": "Đồng bộ",
+    "sync_running": "Đang đồng bộ...",
+    "sync_done_at": "Xong lúc {time}",
+    "sync_error_prefix": "Lỗi: {reason}",
+    "sync_last_at": "Lần đồng bộ cuối: {time} (giờ VN)",
+    "sync_missing_env": "Thiếu biến môi trường SUPABASE_DB_URL — không thể đồng bộ.",
+    "sync_cooldown_msg": "Vui lòng đợi tối thiểu {sec} giây giữa hai lần đồng bộ.",
+    "sync_already_running": "Đang có tiến trình đồng bộ chạy nền, không thể chạy đồng thời.",
+    "sync_readonly_exception_note": (
+        "Ngoại lệ có chủ ý của nguyên tắc dashboard chỉ đọc: nút 'Đồng bộ' chỉ ghi vào "
+        "data/bingx/, evidence/v3-17a/ và cache dashboard; chỉ đọc Supabase qua collector_v3 (SUPABASE_DB_URL)."
+    ),
 }
 
 RECONCILE_FORBIDDEN_ENGLISH: tuple[str, ...] = FORBIDDEN_ENGLISH_LABELS + (

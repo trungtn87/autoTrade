@@ -1,4 +1,9 @@
-"""NinLab Terminal One-Page Lab Dashboard (read-only: Backtest V3-16 + Live Reconcile 17a)."""
+"""NinLab Terminal One-Page Lab Dashboard (read-only: Backtest V3-16 + Live Reconcile 17a).
+
+NGOẠI LỆ CÓ CHỦ Ý CỦA NGUYÊN TẮC CHỈ ĐỌC:
+Nút 'Đồng bộ' ở chân trang gọi `autotrade_v3.dashboard.sync_runner` (tiến trình con không chặn UI),
+chỉ ghi vào `data/bingx/`, `evidence/v3-17a/` và cache dashboard; chỉ đọc Supabase qua collector_v3 (`SUPABASE_DB_URL`).
+"""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -13,7 +18,10 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from autotrade_v3.dashboard import all_signals
+from autotrade_v3.dashboard.sync_runner import evaluate_sync_freshness, read_sync_state, trigger_manual_sync
 from autotrade_v3.dashboard.ui_shared import inject_research_theme, style_plotly
+from autotrade_v3.reconcile_v3.labels_vi import RECONCILE_LABELS_VI
+from autotrade_v3.reconcile_v3.reconcile_orders import load_tolerances
 
 DEFAULT_BINGX_MANIFEST = Path("data/bingx/manifests/latest_manifest.json")
 DEFAULT_RECONCILE_DIR = Path("evidence/v3-17a")
@@ -48,7 +56,7 @@ def compute_breakeven_bps(cost_rows: list[dict[str, Any]]) -> float | None:
     return None
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, ttl=60)
 def load_freshness_info(manifest_path: str = str(DEFAULT_BINGX_MANIFEST)) -> dict[str, Any]:
     """Read BingX collector latest_manifest.json strictly read-only."""
     p = Path(manifest_path)
@@ -85,7 +93,7 @@ def load_freshness_info(manifest_path: str = str(DEFAULT_BINGX_MANIFEST)) -> dic
     }
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, ttl=60)
 def load_reconcile_17a(reconcile_dir: str = str(DEFAULT_RECONCILE_DIR)) -> dict[str, Any]:
     """Read 17a reconcile_report.json with mandatory verify_report() fail-closed check."""
     from autotrade_v3.reconcile_v3.verify import verify_report
@@ -694,10 +702,37 @@ def render_one_page_terminal() -> None:
     if cur_commit and selected.git_commit and cur_commit != selected.git_commit:
         st.warning(f"{all_signals.vi('commit_mismatch_warning')} ({selected.git_commit[:8]} ≠ {cur_commit[:8]})")
 
-    f_info, f_btn1, f_btn2 = st.columns([3.5, 0.8, 1.2])
+    f_info, f_btn0, f_btn1, f_btn2 = st.columns([2.9, 1.1, 0.8, 1.2])
+    tol_cfg = load_tolerances()
+    sync_state = read_sync_state(DEFAULT_RECONCILE_DIR)
+    last_sync_utc = sync_state.get("finished_at_utc") or freshness.get("collected_at")
+    fresh_lvl, last_vn_str, fresh_desc = evaluate_sync_freshness(
+        last_sync_utc,
+        warn_hours=float(tol_cfg.get("sync_warn_hours", 6)),
+        critical_hours=float(tol_cfg.get("sync_critical_hours", 24)),
+    )
+    fresh_cls = "nl-good" if fresh_lvl == "GREEN" else ("nl-warn" if fresh_lvl == "AMBER" else "nl-bad")
+
+    # Tự động tải lại số liệu nếu lần đồng bộ nền vừa hoàn tất
+    if sync_state.get("status") == "SUCCESS":
+        fin_ts = sync_state.get("finished_at_utc")
+        if fin_ts and st.session_state.get("ninlab_last_reloaded_sync") != fin_ts:
+            st.session_state["ninlab_last_reloaded_sync"] = fin_ts
+            st.cache_data.clear()
+            st.rerun()
+
     with f_info:
+        sync_status_msg = str(sync_state.get("message_vi") or "")
+        sync_badge_html = (
+            f" · <span class='{'nl-good' if sync_state.get('status')=='SUCCESS' else ('nl-bad' if sync_state.get('status')=='ERROR' else 'nl-warn')}'>"
+            f"{html.escape(sync_status_msg)}</span>"
+            if sync_status_msg
+            else ""
+        )
         st.markdown(
             f'<div class="nl-footer">'
+            f"<span class='{fresh_cls}'>{html.escape(RECONCILE_LABELS_VI['sync_last_at'].format(time=last_vn_str))} ({html.escape(fresh_desc)})</span>"
+            f"{sync_badge_html}<br>"
             f"run_id: <code>{html.escape(selected.run_id)}</code> · "
             f"commit: <code>{html.escape(selected.git_commit[:12])}</code> · "
             f"sinh: <code>{html.escape(selected.generated_at_utc[:19])}</code> · "
@@ -705,6 +740,19 @@ def render_one_page_terminal() -> None:
             f"</div>",
             unsafe_allow_html=True,
         )
+    with f_btn0:
+        if st.button(RECONCILE_LABELS_VI["sync_btn_label"], use_container_width=True):
+            accepted, msg = trigger_manual_sync(
+                repo_root=Path.cwd(),
+                data_root=Path("data/bingx"),
+                evidence_dir=DEFAULT_RECONCILE_DIR,
+                cooldown_seconds=int(tol_cfg.get("sync_cooldown_seconds", 60)),
+            )
+            if accepted:
+                st.info(msg)
+                st.rerun()
+            else:
+                st.warning(msg)
     with f_btn1:
         if st.button(all_signals.vi("reload"), use_container_width=True):
             st.cache_data.clear()
