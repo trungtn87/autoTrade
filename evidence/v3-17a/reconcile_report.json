@@ -1,0 +1,4777 @@
+{
+  "schema_version": "1.0.0",
+  "tool": "autotrade_v3.reconcile_v3",
+  "manifest_run_id": "run_20261122T024038Z",
+  "manifest_sha256": "9404622c50c5ff431f48e5f935f4d727d2a1194b62128b0df29f479e6b5055af",
+  "sample_governance": {
+    "total_orders": 22,
+    "closed_orders": 22,
+    "min_closed_orders_conclusive": 60,
+    "is_small_sample": true,
+    "conclusive": false,
+    "warning_vi": "Cảnh báo: Mẫu nhỏ (22 lệnh đóng hẳn < 60), chưa kết luận."
+  },
+  "summary_overall_stats": {
+    "signal_match_rate_vs_live_pct": 95.45,
+    "avg_entry_slippage_bps": "-2.86",
+    "p95_entry_slippage_bps": "19.84",
+    "note_vi": "Không gộp PnL hai kỷ nguyên thành một con số; xem era_summaries."
+  },
+  "era_summaries": {
+    "ERA_1_50TP_50TRAIL": {
+      "era": "ERA_1_50TP_50TRAIL",
+      "orders_count": 18,
+      "closed_orders_count": 18,
+      "matched_outcome_count": 0,
+      "avg_entry_slippage_bps": "-3.08",
+      "p95_entry_slippage_bps": "23.02",
+      "live_gross_pnl_usd": "1.07808",
+      "live_net_pnl_usd": "-0.644269",
+      "live_total_fee_usd": "1.722349",
+      "sim_base_gross_pnl_usd": "0.1853904812011833",
+      "sim_base_net_pnl_usd": "-1.6145168235583039",
+      "sim_base_total_fee_usd": "1.79990730475939947",
+      "sim_ideal_gross_pnl_usd": "0.17118803574838473",
+      "sim_ideal_net_pnl_usd": "-1.62872637023374108",
+      "sim_ideal_total_fee_usd": "1.79991440598212584",
+      "net_pnl_diff_vs_base_usd": "0.9702478235583039",
+      "fee_diff_vs_base_usd": "-0.07755830475939947",
+      "estimated_funding_usd": "0.018828"
+    },
+    "ERA_2_FIXED_TP_SL": {
+      "era": "ERA_2_FIXED_TP_SL",
+      "orders_count": 4,
+      "closed_orders_count": 4,
+      "matched_outcome_count": 3,
+      "avg_entry_slippage_bps": "-1.84",
+      "p95_entry_slippage_bps": "11.69",
+      "live_gross_pnl_usd": "-0.5251",
+      "live_net_pnl_usd": "-0.915023",
+      "live_total_fee_usd": "0.389923",
+      "sim_base_gross_pnl_usd": "1.0202200000000237",
+      "sim_base_net_pnl_usd": "0.620730110000013",
+      "sim_base_total_fee_usd": "0.39948989000000001",
+      "sim_ideal_gross_pnl_usd": "1.1000000000000127",
+      "sim_ideal_net_pnl_usd": "0.7005500000000126",
+      "sim_ideal_total_fee_usd": "0.39945000000000001",
+      "net_pnl_diff_vs_base_usd": "-1.535753110000013",
+      "fee_diff_vs_base_usd": "-0.00956689000000001",
+      "estimated_funding_usd": "0"
+    }
+  },
+  "cause_distribution": {
+    "DỮ_LIỆU": 1,
+    "HỆ_THỐNG": 4,
+    "MÔ_HÌNH_THỰC_THI": 17
+  },
+  "system_issues": [
+    {
+      "event_id": "ETH-USDT|1h|C13|SELL|1794697199999",
+      "era": "ERA_1_50TP_50TRAIL",
+      "detail_vi": "Tổng realized_pnl các leg (-0.5458) lệch gross_pnl (-0.3058)"
+    },
+    {
+      "event_id": "ETH-USDT|1h|C15|SELL|1794697199999",
+      "era": "ERA_1_50TP_50TRAIL",
+      "detail_vi": "Tổng realized_pnl các leg (-0.1021) lệch gross_pnl (-0.3421)"
+    },
+    {
+      "event_id": "ETH-USDT|1h|C4|SELL|1795125599999",
+      "era": "ERA_2_FIXED_TP_SL",
+      "detail_vi": "Giá đặt TP/SL lệch so với tín hiệu (tp_diff=-0.07525491885681459141174780985%, sl_diff=-0.07525491885681459141174780985%)"
+    },
+    {
+      "event_id": "BTC-USDT|1h|TIER|SELL|1795237199999",
+      "era": "ERA_2_FIXED_TP_SL",
+      "detail_vi": "Trượt giá vào lệnh bất thường (-28.63 bps >= ngưỡng hệ thống 25.0 bps)"
+    }
+  ],
+  "sources_coverage": [
+    {
+      "source": "live_events_v3.strategy_signals",
+      "path": "live_events/strategy_signals.parquet",
+      "row_count": 22,
+      "sha256": "f165536bb75922329435f5be77df997466c28c63ac16a7417ae71ac4206976b5",
+      "min_ts_ms": 1794625199999,
+      "max_ts_ms": 1795240799999,
+      "min_ts_utc": "2026-11-14T02:59:59.999000Z",
+      "max_ts_utc": "2026-11-21T05:59:59.999000Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Nguồn chính tín hiệu V3"
+    },
+    {
+      "source": "live_events_v3.execution_orders",
+      "path": "live_events/execution_orders.parquet",
+      "row_count": 22,
+      "sha256": "e37b2074603200d37d8a7e9d59249d253794d7e86c6ad5a22a18c2ae2aff6fc8",
+      "min_ts_ms": 1794625226894,
+      "max_ts_ms": 1795240848931,
+      "min_ts_utc": "2026-11-14T03:00:26.894000Z",
+      "max_ts_utc": "2026-11-21T06:00:48.931000Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Nguồn chính lệnh V3"
+    },
+    {
+      "source": "live_events_v3.execution_results",
+      "path": "live_events/execution_results.parquet",
+      "row_count": 32,
+      "sha256": "1d8e95ce6332d622067b0e013835c00e5120606a8eda3876b942b4916153d318",
+      "min_ts_ms": 1794627347000,
+      "max_ts_ms": 1795242812000,
+      "min_ts_utc": "2026-11-14T03:35:47Z",
+      "max_ts_utc": "2026-11-21T06:33:32Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Nguồn chính kết quả đóng từng phần V3"
+    },
+    {
+      "source": "live_events_v3.execution_finances",
+      "path": "live_events/execution_finances.parquet",
+      "row_count": 22,
+      "sha256": "be3a8ace23162175ca98ce3eb9db5836ba0ff277eab08f543da3fe1cd94564c9",
+      "min_ts_ms": 1794632905844,
+      "max_ts_ms": 1795284422514,
+      "min_ts_utc": "2026-11-14T05:08:25.844000Z",
+      "max_ts_utc": "2026-11-21T18:07:02.514000Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Nguồn chính tài chính V3 (funding=NULL theo thiết kế)"
+    },
+    {
+      "source": "live_events_v3.control_logs",
+      "path": "live_events/control_logs.parquet",
+      "row_count": 210,
+      "sha256": "300e477f0667c765134733c318698bb895a888f1e8a2e02413cbe326a4b4ca54",
+      "min_ts_ms": 1794672522101,
+      "max_ts_ms": 1795314633889,
+      "min_ts_utc": "2026-11-14T16:08:42.101000Z",
+      "max_ts_utc": "2026-11-22T02:30:33.889000Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Nhật ký hệ thống V3 (dùng suy ra VPS_TẮT)"
+    },
+    {
+      "source": "live_events_v3.candles",
+      "path": "live_events/candles.parquet",
+      "row_count": 15400,
+      "sha256": "0f8fcf2c167b61ea3eaa61bf4bf825db5f722de5cf5d58218608ba34e1f278e8",
+      "min_ts_ms": 1784514600000,
+      "max_ts_ms": 1795313700000,
+      "min_ts_utc": "2026-07-20T02:30:00Z",
+      "max_ts_utc": "2026-11-22T02:15:00Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Nến 15m cache live (BTC=3400, ETH=12000)"
+    },
+    {
+      "source": "bingx_orders",
+      "path": "execution/orders/orders.parquet",
+      "row_count": 491,
+      "sha256": "5e7571af4f77c98851c4b81316d742aed806998358fd13963bd8e215e0572ce7",
+      "min_ts_ms": 1790334924000,
+      "max_ts_ms": 1794670587000,
+      "min_ts_utc": "2026-09-25T11:15:24Z",
+      "max_ts_utc": "2026-11-14T15:36:27Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Bằng chứng phụ đến 14/11 15:36 UTC (trước PR #119)"
+    },
+    {
+      "source": "bingx_fills",
+      "path": "execution/fills/fills.parquet",
+      "row_count": 172,
+      "sha256": "23536d418e1e354972be6a9d731a7eb03addebf12f73926d5b3db400df4de5da",
+      "min_ts_ms": 1792330021000,
+      "max_ts_ms": 1794670587000,
+      "min_ts_utc": "2026-10-18T13:27:01Z",
+      "max_ts_utc": "2026-11-14T15:36:27Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Bằng chứng phụ đến 14/11 15:36 UTC (trước PR #119)"
+    },
+    {
+      "source": "bingx_income",
+      "path": "execution/income/income.parquet",
+      "row_count": 564,
+      "sha256": "b3a352c0a66d10f4a5f53a07cf4c9bc0f9a3cfe3851ee7db71b2dc2f0c231c3f",
+      "min_ts_ms": 1790334924000,
+      "max_ts_ms": 1794672014000,
+      "min_ts_utc": "2026-09-25T11:15:24Z",
+      "max_ts_utc": "2026-11-14T16:00:14Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Bằng chứng phụ đến 14/11 16:00 UTC (trước PR #119)"
+    },
+    {
+      "source": "bingx_position_history",
+      "path": "execution/positions/",
+      "row_count": 0,
+      "sha256": "",
+      "min_ts_ms": null,
+      "max_ts_ms": null,
+      "min_ts_utc": null,
+      "max_ts_utc": null,
+      "status": "GAP",
+      "provenance": "EXACT",
+      "note": "Bảng nguồn rỗng thật (0 dòng)"
+    },
+    {
+      "source": "market_candles_1m.BTC-USDT",
+      "path": "market/candles_1m/BTC-USDT.parquet",
+      "row_count": 30400,
+      "sha256": "c0ecfded58daf5383310414d0cbe99b1dbcba8a44d0422bb954c9708a35cf527",
+      "min_ts_ms": 1793491200000,
+      "max_ts_ms": 1795315140000,
+      "min_ts_utc": "2026-11-01T00:00:00Z",
+      "max_ts_utc": "2026-11-22T02:39:00Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Nến M1 liên tục"
+    },
+    {
+      "source": "market_candles_1m.ETH-USDT",
+      "path": "market/candles_1m/ETH-USDT.parquet",
+      "row_count": 30400,
+      "sha256": "575f4ec845be65afd2de3ecfda9c78a0416e3d1b10f09973c69e5b68f9108f02",
+      "min_ts_ms": 1793491200000,
+      "max_ts_ms": 1795315140000,
+      "min_ts_utc": "2026-11-01T00:00:00Z",
+      "max_ts_utc": "2026-11-22T02:39:00Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Nến M1 liên tục"
+    },
+    {
+      "source": "market_funding.BTC-USDT",
+      "path": "market/funding/BTC-USDT.parquet",
+      "row_count": 44,
+      "sha256": "9dfcd8b91a5c831888b094bb6f5671bda92c23783e13b532e305ff406dfc44e3",
+      "min_ts_ms": 1794067200000,
+      "max_ts_ms": 1795305600000,
+      "min_ts_utc": "2026-11-07T16:00:00Z",
+      "max_ts_utc": "2026-11-22T00:00:00Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Lãi suất funding 8h (dùng ước lượng ESTIMATED)"
+    },
+    {
+      "source": "market_funding.ETH-USDT",
+      "path": "market/funding/ETH-USDT.parquet",
+      "row_count": 44,
+      "sha256": "530d0617a87d25ce0b3dd43eb3354bb13edb9344ea4d027917f56f9b67c53ed3",
+      "min_ts_ms": 1794067200000,
+      "max_ts_ms": 1795305600000,
+      "min_ts_utc": "2026-11-07T16:00:00Z",
+      "max_ts_utc": "2026-11-22T00:00:00Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Lãi suất funding 8h (dùng ước lượng ESTIMATED)"
+    },
+    {
+      "source": "market_contract_rules",
+      "path": "market/contract_rules/contracts.parquet",
+      "row_count": 2,
+      "sha256": "974a8f96d35e02bb538706a73838407916da886d6bb1c09b85db303f93fe4fc1",
+      "min_ts_ms": 1795315238333,
+      "max_ts_ms": 1795315238333,
+      "min_ts_utc": "2026-11-22T02:40:38.333000Z",
+      "max_ts_utc": "2026-11-22T02:40:38.333000Z",
+      "status": "COMPLETE",
+      "provenance": "EXACT",
+      "note": "Quy tắc hợp đồng BingX"
+    }
+  ],
+  "vps_off_windows": [
+    {
+      "start_ms": 1795282234730,
+      "end_ms": 1795314633889,
+      "start_utc": "2026-11-21T17:30:34.730000Z",
+      "end_utc": "2026-11-22T02:30:33.889000Z",
+      "duration_hours": 9.0,
+      "source": "control_logs",
+      "classification": "VPS_TẮT",
+      "note": "Khoảng trống control_logs khi tắt VPS (đổi mật khẩu database)"
+    }
+  ],
+  "other_control_log_gaps": [
+    {
+      "start_ms": 1794672526138,
+      "end_ms": 1794700858111,
+      "start_utc": "2026-11-14T16:08:46.138000Z",
+      "end_utc": "2026-11-15T00:00:58.111000Z",
+      "duration_hours": 7.87,
+      "source": "control_logs",
+      "classification": "NO_LOG_ACTIVITY",
+      "note": "Khoảng trống giữa hai lần ghi control_logs (có thể do không có sự kiện/lỗi)"
+    },
+    {
+      "start_ms": 1794700858111,
+      "end_ms": 1794712042221,
+      "start_utc": "2026-11-15T00:00:58.111000Z",
+      "end_utc": "2026-11-15T03:07:22.221000Z",
+      "duration_hours": 3.11,
+      "source": "control_logs",
+      "classification": "NO_LOG_ACTIVITY",
+      "note": "Khoảng trống giữa hai lần ghi control_logs (có thể do không có sự kiện/lỗi)"
+    },
+    {
+      "start_ms": 1794712043504,
+      "end_ms": 1794840337196,
+      "start_utc": "2026-11-15T03:07:23.504000Z",
+      "end_utc": "2026-11-16T14:45:37.196000Z",
+      "duration_hours": 35.64,
+      "source": "control_logs",
+      "classification": "NO_LOG_ACTIVITY",
+      "note": "Khoảng trống giữa hai lần ghi control_logs (có thể do không có sự kiện/lỗi)"
+    },
+    {
+      "start_ms": 1794920355437,
+      "end_ms": 1794932997835,
+      "start_utc": "2026-11-17T12:59:15.437000Z",
+      "end_utc": "2026-11-17T16:29:57.835000Z",
+      "duration_hours": 3.51,
+      "source": "control_logs",
+      "classification": "NO_LOG_ACTIVITY",
+      "note": "Khoảng trống giữa hai lần ghi control_logs (có thể do không có sự kiện/lỗi)"
+    },
+    {
+      "start_ms": 1794936600396,
+      "end_ms": 1794973531063,
+      "start_utc": "2026-11-17T17:30:00.396000Z",
+      "end_utc": "2026-11-18T03:45:31.063000Z",
+      "duration_hours": 10.26,
+      "source": "control_logs",
+      "classification": "NO_LOG_ACTIVITY",
+      "note": "Khoảng trống giữa hai lần ghi control_logs (có thể do không có sự kiện/lỗi)"
+    },
+    {
+      "start_ms": 1794973531063,
+      "end_ms": 1795052733543,
+      "start_utc": "2026-11-18T03:45:31.063000Z",
+      "end_utc": "2026-11-19T01:45:33.543000Z",
+      "duration_hours": 22.0,
+      "source": "control_logs",
+      "classification": "NO_LOG_ACTIVITY",
+      "note": "Khoảng trống giữa hai lần ghi control_logs (có thể do không có sự kiện/lỗi)"
+    },
+    {
+      "start_ms": 1795052733543,
+      "end_ms": 1795093230834,
+      "start_utc": "2026-11-19T01:45:33.543000Z",
+      "end_utc": "2026-11-19T13:00:30.834000Z",
+      "duration_hours": 11.25,
+      "source": "control_logs",
+      "classification": "NO_LOG_ACTIVITY",
+      "note": "Khoảng trống giữa hai lần ghi control_logs (có thể do không có sự kiện/lỗi)"
+    },
+    {
+      "start_ms": 1795094130794,
+      "end_ms": 1795131933382,
+      "start_utc": "2026-11-19T13:15:30.794000Z",
+      "end_utc": "2026-11-19T23:45:33.382000Z",
+      "duration_hours": 10.5,
+      "source": "control_logs",
+      "classification": "NO_LOG_ACTIVITY",
+      "note": "Khoảng trống giữa hai lần ghi control_logs (có thể do không có sự kiện/lỗi)"
+    },
+    {
+      "start_ms": 1795163971424,
+      "end_ms": 1795187414996,
+      "start_utc": "2026-11-20T08:39:31.424000Z",
+      "end_utc": "2026-11-20T15:10:14.996000Z",
+      "duration_hours": 6.51,
+      "source": "control_logs",
+      "classification": "NO_LOG_ACTIVITY",
+      "note": "Khoảng trống giữa hai lần ghi control_logs (có thể do không có sự kiện/lỗi)"
+    },
+    {
+      "start_ms": 1795187416514,
+      "end_ms": 1795199533517,
+      "start_utc": "2026-11-20T15:10:16.514000Z",
+      "end_utc": "2026-11-20T18:32:13.517000Z",
+      "duration_hours": 3.37,
+      "source": "control_logs",
+      "classification": "NO_LOG_ACTIVITY",
+      "note": "Khoảng trống giữa hai lần ghi control_logs (có thể do không có sự kiện/lỗi)"
+    },
+    {
+      "start_ms": 1795200593048,
+      "end_ms": 1795235967337,
+      "start_utc": "2026-11-20T18:49:53.048000Z",
+      "end_utc": "2026-11-21T04:39:27.337000Z",
+      "duration_hours": 9.83,
+      "source": "control_logs",
+      "classification": "NO_LOG_ACTIVITY",
+      "note": "Khoảng trống giữa hai lần ghi control_logs (có thể do không có sự kiện/lỗi)"
+    }
+  ],
+  "live_commits": [
+    {
+      "sha": "c211617",
+      "date_iso": "2026-11-21 16:08:51 +0700",
+      "subject": "fix(v3 live L2): prevent ETH-C6 Signal NameError (#174)"
+    },
+    {
+      "sha": "d11d894",
+      "date_iso": "2026-11-21 11:37:54 +0700",
+      "subject": "fix(v3): independent BTC/ETH L2 M15 evaluation and signal dedupe (#173)"
+    },
+    {
+      "sha": "09c3262",
+      "date_iso": "2026-11-20 15:00:37 +0000",
+      "subject": "Split Lab 10 signal filters into l2_filters.py (verbatim move)"
+    },
+    {
+      "sha": "854bf57",
+      "date_iso": "2026-11-20 08:25:32 +0000",
+      "subject": "Prune and rename Lab 10 live L2 module; remove dead live-state code"
+    },
+    {
+      "sha": "4105bb5",
+      "date_iso": "2026-11-20 14:56:33 +0700",
+      "subject": "Embed the 20FINAL params in code; delete the live params folder (#168)"
+    },
+    {
+      "sha": "fcb519f",
+      "date_iso": "2026-11-20 14:40:25 +0700",
+      "subject": "Use shared l2_core helpers in the Lab 10 L2 module (#167)"
+    },
+    {
+      "sha": "2444614",
+      "date_iso": "2026-11-20 13:00:05 +0700",
+      "subject": "Serve the V2 Dashboard UI on V3 data (#166)"
+    },
+    {
+      "sha": "c55087e",
+      "date_iso": "2026-11-20 12:56:46 +0700",
+      "subject": "Fix V3 dashboard 503 behind Supabase pooler (#165)"
+    },
+    {
+      "sha": "bd8bd09",
+      "date_iso": "2026-11-20 12:32:54 +0700",
+      "subject": "Add V3 live terminal dashboard without V2 dependencies (#164)"
+    },
+    {
+      "sha": "677b3e6",
+      "date_iso": "2026-11-20 04:45:47 +0000",
+      "subject": "refactor(v3-live): make Lab 10 the only live L2 engine and remove Lab 8 and legacy paths"
+    },
+    {
+      "sha": "ae19834",
+      "date_iso": "2026-11-20 04:35:34 +0000",
+      "subject": "feat(v3-live): add V3_LIVE_23_LAB_10_V1 registry on flat Lab 10 engine (opt-in)"
+    },
+    {
+      "sha": "faeab61",
+      "date_iso": "2026-11-20 03:51:04 +0000",
+      "subject": "refactor(v3-live): remove 20FINAL and V2 imports from live engine"
+    },
+    {
+      "sha": "feb2368",
+      "date_iso": "2026-11-20 03:17:52 +0000",
+      "subject": "test(v3-live): default-registry assertion follows Lab 8 23 default"
+    },
+    {
+      "sha": "3c93117",
+      "date_iso": "2026-11-20 03:16:27 +0000",
+      "subject": "feat(v3-live): default L2 registry to V3_LIVE_23_LAB_8_V1"
+    },
+    {
+      "sha": "cbb4f5b",
+      "date_iso": "2026-11-20 02:47:30 +0000",
+      "subject": "fix(v3-live): drop duplicate imports in flat Lab 8 module (ruff F811)"
+    },
+    {
+      "sha": "379eedf",
+      "date_iso": "2026-11-20 02:46:36 +0000",
+      "subject": "feat(v3-live): Lab 8 L2 from single flat module (no duckdb/pyarrow, lock disabled)"
+    },
+    {
+      "sha": "fbf9df9",
+      "date_iso": "2026-11-20 02:26:56 +0000",
+      "subject": "feat(v3-live): wire V3_LIVE_23_LAB_8_V1 to vendored Lab 8 (not default; blocked on lock)"
+    },
+    {
+      "sha": "f613ebe",
+      "date_iso": "2026-11-20 02:02:30 +0000",
+      "subject": "feat(v3-live): vendor Lab 8 L2 closure as autotrade_v3.l2_lab8 (not wired yet)"
+    },
+    {
+      "sha": "601c892",
+      "date_iso": "2026-11-20 01:51:46 +0000",
+      "subject": "refactor(v3-live): gop autotrade_v3.l2_core thanh mot module l2_core.py"
+    },
+    {
+      "sha": "671cd6b",
+      "date_iso": "2026-11-20 01:46:07 +0000",
+      "subject": "refactor(v3-live): move NEW6 and hard_tp_sl helpers into autotrade_v3.l2_core"
+    },
+    {
+      "sha": "9ab1015",
+      "date_iso": "2026-11-19 19:21:23 +0000",
+      "subject": "refactor(v3-live): move final14 research indicators into autotrade_v3.l2_core"
+    },
+    {
+      "sha": "8a856a5",
+      "date_iso": "2026-11-19 12:47:21 +0000",
+      "subject": "feat(v3-live): add V3_LIVE_23_LAB_5_V1 registry driven by lab V3_LAB_5@5.0.0"
+    },
+    {
+      "sha": "2c5e703",
+      "date_iso": "2026-11-17 23:12:07 +0700",
+      "subject": "test(v3/l1): simulate elapsed rate budget for nine successful 15m cycles"
+    },
+    {
+      "sha": "f512778",
+      "date_iso": "2026-11-17 23:08:20 +0700",
+      "subject": "test(v3/l1): ensure rolling retention and configurable ETH max"
+    },
+    {
+      "sha": "aa65a35",
+      "date_iso": "2026-11-17 23:08:06 +0700",
+      "subject": "feat(v3/l1): configure rolling ETH candle retention via environment"
+    },
+    {
+      "sha": "a5bfb3f",
+      "date_iso": "2026-11-17 23:07:39 +0700",
+      "subject": "test(v3/l1): cover incremental persistence, resume, BingX cooldown and live safety"
+    },
+    {
+      "sha": "f9eaa92",
+      "date_iso": "2026-11-17 23:06:22 +0700",
+      "subject": "fix(v3/l1): run one incremental backfill page every 15 minutes"
+    },
+    {
+      "sha": "d25bc77",
+      "date_iso": "2026-11-17 23:06:01 +0700",
+      "subject": "fix(v3/l1): persist each validated historical page and resume from DB"
+    },
+    {
+      "sha": "2e9a84f",
+      "date_iso": "2026-11-17 12:50:31 +0000",
+      "subject": "feat(v3-live): ETH giữ 12000 nến trong DB, L1 V3 tự bù nến"
+    },
+    {
+      "sha": "b559bef",
+      "date_iso": "2026-11-16 23:11:27 +0700",
+      "subject": "feat(v3-live): thông báo khởi động và nến 15m thiếu lúc đầu (#131)"
+    },
+    {
+      "sha": "26d330d",
+      "date_iso": "2026-11-16 23:04:21 +0700",
+      "subject": "Live L2: giữ tiến độ tải 12000 nến ETH, ghi mã lỗi BingX, gộp cảnh báo L5 (#130)"
+    },
+    {
+      "sha": "41ab58e",
+      "date_iso": "2026-11-16 22:06:50 +0700",
+      "subject": "feat(v3-live): L2 registry V3_LIVE_20_POSITIVE_FIXED_V1 (20 combo-symbols) (#129)"
+    },
+    {
+      "sha": "c692661",
+      "date_iso": "2026-11-16 21:36:01 +0700",
+      "subject": "feat(v3-live): H1_BOTH_1 cho ETH-USDT/C1 trong L2 (pre-edge, cache 12000 nến) (#128)"
+    },
+    {
+      "sha": "3e45089",
+      "date_iso": "2026-11-15 16:45:05 +0700",
+      "subject": "feat(v3): chuyển cả 20 combo sang TP/SL cố định (FIXED_TP_SL) (#125)"
+    },
+    {
+      "sha": "30367d7",
+      "date_iso": "2026-11-15 09:38:27 +0700",
+      "subject": "Merge pull request #123 from trungtn87/feat/v3-l4-sl-resize-121"
+    },
+    {
+      "sha": "2c36930",
+      "date_iso": "2026-11-15 09:38:02 +0700",
+      "subject": "Merge pull request #122 from trungtn87/fix/v3-shared-position-attribution-121"
+    },
+    {
+      "sha": "23e55ba",
+      "date_iso": "2026-11-15 09:29:01 +0700",
+      "subject": "test(v3): replay ETH C13/C15 trailing then amended SL against full combo volume"
+    },
+    {
+      "sha": "4075211",
+      "date_iso": "2026-11-15 09:28:01 +0700",
+      "subject": "fix(v3): start SL watch only when V3 has trading credentials"
+    },
+    {
+      "sha": "4e5ca6b",
+      "date_iso": "2026-11-15 09:26:49 +0700",
+      "subject": "chore(v3): remove unused SL watcher import"
+    },
+    {
+      "sha": "2cfed6f",
+      "date_iso": "2026-11-15 09:26:13 +0700",
+      "subject": "test(v3): verify SL resize never resends Entry or replacement protection"
+    }
+  ],
+  "tolerances": {
+    "schema_version": "1.0.0",
+    "entry_slippage_bps_warn": "10.0",
+    "entry_slippage_bps_system": "25.0",
+    "tp_sl_price_diff_pct_tol": "0.05",
+    "fee_diff_usd_tol": "0.02",
+    "fee_diff_pct_tol": "15.0",
+    "pnl_diff_usd_tol": "0.25",
+    "pnl_diff_pct_tol": "20.0",
+    "signal_time_diff_ms_tol": 0,
+    "vps_off_min_gap_seconds": 7200,
+    "min_closed_orders_conclusive": 60
+  },
+  "signal_reconciliation": {
+    "lab_total_in_window": 58,
+    "live_total": 22,
+    "matched_count": 21,
+    "missing_count": 37,
+    "extra_count": 1,
+    "vps_off_count": 0,
+    "time_skew_count": 0,
+    "match_rate_vs_live_pct": 95.45,
+    "notes": [
+      "BTC-USDT: live_events/candles.parquet chỉ giữ 3400 nến 15m (rolling 3400), chạy replay với only_warmup_ready=False để bao phủ từ 14/11."
+    ],
+    "items": [
+      {
+        "event_id": "BTC-USDT|1h|C4|SELL|1794625199999",
+        "signal_id": "SIG_BTCUSDT_C4_1h_SELL_1794625199999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C4",
+        "side": "SELL",
+        "signal_close_ms": 1794625199999,
+        "signal_close_utc": "2026-11-14T02:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794628799999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794628799999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794628799999,
+        "signal_close_utc": "2026-11-14T03:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794632399999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794632399999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794632399999,
+        "signal_close_utc": "2026-11-14T04:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794635999999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794635999999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794635999999,
+        "signal_close_utc": "2026-11-14T05:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794639599999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794639599999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794639599999,
+        "signal_close_utc": "2026-11-14T06:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794643199999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794643199999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794643199999,
+        "signal_close_utc": "2026-11-14T07:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794646799999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794646799999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794646799999,
+        "signal_close_utc": "2026-11-14T08:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794650399999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794650399999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794650399999,
+        "signal_close_utc": "2026-11-14T09:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794653999999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794653999999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794653999999,
+        "signal_close_utc": "2026-11-14T10:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794657599999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794657599999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794657599999,
+        "signal_close_utc": "2026-11-14T11:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794661199999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794661199999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794661199999,
+        "signal_close_utc": "2026-11-14T12:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794664799999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794664799999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794664799999,
+        "signal_close_utc": "2026-11-14T13:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794668399999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794668399999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794668399999,
+        "signal_close_utc": "2026-11-14T14:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C4|SELL|1794668399999",
+        "signal_id": "SIG_BTCUSDT_C4_1h_SELL_1794668399999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C4",
+        "side": "SELL",
+        "signal_close_ms": 1794668399999,
+        "signal_close_utc": "2026-11-14T14:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C4|SELL|1794668399999",
+        "signal_id": "SIG_ETHUSDT_C4_1h_SELL_1794668399999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C4",
+        "side": "SELL",
+        "signal_close_ms": 1794668399999,
+        "signal_close_utc": "2026-11-14T14:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794671999999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794671999999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794671999999,
+        "signal_close_utc": "2026-11-14T15:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794675599999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794675599999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794675599999,
+        "signal_close_utc": "2026-11-14T16:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|TIER|SELL|1794675599999",
+        "signal_id": "SIG_BTCUSDT_TIER_1h_SELL_1794675599999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "TIER",
+        "side": "SELL",
+        "signal_close_ms": 1794675599999,
+        "signal_close_utc": "2026-11-14T16:59:59.999000Z",
+        "status": "THỪA",
+        "reason_code": "WARMUP_WINDOW_3400",
+        "reason_detail_vi": "BTC-USDT chỉ có 3400 nến rolling trong cache; trạng thái warmup/L2 tại thời điểm live có thể khác",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C13|SELL|1794675599999",
+        "signal_id": "SIG_ETHUSDT_C13_1h_SELL_1794675599999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C13",
+        "side": "SELL",
+        "signal_close_ms": 1794675599999,
+        "signal_close_utc": "2026-11-14T16:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1794675599999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1794675599999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1794675599999,
+        "signal_close_utc": "2026-11-14T16:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794679199999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794679199999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794679199999,
+        "signal_close_utc": "2026-11-14T17:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794682799999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794682799999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794682799999,
+        "signal_close_utc": "2026-11-14T18:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794686399999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794686399999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794686399999,
+        "signal_close_utc": "2026-11-14T19:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794689999999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794689999999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794689999999,
+        "signal_close_utc": "2026-11-14T20:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794693599999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794693599999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794693599999,
+        "signal_close_utc": "2026-11-14T21:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794697199999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794697199999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794697199999,
+        "signal_close_utc": "2026-11-14T22:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C13|SELL|1794697199999",
+        "signal_id": "SIG_ETHUSDT_C13_1h_SELL_1794697199999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C13",
+        "side": "SELL",
+        "signal_close_ms": 1794697199999,
+        "signal_close_utc": "2026-11-14T22:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1794697199999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1794697199999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1794697199999,
+        "signal_close_utc": "2026-11-14T22:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794700799999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794700799999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794700799999,
+        "signal_close_utc": "2026-11-14T23:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794704399999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794704399999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794704399999,
+        "signal_close_utc": "2026-11-15T00:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1794707999999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794707999999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1794707999999,
+        "signal_close_utc": "2026-11-15T01:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C4|SELL|1794707999999",
+        "signal_id": "SIG_BTCUSDT_C4_1h_SELL_1794707999999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C4",
+        "side": "SELL",
+        "signal_close_ms": 1794707999999,
+        "signal_close_utc": "2026-11-15T01:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C13|SELL|1794707999999",
+        "signal_id": "SIG_ETHUSDT_C13_1h_SELL_1794707999999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C13",
+        "side": "SELL",
+        "signal_close_ms": 1794707999999,
+        "signal_close_utc": "2026-11-15T01:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1794707999999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1794707999999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1794707999999,
+        "signal_close_utc": "2026-11-15T01:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|15m|C10|SELL|1795046399999",
+        "signal_id": "SIG_BTCUSDT_C10_15m_SELL_1795046399999",
+        "symbol": "BTC-USDT",
+        "timeframe": "15m",
+        "combo": "C10",
+        "side": "SELL",
+        "signal_close_ms": 1795046399999,
+        "signal_close_utc": "2026-11-18T23:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C14|SELL|1795111199999",
+        "signal_id": "SIG_BTCUSDT_C14_1h_SELL_1795111199999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C14",
+        "side": "SELL",
+        "signal_close_ms": 1795111199999,
+        "signal_close_utc": "2026-11-19T17:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C4|SELL|1795125599999",
+        "signal_id": "SIG_ETHUSDT_C4_1h_SELL_1795125599999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C4",
+        "side": "SELL",
+        "signal_close_ms": 1795125599999,
+        "signal_close_utc": "2026-11-19T21:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C14|SELL|1795132799999",
+        "signal_id": "SIG_BTCUSDT_C14_1h_SELL_1795132799999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C14",
+        "side": "SELL",
+        "signal_close_ms": 1795132799999,
+        "signal_close_utc": "2026-11-19T23:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C12|SELL|1795139999999",
+        "signal_id": "SIG_ETHUSDT_C12_1h_SELL_1795139999999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C12",
+        "side": "SELL",
+        "signal_close_ms": 1795139999999,
+        "signal_close_utc": "2026-11-20T01:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C4|SELL|1795190399999",
+        "signal_id": "SIG_BTCUSDT_C4_1h_SELL_1795190399999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C4",
+        "side": "SELL",
+        "signal_close_ms": 1795190399999,
+        "signal_close_utc": "2026-11-20T15:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C4|SELL|1795190399999",
+        "signal_id": "SIG_ETHUSDT_C4_1h_SELL_1795190399999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C4",
+        "side": "SELL",
+        "signal_close_ms": 1795190399999,
+        "signal_close_utc": "2026-11-20T15:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|TIER|SELL|1795193999999",
+        "signal_id": "SIG_BTCUSDT_TIER_1h_SELL_1795193999999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "TIER",
+        "side": "SELL",
+        "signal_close_ms": 1795193999999,
+        "signal_close_utc": "2026-11-20T16:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C13|SELL|1795204799999",
+        "signal_id": "SIG_ETHUSDT_C13_1h_SELL_1795204799999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C13",
+        "side": "SELL",
+        "signal_close_ms": 1795204799999,
+        "signal_close_utc": "2026-11-20T19:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795204799999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795204799999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795204799999,
+        "signal_close_utc": "2026-11-20T19:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795208399999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795208399999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795208399999,
+        "signal_close_utc": "2026-11-20T20:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795211999999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795211999999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795211999999,
+        "signal_close_utc": "2026-11-20T21:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795215599999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795215599999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795215599999,
+        "signal_close_utc": "2026-11-20T22:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795219199999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795219199999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795219199999,
+        "signal_close_utc": "2026-11-20T23:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795222799999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795222799999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795222799999,
+        "signal_close_utc": "2026-11-21T00:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795226399999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795226399999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795226399999,
+        "signal_close_utc": "2026-11-21T01:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795229999999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795229999999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795229999999,
+        "signal_close_utc": "2026-11-21T02:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|15m|C7|SELL|1795232699999",
+        "signal_id": "SIG_BTCUSDT_C7_15m_SELL_1795232699999",
+        "symbol": "BTC-USDT",
+        "timeframe": "15m",
+        "combo": "C7",
+        "side": "SELL",
+        "signal_close_ms": 1795232699999,
+        "signal_close_utc": "2026-11-21T03:44:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|15m|C7|SELL|1795232699999",
+        "signal_id": "SIG_ETHUSDT_C7_15m_SELL_1795232699999",
+        "symbol": "ETH-USDT",
+        "timeframe": "15m",
+        "combo": "C7",
+        "side": "SELL",
+        "signal_close_ms": 1795232699999,
+        "signal_close_utc": "2026-11-21T03:44:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C4|SELL|1795233599999",
+        "signal_id": "SIG_BTCUSDT_C4_1h_SELL_1795233599999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C4",
+        "side": "SELL",
+        "signal_close_ms": 1795233599999,
+        "signal_close_utc": "2026-11-21T03:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795233599999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795233599999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795233599999,
+        "signal_close_utc": "2026-11-21T03:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|TIER|SELL|1795237199999",
+        "signal_id": "SIG_BTCUSDT_TIER_1h_SELL_1795237199999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "TIER",
+        "side": "SELL",
+        "signal_close_ms": 1795237199999,
+        "signal_close_utc": "2026-11-21T04:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795237199999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795237199999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795237199999,
+        "signal_close_utc": "2026-11-21T04:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C11|SELL|1795240799999",
+        "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1795240799999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C11",
+        "side": "SELL",
+        "signal_close_ms": 1795240799999,
+        "signal_close_utc": "2026-11-21T05:59:59.999000Z",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác event_id giữa Lab 20FINAL và Live",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795240799999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795240799999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795240799999,
+        "signal_close_utc": "2026-11-21T05:59:59.999000Z",
+        "status": "THIẾU",
+        "reason_code": "L2_REGISTRY_CHANGED",
+        "reason_detail_vi": "Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL",
+        "time_diff_ms": 0
+      }
+    ]
+  },
+  "orders": [
+    {
+      "event_id": "BTC-USDT|1h|C4|SELL|1794625199999",
+      "signal_id": "SIG_BTCUSDT_C4_1h_SELL_1794625199999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "C4",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "BTC-USDT|1h|C11|SELL|1794628799999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121438081244680192",
+        "in_bingx_orders": true,
+        "bingx_order_avg_price": "67666.5",
+        "bingx_fills_count": 1
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T02:59:59.999000Z",
+          "live_ref_entry": "67655.5",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "67655.5",
+          "live_avg_price": "67666.5",
+          "live_slippage_bps": "-1.63",
+          "sim_base_entry": "67641.9689",
+          "sim_raw_entry_m1_open": "67655.5",
+          "sim_ideal_entry": "67655.5",
+          "abs_diff": "24.5311",
+          "pct_diff": "0.0363",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "66448.503",
+          "live_sl_price": "68275.4985",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121438119932301312",
+          "sl_order_id": "2121438098377773056",
+          "sim_ref_tp_price": "66437.701",
+          "sim_ref_sl_price": "68264.3995",
+          "tp_pct_diff": "0.0163",
+          "sl_pct_diff": "0.0163",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121438131479220224",
+          "activation_price": "67328.1675",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0015",
+          "live_closed_qty": "0.0015",
+          "live_legs_count": 2,
+          "live_legs": [
+            {
+              "close_order_id": "2121446971889897472",
+              "close_type": "TRAILING",
+              "closed_qty": "0.0007",
+              "close_price": "66940",
+              "realized_pnl": "0.50855",
+              "fee": "0.023429",
+              "closed_at": "2026-11-14T03:35:47Z"
+            },
+            {
+              "close_order_id": "2121456584425164800",
+              "close_type": "TP",
+              "closed_qty": "0.0008",
+              "close_price": "66444.4",
+              "realized_pnl": "0.43741913",
+              "fee": "0.026578",
+              "closed_at": "2026-11-14T04:13:59Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_C4_1h_SELL_1794625199999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.0007391860528767073",
+              "exit_price": "66437.69834249197",
+              "exit_reason": "TP",
+              "gross_pnl": "0.8901799999999944",
+              "fee_total": "0.04955491000000001",
+              "net_pnl": "0.8406250899999931"
+            },
+            {
+              "leg_id": "SIG_BTCUSDT_C4_1h_SELL_1794625199999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.0007391860528767073",
+              "exit_price": "66936.33459",
+              "exit_reason": "TRAIL",
+              "gross_pnl": "0.5215950403832852",
+              "fee_total": "0.049739202479808356",
+              "net_pnl": "0.4718558379034727"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "BTC-USDT|1h|C11|SELL|1794628799999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.05075",
+          "live_close_fee": "0.050007",
+          "live_total_fee": "0.100757",
+          "sim_base_fee": "0.09929411247980836",
+          "sim_ideal_fee": "0.09927930877755689",
+          "abs_diff": "0.00146288752019164",
+          "pct_diff": "1.47",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794625227643, 1794629639000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "0.94596913",
+          "live_net_pnl": "0.84521213",
+          "live_results_sum_pnl": "0.94596913",
+          "sim_base_gross_pnl": "1.4117750403832796",
+          "sim_base_net_pnl": "1.3124809279034657",
+          "sim_ideal_gross_pnl": "1.4413824448862265",
+          "sim_ideal_net_pnl": "1.3421031361086697",
+          "gross_abs_diff": "-0.4658059103832796",
+          "gross_pct_diff": "-32.99",
+          "net_abs_diff": "-0.4672687979034657",
+          "net_pct_diff": "-35.6",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "TRAILING+TP",
+          "sim_base_outcome": "TP+TRAIL",
+          "sim_ideal_outcome": "TP+TRAIL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL); Lệch PnL ròng -0.4673 USD",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "BTC-USDT|1h|C11|SELL|1794628799999",
+      "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794628799999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "C11",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "BTC-USDT|1h|C4|SELL|1794625199999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121453164926554112",
+        "in_bingx_orders": true,
+        "bingx_order_avg_price": "66631",
+        "bingx_fills_count": 1
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T03:59:59.999000Z",
+          "live_ref_entry": "66722.3",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "66722.3",
+          "live_avg_price": "66631",
+          "live_slippage_bps": "13.68",
+          "sim_base_entry": "66708.95554000001",
+          "sim_raw_entry_m1_open": "66722.3",
+          "sim_ideal_entry": "66722.3",
+          "abs_diff": "-77.95554000001",
+          "pct_diff": "-0.1169",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "65431.642",
+          "live_sl_price": "67230.679",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121453199289847808",
+          "sl_order_id": "2121453182122561536",
+          "sim_ref_tp_price": "65521.2986",
+          "sim_ref_sl_price": "67322.8007",
+          "tp_pct_diff": "-0.1368",
+          "sl_pct_diff": "-0.1368",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121453213688893440",
+          "activation_price": "66297.845",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0015",
+          "live_closed_qty": "0.0015",
+          "live_legs_count": 1,
+          "live_legs": [
+            {
+              "close_order_id": "2121473083139379200",
+              "close_type": "SL",
+              "closed_qty": "0.0015",
+              "close_price": "67235",
+              "realized_pnl": "-0.36573913",
+              "fee": "0.050426",
+              "closed_at": "2026-11-14T05:19:33Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794628799999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.000749524551767551",
+              "exit_price": "67322.79800708799",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4600900000000028",
+              "fee_total": "0.050230045",
+              "net_pnl": "-0.5103200450000052"
+            },
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794628799999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.000749524551767551",
+              "exit_price": "67322.79800708799",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4600900000000028",
+              "fee_total": "0.050230045",
+              "net_pnl": "-0.5103200450000052"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "BTC-USDT|1h|C4|SELL|1794625199999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.049973",
+          "live_close_fee": "0.050426",
+          "live_total_fee": "0.100399",
+          "sim_base_fee": "0.10046009",
+          "sim_ideal_fee": "0.10044999999999998",
+          "abs_diff": "-0.00006109",
+          "pct_diff": "-0.06",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794628823874, 1794633573000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.36573913",
+          "live_net_pnl": "-0.46613813",
+          "live_results_sum_pnl": "-0.36573913",
+          "sim_base_gross_pnl": "-0.9201800000000055",
+          "sim_base_net_pnl": "-1.0206400900000103",
+          "sim_ideal_gross_pnl": "-0.8999999999999844",
+          "sim_ideal_net_pnl": "-1.0004499999999843",
+          "gross_abs_diff": "0.5544408700000055",
+          "gross_pct_diff": "60.25",
+          "net_abs_diff": "0.5545019600000103",
+          "net_pct_diff": "54.33",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "SL",
+          "sim_base_outcome": "SL+SL",
+          "sim_ideal_outcome": "SL+SL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Lệch PnL ròng +0.5545 USD; Trượt giá vào +13.68 bps",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "BTC-USDT|1h|C11|SELL|1794639599999",
+      "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794639599999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "C11",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": false,
+      "shared_peers": [],
+      "bingx_cross_check": {
+        "entry_order_id": "2121498472863715328",
+        "in_bingx_orders": true,
+        "bingx_order_avg_price": "67334.5",
+        "bingx_fills_count": 1
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T06:59:59.999000Z",
+          "live_ref_entry": "67345.8",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "67345.8",
+          "live_avg_price": "67334.5",
+          "live_slippage_bps": "1.68",
+          "sim_base_entry": "67332.33084000001",
+          "sim_raw_entry_m1_open": "67345.8",
+          "sim_ideal_entry": "67345.8",
+          "abs_diff": "2.16915999999",
+          "pct_diff": "0.0032",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "66122.479",
+          "live_sl_price": "67940.5105",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121498510037192704",
+          "sl_order_id": "2121498493050261504",
+          "sim_ref_tp_price": "66133.5756",
+          "sim_ref_sl_price": "67951.9122",
+          "tp_pct_diff": "-0.0168",
+          "sl_pct_diff": "-0.0168",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121498521554751488",
+          "activation_price": "66997.8275",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0015",
+          "live_closed_qty": "0.0015",
+          "live_legs_count": 2,
+          "live_legs": [
+            {
+              "close_order_id": "2121512296530530304",
+              "close_type": "TRAILING",
+              "closed_qty": "0.0007",
+              "close_price": "67312",
+              "realized_pnl": "0.01575",
+              "fee": "0.023559",
+              "closed_at": "2026-11-14T07:55:22Z"
+            },
+            {
+              "close_order_id": "2121610244417343488",
+              "close_type": "TP",
+              "closed_qty": "0.0008",
+              "close_price": "66118",
+              "realized_pnl": "0.9732",
+              "fee": "0.026447",
+              "closed_at": "2026-11-14T14:24:35Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794639599999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.0007425853134182098",
+              "exit_price": "66133.57295465698",
+              "exit_reason": "TP",
+              "gross_pnl": "0.8901800000000054",
+              "fee_total": "0.04955491",
+              "net_pnl": "0.8406250899999989"
+            },
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794639599999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.0007425853134182098",
+              "exit_price": "67315.29536699998",
+              "exit_reason": "TRAIL",
+              "gross_pnl": "0.012650292056951295",
+              "fee_total": "0.04999367485397153",
+              "net_pnl": "-0.037343382797030866"
+            }
+          ],
+          "is_shared_position": false,
+          "shared_peers": [],
+          "provenance": "EXACT"
+        },
+        "fees": {
+          "live_open_fee": "0.050501",
+          "live_close_fee": "0.050006",
+          "live_total_fee": "0.100507",
+          "sim_base_fee": "0.09954858485397153",
+          "sim_ideal_fee": "0.0995336793831241",
+          "abs_diff": "0.00095841514602847",
+          "pct_diff": "0.96",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0.004747",
+          "funding_periods": 1,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 1 kỳ 8h trong (1794639626128, 1794666275000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "0.98895",
+          "live_net_pnl": "0.888443",
+          "live_results_sum_pnl": "0.98895",
+          "sim_base_gross_pnl": "0.9028302920569568",
+          "sim_base_net_pnl": "0.803281707202968",
+          "sim_ideal_gross_pnl": "0.9326412337517836",
+          "sim_ideal_net_pnl": "0.8331075543686595",
+          "gross_abs_diff": "0.0861197079430432",
+          "gross_pct_diff": "9.54",
+          "net_abs_diff": "0.085161292797032",
+          "net_pct_diff": "10.6",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "TRAILING+TP",
+          "sim_base_outcome": "TP+TRAIL",
+          "sim_ideal_outcome": "TP+TRAIL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "BTC-USDT|1h|C11|SELL|1794668399999",
+      "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794668399999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "C11",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "BTC-USDT|1h|C4|SELL|1794668399999",
+        "BTC-USDT|1h|TIER|SELL|1794675599999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121619311697285120",
+        "in_bingx_orders": true,
+        "bingx_order_avg_price": "65939.9",
+        "bingx_fills_count": 1
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T14:59:59.999000Z",
+          "live_ref_entry": "65889.6",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "65889.6",
+          "live_avg_price": "65939.9",
+          "live_slippage_bps": "-7.63",
+          "sim_base_entry": "65876.42208",
+          "sim_raw_entry_m1_open": "65889.6",
+          "sim_ideal_entry": "65889.6",
+          "abs_diff": "63.47792",
+          "pct_diff": "0.0964",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "64752.9818",
+          "live_sl_price": "66533.3591",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121619392474746880",
+          "sl_order_id": "2121619357246787584",
+          "sim_ref_tp_price": "64703.5872",
+          "sim_ref_sl_price": "66482.6064",
+          "tp_pct_diff": "0.0763",
+          "sl_pct_diff": "0.0763",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121619412775178240",
+          "activation_price": "65610.2005",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0015",
+          "live_closed_qty": "0.0015",
+          "live_legs_count": 2,
+          "live_legs": [
+            {
+              "close_order_id": "2121628333326422016",
+              "close_type": "TRAILING",
+              "closed_qty": "0.0007",
+              "close_price": "65377.1",
+              "realized_pnl": "0.3876",
+              "fee": "0.022882",
+              "closed_at": "2026-11-14T15:36:27Z"
+            },
+            {
+              "close_order_id": "2121708367282130944",
+              "close_type": "TP",
+              "closed_qty": "0.0008",
+              "close_price": "64665.6",
+              "realized_pnl": "0.7268",
+              "fee": "0.025866",
+              "closed_at": "2026-11-14T20:54:29Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794668399999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.0007589968978473094",
+              "exit_price": "64703.58461185652",
+              "exit_reason": "TP",
+              "gross_pnl": "0.8901799999999992",
+              "fee_total": "0.04955491",
+              "net_pnl": "0.8406250900000005"
+            },
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794668399999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.0007589968978473094",
+              "exit_price": "65375.0563968",
+              "exit_reason": "TRAIL",
+              "gross_pnl": "0.38053499823590076",
+              "fee_total": "0.049809732500882054",
+              "net_pnl": "0.3307252657350217"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "BTC-USDT|1h|C4|SELL|1794668399999",
+            "BTC-USDT|1h|TIER|SELL|1794675599999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.049455",
+          "live_close_fee": "0.048748",
+          "live_total_fee": "0.098203",
+          "sim_base_fee": "0.09936464250088206",
+          "sim_ideal_fee": "0.09934981059226342",
+          "abs_diff": "-0.00116164250088206",
+          "pct_diff": "-1.17",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0.005836",
+          "funding_periods": 1,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 1 kỳ 8h trong (1794668436351, 1794689669000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "1.1144",
+          "live_net_pnl": "1.016197",
+          "live_results_sum_pnl": "1.1144",
+          "sim_base_gross_pnl": "1.2707149982359",
+          "sim_base_net_pnl": "1.1713503557350222",
+          "sim_ideal_gross_pnl": "1.300378815473165",
+          "sim_ideal_net_pnl": "1.2010290048809016",
+          "gross_abs_diff": "-0.1563149982359",
+          "gross_pct_diff": "-12.3",
+          "net_abs_diff": "-0.1551533557350222",
+          "net_pct_diff": "-13.25",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "TRAILING+TP",
+          "sim_base_outcome": "TP+TRAIL",
+          "sim_ideal_outcome": "TP+TRAIL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "BTC-USDT|1h|C4|SELL|1794668399999",
+      "signal_id": "SIG_BTCUSDT_C4_1h_SELL_1794668399999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "C4",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "BTC-USDT|1h|C11|SELL|1794668399999",
+        "BTC-USDT|1h|TIER|SELL|1794675599999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121619306177581056",
+        "in_bingx_orders": true,
+        "bingx_order_avg_price": "65922",
+        "bingx_fills_count": 1
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T14:59:59.999000Z",
+          "live_ref_entry": "65889.6",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "65889.6",
+          "live_avg_price": "65922",
+          "live_slippage_bps": "-4.92",
+          "sim_base_entry": "65876.42208",
+          "sim_raw_entry_m1_open": "65889.6",
+          "sim_ideal_entry": "65889.6",
+          "abs_diff": "45.57792",
+          "pct_diff": "0.0692",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "64735.404",
+          "live_sl_price": "66515.298",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121619382253228032",
+          "sl_order_id": "2121619347029463040",
+          "sim_ref_tp_price": "64703.5872",
+          "sim_ref_sl_price": "66482.6064",
+          "tp_pct_diff": "0.0492",
+          "sl_pct_diff": "0.0492",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121619397679878144",
+          "activation_price": "65592.39",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0015",
+          "live_closed_qty": "0.0015",
+          "live_legs_count": 2,
+          "live_legs": [
+            {
+              "close_order_id": "2121628333670354944",
+              "close_type": "TRAILING",
+              "closed_qty": "0.0007",
+              "close_price": "65377.3",
+              "realized_pnl": "0.3875",
+              "fee": "0.022882",
+              "closed_at": "2026-11-14T15:36:27Z"
+            },
+            {
+              "close_order_id": "2121708367764475904",
+              "close_type": "TP",
+              "closed_qty": "0.0008",
+              "close_price": "64663.6",
+              "realized_pnl": "0.7284",
+              "fee": "0.025865",
+              "closed_at": "2026-11-14T20:54:29Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_C4_1h_SELL_1794668399999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.0007589968978473094",
+              "exit_price": "64703.58461185652",
+              "exit_reason": "TP",
+              "gross_pnl": "0.8901799999999992",
+              "fee_total": "0.04955491",
+              "net_pnl": "0.8406250900000005"
+            },
+            {
+              "leg_id": "SIG_BTCUSDT_C4_1h_SELL_1794668399999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.0007589968978473094",
+              "exit_price": "65375.0563968",
+              "exit_reason": "TRAIL",
+              "gross_pnl": "0.38053499823590076",
+              "fee_total": "0.049809732500882054",
+              "net_pnl": "0.3307252657350217"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "BTC-USDT|1h|C11|SELL|1794668399999",
+            "BTC-USDT|1h|TIER|SELL|1794675599999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.049442",
+          "live_close_fee": "0.048747",
+          "live_total_fee": "0.098189",
+          "sim_base_fee": "0.09936464250088206",
+          "sim_ideal_fee": "0.09934981059226342",
+          "abs_diff": "-0.00117564250088206",
+          "pct_diff": "-1.18",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0.005834",
+          "funding_periods": 1,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 1 kỳ 8h trong (1794668435035, 1794689669000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "1.1159",
+          "live_net_pnl": "1.017711",
+          "live_results_sum_pnl": "1.1159",
+          "sim_base_gross_pnl": "1.2707149982359",
+          "sim_base_net_pnl": "1.1713503557350222",
+          "sim_ideal_gross_pnl": "1.300378815473165",
+          "sim_ideal_net_pnl": "1.2010290048809016",
+          "gross_abs_diff": "-0.1548149982359",
+          "gross_pct_diff": "-12.18",
+          "net_abs_diff": "-0.1536393557350222",
+          "net_pct_diff": "-13.12",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "TRAILING+TP",
+          "sim_base_outcome": "TP+TRAIL",
+          "sim_ideal_outcome": "TP+TRAIL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "ETH-USDT|1h|C4|SELL|1794668399999",
+      "signal_id": "SIG_ETHUSDT_C4_1h_SELL_1794668399999",
+      "symbol": "ETH-USDT",
+      "timeframe": "1h",
+      "combo": "C4",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": false,
+      "shared_peers": [],
+      "bingx_cross_check": {
+        "entry_order_id": "2121619263185965056",
+        "in_bingx_orders": true,
+        "bingx_order_avg_price": "1854.62",
+        "bingx_fills_count": 1
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T14:59:59.999000Z",
+          "live_ref_entry": "1853.03",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "1853.03",
+          "live_avg_price": "1854.62",
+          "live_slippage_bps": "-8.58",
+          "sim_base_entry": "1852.659394",
+          "sim_raw_entry_m1_open": "1853.03",
+          "sim_ideal_entry": "1853.03",
+          "abs_diff": "1.960606",
+          "pct_diff": "0.1058",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "1817.5276",
+          "live_sl_price": "1869.45696",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121619300409774080",
+          "sl_order_id": "2121619282902749184",
+          "sim_ref_tp_price": "1815.9694",
+          "sim_ref_sl_price": "1867.85424",
+          "tp_pct_diff": "0.0858",
+          "sl_pct_diff": "0.0858",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121619341774000128",
+          "activation_price": "1845.3469",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.05",
+          "live_closed_qty": "0.05",
+          "live_legs_count": 2,
+          "live_legs": [
+            {
+              "close_order_id": "2121623168305287168",
+              "close_type": "TRAILING",
+              "closed_qty": "0.02",
+              "close_price": "1844.82",
+              "realized_pnl": "0.1959",
+              "fee": "0.018448",
+              "closed_at": "2026-11-14T15:15:56Z"
+            },
+            {
+              "close_order_id": "2121637491194941440",
+              "close_type": "TP",
+              "closed_qty": "0.03",
+              "close_price": "1817.43",
+              "realized_pnl": "1.1156",
+              "fee": "0.027261",
+              "closed_at": "2026-11-14T16:12:51Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_ETHUSDT_C4_1h_SELL_1794668399999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.02698823116754725",
+              "exit_price": "1815.969327361224",
+              "exit_reason": "TP",
+              "gross_pnl": "0.9901999999999996",
+              "fee_total": "0.049504900000000004",
+              "net_pnl": "0.9406950999999983"
+            },
+            {
+              "leg_id": "SIG_ETHUSDT_C4_1h_SELL_1794668399999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.02698823116754725",
+              "exit_price": "1843.7798822399998",
+              "exit_reason": "TRAIL",
+              "gross_pnl": "0.23964231603384084",
+              "fee_total": "0.04988017884198308",
+              "net_pnl": "0.18976213719185642"
+            }
+          ],
+          "is_shared_position": false,
+          "shared_peers": [],
+          "provenance": "EXACT"
+        },
+        "fees": {
+          "live_open_fee": "0.046366",
+          "live_close_fee": "0.045709",
+          "live_total_fee": "0.092075",
+          "sim_base_fee": "0.09938507884198308",
+          "sim_ideal_fee": "0.0993702287604626",
+          "abs_diff": "-0.00731007884198308",
+          "pct_diff": "-7.36",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0.002411",
+          "funding_periods": 1,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 1 kỳ 8h trong (1794668424785, 1794672771000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "1.3115",
+          "live_net_pnl": "1.219425",
+          "live_results_sum_pnl": "1.3115",
+          "sim_base_gross_pnl": "1.2298423160338405",
+          "sim_base_net_pnl": "1.1304572371918549",
+          "sim_ideal_gross_pnl": "1.2595424790748184",
+          "sim_ideal_net_pnl": "1.160172250314356",
+          "gross_abs_diff": "0.0816576839661595",
+          "gross_pct_diff": "6.64",
+          "net_abs_diff": "0.0889677628081451",
+          "net_pct_diff": "7.87",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "TRAILING+TP",
+          "sim_base_outcome": "TP+TRAIL",
+          "sim_ideal_outcome": "TP+TRAIL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "BTC-USDT|1h|TIER|SELL|1794675599999",
+      "signal_id": "SIG_BTCUSDT_TIER_1h_SELL_1794675599999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "TIER",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "BTC-USDT|1h|C11|SELL|1794668399999",
+        "BTC-USDT|1h|C4|SELL|1794668399999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121649482189983744",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T16:59:59.999000Z",
+          "live_ref_entry": "65317.3",
+          "reconcile_status": "THỪA",
+          "reason_code": "WARMUP_WINDOW_3400",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "65317.3",
+          "live_avg_price": "65193.7",
+          "live_slippage_bps": "18.92",
+          "sim_base_entry": "65304.236540000005",
+          "sim_raw_entry_m1_open": "65317.3",
+          "sim_ideal_entry": "65317.3",
+          "abs_diff": "-110.536540000005",
+          "pct_diff": "-0.1693",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "64020.2134",
+          "live_sl_price": "65780.4433",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121649573507731456",
+          "sl_order_id": "2121649517476024320",
+          "sim_ref_tp_price": "64141.5886",
+          "sim_ref_sl_price": "65905.1557",
+          "tp_pct_diff": "-0.1892",
+          "sl_pct_diff": "-0.1892",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121649583704084480",
+          "activation_price": "64867.7315",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0015",
+          "live_closed_qty": "0.0015",
+          "live_legs_count": 1,
+          "live_legs": [
+            {
+              "close_order_id": "2121658882434748416",
+              "close_type": "SL",
+              "closed_qty": "0.0015",
+              "close_price": "65818.2",
+              "realized_pnl": "-0.3659",
+              "fee": "0.049364",
+              "closed_at": "2026-11-14T17:37:51Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_TIER_1h_SELL_1794675599999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.0007656471103428965",
+              "exit_price": "65905.15306379377",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4600899999999932",
+              "fee_total": "0.050230045",
+              "net_pnl": "-0.510320044999997"
+            },
+            {
+              "leg_id": "SIG_BTCUSDT_TIER_1h_SELL_1794675599999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.0007656471103428965",
+              "exit_price": "65905.15306379377",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4600899999999932",
+              "fee_total": "0.050230045",
+              "net_pnl": "-0.510320044999997"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "BTC-USDT|1h|C11|SELL|1794668399999",
+            "BTC-USDT|1h|C4|SELL|1794668399999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.048895",
+          "live_close_fee": "0.049364",
+          "live_total_fee": "0.098259",
+          "sim_base_fee": "0.10046009",
+          "sim_ideal_fee": "0.10045",
+          "abs_diff": "-0.00220109",
+          "pct_diff": "-2.19",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794675629557, 1794677871000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.3659",
+          "live_net_pnl": "-0.464159",
+          "live_results_sum_pnl": "-0.3659",
+          "sim_base_gross_pnl": "-0.9201799999999865",
+          "sim_base_net_pnl": "-1.020640089999994",
+          "sim_ideal_gross_pnl": "-0.9",
+          "sim_ideal_net_pnl": "-1.00045",
+          "gross_abs_diff": "0.5542799999999865",
+          "gross_pct_diff": "60.24",
+          "net_abs_diff": "0.556481089999994",
+          "net_pct_diff": "54.52",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "SL",
+          "sim_base_outcome": "SL+SL",
+          "sim_ideal_outcome": "SL+SL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "DỮ_LIỆU",
+      "root_cause_detail_vi": "BTC-USDT chỉ có 3400 nến rolling trong cache; trạng thái warmup/L2 tại thời điểm live có thể khác",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "ETH-USDT|1h|C13|SELL|1794675599999",
+      "signal_id": "SIG_ETHUSDT_C13_1h_SELL_1794675599999",
+      "symbol": "ETH-USDT",
+      "timeframe": "1h",
+      "combo": "C13",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "ETH-USDT|1h|C15|SELL|1794675599999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121649444055371776",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T16:59:59.999000Z",
+          "live_ref_entry": "1824.82",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "1824.82",
+          "live_avg_price": "1821.2",
+          "live_slippage_bps": "19.84",
+          "sim_base_entry": "1824.455036",
+          "sim_raw_entry_m1_open": "1824.82",
+          "sim_ideal_entry": "1824.82",
+          "abs_diff": "-3.255036",
+          "pct_diff": "-0.1784",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "1784.776",
+          "live_sl_price": "1835.7696",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121649522815373312",
+          "sl_order_id": "2121649466729140224",
+          "sim_ref_tp_price": "1788.3236",
+          "sim_ref_sl_price": "1839.41856",
+          "tp_pct_diff": "-0.1984",
+          "sl_pct_diff": "-0.1984",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121649553060499456",
+          "activation_price": "1812.094",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.05",
+          "live_closed_qty": "0.05",
+          "live_legs_count": 2,
+          "live_legs": [
+            {
+              "close_order_id": "2121653822808084480",
+              "close_type": "TRAILING",
+              "closed_qty": "0.02",
+              "close_price": "1821.21",
+              "realized_pnl": "-0.006",
+              "fee": "0.018212",
+              "closed_at": "2026-11-14T17:17:44Z"
+            },
+            {
+              "close_order_id": "2121655356430176256",
+              "close_type": "SL",
+              "closed_qty": "0.03",
+              "close_price": "1838.54",
+              "realized_pnl": "-0.5289",
+              "fee": "0.027578",
+              "closed_at": "2026-11-14T17:23:50Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_ETHUSDT_C13_1h_SELL_1794675599999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.02740544382481564",
+              "exit_price": "1839.4184864232575",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4100799999999952",
+              "fee_total": "0.05020504",
+              "net_pnl": "-0.46028504000000114"
+            },
+            {
+              "leg_id": "SIG_ETHUSDT_C13_1h_SELL_1794675599999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.02740544382481564",
+              "exit_price": "1821.1427557199997",
+              "exit_reason": "TRAIL",
+              "gross_pnl": "0.09077451114559347",
+              "fee_total": "0.0499546127444272",
+              "net_pnl": "0.04081989840115924"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "ETH-USDT|1h|C15|SELL|1794675599999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.04553",
+          "live_close_fee": "0.04579",
+          "live_total_fee": "0.09132",
+          "sim_base_fee": "0.1001596527444272",
+          "sim_ideal_fee": "0.10014463289529926",
+          "abs_diff": "-0.0088396527444272",
+          "pct_diff": "-8.83",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794675620464, 1794677030000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.5349",
+          "live_net_pnl": "-0.62622",
+          "live_results_sum_pnl": "-0.5349",
+          "sim_base_gross_pnl": "-0.31930548885440174",
+          "sim_base_net_pnl": "-0.4194651415988419",
+          "sim_ideal_gross_pnl": "-0.28926579059852037",
+          "sim_ideal_net_pnl": "-0.38941042349381966",
+          "gross_abs_diff": "-0.21559451114559826",
+          "gross_pct_diff": "-67.52",
+          "net_abs_diff": "-0.2067548584011581",
+          "net_pct_diff": "-49.29",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "TRAILING+SL",
+          "sim_base_outcome": "SL+TRAIL",
+          "sim_ideal_outcome": "SL+TRAIL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+SL vs Sim=SL+TRAIL); Trượt giá vào +19.84 bps",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "ETH-USDT|1h|C15|SELL|1794675599999",
+      "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1794675599999",
+      "symbol": "ETH-USDT",
+      "timeframe": "1h",
+      "combo": "C15",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "ETH-USDT|1h|C13|SELL|1794675599999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121649461407207424",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T16:59:59.999000Z",
+          "live_ref_entry": "1824.82",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "1824.82",
+          "live_avg_price": "1820.62",
+          "live_slippage_bps": "23.02",
+          "sim_base_entry": "1824.455036",
+          "sim_raw_entry_m1_open": "1824.82",
+          "sim_ideal_entry": "1824.82",
+          "abs_diff": "-3.835036",
+          "pct_diff": "-0.2102",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "1784.2076",
+          "live_sl_price": "1835.18496",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121649528049864704",
+          "sl_order_id": "2121649492373114880",
+          "sim_ref_tp_price": "1788.3236",
+          "sim_ref_sl_price": "1839.41856",
+          "tp_pct_diff": "-0.2302",
+          "sl_pct_diff": "-0.2302",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121649558341128192",
+          "activation_price": "1811.5169",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.05",
+          "live_closed_qty": "0.05",
+          "live_legs_count": 1,
+          "live_legs": [
+            {
+              "close_order_id": "2121655354194612224",
+              "close_type": "SL",
+              "closed_qty": "0.05",
+              "close_price": "1837",
+              "realized_pnl": "-0.8045",
+              "fee": "0.045925",
+              "closed_at": "2026-11-14T17:23:50Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_ETHUSDT_C15_1h_SELL_1794675599999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.02740544382481564",
+              "exit_price": "1839.4184864232575",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4100799999999952",
+              "fee_total": "0.05020504",
+              "net_pnl": "-0.46028504000000114"
+            },
+            {
+              "leg_id": "SIG_ETHUSDT_C15_1h_SELL_1794675599999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.02740544382481564",
+              "exit_price": "1839.4184864232575",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4100799999999952",
+              "fee_total": "0.05020504",
+              "net_pnl": "-0.46028504000000114"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "ETH-USDT|1h|C13|SELL|1794675599999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.045516",
+          "live_close_fee": "0.045925",
+          "live_total_fee": "0.091441",
+          "sim_base_fee": "0.10041008",
+          "sim_ideal_fee": "0.1004",
+          "abs_diff": "-0.00896908",
+          "pct_diff": "-8.93",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794675624604, 1794677030000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.8045",
+          "live_net_pnl": "-0.895941",
+          "live_results_sum_pnl": "-0.8045",
+          "sim_base_gross_pnl": "-0.8201599999999905",
+          "sim_base_net_pnl": "-0.9205700800000023",
+          "sim_ideal_gross_pnl": "-0.7999999999999948",
+          "sim_ideal_net_pnl": "-0.9003999999999949",
+          "gross_abs_diff": "0.0156599999999905",
+          "gross_pct_diff": "1.91",
+          "net_abs_diff": "0.0246290800000023",
+          "net_pct_diff": "2.68",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "SL",
+          "sim_base_outcome": "SL+SL",
+          "sim_ideal_outcome": "SL+SL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào +23.02 bps",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "BTC-USDT|1h|C11|SELL|1794689999999",
+      "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794689999999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "C11",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": false,
+      "shared_peers": [],
+      "bingx_cross_check": {
+        "entry_order_id": "2121709876115886080",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T20:59:59.999000Z",
+          "live_ref_entry": "64737.6",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "64737.6",
+          "live_avg_price": "64861.8",
+          "live_slippage_bps": "-19.19",
+          "sim_base_entry": "64724.5525",
+          "sim_raw_entry_m1_open": "64737.5",
+          "sim_ideal_entry": "64737.5",
+          "abs_diff": "137.2475",
+          "pct_diff": "0.212",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "63694.2876",
+          "live_sl_price": "65445.5562",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121709910605008896",
+          "sl_order_id": "2121709893408362496",
+          "sim_ref_tp_price": "63572.3232",
+          "sim_ref_sl_price": "65320.2384",
+          "tp_pct_diff": "0.1919",
+          "sl_pct_diff": "0.1919",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121709922122567680",
+          "activation_price": "64537.491",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0015",
+          "live_closed_qty": "0.0015",
+          "live_legs_count": 2,
+          "live_legs": [
+            {
+              "close_order_id": "2121714505637646336",
+              "close_type": "TRAILING",
+              "closed_qty": "0.0007",
+              "close_price": "64247.7",
+              "realized_pnl": "0.4298",
+              "fee": "0.022487",
+              "closed_at": "2026-11-14T21:18:52Z"
+            },
+            {
+              "close_order_id": "2121727052885479424",
+              "close_type": "TP",
+              "closed_qty": "0.0008",
+              "close_price": "63691.6",
+              "realized_pnl": "0.9361",
+              "fee": "0.025477",
+              "closed_at": "2026-11-14T22:08:44Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794689999999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.0007725043753682191",
+              "exit_price": "63572.22245711099",
+              "exit_reason": "TP",
+              "gross_pnl": "0.8901800000000054",
+              "fee_total": "0.049554909999999994",
+              "net_pnl": "0.8406250900000051"
+            },
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794689999999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.0007725043753682191",
+              "exit_price": "64249.33179689999",
+              "exit_reason": "TRAIL",
+              "gross_pnl": "0.36711007241031685",
+              "fee_total": "0.04981644496379484",
+              "net_pnl": "0.31729362744652323"
+            }
+          ],
+          "is_shared_position": false,
+          "shared_peers": [],
+          "provenance": "EXACT"
+        },
+        "fees": {
+          "live_open_fee": "0.048646",
+          "live_close_fee": "0.047964",
+          "live_total_fee": "0.09661",
+          "sim_base_fee": "0.09937135496379483",
+          "sim_ideal_fee": "0.09959334253716934",
+          "abs_diff": "-0.00276135496379483",
+          "pct_diff": "-2.78",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794690028592, 1794694124000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "1.3659",
+          "live_net_pnl": "1.26929",
+          "live_results_sum_pnl": "1.3659",
+          "sim_base_gross_pnl": "1.2572900724103222",
+          "sim_base_net_pnl": "1.1579187174465284",
+          "sim_ideal_gross_pnl": "0.8133149256613295",
+          "sim_ideal_net_pnl": "0.7137215831241601",
+          "gross_abs_diff": "0.1086099275896778",
+          "gross_pct_diff": "8.64",
+          "net_abs_diff": "0.1113712825534716",
+          "net_pct_diff": "9.62",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "TRAILING+TP",
+          "sim_base_outcome": "TP+TRAIL",
+          "sim_ideal_outcome": "TP+TRAIL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL); Trượt giá vào -19.19 bps",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "BTC-USDT|1h|C11|SELL|1794697199999",
+      "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794697199999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "C11",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": false,
+      "shared_peers": [],
+      "bingx_cross_check": {
+        "entry_order_id": "2121740017277816832",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T22:59:59.999000Z",
+          "live_ref_entry": "63515.4",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "63515.4",
+          "live_avg_price": "63545.1",
+          "live_slippage_bps": "-4.68",
+          "sim_base_entry": "63502.69692",
+          "sim_raw_entry_m1_open": "63515.4",
+          "sim_ideal_entry": "63515.4",
+          "abs_diff": "42.40308",
+          "pct_diff": "0.0668",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "62401.2882",
+          "live_sl_price": "64117.0059",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121740080606973952",
+          "sl_order_id": "2121740034549321728",
+          "sim_ref_tp_price": "62372.1228",
+          "sim_ref_sl_price": "64087.0386",
+          "tp_pct_diff": "0.0468",
+          "sl_pct_diff": "0.0468",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121740111112146944",
+          "activation_price": "63227.3745",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0016",
+          "live_closed_qty": "0.0016",
+          "live_legs_count": 1,
+          "live_legs": [
+            {
+              "close_order_id": "2121752715235381248",
+              "close_type": "SL",
+              "closed_qty": "0.0016",
+              "close_price": "64119.4",
+              "realized_pnl": "-0.9188",
+              "fee": "0.051296",
+              "closed_at": "2026-11-14T23:50:42Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794697199999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.0007873681343485214",
+              "exit_price": "64087.03603651845",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4600899999999962",
+              "fee_total": "0.050230045",
+              "net_pnl": "-0.5103200449999972"
+            },
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794697199999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.0007873681343485214",
+              "exit_price": "64087.03603651845",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4600899999999962",
+              "fee_total": "0.050230045",
+              "net_pnl": "-0.5103200449999972"
+            }
+          ],
+          "is_shared_position": false,
+          "shared_peers": [],
+          "provenance": "EXACT"
+        },
+        "fees": {
+          "live_open_fee": "0.050836",
+          "live_close_fee": "0.051296",
+          "live_total_fee": "0.102132",
+          "sim_base_fee": "0.10046009",
+          "sim_ideal_fee": "0.10045",
+          "abs_diff": "0.00167191",
+          "pct_diff": "1.66",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794697214804, 1794700242000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.9188",
+          "live_net_pnl": "-1.020932",
+          "live_results_sum_pnl": "-0.9188",
+          "sim_base_gross_pnl": "-0.9201799999999924",
+          "sim_base_net_pnl": "-1.0206400899999943",
+          "sim_ideal_gross_pnl": "-0.899999999999986",
+          "sim_ideal_net_pnl": "-1.000449999999986",
+          "gross_abs_diff": "0.0013799999999924",
+          "gross_pct_diff": "0.15",
+          "net_abs_diff": "-0.0002919100000057",
+          "net_pct_diff": "-0.03",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "SL",
+          "sim_base_outcome": "SL+SL",
+          "sim_ideal_outcome": "SL+SL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL)",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "ETH-USDT|1h|C13|SELL|1794697199999",
+      "signal_id": "SIG_ETHUSDT_C13_1h_SELL_1794697199999",
+      "symbol": "ETH-USDT",
+      "timeframe": "1h",
+      "combo": "C13",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "ETH-USDT|1h|C15|SELL|1794697199999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121740044922474496",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T22:59:59.999000Z",
+          "live_ref_entry": "1744.12",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "1744.12",
+          "live_avg_price": "1746.96",
+          "live_slippage_bps": "-16.28",
+          "sim_base_entry": "1743.75118",
+          "sim_raw_entry_m1_open": "1744.1",
+          "sim_ideal_entry": "1744.1",
+          "abs_diff": "3.20882",
+          "pct_diff": "0.184",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "1712.0208",
+          "live_sl_price": "1760.93568",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121740131131559936",
+          "sl_order_id": "2121740085858242560",
+          "sim_ref_tp_price": "1709.2376",
+          "sim_ref_sl_price": "1758.07296",
+          "tp_pct_diff": "0.1628",
+          "sl_pct_diff": "0.1628",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121740151444574208",
+          "activation_price": "1738.2252",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.05",
+          "live_closed_qty": "0.05",
+          "live_legs_count": 2,
+          "live_legs": [
+            {
+              "close_order_id": "2121741957172776960",
+              "close_type": "TRAILING",
+              "closed_qty": "0.02",
+              "close_price": "1744.72",
+              "realized_pnl": "0.0542",
+              "fee": "0.017447",
+              "closed_at": "2026-11-14T23:07:57Z"
+            },
+            {
+              "close_order_id": "2121751452460470272",
+              "close_type": "SL",
+              "closed_qty": "0.05",
+              "close_price": "1759.43",
+              "realized_pnl": "-0.6",
+              "fee": "0.043986",
+              "closed_at": "2026-11-14T23:45:41Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_ETHUSDT_C13_1h_SELL_1794697199999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.02867381572180499",
+              "exit_price": "1758.052729677888",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.41008000000000094",
+              "fee_total": "0.050205040000000006",
+              "net_pnl": "-0.46028504000000287"
+            },
+            {
+              "leg_id": "SIG_ETHUSDT_C13_1h_SELL_1794697199999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.02867381572180499",
+              "exit_price": "1744.2850872599997",
+              "exit_reason": "TRAIL",
+              "gross_pnl": "-0.015309158385766677",
+              "fee_total": "0.05000765457919289",
+              "net_pnl": "-0.06531681296496492"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "ETH-USDT|1h|C15|SELL|1794697199999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.043674",
+          "live_close_fee": "0.0438386",
+          "live_total_fee": "0.0875126",
+          "sim_base_fee": "0.10021269457919289",
+          "sim_ideal_fee": "0.10019765351757354",
+          "abs_diff": "-0.01270009457919289",
+          "pct_diff": "-12.67",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794697221395, 1794699941000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.3058",
+          "live_net_pnl": "-0.3933126",
+          "live_results_sum_pnl": "-0.5458",
+          "sim_base_gross_pnl": "-0.42538915838576763",
+          "sim_base_net_pnl": "-0.5256018529649678",
+          "sim_ideal_gross_pnl": "-0.3953070351470662",
+          "sim_ideal_net_pnl": "-0.49550468866463976",
+          "gross_abs_diff": "0.11958915838576763",
+          "gross_pct_diff": "28.11",
+          "net_abs_diff": "0.1322892529649678",
+          "net_pct_diff": "25.17",
+          "provenance": "RECONCILED"
+        },
+        "close_outcome": {
+          "live_outcome": "TRAILING+SL",
+          "sim_base_outcome": "SL+TRAIL",
+          "sim_ideal_outcome": "SL+TRAIL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "HỆ_THỐNG",
+      "root_cause_detail_vi": "Tổng realized_pnl các leg (-0.5458) lệch gross_pnl (-0.3058)",
+      "overall_provenance": "RECONCILED",
+      "system_issue_note": "Tổng realized_pnl các leg (-0.5458) lệch gross_pnl (-0.3058)"
+    },
+    {
+      "event_id": "ETH-USDT|1h|C15|SELL|1794697199999",
+      "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1794697199999",
+      "symbol": "ETH-USDT",
+      "timeframe": "1h",
+      "combo": "C15",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "ETH-USDT|1h|C13|SELL|1794697199999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121740050475732992",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T22:59:59.999000Z",
+          "live_ref_entry": "1744.12",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "1744.12",
+          "live_avg_price": "1747.9",
+          "live_slippage_bps": "-21.67",
+          "sim_base_entry": "1743.75118",
+          "sim_raw_entry_m1_open": "1744.1",
+          "sim_ideal_entry": "1744.1",
+          "abs_diff": "4.14882",
+          "pct_diff": "0.2379",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "1712.942",
+          "live_sl_price": "1761.8832",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121740136366051328",
+          "sl_order_id": "2121740091071762432",
+          "sim_ref_tp_price": "1709.2376",
+          "sim_ref_sl_price": "1758.07296",
+          "tp_pct_diff": "0.2167",
+          "sl_pct_diff": "0.2167",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121740161590595584",
+          "activation_price": "1739.1605",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.05",
+          "live_closed_qty": "0.05",
+          "live_legs_count": 2,
+          "live_legs": [
+            {
+              "close_order_id": "2121741956816261120",
+              "close_type": "TRAILING",
+              "closed_qty": "0.02",
+              "close_price": "1744.86",
+              "realized_pnl": "0.0514",
+              "fee": "0.017449",
+              "closed_at": "2026-11-14T23:07:57Z"
+            },
+            {
+              "close_order_id": "2121751500204232704",
+              "close_type": "SL",
+              "closed_qty": "0.01",
+              "close_price": "1762.78",
+              "realized_pnl": "-0.1535",
+              "fee": "0.008814",
+              "closed_at": "2026-11-14T23:45:53Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_ETHUSDT_C15_1h_SELL_1794697199999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.02867381572180499",
+              "exit_price": "1758.052729677888",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.41008000000000094",
+              "fee_total": "0.050205040000000006",
+              "net_pnl": "-0.46028504000000287"
+            },
+            {
+              "leg_id": "SIG_ETHUSDT_C15_1h_SELL_1794697199999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.02867381572180499",
+              "exit_price": "1744.2850872599997",
+              "exit_reason": "TRAIL",
+              "gross_pnl": "-0.015309158385766677",
+              "fee_total": "0.05000765457919289",
+              "net_pnl": "-0.06531681296496492"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "ETH-USDT|1h|C13|SELL|1794697199999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.043698",
+          "live_close_fee": "0.0438574",
+          "live_total_fee": "0.0875554",
+          "sim_base_fee": "0.10021269457919289",
+          "sim_ideal_fee": "0.10019765351757354",
+          "abs_diff": "-0.01265729457919289",
+          "pct_diff": "-12.63",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794697222719, 1794699953000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.3421",
+          "live_net_pnl": "-0.4296554",
+          "live_results_sum_pnl": "-0.1021",
+          "sim_base_gross_pnl": "-0.42538915838576763",
+          "sim_base_net_pnl": "-0.5256018529649678",
+          "sim_ideal_gross_pnl": "-0.3953070351470662",
+          "sim_ideal_net_pnl": "-0.49550468866463976",
+          "gross_abs_diff": "0.08328915838576763",
+          "gross_pct_diff": "19.58",
+          "net_abs_diff": "0.0959464529649678",
+          "net_pct_diff": "18.25",
+          "provenance": "RECONCILED"
+        },
+        "close_outcome": {
+          "live_outcome": "TRAILING+SL",
+          "sim_base_outcome": "SL+TRAIL",
+          "sim_ideal_outcome": "SL+TRAIL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "HỆ_THỐNG",
+      "root_cause_detail_vi": "Tổng realized_pnl các leg (-0.1021) lệch gross_pnl (-0.3421)",
+      "overall_provenance": "RECONCILED",
+      "system_issue_note": "Tổng realized_pnl các leg (-0.1021) lệch gross_pnl (-0.3421)"
+    },
+    {
+      "event_id": "BTC-USDT|1h|C11|SELL|1794700799999",
+      "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794700799999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "C11",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": false,
+      "shared_peers": [],
+      "bingx_cross_check": {
+        "entry_order_id": "2121755159692529664",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-14T23:59:59.999000Z",
+          "live_ref_entry": "64121.7",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "64121.7",
+          "live_avg_price": "64079.8",
+          "live_slippage_bps": "6.53",
+          "sim_base_entry": "64108.87566",
+          "sim_raw_entry_m1_open": "64121.7",
+          "sim_ideal_entry": "64121.7",
+          "abs_diff": "-29.07566",
+          "pct_diff": "-0.0454",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "62926.3636",
+          "live_sl_price": "64656.5182",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121755195830013952",
+          "sl_order_id": "2121755178373320704",
+          "sim_ref_tp_price": "62967.5094",
+          "sim_ref_sl_price": "64698.7953",
+          "tp_pct_diff": "-0.0653",
+          "sl_pct_diff": "-0.0653",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121755207351767040",
+          "activation_price": "63759.401",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0016",
+          "live_closed_qty": "0.0016",
+          "live_legs_count": 2,
+          "live_legs": [
+            {
+              "close_order_id": "2121765308977074176",
+              "close_type": "TRAILING",
+              "closed_qty": "0.0008",
+              "close_price": "63868.7",
+              "realized_pnl": "0.1688",
+              "fee": "0.025547",
+              "closed_at": "2026-11-15T00:40:45Z"
+            },
+            {
+              "close_order_id": "2121770962756259840",
+              "close_type": "TP",
+              "closed_qty": "0.0008",
+              "close_price": "62894",
+              "realized_pnl": "0.9486",
+              "fee": "0.025158",
+              "closed_at": "2026-11-15T01:03:13Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794700799999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.0007799232085300309",
+              "exit_price": "62967.50688129962",
+              "exit_reason": "TP",
+              "gross_pnl": "0.8901800000000032",
+              "fee_total": "0.04955491",
+              "net_pnl": "0.8406250900000022"
+            },
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794700799999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.0007799232085300309",
+              "exit_price": "63873.58766309999",
+              "exit_reason": "TRAIL",
+              "gross_pnl": "0.1835065694708566",
+              "fee_total": "0.04990824671526457",
+              "net_pnl": "0.13359832275559316"
+            }
+          ],
+          "is_shared_position": false,
+          "shared_peers": [],
+          "provenance": "EXACT"
+        },
+        "fees": {
+          "live_open_fee": "0.051264",
+          "live_close_fee": "0.050705",
+          "live_total_fee": "0.101969",
+          "sim_base_fee": "0.09946315671526457",
+          "sim_ideal_fee": "0.09944828540883975",
+          "abs_diff": "0.00250584328473543",
+          "pct_diff": "2.52",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794700825037, 1794704593000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "1.1174",
+          "live_net_pnl": "1.015431",
+          "live_results_sum_pnl": "1.1174",
+          "sim_base_gross_pnl": "1.0736865694708597",
+          "sim_base_net_pnl": "0.9742234127555953",
+          "sim_ideal_gross_pnl": "1.1034291823205007",
+          "sim_ideal_net_pnl": "1.003980896911661",
+          "gross_abs_diff": "0.0437134305291403",
+          "gross_pct_diff": "4.07",
+          "net_abs_diff": "0.0412075872444047",
+          "net_pct_diff": "4.23",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "TRAILING+TP",
+          "sim_base_outcome": "TP+TRAIL",
+          "sim_ideal_outcome": "TP+TRAIL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "BTC-USDT|1h|C11|SELL|1794707999999",
+      "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1794707999999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "C11",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "BTC-USDT|1h|C4|SELL|1794707999999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121785330898259968",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-15T01:59:59.999000Z",
+          "live_ref_entry": "62593.8",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "62593.8",
+          "live_avg_price": "62671.4",
+          "live_slippage_bps": "-12.4",
+          "sim_base_entry": "62581.281240000004",
+          "sim_raw_entry_m1_open": "62593.8",
+          "sim_ideal_entry": "62593.8",
+          "abs_diff": "90.118759999996",
+          "pct_diff": "0.144",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "61543.3148",
+          "live_sl_price": "63235.4426",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121785462158364672",
+          "sl_order_id": "2121785377487949824",
+          "sim_ref_tp_price": "61467.1116",
+          "sim_ref_sl_price": "63157.1442",
+          "tp_pct_diff": "0.124",
+          "sl_pct_diff": "0.124",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121785524825460736",
+          "activation_price": "62358.043",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0016",
+          "live_closed_qty": "0.0016",
+          "live_legs_count": 1,
+          "live_legs": [
+            {
+              "close_order_id": "2121786755015462912",
+              "close_type": "SL",
+              "closed_qty": "0.0016",
+              "close_price": "63248.1",
+              "realized_pnl": "-0.9118",
+              "fee": "0.050598",
+              "closed_at": "2026-11-15T02:05:58Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794707999999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.0007989609514105243",
+              "exit_price": "63157.14167371423",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4600899999999937",
+              "fee_total": "0.050230045",
+              "net_pnl": "-0.5103200449999975"
+            },
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1794707999999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.0007989609514105243",
+              "exit_price": "63157.14167371423",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4600899999999937",
+              "fee_total": "0.050230045",
+              "net_pnl": "-0.5103200449999975"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "BTC-USDT|1h|C4|SELL|1794707999999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.050137",
+          "live_close_fee": "0.050598",
+          "live_total_fee": "0.100735",
+          "sim_base_fee": "0.10046009",
+          "sim_ideal_fee": "0.10045",
+          "abs_diff": "0.00027491",
+          "pct_diff": "0.27",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794708018413, 1794708358000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.9118",
+          "live_net_pnl": "-1.012535",
+          "live_results_sum_pnl": "-0.9118",
+          "sim_base_gross_pnl": "-0.9201799999999875",
+          "sim_base_net_pnl": "-1.020640089999995",
+          "sim_ideal_gross_pnl": "-0.8999999999999877",
+          "sim_ideal_net_pnl": "-1.0004499999999878",
+          "gross_abs_diff": "0.0083799999999875",
+          "gross_pct_diff": "0.91",
+          "net_abs_diff": "0.008105089999995",
+          "net_pct_diff": "0.79",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "SL",
+          "sim_base_outcome": "SL+SL",
+          "sim_ideal_outcome": "SL+SL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -12.40 bps",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "BTC-USDT|1h|C4|SELL|1794707999999",
+      "signal_id": "SIG_BTCUSDT_C4_1h_SELL_1794707999999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "C4",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "BTC-USDT|1h|C11|SELL|1794707999999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121785324824907776",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-15T01:59:59.999000Z",
+          "live_ref_entry": "62593.8",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "62593.8",
+          "live_avg_price": "62685",
+          "live_slippage_bps": "-14.57",
+          "sim_base_entry": "62581.281240000004",
+          "sim_raw_entry_m1_open": "62593.8",
+          "sim_ideal_entry": "62593.8",
+          "abs_diff": "103.718759999996",
+          "pct_diff": "0.1657",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "61556.67",
+          "live_sl_price": "63249.165",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121785450770829312",
+          "sl_order_id": "2121785371666255872",
+          "sim_ref_tp_price": "61467.1116",
+          "sim_ref_sl_price": "63157.1442",
+          "tp_pct_diff": "0.1457",
+          "sl_pct_diff": "0.1457",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121785496434216960",
+          "activation_price": "62371.575",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0016",
+          "live_closed_qty": "0.0016",
+          "live_legs_count": 1,
+          "live_legs": [
+            {
+              "close_order_id": "2121786790952259584",
+              "close_type": "SL",
+              "closed_qty": "0.0016",
+              "close_price": "63256.4",
+              "realized_pnl": "-0.9251",
+              "fee": "0.050605",
+              "closed_at": "2026-11-15T02:06:07Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_C4_1h_SELL_1794707999999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.0007989609514105243",
+              "exit_price": "63157.14167371423",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4600899999999937",
+              "fee_total": "0.050230045",
+              "net_pnl": "-0.5103200449999975"
+            },
+            {
+              "leg_id": "SIG_BTCUSDT_C4_1h_SELL_1794707999999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.0007989609514105243",
+              "exit_price": "63157.14167371423",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.4600899999999937",
+              "fee_total": "0.050230045",
+              "net_pnl": "-0.5103200449999975"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "BTC-USDT|1h|C11|SELL|1794707999999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.050148",
+          "live_close_fee": "0.050605",
+          "live_total_fee": "0.100753",
+          "sim_base_fee": "0.10046009",
+          "sim_ideal_fee": "0.10045",
+          "abs_diff": "0.00029291",
+          "pct_diff": "0.29",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794708016965, 1794708367000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.9251",
+          "live_net_pnl": "-1.025853",
+          "live_results_sum_pnl": "-0.9251",
+          "sim_base_gross_pnl": "-0.9201799999999875",
+          "sim_base_net_pnl": "-1.020640089999995",
+          "sim_ideal_gross_pnl": "-0.8999999999999877",
+          "sim_ideal_net_pnl": "-1.0004499999999878",
+          "gross_abs_diff": "-0.0049200000000125",
+          "gross_pct_diff": "-0.53",
+          "net_abs_diff": "-0.005212910000005",
+          "net_pct_diff": "-0.51",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "SL",
+          "sim_base_outcome": "SL+SL",
+          "sim_ideal_outcome": "SL+SL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -14.57 bps",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "ETH-USDT|1h|C13|SELL|1794707999999",
+      "signal_id": "SIG_ETHUSDT_C13_1h_SELL_1794707999999",
+      "symbol": "ETH-USDT",
+      "timeframe": "1h",
+      "combo": "C13",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "ETH-USDT|1h|C15|SELL|1794707999999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121785359503413248",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-15T01:59:59.999000Z",
+          "live_ref_entry": "1729.89",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "1729.89",
+          "live_avg_price": "1732.22",
+          "live_slippage_bps": "-13.47",
+          "sim_base_entry": "1729.544022",
+          "sim_raw_entry_m1_open": "1729.89",
+          "sim_ideal_entry": "1729.89",
+          "abs_diff": "2.675978",
+          "pct_diff": "0.1547",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "1697.5756",
+          "live_sl_price": "1746.07776",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121785479053021184",
+          "sl_order_id": "2121785416893435904",
+          "sim_ref_tp_price": "1695.2922",
+          "sim_ref_sl_price": "1743.72912",
+          "tp_pct_diff": "0.1347",
+          "sl_pct_diff": "0.1347",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121785507851112448",
+          "activation_price": "1723.5589",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.05",
+          "live_closed_qty": "0.05",
+          "live_legs_count": 1,
+          "live_legs": [
+            {
+              "close_order_id": "2121786781825454080",
+              "close_type": "SL",
+              "closed_qty": "0.05",
+              "close_price": "1746.34",
+              "realized_pnl": "-0.7029",
+              "fee": "0.043658",
+              "closed_at": "2026-11-15T02:06:04Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_ETHUSDT_C13_1h_SELL_1794707999999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.028909353774170657",
+              "exit_price": "1743.7290502508351",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.41007999999999717",
+              "fee_total": "0.05020504",
+              "net_pnl": "-0.46028503999999804"
+            },
+            {
+              "leg_id": "SIG_ETHUSDT_C13_1h_SELL_1794707999999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.028909353774170657",
+              "exit_price": "1743.7290502508351",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.41007999999999717",
+              "fee_total": "0.05020504",
+              "net_pnl": "-0.46028503999999804"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "ETH-USDT|1h|C15|SELL|1794707999999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.043306",
+          "live_close_fee": "0.043658",
+          "live_total_fee": "0.086964",
+          "sim_base_fee": "0.10041008",
+          "sim_ideal_fee": "0.1004",
+          "abs_diff": "-0.01344608",
+          "pct_diff": "-13.39",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794708025233, 1794708364000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.7029",
+          "live_net_pnl": "-0.789864",
+          "live_results_sum_pnl": "-0.7029",
+          "sim_base_gross_pnl": "-0.8201599999999943",
+          "sim_base_net_pnl": "-0.9205700799999961",
+          "sim_ideal_gross_pnl": "-0.8000000000000053",
+          "sim_ideal_net_pnl": "-0.9004000000000053",
+          "gross_abs_diff": "0.1172599999999943",
+          "gross_pct_diff": "14.3",
+          "net_abs_diff": "0.1307060799999961",
+          "net_pct_diff": "14.2",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "SL",
+          "sim_base_outcome": "SL+SL",
+          "sim_ideal_outcome": "SL+SL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -13.47 bps",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "ETH-USDT|1h|C15|SELL|1794707999999",
+      "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1794707999999",
+      "symbol": "ETH-USDT",
+      "timeframe": "1h",
+      "combo": "C15",
+      "side": "SELL",
+      "era": "ERA_1_50TP_50TRAIL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "ETH-USDT|1h|C13|SELL|1794707999999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2121785365757120512",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-15T01:59:59.999000Z",
+          "live_ref_entry": "1729.89",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "1729.89",
+          "live_avg_price": "1732.34",
+          "live_slippage_bps": "-14.16",
+          "sim_base_entry": "1729.544022",
+          "sim_raw_entry_m1_open": "1729.89",
+          "sim_ideal_entry": "1729.89",
+          "abs_diff": "2.795978",
+          "pct_diff": "0.1617",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "1697.6932",
+          "live_sl_price": "1746.19872",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2121785490465722368",
+          "sl_order_id": "2121785422715129856",
+          "sim_ref_tp_price": "1695.2922",
+          "sim_ref_sl_price": "1743.72912",
+          "tp_pct_diff": "0.1416",
+          "sl_pct_diff": "0.1416",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": true,
+          "trailing_order_id": "2121785536175247360",
+          "activation_price": "1723.6783",
+          "callback_rate": "0.005",
+          "trailing_status": "NEW",
+          "sim_trailing_act_pct": "0.005",
+          "sim_trailing_cb_pct": "0.005",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.05",
+          "live_closed_qty": "0.05",
+          "live_legs_count": 1,
+          "live_legs": [
+            {
+              "close_order_id": "2121786781422800896",
+              "close_type": "SL",
+              "closed_qty": "0.05",
+              "close_price": "1746.37",
+              "realized_pnl": "-0.7044",
+              "fee": "0.043659",
+              "closed_at": "2026-11-15T02:06:04Z"
+            }
+          ],
+          "sim_legs_count": 2,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_ETHUSDT_C15_1h_SELL_1794707999999#L1",
+              "leg_type": "TP_HALF",
+              "qty": "0.028909353774170657",
+              "exit_price": "1743.7290502508351",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.41007999999999717",
+              "fee_total": "0.05020504",
+              "net_pnl": "-0.46028503999999804"
+            },
+            {
+              "leg_id": "SIG_ETHUSDT_C15_1h_SELL_1794707999999#L2",
+              "leg_type": "TRAIL_HALF",
+              "qty": "0.028909353774170657",
+              "exit_price": "1743.7290502508351",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.41007999999999717",
+              "fee_total": "0.05020504",
+              "net_pnl": "-0.46028503999999804"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "ETH-USDT|1h|C13|SELL|1794707999999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.043309",
+          "live_close_fee": "0.043659",
+          "live_total_fee": "0.086968",
+          "sim_base_fee": "0.10041008",
+          "sim_ideal_fee": "0.1004",
+          "abs_diff": "-0.01344208",
+          "pct_diff": "-13.39",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1794708026724, 1794708364000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.7044",
+          "live_net_pnl": "-0.791368",
+          "live_results_sum_pnl": "-0.7044",
+          "sim_base_gross_pnl": "-0.8201599999999943",
+          "sim_base_net_pnl": "-0.9205700799999961",
+          "sim_ideal_gross_pnl": "-0.8000000000000053",
+          "sim_ideal_net_pnl": "-0.9004000000000053",
+          "gross_abs_diff": "0.1157599999999943",
+          "gross_pct_diff": "14.11",
+          "net_abs_diff": "0.1292020799999961",
+          "net_pct_diff": "14.04",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "SL",
+          "sim_base_outcome": "SL+SL",
+          "sim_ideal_outcome": "SL+SL",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -14.16 bps",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "BTC-USDT|15m|C10|SELL|1795046399999",
+      "signal_id": "SIG_BTCUSDT_C10_15m_SELL_1795046399999",
+      "symbol": "BTC-USDT",
+      "timeframe": "15m",
+      "combo": "C10",
+      "side": "SELL",
+      "era": "ERA_2_FIXED_TP_SL",
+      "is_fully_closed": true,
+      "is_shared_position": false,
+      "shared_peers": [],
+      "bingx_cross_check": {
+        "entry_order_id": "2123204715219210240",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-18T23:59:59.999000Z",
+          "live_ref_entry": "63035.8",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "63035.8",
+          "live_avg_price": "62962.1",
+          "live_slippage_bps": "11.69",
+          "sim_base_entry": "63023.19284",
+          "sim_raw_entry_m1_open": "63035.8",
+          "sim_ideal_entry": "63035.8",
+          "abs_diff": "-61.09284",
+          "pct_diff": "-0.0969",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "62332.479",
+          "live_sl_price": "63465.7968",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2123204744402538496",
+          "sl_order_id": "2123204732582989824",
+          "sim_ref_tp_price": "62405.442",
+          "sim_ref_sl_price": "63540.0864",
+          "tp_pct_diff": "-0.1169",
+          "sl_pct_diff": "-0.1169",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": false,
+          "note": "Kỷ nguyên FIXED_TP_SL không dùng trailing",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0016",
+          "live_closed_qty": "0.0016",
+          "live_legs_count": 1,
+          "live_legs": [
+            {
+              "close_order_id": "2123266027328589824",
+              "close_type": "SL",
+              "closed_qty": "0.0016",
+              "close_price": "63470.5",
+              "realized_pnl": "-0.8134",
+              "fee": "0.050776",
+              "closed_at": "2026-11-19T04:04:04Z"
+            }
+          ],
+          "sim_legs_count": 1,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_C10_15m_SELL_1795046399999#L1",
+              "leg_type": "SINGLE",
+              "qty": "0.0015867174526348544",
+              "exit_price": "62405.43950378232",
+              "exit_reason": "TP",
+              "gross_pnl": "0.9802000000000057",
+              "fee_total": "0.0995099",
+              "net_pnl": "0.8806901000000058"
+            }
+          ],
+          "is_shared_position": false,
+          "shared_peers": [],
+          "provenance": "EXACT"
+        },
+        "fees": {
+          "live_open_fee": "0.05037",
+          "live_close_fee": "0.050776",
+          "live_total_fee": "0.101146",
+          "sim_base_fee": "0.0995099",
+          "sim_ideal_fee": "0.0995",
+          "abs_diff": "0.0016361",
+          "pct_diff": "1.64",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1795046426006, 1795061044000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.8134",
+          "live_net_pnl": "-0.914546",
+          "live_results_sum_pnl": "-0.8134",
+          "sim_base_gross_pnl": "0.9802000000000057",
+          "sim_base_net_pnl": "0.8806901000000058",
+          "sim_ideal_gross_pnl": "1.0000000000000002",
+          "sim_ideal_net_pnl": "0.9005000000000002",
+          "gross_abs_diff": "-1.7936000000000057",
+          "gross_pct_diff": "-182.98",
+          "net_abs_diff": "-1.7952361000000058",
+          "net_pct_diff": "-203.84",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "SL",
+          "sim_base_outcome": "TP",
+          "sim_ideal_outcome": "TP",
+          "matched_outcome": false,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Kết quả đóng khác nhau (Live=SL vs Sim=TP); Lệch PnL ròng -1.7952 USD; Trượt giá vào +11.69 bps",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    },
+    {
+      "event_id": "ETH-USDT|1h|C4|SELL|1795125599999",
+      "signal_id": "SIG_ETHUSDT_C4_1h_SELL_1795125599999",
+      "symbol": "ETH-USDT",
+      "timeframe": "1h",
+      "combo": "C4",
+      "side": "SELL",
+      "era": "ERA_2_FIXED_TP_SL",
+      "is_fully_closed": true,
+      "is_shared_position": false,
+      "shared_peers": [],
+      "bingx_cross_check": {
+        "entry_order_id": "2123536902401511424",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-19T21:59:59.999000Z",
+          "live_ref_entry": "1740.75",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "1740.75",
+          "live_avg_price": "1739.44",
+          "live_slippage_bps": "7.53",
+          "sim_base_entry": "1740.40185",
+          "sim_raw_entry_m1_open": "1740.75",
+          "sim_ideal_entry": "1740.75",
+          "abs_diff": "-0.96185",
+          "pct_diff": "-0.0553",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "1704.6512",
+          "live_sl_price": "1753.35552",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2123536928002904064",
+          "sl_order_id": "2123536917827522560",
+          "sim_ref_tp_price": "1705.935",
+          "sim_ref_sl_price": "1754.676",
+          "tp_pct_diff": "-0.0753",
+          "sl_pct_diff": "-0.0753",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": false,
+          "note": "Kỷ nguyên FIXED_TP_SL không dùng trailing",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.05",
+          "live_closed_qty": "0.05",
+          "live_legs_count": 1,
+          "live_legs": [
+            {
+              "close_order_id": "2123542680277569536",
+              "close_type": "SL",
+              "closed_qty": "0.05",
+              "close_price": "1753.61",
+              "realized_pnl": "-0.7084",
+              "fee": "0.04384",
+              "closed_at": "2026-11-19T22:23:23Z"
+            }
+          ],
+          "sim_legs_count": 1,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_ETHUSDT_C4_1h_SELL_1795125599999#L1",
+              "leg_type": "SINGLE",
+              "qty": "0.05745799454304189",
+              "exit_price": "1754.67592981296",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.8201600000000031",
+              "fee_total": "0.10041008000000001",
+              "net_pnl": "-0.9205700800000037"
+            }
+          ],
+          "is_shared_position": false,
+          "shared_peers": [],
+          "provenance": "EXACT"
+        },
+        "fees": {
+          "live_open_fee": "0.043486",
+          "live_close_fee": "0.04384",
+          "live_total_fee": "0.087326",
+          "sim_base_fee": "0.10041008000000001",
+          "sim_ideal_fee": "0.1004",
+          "abs_diff": "-0.01308408000000001",
+          "pct_diff": "-13.03",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1795125625610, 1795127003000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.7084",
+          "live_net_pnl": "-0.795726",
+          "live_results_sum_pnl": "-0.7084",
+          "sim_base_gross_pnl": "-0.8201600000000031",
+          "sim_base_net_pnl": "-0.9205700800000037",
+          "sim_ideal_gross_pnl": "-0.799999999999996",
+          "sim_ideal_net_pnl": "-0.9003999999999961",
+          "gross_abs_diff": "0.1117600000000031",
+          "gross_pct_diff": "13.63",
+          "net_abs_diff": "0.1248440800000037",
+          "net_pct_diff": "13.56",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "SL",
+          "sim_base_outcome": "SL",
+          "sim_ideal_outcome": "SL",
+          "matched_outcome": true,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "HỆ_THỐNG",
+      "root_cause_detail_vi": "Giá đặt TP/SL lệch so với tín hiệu (tp_diff=-0.07525491885681459141174780985%, sl_diff=-0.07525491885681459141174780985%)",
+      "overall_provenance": "EXACT",
+      "system_issue_note": "Giá đặt TP/SL lệch so với tín hiệu (tp_diff=-0.07525491885681459141174780985%, sl_diff=-0.07525491885681459141174780985%)"
+    },
+    {
+      "event_id": "BTC-USDT|1h|TIER|SELL|1795237199999",
+      "signal_id": "SIG_BTCUSDT_TIER_1h_SELL_1795237199999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "TIER",
+      "side": "SELL",
+      "era": "ERA_2_FIXED_TP_SL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "BTC-USDT|1h|C11|SELL|1795240799999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2124005051160809472",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-21T04:59:59.999000Z",
+          "live_ref_entry": "56268.8",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "56268.8",
+          "live_avg_price": "56429.9",
+          "live_slippage_bps": "-28.63",
+          "sim_base_entry": "56257.54624",
+          "sim_raw_entry_m1_open": "56268.8",
+          "sim_ideal_entry": "56268.8",
+          "abs_diff": "172.35376",
+          "pct_diff": "0.3064",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "55414.1618",
+          "live_sl_price": "56937.7691",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2124005076640567296",
+          "sl_order_id": "2124005066473574400",
+          "sim_ref_tp_price": "55255.9616",
+          "sim_ref_sl_price": "56775.2192",
+          "tp_pct_diff": "0.2863",
+          "sl_pct_diff": "0.2863",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": false,
+          "note": "Kỷ nguyên FIXED_TP_SL không dùng trailing",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0018",
+          "live_closed_qty": "0.0018",
+          "live_legs_count": 1,
+          "live_legs": [
+            {
+              "close_order_id": "2124024063391387648",
+              "close_type": "TP",
+              "closed_qty": "0.0018",
+              "close_price": "55360.1",
+              "realized_pnl": "1.3262",
+              "fee": "0.049824",
+              "closed_at": "2026-11-21T06:16:14Z"
+            }
+          ],
+          "sim_legs_count": 1,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_TIER_1h_SELL_1795237199999#L1",
+              "leg_type": "SINGLE",
+              "qty": "0.0017775393113199527",
+              "exit_price": "55255.959389761534",
+              "exit_reason": "TP",
+              "gross_pnl": "1.7803600000000093",
+              "fee_total": "0.09910982",
+              "net_pnl": "1.6812501800000061"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "BTC-USDT|1h|C11|SELL|1795240799999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.050787",
+          "live_close_fee": "0.049824",
+          "live_total_fee": "0.100611",
+          "sim_base_fee": "0.09910982",
+          "sim_ideal_fee": "0.09910000000000001",
+          "abs_diff": "0.00150118",
+          "pct_diff": "1.51",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1795237240964, 1795241774000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "1.3262",
+          "live_net_pnl": "1.225589",
+          "live_results_sum_pnl": "1.3262",
+          "sim_base_gross_pnl": "1.7803600000000093",
+          "sim_base_net_pnl": "1.6812501800000061",
+          "sim_ideal_gross_pnl": "1.800000000000001",
+          "sim_ideal_net_pnl": "1.700900000000001",
+          "gross_abs_diff": "-0.4541600000000093",
+          "gross_pct_diff": "-25.51",
+          "net_abs_diff": "-0.4556611800000061",
+          "net_pct_diff": "-27.1",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "TP",
+          "sim_base_outcome": "TP",
+          "sim_ideal_outcome": "TP",
+          "matched_outcome": true,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "HỆ_THỐNG",
+      "root_cause_detail_vi": "Trượt giá vào lệnh bất thường (-28.63 bps >= ngưỡng hệ thống 25.0 bps)",
+      "overall_provenance": "EXACT",
+      "system_issue_note": "Trượt giá vào lệnh bất thường (-28.63 bps >= ngưỡng hệ thống 25.0 bps)"
+    },
+    {
+      "event_id": "BTC-USDT|1h|C11|SELL|1795240799999",
+      "signal_id": "SIG_BTCUSDT_C11_1h_SELL_1795240799999",
+      "symbol": "BTC-USDT",
+      "timeframe": "1h",
+      "combo": "C11",
+      "side": "SELL",
+      "era": "ERA_2_FIXED_TP_SL",
+      "is_fully_closed": true,
+      "is_shared_position": true,
+      "shared_peers": [
+        "BTC-USDT|1h|TIER|SELL|1795237199999"
+      ],
+      "bingx_cross_check": {
+        "entry_order_id": "2124020188949204992",
+        "in_bingx_orders": false,
+        "bingx_order_avg_price": null,
+        "bingx_fills_count": 0
+      },
+      "items": {
+        "signal": {
+          "live_signal_time": "2026-11-21T05:59:59.999000Z",
+          "live_ref_entry": "55775.3",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
+          "provenance": "EXACT"
+        },
+        "entry": {
+          "expected_entry": "55775.3",
+          "live_avg_price": "55763.9",
+          "live_slippage_bps": "2.04",
+          "sim_base_entry": "55764.144940000006",
+          "sim_raw_entry_m1_open": "55775.3",
+          "sim_ideal_entry": "55775.3",
+          "abs_diff": "-0.244940000006",
+          "pct_diff": "-0.0004",
+          "provenance": "EXACT"
+        },
+        "tp_sl": {
+          "live_tp_price": "54760.1498",
+          "live_sl_price": "56265.7751",
+          "live_tp_status": "NEW",
+          "live_sl_status": "NEW",
+          "tp_order_id": "2124020222997925888",
+          "sl_order_id": "2124020210251436032",
+          "sim_ref_tp_price": "54771.3446",
+          "sim_ref_sl_price": "56277.2777",
+          "tp_pct_diff": "-0.0204",
+          "sl_pct_diff": "-0.0204",
+          "provenance": "EXACT"
+        },
+        "trailing": {
+          "applicable": false,
+          "note": "Kỷ nguyên FIXED_TP_SL không dùng trailing",
+          "provenance": "EXACT"
+        },
+        "legs_and_merged": {
+          "live_executed_qty": "0.0018",
+          "live_closed_qty": "0.0018",
+          "live_legs_count": 1,
+          "live_legs": [
+            {
+              "close_order_id": "2124028416491737088",
+              "close_type": "SL",
+              "closed_qty": "0.0018",
+              "close_price": "56280",
+              "realized_pnl": "-0.3295",
+              "fee": "0.050652",
+              "closed_at": "2026-11-21T06:33:32Z"
+            }
+          ],
+          "sim_legs_count": 1,
+          "sim_legs": [
+            {
+              "leg_id": "SIG_BTCUSDT_C11_1h_SELL_1795240799999#L1",
+              "leg_type": "SINGLE",
+              "qty": "0.0017932669837867326",
+              "exit_price": "56277.27544890889",
+              "exit_reason": "SL",
+              "gross_pnl": "-0.9201799999999882",
+              "fee_total": "0.10046009",
+              "net_pnl": "-1.0206400899999952"
+            }
+          ],
+          "is_shared_position": true,
+          "shared_peers": [
+            "BTC-USDT|1h|TIER|SELL|1795237199999"
+          ],
+          "provenance": "RECONCILED"
+        },
+        "fees": {
+          "live_open_fee": "0.050188",
+          "live_close_fee": "0.050652",
+          "live_total_fee": "0.10084",
+          "sim_base_fee": "0.10046009",
+          "sim_ideal_fee": "0.10045",
+          "abs_diff": "0.00037991",
+          "pct_diff": "0.38",
+          "provenance": "EXACT"
+        },
+        "funding": {
+          "live_db_funding": null,
+          "estimated_funding_usd": "0",
+          "funding_periods": 0,
+          "formula": "sum(notional * funding_rate * sign[SELL]) qua 0 kỳ 8h trong (1795240850095, 1795242812000]",
+          "included_in_live_net_pnl": false,
+          "provenance": "ESTIMATED"
+        },
+        "pnl": {
+          "live_gross_pnl": "-0.3295",
+          "live_net_pnl": "-0.43034",
+          "live_results_sum_pnl": "-0.3295",
+          "sim_base_gross_pnl": "-0.9201799999999882",
+          "sim_base_net_pnl": "-1.0206400899999952",
+          "sim_ideal_gross_pnl": "-0.8999999999999925",
+          "sim_ideal_net_pnl": "-1.0004499999999925",
+          "gross_abs_diff": "0.5906799999999882",
+          "gross_pct_diff": "64.19",
+          "net_abs_diff": "0.5903000899999952",
+          "net_pct_diff": "57.84",
+          "provenance": "EXACT"
+        },
+        "close_outcome": {
+          "live_outcome": "SL",
+          "sim_base_outcome": "SL",
+          "sim_ideal_outcome": "SL",
+          "matched_outcome": true,
+          "provenance": "EXACT"
+        }
+      },
+      "root_cause": "MÔ_HÌNH_THỰC_THI",
+      "root_cause_detail_vi": "Lệch PnL ròng +0.5903 USD",
+      "overall_provenance": "EXACT",
+      "system_issue_note": null
+    }
+  ],
+  "report_sha256": "1821da3f87b6562c72a0d5bfc3db75bfb0ce32fba07a0bb407568a5443c225cb"
+}

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Báo cáo đối soát Backtest vs Live (V3-17a)</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 16px; line-height: 1.5; }
+  .container { max-width: 1400px; margin: 0 auto; }
+  h1, h2, h3 { color: #f8fafc; margin-top: 24px; }
+  .banner { background: #7c2d12; border: 1px solid #f97316; padding: 12px 16px; border-radius: 8px; margin: 12px 0; font-weight: 600; }
+  .info-box { background: #1e293b; border: 1px solid #334155; padding: 12px 16px; border-radius: 8px; margin: 12px 0; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .kpi { background: #0f172a; padding: 10px 12px; border-radius: 6px; border: 1px solid #334155; }
+  .kpi .k { display: block; font-size: 12px; color: #94a3b8; }
+  .kpi .v { display: block; font-size: 16px; font-weight: 700; color: #38bdf8; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th, td { border: 1px solid #334155; padding: 8px; text-align: left; vertical-align: top; }
+  th { background: #1e293b; color: #f8fafc; position: sticky; top: 0; }
+  tr:nth-child(even) { background: #162032; }
+  code { background: #0f172a; padding: 2px 5px; border-radius: 4px; font-size: 12px; color: #cbd5e1; }
+  .table-wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Báo cáo đối soát Backtest vs Live (V3-17a)</h1>
+  <p>Đối soát dữ liệu thực tế từ kho local (chỉ đọc, không gọi API sàn/DB)</p>
+  <div class="banner">Cảnh báo: Mẫu nhỏ (22 lệnh đóng hẳn &lt; 60), chưa kết luận.</div>
+  <div class="info-box">
+    <div><strong>Mã đợt thu kho (manifest):</strong> <code>run_20261122T024038Z</code> | <strong>SHA-256 báo cáo:</strong> <code>1821da3f87b6562c72a0d5bfc3db75bfb0ce32fba07a0bb407568a5443c225cb</code></div>
+    <div><strong>Hồ sơ chi phí:</strong> Mô phỏng BASE (mặc định: phí 0.05% + trượt giá 2 bps/chiều) | Mô phỏng IDEAL (tham chiếu: phí 0.05% + trượt giá 0 bps)</div>
+    <div><small>Lưu ý: execution_finances.funding = NULL theo thiết kế; cột Funding chỉ mang tính ESTIMATED (notional * funding_rate), KHÔNG cộng vào PnL ròng thực tế.</small></div>
+  </div>
+
+  <h2>Tóm tắt đối soát tổng thể theo kỷ nguyên</h2>
+  <div class="info-box">
+    <strong>Tỷ lệ tín hiệu khớp (so với Live):</strong> 95.45% (21/22) |
+    <strong>Trượt giá vào lệnh TB / p95 (toàn mẫu):</strong> -2.86 / 19.84 bps |
+    <em>Không gộp PnL hai kỷ nguyên thành một con số; xem era_summaries.</em>
+  </div>
+  
+        <div class="card">
+          <h3>Kỷ nguyên 1: 50TP_50TRAIL (trước PR #125)</h3>
+          <div class="kpi-grid">
+            <div class="kpi"><span class="k">Số lệnh / đóng hẳn</span><span class="v">18 / 18</span></div>
+            <div class="kpi"><span class="k">Khớp kết quả đóng</span><span class="v">0 / 18</span></div>
+            <div class="kpi"><span class="k">Trượt giá vào TB / p95 (bps)</span><span class="v">-3.08 / 23.02</span></div>
+            <div class="kpi"><span class="k">PnL Ròng Live ($)</span><span class="v">-0.644269</span></div>
+            <div class="kpi"><span class="k">PnL Ròng Mô phỏng BASE ($)</span><span class="v">-1.6145168235583039</span></div>
+            <div class="kpi"><span class="k">PnL Ròng Mô phỏng IDEAL ($)</span><span class="v">-1.62872637023374108</span></div>
+            <div class="kpi"><span class="k">Chênh lệch PnL Ròng (Live - BASE) ($)</span><span class="v">0.9702478235583039</span></div>
+            <div class="kpi"><span class="k">Phí Live vs BASE ($)</span><span class="v">1.722349 vs 1.79990730475939947</span></div>
+            <div class="kpi"><span class="k">Funding ước lượng (ESTIMATED) ($)</span><span class="v">0.018828</span></div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <h3>Kỷ nguyên 2: FIXED_TP_SL (sau PR #125)</h3>
+          <div class="kpi-grid">
+            <div class="kpi"><span class="k">Số lệnh / đóng hẳn</span><span class="v">4 / 4</span></div>
+            <div class="kpi"><span class="k">Khớp kết quả đóng</span><span class="v">3 / 4</span></div>
+            <div class="kpi"><span class="k">Trượt giá vào TB / p95 (bps)</span><span class="v">-1.84 / 11.69</span></div>
+            <div class="kpi"><span class="k">PnL Ròng Live ($)</span><span class="v">-0.915023</span></div>
+            <div class="kpi"><span class="k">PnL Ròng Mô phỏng BASE ($)</span><span class="v">0.620730110000013</span></div>
+            <div class="kpi"><span class="k">PnL Ròng Mô phỏng IDEAL ($)</span><span class="v">0.7005500000000126</span></div>
+            <div class="kpi"><span class="k">Chênh lệch PnL Ròng (Live - BASE) ($)</span><span class="v">-1.535753110000013</span></div>
+            <div class="kpi"><span class="k">Phí Live vs BASE ($)</span><span class="v">0.389923 vs 0.39948989000000001</span></div>
+            <div class="kpi"><span class="k">Funding ước lượng (ESTIMATED) ($)</span><span class="v">0</span></div>
+          </div>
+        </div>
+        
+
+  <h2>Phân bố nguyên nhân sai lệch</h2>
+  <div class="table-wrap"><table><thead><tr><th>Nguyên nhân</th><th>Số lượng</th></tr></thead><tbody><tr><td><strong>DỮ_LIỆU</strong></td><td>1</td></tr><tr><td><strong>HỆ_THỐNG</strong></td><td>4</td></tr><tr><td><strong>MÔ_HÌNH_THỰC_THI</strong></td><td>17</td></tr></tbody></table></div>
+
+  <h2>Danh sách HỆ_THỐNG cần mở issue</h2>
+  <div class="card"><ul><li><code>ETH-USDT|1h|C13|SELL|1794697199999</code> (ERA_1_50TP_50TRAIL): Tổng realized_pnl các leg (-0.5458) lệch gross_pnl (-0.3058)</li><li><code>ETH-USDT|1h|C15|SELL|1794697199999</code> (ERA_1_50TP_50TRAIL): Tổng realized_pnl các leg (-0.1021) lệch gross_pnl (-0.3421)</li><li><code>ETH-USDT|1h|C4|SELL|1795125599999</code> (ERA_2_FIXED_TP_SL): Giá đặt TP/SL lệch so với tín hiệu (tp_diff=-0.07525491885681459141174780985%, sl_diff=-0.07525491885681459141174780985%)</li><li><code>BTC-USDT|1h|TIER|SELL|1795237199999</code> (ERA_2_FIXED_TP_SL): Trượt giá vào lệnh bất thường (-28.63 bps &gt;= ngưỡng hệ thống 25.0 bps)</li></ul></div>
+
+  <h2>Cửa sổ VPS_TẮT suy ra từ nhật ký &amp; nến</h2>
+  <div class="table-wrap"><table><thead><tr><th>Loại</th><th>Bắt đầu (UTC)</th><th>Kết thúc (UTC)</th><th>Thời lượng</th><th>Nguồn</th><th>Ghi chú</th></tr></thead><tbody><tr><td>VPS_TẮT</td><td>2026-11-21T17:30:34.730000Z</td><td>2026-11-22T02:30:33.889000Z</td><td>9.0 giờ</td><td>control_logs</td><td>Khoảng trống control_logs khi tắt VPS (đổi mật khẩu database)</td></tr></tbody></table></div>
+
+  <h2>Đối soát tín hiệu (Lab vs Live)</h2>
+  <div class="info-box">
+    Lab trong cửa sổ: 58 | Live: 22 |
+    Khớp chính xác: 21 | Thiếu (Lab có, Live không): 37 |
+    Thừa (Live có, Lab không): 1 | Nằm trong cửa sổ VPS_TẮT (tách riêng): 0 |
+    Lệch thời gian: 0
+  </div>
+  <div class="table-wrap"><table><thead><tr><th>Mã sự kiện</th><th>Thời điểm đóng nến (UTC)</th><th>Trạng thái</th><th>Mã lý do</th><th>Chi tiết</th></tr></thead><tbody><tr><td><code>BTC-USDT|1h|C4|SELL|1794625199999</code></td><td>2026-11-14T02:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794628799999</code></td><td>2026-11-14T03:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794632399999</code></td><td>2026-11-14T04:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794635999999</code></td><td>2026-11-14T05:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794639599999</code></td><td>2026-11-14T06:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794643199999</code></td><td>2026-11-14T07:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794646799999</code></td><td>2026-11-14T08:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794650399999</code></td><td>2026-11-14T09:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794653999999</code></td><td>2026-11-14T10:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794657599999</code></td><td>2026-11-14T11:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794661199999</code></td><td>2026-11-14T12:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794664799999</code></td><td>2026-11-14T13:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794668399999</code></td><td>2026-11-14T14:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|1h|C4|SELL|1794668399999</code></td><td>2026-11-14T14:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>ETH-USDT|1h|C4|SELL|1794668399999</code></td><td>2026-11-14T14:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794671999999</code></td><td>2026-11-14T15:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794675599999</code></td><td>2026-11-14T16:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|TIER|SELL|1794675599999</code></td><td>2026-11-14T16:59:59.999000Z</td><td><strong>THỪA</strong></td><td>WARMUP_WINDOW_3400</td><td>BTC-USDT chỉ có 3400 nến rolling trong cache; trạng thái warmup/L2 tại thời điểm live có thể khác</td></tr><tr><td><code>ETH-USDT|1h|C13|SELL|1794675599999</code></td><td>2026-11-14T16:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1794675599999</code></td><td>2026-11-14T16:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794679199999</code></td><td>2026-11-14T17:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794682799999</code></td><td>2026-11-14T18:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794686399999</code></td><td>2026-11-14T19:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794689999999</code></td><td>2026-11-14T20:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794693599999</code></td><td>2026-11-14T21:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794697199999</code></td><td>2026-11-14T22:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>ETH-USDT|1h|C13|SELL|1794697199999</code></td><td>2026-11-14T22:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1794697199999</code></td><td>2026-11-14T22:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794700799999</code></td><td>2026-11-14T23:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794704399999</code></td><td>2026-11-15T00:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>NEW6_VIRTUAL_POSITION</td><td>NEW6 virtual_position: Lab phát tín hiệu lặp theo trạng thái ảo khác với trạng thái lệnh đang mở trên Live</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1794707999999</code></td><td>2026-11-15T01:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|1h|C4|SELL|1794707999999</code></td><td>2026-11-15T01:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>ETH-USDT|1h|C13|SELL|1794707999999</code></td><td>2026-11-15T01:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1794707999999</code></td><td>2026-11-15T01:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|15m|C10|SELL|1795046399999</code></td><td>2026-11-18T23:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|1h|C14|SELL|1795111199999</code></td><td>2026-11-19T17:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C4|SELL|1795125599999</code></td><td>2026-11-19T21:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>BTC-USDT|1h|C14|SELL|1795132799999</code></td><td>2026-11-19T23:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C12|SELL|1795139999999</code></td><td>2026-11-20T01:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>BTC-USDT|1h|C4|SELL|1795190399999</code></td><td>2026-11-20T15:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C4|SELL|1795190399999</code></td><td>2026-11-20T15:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>BTC-USDT|1h|TIER|SELL|1795193999999</code></td><td>2026-11-20T16:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C13|SELL|1795204799999</code></td><td>2026-11-20T19:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1795204799999</code></td><td>2026-11-20T19:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1795208399999</code></td><td>2026-11-20T20:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1795211999999</code></td><td>2026-11-20T21:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1795215599999</code></td><td>2026-11-20T22:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1795219199999</code></td><td>2026-11-20T23:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1795222799999</code></td><td>2026-11-21T00:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1795226399999</code></td><td>2026-11-21T01:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1795229999999</code></td><td>2026-11-21T02:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>BTC-USDT|15m|C7|SELL|1795232699999</code></td><td>2026-11-21T03:44:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|15m|C7|SELL|1795232699999</code></td><td>2026-11-21T03:44:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>BTC-USDT|1h|C4|SELL|1795233599999</code></td><td>2026-11-21T03:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1795233599999</code></td><td>2026-11-21T03:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>BTC-USDT|1h|TIER|SELL|1795237199999</code></td><td>2026-11-21T04:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1795237199999</code></td><td>2026-11-21T04:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr><tr><td><code>BTC-USDT|1h|C11|SELL|1795240799999</code></td><td>2026-11-21T05:59:59.999000Z</td><td><strong>KHỚP</strong></td><td>KHỚP</td><td>Khớp chính xác event_id giữa Lab 20FINAL và Live</td></tr><tr><td><code>ETH-USDT|1h|C15|SELL|1795240799999</code></td><td>2026-11-21T05:59:59.999000Z</td><td><strong>THIẾU</strong></td><td>L2_REGISTRY_CHANGED</td><td>Sau PR #129/#148/#159/#160 (16–20/11), bộ lọc/registry L2 live đã đổi khỏi 20FINAL</td></tr></tbody></table></div>
+
+  <h2>Bảng đối soát từng lệnh (9 hạng mục / mỗi event_id)</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Mã sự kiện (event_id)</th>
+          <th>Kỷ nguyên</th>
+          <th>1. Tín hiệu</th>
+          <th>2. Giá vào &amp; trượt giá</th>
+          <th>3. TP / SL</th>
+          <th>4. Trailing</th>
+          <th>5. Từng leg &amp; vị thế gộp</th>
+          <th>6. Phí vào / ra</th>
+          <th>7. Funding (ESTIMATED)</th>
+          <th>8. PnL Gộp / Ròng</th>
+          <th>9. Kết quả đóng</th>
+          <th>Nguyên nhân</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>BTC-USDT|1h|C4|SELL|1794625199999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T02:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 67655.5<br>Khớp Live: 67666.5<br>Mô phỏng: 67641.9689<br>Trượt: -1.63 bps</td>
+          <td>TP: 66448.503 (NEW)<br>SL: 68275.4985 (NEW)</td>
+          <td>KH=67328.1675 / CB=0.005 (NEW)</td>
+          <td>Live: 2 leg | Sim: 2 leg<br><small>Vị thế gộp (1 cặp)</small></td>
+          <td>Live: 0.100757<br>BASE: 0.09929411247980836<br>Lệch: 0.00146288752019164 (1.47%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: 0.94596913 / 1.4117750403832796<br>Ròng Live/Sim: 0.84521213 / 1.3124809279034657<br>Lệch ròng: -0.4672687979034657 (-35.6%)</td>
+          <td>Live: TRAILING+TP<br>BASE: TP+TRAIL<br>IDEAL: TP+TRAIL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL); Lệch PnL ròng -0.4673 USD</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|1h|C11|SELL|1794628799999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T03:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 66722.3<br>Khớp Live: 66631<br>Mô phỏng: 66708.95554000001<br>Trượt: 13.68 bps</td>
+          <td>TP: 65431.642 (NEW)<br>SL: 67230.679 (NEW)</td>
+          <td>KH=66297.845 / CB=0.005 (NEW)</td>
+          <td>Live: 1 leg | Sim: 2 leg<br><small>Vị thế gộp (1 cặp)</small></td>
+          <td>Live: 0.100399<br>BASE: 0.10046009<br>Lệch: -0.00006109 (-0.06%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.36573913 / -0.9201800000000055<br>Ròng Live/Sim: -0.46613813 / -1.0206400900000103<br>Lệch ròng: 0.5545019600000103 (54.33%)</td>
+          <td>Live: SL<br>BASE: SL+SL<br>IDEAL: SL+SL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Lệch PnL ròng +0.5545 USD; Trượt giá vào +13.68 bps</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|1h|C11|SELL|1794639599999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T06:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 67345.8<br>Khớp Live: 67334.5<br>Mô phỏng: 67332.33084000001<br>Trượt: 1.68 bps</td>
+          <td>TP: 66122.479 (NEW)<br>SL: 67940.5105 (NEW)</td>
+          <td>KH=66997.8275 / CB=0.005 (NEW)</td>
+          <td>Live: 2 leg | Sim: 2 leg<br><small>Độc lập</small></td>
+          <td>Live: 0.100507<br>BASE: 0.09954858485397153<br>Lệch: 0.00095841514602847 (0.96%)</td>
+          <td>DB: NULL<br>Ước lượng: 0.004747<br><small>(1 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: 0.98895 / 0.9028302920569568<br>Ròng Live/Sim: 0.888443 / 0.803281707202968<br>Lệch ròng: 0.085161292797032 (10.6%)</td>
+          <td>Live: TRAILING+TP<br>BASE: TP+TRAIL<br>IDEAL: TP+TRAIL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|1h|C11|SELL|1794668399999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T14:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 65889.6<br>Khớp Live: 65939.9<br>Mô phỏng: 65876.42208<br>Trượt: -7.63 bps</td>
+          <td>TP: 64752.9818 (NEW)<br>SL: 66533.3591 (NEW)</td>
+          <td>KH=65610.2005 / CB=0.005 (NEW)</td>
+          <td>Live: 2 leg | Sim: 2 leg<br><small>Vị thế gộp (2 cặp)</small></td>
+          <td>Live: 0.098203<br>BASE: 0.09936464250088206<br>Lệch: -0.00116164250088206 (-1.17%)</td>
+          <td>DB: NULL<br>Ước lượng: 0.005836<br><small>(1 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: 1.1144 / 1.2707149982359<br>Ròng Live/Sim: 1.016197 / 1.1713503557350222<br>Lệch ròng: -0.1551533557350222 (-13.25%)</td>
+          <td>Live: TRAILING+TP<br>BASE: TP+TRAIL<br>IDEAL: TP+TRAIL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|1h|C4|SELL|1794668399999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T14:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 65889.6<br>Khớp Live: 65922<br>Mô phỏng: 65876.42208<br>Trượt: -4.92 bps</td>
+          <td>TP: 64735.404 (NEW)<br>SL: 66515.298 (NEW)</td>
+          <td>KH=65592.39 / CB=0.005 (NEW)</td>
+          <td>Live: 2 leg | Sim: 2 leg<br><small>Vị thế gộp (2 cặp)</small></td>
+          <td>Live: 0.098189<br>BASE: 0.09936464250088206<br>Lệch: -0.00117564250088206 (-1.18%)</td>
+          <td>DB: NULL<br>Ước lượng: 0.005834<br><small>(1 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: 1.1159 / 1.2707149982359<br>Ròng Live/Sim: 1.017711 / 1.1713503557350222<br>Lệch ròng: -0.1536393557350222 (-13.12%)</td>
+          <td>Live: TRAILING+TP<br>BASE: TP+TRAIL<br>IDEAL: TP+TRAIL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>ETH-USDT|1h|C4|SELL|1794668399999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T14:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 1853.03<br>Khớp Live: 1854.62<br>Mô phỏng: 1852.659394<br>Trượt: -8.58 bps</td>
+          <td>TP: 1817.5276 (NEW)<br>SL: 1869.45696 (NEW)</td>
+          <td>KH=1845.3469 / CB=0.005 (NEW)</td>
+          <td>Live: 2 leg | Sim: 2 leg<br><small>Độc lập</small></td>
+          <td>Live: 0.092075<br>BASE: 0.09938507884198308<br>Lệch: -0.00731007884198308 (-7.36%)</td>
+          <td>DB: NULL<br>Ước lượng: 0.002411<br><small>(1 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: 1.3115 / 1.2298423160338405<br>Ròng Live/Sim: 1.219425 / 1.1304572371918549<br>Lệch ròng: 0.0889677628081451 (7.87%)</td>
+          <td>Live: TRAILING+TP<br>BASE: TP+TRAIL<br>IDEAL: TP+TRAIL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|1h|TIER|SELL|1794675599999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>THỪA<br><small>2026-11-14T16:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 65317.3<br>Khớp Live: 65193.7<br>Mô phỏng: 65304.236540000005<br>Trượt: 18.92 bps</td>
+          <td>TP: 64020.2134 (NEW)<br>SL: 65780.4433 (NEW)</td>
+          <td>KH=64867.7315 / CB=0.005 (NEW)</td>
+          <td>Live: 1 leg | Sim: 2 leg<br><small>Vị thế gộp (2 cặp)</small></td>
+          <td>Live: 0.098259<br>BASE: 0.10046009<br>Lệch: -0.00220109 (-2.19%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.3659 / -0.9201799999999865<br>Ròng Live/Sim: -0.464159 / -1.020640089999994<br>Lệch ròng: 0.556481089999994 (54.52%)</td>
+          <td>Live: SL<br>BASE: SL+SL<br>IDEAL: SL+SL</td>
+          <td><strong>DỮ_LIỆU</strong><br><small>BTC-USDT chỉ có 3400 nến rolling trong cache; trạng thái warmup/L2 tại thời điểm live có thể khác</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>ETH-USDT|1h|C13|SELL|1794675599999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T16:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 1824.82<br>Khớp Live: 1821.2<br>Mô phỏng: 1824.455036<br>Trượt: 19.84 bps</td>
+          <td>TP: 1784.776 (NEW)<br>SL: 1835.7696 (NEW)</td>
+          <td>KH=1812.094 / CB=0.005 (NEW)</td>
+          <td>Live: 2 leg | Sim: 2 leg<br><small>Vị thế gộp (1 cặp)</small></td>
+          <td>Live: 0.09132<br>BASE: 0.1001596527444272<br>Lệch: -0.0088396527444272 (-8.83%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.5349 / -0.31930548885440174<br>Ròng Live/Sim: -0.62622 / -0.4194651415988419<br>Lệch ròng: -0.2067548584011581 (-49.29%)</td>
+          <td>Live: TRAILING+SL<br>BASE: SL+TRAIL<br>IDEAL: SL+TRAIL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=TRAILING+SL vs Sim=SL+TRAIL); Trượt giá vào +19.84 bps</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>ETH-USDT|1h|C15|SELL|1794675599999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T16:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 1824.82<br>Khớp Live: 1820.62<br>Mô phỏng: 1824.455036<br>Trượt: 23.02 bps</td>
+          <td>TP: 1784.2076 (NEW)<br>SL: 1835.18496 (NEW)</td>
+          <td>KH=1811.5169 / CB=0.005 (NEW)</td>
+          <td>Live: 1 leg | Sim: 2 leg<br><small>Vị thế gộp (1 cặp)</small></td>
+          <td>Live: 0.091441<br>BASE: 0.10041008<br>Lệch: -0.00896908 (-8.93%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.8045 / -0.8201599999999905<br>Ròng Live/Sim: -0.895941 / -0.9205700800000023<br>Lệch ròng: 0.0246290800000023 (2.68%)</td>
+          <td>Live: SL<br>BASE: SL+SL<br>IDEAL: SL+SL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào +23.02 bps</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|1h|C11|SELL|1794689999999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T20:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 64737.6<br>Khớp Live: 64861.8<br>Mô phỏng: 64724.5525<br>Trượt: -19.19 bps</td>
+          <td>TP: 63694.2876 (NEW)<br>SL: 65445.5562 (NEW)</td>
+          <td>KH=64537.491 / CB=0.005 (NEW)</td>
+          <td>Live: 2 leg | Sim: 2 leg<br><small>Độc lập</small></td>
+          <td>Live: 0.09661<br>BASE: 0.09937135496379483<br>Lệch: -0.00276135496379483 (-2.78%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: 1.3659 / 1.2572900724103222<br>Ròng Live/Sim: 1.26929 / 1.1579187174465284<br>Lệch ròng: 0.1113712825534716 (9.62%)</td>
+          <td>Live: TRAILING+TP<br>BASE: TP+TRAIL<br>IDEAL: TP+TRAIL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL); Trượt giá vào -19.19 bps</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|1h|C11|SELL|1794697199999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T22:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 63515.4<br>Khớp Live: 63545.1<br>Mô phỏng: 63502.69692<br>Trượt: -4.68 bps</td>
+          <td>TP: 62401.2882 (NEW)<br>SL: 64117.0059 (NEW)</td>
+          <td>KH=63227.3745 / CB=0.005 (NEW)</td>
+          <td>Live: 1 leg | Sim: 2 leg<br><small>Độc lập</small></td>
+          <td>Live: 0.102132<br>BASE: 0.10046009<br>Lệch: 0.00167191 (1.66%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.9188 / -0.9201799999999924<br>Ròng Live/Sim: -1.020932 / -1.0206400899999943<br>Lệch ròng: -0.0002919100000057 (-0.03%)</td>
+          <td>Live: SL<br>BASE: SL+SL<br>IDEAL: SL+SL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL)</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>ETH-USDT|1h|C13|SELL|1794697199999</code><br><small>RECONCILED</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T22:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 1744.12<br>Khớp Live: 1746.96<br>Mô phỏng: 1743.75118<br>Trượt: -16.28 bps</td>
+          <td>TP: 1712.0208 (NEW)<br>SL: 1760.93568 (NEW)</td>
+          <td>KH=1738.2252 / CB=0.005 (NEW)</td>
+          <td>Live: 2 leg | Sim: 2 leg<br><small>Vị thế gộp (1 cặp)</small></td>
+          <td>Live: 0.0875126<br>BASE: 0.10021269457919289<br>Lệch: -0.01270009457919289 (-12.67%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.3058 / -0.42538915838576763<br>Ròng Live/Sim: -0.3933126 / -0.5256018529649678<br>Lệch ròng: 0.1322892529649678 (25.17%)</td>
+          <td>Live: TRAILING+SL<br>BASE: SL+TRAIL<br>IDEAL: SL+TRAIL</td>
+          <td><strong>HỆ_THỐNG</strong><br><small>Tổng realized_pnl các leg (-0.5458) lệch gross_pnl (-0.3058)</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>ETH-USDT|1h|C15|SELL|1794697199999</code><br><small>RECONCILED</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T22:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 1744.12<br>Khớp Live: 1747.9<br>Mô phỏng: 1743.75118<br>Trượt: -21.67 bps</td>
+          <td>TP: 1712.942 (NEW)<br>SL: 1761.8832 (NEW)</td>
+          <td>KH=1739.1605 / CB=0.005 (NEW)</td>
+          <td>Live: 2 leg | Sim: 2 leg<br><small>Vị thế gộp (1 cặp)</small></td>
+          <td>Live: 0.0875554<br>BASE: 0.10021269457919289<br>Lệch: -0.01265729457919289 (-12.63%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.3421 / -0.42538915838576763<br>Ròng Live/Sim: -0.4296554 / -0.5256018529649678<br>Lệch ròng: 0.0959464529649678 (18.25%)</td>
+          <td>Live: TRAILING+SL<br>BASE: SL+TRAIL<br>IDEAL: SL+TRAIL</td>
+          <td><strong>HỆ_THỐNG</strong><br><small>Tổng realized_pnl các leg (-0.1021) lệch gross_pnl (-0.3421)</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|1h|C11|SELL|1794700799999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-14T23:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 64121.7<br>Khớp Live: 64079.8<br>Mô phỏng: 64108.87566<br>Trượt: 6.53 bps</td>
+          <td>TP: 62926.3636 (NEW)<br>SL: 64656.5182 (NEW)</td>
+          <td>KH=63759.401 / CB=0.005 (NEW)</td>
+          <td>Live: 2 leg | Sim: 2 leg<br><small>Độc lập</small></td>
+          <td>Live: 0.101969<br>BASE: 0.09946315671526457<br>Lệch: 0.00250584328473543 (2.52%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: 1.1174 / 1.0736865694708597<br>Ròng Live/Sim: 1.015431 / 0.9742234127555953<br>Lệch ròng: 0.0412075872444047 (4.23%)</td>
+          <td>Live: TRAILING+TP<br>BASE: TP+TRAIL<br>IDEAL: TP+TRAIL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=TRAILING+TP vs Sim=TP+TRAIL)</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|1h|C11|SELL|1794707999999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-15T01:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 62593.8<br>Khớp Live: 62671.4<br>Mô phỏng: 62581.281240000004<br>Trượt: -12.4 bps</td>
+          <td>TP: 61543.3148 (NEW)<br>SL: 63235.4426 (NEW)</td>
+          <td>KH=62358.043 / CB=0.005 (NEW)</td>
+          <td>Live: 1 leg | Sim: 2 leg<br><small>Vị thế gộp (1 cặp)</small></td>
+          <td>Live: 0.100735<br>BASE: 0.10046009<br>Lệch: 0.00027491 (0.27%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.9118 / -0.9201799999999875<br>Ròng Live/Sim: -1.012535 / -1.020640089999995<br>Lệch ròng: 0.008105089999995 (0.79%)</td>
+          <td>Live: SL<br>BASE: SL+SL<br>IDEAL: SL+SL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -12.40 bps</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|1h|C4|SELL|1794707999999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-15T01:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 62593.8<br>Khớp Live: 62685<br>Mô phỏng: 62581.281240000004<br>Trượt: -14.57 bps</td>
+          <td>TP: 61556.67 (NEW)<br>SL: 63249.165 (NEW)</td>
+          <td>KH=62371.575 / CB=0.005 (NEW)</td>
+          <td>Live: 1 leg | Sim: 2 leg<br><small>Vị thế gộp (1 cặp)</small></td>
+          <td>Live: 0.100753<br>BASE: 0.10046009<br>Lệch: 0.00029291 (0.29%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.9251 / -0.9201799999999875<br>Ròng Live/Sim: -1.025853 / -1.020640089999995<br>Lệch ròng: -0.005212910000005 (-0.51%)</td>
+          <td>Live: SL<br>BASE: SL+SL<br>IDEAL: SL+SL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -14.57 bps</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>ETH-USDT|1h|C13|SELL|1794707999999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-15T01:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 1729.89<br>Khớp Live: 1732.22<br>Mô phỏng: 1729.544022<br>Trượt: -13.47 bps</td>
+          <td>TP: 1697.5756 (NEW)<br>SL: 1746.07776 (NEW)</td>
+          <td>KH=1723.5589 / CB=0.005 (NEW)</td>
+          <td>Live: 1 leg | Sim: 2 leg<br><small>Vị thế gộp (1 cặp)</small></td>
+          <td>Live: 0.086964<br>BASE: 0.10041008<br>Lệch: -0.01344608 (-13.39%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.7029 / -0.8201599999999943<br>Ròng Live/Sim: -0.789864 / -0.9205700799999961<br>Lệch ròng: 0.1307060799999961 (14.2%)</td>
+          <td>Live: SL<br>BASE: SL+SL<br>IDEAL: SL+SL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -13.47 bps</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>ETH-USDT|1h|C15|SELL|1794707999999</code><br><small>EXACT</small></td>
+          <td>ERA_1_50TP_50TRAIL</td>
+          <td>KHỚP<br><small>2026-11-15T01:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 1729.89<br>Khớp Live: 1732.34<br>Mô phỏng: 1729.544022<br>Trượt: -14.16 bps</td>
+          <td>TP: 1697.6932 (NEW)<br>SL: 1746.19872 (NEW)</td>
+          <td>KH=1723.6783 / CB=0.005 (NEW)</td>
+          <td>Live: 1 leg | Sim: 2 leg<br><small>Vị thế gộp (1 cặp)</small></td>
+          <td>Live: 0.086968<br>BASE: 0.10041008<br>Lệch: -0.01344208 (-13.39%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.7044 / -0.8201599999999943<br>Ròng Live/Sim: -0.791368 / -0.9205700799999961<br>Lệch ròng: 0.1292020799999961 (14.04%)</td>
+          <td>Live: SL<br>BASE: SL+SL<br>IDEAL: SL+SL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=SL vs Sim=SL+SL); Trượt giá vào -14.16 bps</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|15m|C10|SELL|1795046399999</code><br><small>EXACT</small></td>
+          <td>ERA_2_FIXED_TP_SL</td>
+          <td>KHỚP<br><small>2026-11-18T23:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 63035.8<br>Khớp Live: 62962.1<br>Mô phỏng: 63023.19284<br>Trượt: 11.69 bps</td>
+          <td>TP: 62332.479 (NEW)<br>SL: 63465.7968 (NEW)</td>
+          <td>Không áp dụng</td>
+          <td>Live: 1 leg | Sim: 1 leg<br><small>Độc lập</small></td>
+          <td>Live: 0.101146<br>BASE: 0.0995099<br>Lệch: 0.0016361 (1.64%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.8134 / 0.9802000000000057<br>Ròng Live/Sim: -0.914546 / 0.8806901000000058<br>Lệch ròng: -1.7952361000000058 (-203.84%)</td>
+          <td>Live: SL<br>BASE: TP<br>IDEAL: TP</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Kết quả đóng khác nhau (Live=SL vs Sim=TP); Lệch PnL ròng -1.7952 USD; Trượt giá vào +11.69 bps</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>ETH-USDT|1h|C4|SELL|1795125599999</code><br><small>EXACT</small></td>
+          <td>ERA_2_FIXED_TP_SL</td>
+          <td>KHỚP<br><small>2026-11-19T21:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 1740.75<br>Khớp Live: 1739.44<br>Mô phỏng: 1740.40185<br>Trượt: 7.53 bps</td>
+          <td>TP: 1704.6512 (NEW)<br>SL: 1753.35552 (NEW)</td>
+          <td>Không áp dụng</td>
+          <td>Live: 1 leg | Sim: 1 leg<br><small>Độc lập</small></td>
+          <td>Live: 0.087326<br>BASE: 0.10041008000000001<br>Lệch: -0.01308408000000001 (-13.03%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.7084 / -0.8201600000000031<br>Ròng Live/Sim: -0.795726 / -0.9205700800000037<br>Lệch ròng: 0.1248440800000037 (13.56%)</td>
+          <td>Live: SL<br>BASE: SL<br>IDEAL: SL</td>
+          <td><strong>HỆ_THỐNG</strong><br><small>Giá đặt TP/SL lệch so với tín hiệu (tp_diff=-0.07525491885681459141174780985%, sl_diff=-0.07525491885681459141174780985%)</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|1h|TIER|SELL|1795237199999</code><br><small>EXACT</small></td>
+          <td>ERA_2_FIXED_TP_SL</td>
+          <td>KHỚP<br><small>2026-11-21T04:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 56268.8<br>Khớp Live: 56429.9<br>Mô phỏng: 56257.54624<br>Trượt: -28.63 bps</td>
+          <td>TP: 55414.1618 (NEW)<br>SL: 56937.7691 (NEW)</td>
+          <td>Không áp dụng</td>
+          <td>Live: 1 leg | Sim: 1 leg<br><small>Vị thế gộp (1 cặp)</small></td>
+          <td>Live: 0.100611<br>BASE: 0.09910982<br>Lệch: 0.00150118 (1.51%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: 1.3262 / 1.7803600000000093<br>Ròng Live/Sim: 1.225589 / 1.6812501800000061<br>Lệch ròng: -0.4556611800000061 (-27.1%)</td>
+          <td>Live: TP<br>BASE: TP<br>IDEAL: TP</td>
+          <td><strong>HỆ_THỐNG</strong><br><small>Trượt giá vào lệnh bất thường (-28.63 bps &gt;= ngưỡng hệ thống 25.0 bps)</small></td>
+        </tr>
+        
+        <tr>
+          <td><code>BTC-USDT|1h|C11|SELL|1795240799999</code><br><small>EXACT</small></td>
+          <td>ERA_2_FIXED_TP_SL</td>
+          <td>KHỚP<br><small>2026-11-21T05:59:59.999000Z</small></td>
+          <td>Kỳ vọng: 55775.3<br>Khớp Live: 55763.9<br>Mô phỏng: 55764.144940000006<br>Trượt: 2.04 bps</td>
+          <td>TP: 54760.1498 (NEW)<br>SL: 56265.7751 (NEW)</td>
+          <td>Không áp dụng</td>
+          <td>Live: 1 leg | Sim: 1 leg<br><small>Vị thế gộp (1 cặp)</small></td>
+          <td>Live: 0.10084<br>BASE: 0.10046009<br>Lệch: 0.00037991 (0.38%)</td>
+          <td>DB: NULL<br>Ước lượng: 0<br><small>(0 kỳ, ESTIMATED)</small></td>
+          <td>Gộp Live/Sim: -0.3295 / -0.9201799999999882<br>Ròng Live/Sim: -0.43034 / -1.0206400899999952<br>Lệch ròng: 0.5903000899999952 (57.84%)</td>
+          <td>Live: SL<br>BASE: SL<br>IDEAL: SL</td>
+          <td><strong>MÔ_HÌNH_THỰC_THI</strong><br><small>Lệch PnL ròng +0.5903 USD</small></td>
+        </tr>
+        </tbody>
+    </table>
+  </div>
+
+  <h2>Phạm vi dữ liệu &amp; xác minh kho (SHA-256)</h2>
+  <div class="table-wrap"><table><thead><tr><th>Nguồn</th><th>Số dòng</th><th>Từ (UTC)</th><th>Đến (UTC)</th><th>Trạng thái</th><th>SHA-256</th><th>Ghi chú</th></tr></thead><tbody><tr><td>live_events_v3.strategy_signals</td><td>22</td><td>2026-11-14T02:59:59.999000Z</td><td>2026-11-21T05:59:59.999000Z</td><td>COMPLETE</td><td><code>f165536bb759</code></td><td>Nguồn chính tín hiệu V3</td></tr><tr><td>live_events_v3.execution_orders</td><td>22</td><td>2026-11-14T03:00:26.894000Z</td><td>2026-11-21T06:00:48.931000Z</td><td>COMPLETE</td><td><code>e37b20746032</code></td><td>Nguồn chính lệnh V3</td></tr><tr><td>live_events_v3.execution_results</td><td>32</td><td>2026-11-14T03:35:47Z</td><td>2026-11-21T06:33:32Z</td><td>COMPLETE</td><td><code>1d8e95ce6332</code></td><td>Nguồn chính kết quả đóng từng phần V3</td></tr><tr><td>live_events_v3.execution_finances</td><td>22</td><td>2026-11-14T05:08:25.844000Z</td><td>2026-11-21T18:07:02.514000Z</td><td>COMPLETE</td><td><code>be3a8ace2316</code></td><td>Nguồn chính tài chính V3 (funding=NULL theo thiết kế)</td></tr><tr><td>live_events_v3.control_logs</td><td>210</td><td>2026-11-14T16:08:42.101000Z</td><td>2026-11-22T02:30:33.889000Z</td><td>COMPLETE</td><td><code>300e477f0667</code></td><td>Nhật ký hệ thống V3 (dùng suy ra VPS_TẮT)</td></tr><tr><td>live_events_v3.candles</td><td>15400</td><td>2026-07-20T02:30:00Z</td><td>2026-11-22T02:15:00Z</td><td>COMPLETE</td><td><code>0f8fcf2c167b</code></td><td>Nến 15m cache live (BTC=3400, ETH=12000)</td></tr><tr><td>bingx_orders</td><td>491</td><td>2026-09-25T11:15:24Z</td><td>2026-11-14T15:36:27Z</td><td>COMPLETE</td><td><code>5e7571af4f77</code></td><td>Bằng chứng phụ đến 14/11 15:36 UTC (trước PR #119)</td></tr><tr><td>bingx_fills</td><td>172</td><td>2026-10-18T13:27:01Z</td><td>2026-11-14T15:36:27Z</td><td>COMPLETE</td><td><code>23536d418e1e</code></td><td>Bằng chứng phụ đến 14/11 15:36 UTC (trước PR #119)</td></tr><tr><td>bingx_income</td><td>564</td><td>2026-09-25T11:15:24Z</td><td>2026-11-14T16:00:14Z</td><td>COMPLETE</td><td><code>b3a352c0a66d</code></td><td>Bằng chứng phụ đến 14/11 16:00 UTC (trước PR #119)</td></tr><tr><td>bingx_position_history</td><td>0</td><td>Không có</td><td>Không có</td><td>GAP</td><td><code></code></td><td>Bảng nguồn rỗng thật (0 dòng)</td></tr><tr><td>market_candles_1m.BTC-USDT</td><td>30400</td><td>2026-11-01T00:00:00Z</td><td>2026-11-22T02:39:00Z</td><td>COMPLETE</td><td><code>c0ecfded58da</code></td><td>Nến M1 liên tục</td></tr><tr><td>market_candles_1m.ETH-USDT</td><td>30400</td><td>2026-11-01T00:00:00Z</td><td>2026-11-22T02:39:00Z</td><td>COMPLETE</td><td><code>575f4ec845be</code></td><td>Nến M1 liên tục</td></tr><tr><td>market_funding.BTC-USDT</td><td>44</td><td>2026-11-07T16:00:00Z</td><td>2026-11-22T00:00:00Z</td><td>COMPLETE</td><td><code>9dfcd8b91a5c</code></td><td>Lãi suất funding 8h (dùng ước lượng ESTIMATED)</td></tr><tr><td>market_funding.ETH-USDT</td><td>44</td><td>2026-11-07T16:00:00Z</td><td>2026-11-22T00:00:00Z</td><td>COMPLETE</td><td><code>530d0617a87d</code></td><td>Lãi suất funding 8h (dùng ước lượng ESTIMATED)</td></tr><tr><td>market_contract_rules</td><td>2</td><td>2026-11-22T02:40:38.333000Z</td><td>2026-11-22T02:40:38.333000Z</td><td>COMPLETE</td><td><code>974a8f96d35e</code></td><td>Quy tắc hợp đồng BingX</td></tr></tbody></table></div>
+
+  <h2>Cấu hình dung sai đối soát</h2>
+  <div class="table-wrap"><table><thead><tr><th>Tham số</th><th>Giá trị</th></tr></thead><tbody><tr><td><code>schema_version</code></td><td>1.0.0</td></tr><tr><td><code>entry_slippage_bps_warn</code></td><td>10.0</td></tr><tr><td><code>entry_slippage_bps_system</code></td><td>25.0</td></tr><tr><td><code>tp_sl_price_diff_pct_tol</code></td><td>0.05</td></tr><tr><td><code>fee_diff_usd_tol</code></td><td>0.02</td></tr><tr><td><code>fee_diff_pct_tol</code></td><td>15.0</td></tr><tr><td><code>pnl_diff_usd_tol</code></td><td>0.25</td></tr><tr><td><code>pnl_diff_pct_tol</code></td><td>20.0</td></tr><tr><td><code>signal_time_diff_ms_tol</code></td><td>0</td></tr><tr><td><code>vps_off_min_gap_seconds</code></td><td>7200</td></tr><tr><td><code>min_closed_orders_conclusive</code></td><td>60</td></tr></tbody></table></div>
+
+  <h2>Danh sách commit/PR thay đổi autotrade_v3/live (chờ Owner xác nhận biên kỷ nguyên)</h2>
+  <div class="table-wrap"><table><thead><tr><th>Commit</th><th>Ngày giờ</th><th>Nội dung</th></tr></thead><tbody><tr><td><code>c211617</code></td><td>2026-11-21 16:08:51 +0700</td><td>fix(v3 live L2): prevent ETH-C6 Signal NameError (#174)</td></tr><tr><td><code>d11d894</code></td><td>2026-11-21 11:37:54 +0700</td><td>fix(v3): independent BTC/ETH L2 M15 evaluation and signal dedupe (#173)</td></tr><tr><td><code>09c3262</code></td><td>2026-11-20 15:00:37 +0000</td><td>Split Lab 10 signal filters into l2_filters.py (verbatim move)</td></tr><tr><td><code>854bf57</code></td><td>2026-11-20 08:25:32 +0000</td><td>Prune and rename Lab 10 live L2 module; remove dead live-state code</td></tr><tr><td><code>4105bb5</code></td><td>2026-11-20 14:56:33 +0700</td><td>Embed the 20FINAL params in code; delete the live params folder (#168)</td></tr><tr><td><code>fcb519f</code></td><td>2026-11-20 14:40:25 +0700</td><td>Use shared l2_core helpers in the Lab 10 L2 module (#167)</td></tr><tr><td><code>2444614</code></td><td>2026-11-20 13:00:05 +0700</td><td>Serve the V2 Dashboard UI on V3 data (#166)</td></tr><tr><td><code>c55087e</code></td><td>2026-11-20 12:56:46 +0700</td><td>Fix V3 dashboard 503 behind Supabase pooler (#165)</td></tr><tr><td><code>bd8bd09</code></td><td>2026-11-20 12:32:54 +0700</td><td>Add V3 live terminal dashboard without V2 dependencies (#164)</td></tr><tr><td><code>677b3e6</code></td><td>2026-11-20 04:45:47 +0000</td><td>refactor(v3-live): make Lab 10 the only live L2 engine and remove Lab 8 and legacy paths</td></tr><tr><td><code>ae19834</code></td><td>2026-11-20 04:35:34 +0000</td><td>feat(v3-live): add V3_LIVE_23_LAB_10_V1 registry on flat Lab 10 engine (opt-in)</td></tr><tr><td><code>faeab61</code></td><td>2026-11-20 03:51:04 +0000</td><td>refactor(v3-live): remove 20FINAL and V2 imports from live engine</td></tr><tr><td><code>feb2368</code></td><td>2026-11-20 03:17:52 +0000</td><td>test(v3-live): default-registry assertion follows Lab 8 23 default</td></tr><tr><td><code>3c93117</code></td><td>2026-11-20 03:16:27 +0000</td><td>feat(v3-live): default L2 registry to V3_LIVE_23_LAB_8_V1</td></tr><tr><td><code>cbb4f5b</code></td><td>2026-11-20 02:47:30 +0000</td><td>fix(v3-live): drop duplicate imports in flat Lab 8 module (ruff F811)</td></tr><tr><td><code>379eedf</code></td><td>2026-11-20 02:46:36 +0000</td><td>feat(v3-live): Lab 8 L2 from single flat module (no duckdb/pyarrow, lock disabled)</td></tr><tr><td><code>fbf9df9</code></td><td>2026-11-20 02:26:56 +0000</td><td>feat(v3-live): wire V3_LIVE_23_LAB_8_V1 to vendored Lab 8 (not default; blocked on lock)</td></tr><tr><td><code>f613ebe</code></td><td>2026-11-20 02:02:30 +0000</td><td>feat(v3-live): vendor Lab 8 L2 closure as autotrade_v3.l2_lab8 (not wired yet)</td></tr><tr><td><code>601c892</code></td><td>2026-11-20 01:51:46 +0000</td><td>refactor(v3-live): gop autotrade_v3.l2_core thanh mot module l2_core.py</td></tr><tr><td><code>671cd6b</code></td><td>2026-11-20 01:46:07 +0000</td><td>refactor(v3-live): move NEW6 and hard_tp_sl helpers into autotrade_v3.l2_core</td></tr><tr><td><code>9ab1015</code></td><td>2026-11-19 19:21:23 +0000</td><td>refactor(v3-live): move final14 research indicators into autotrade_v3.l2_core</td></tr><tr><td><code>8a856a5</code></td><td>2026-11-19 12:47:21 +0000</td><td>feat(v3-live): add V3_LIVE_23_LAB_5_V1 registry driven by lab V3_LAB_5@5.0.0</td></tr><tr><td><code>2c5e703</code></td><td>2026-11-17 23:12:07 +0700</td><td>test(v3/l1): simulate elapsed rate budget for nine successful 15m cycles</td></tr><tr><td><code>f512778</code></td><td>2026-11-17 23:08:20 +0700</td><td>test(v3/l1): ensure rolling retention and configurable ETH max</td></tr><tr><td><code>aa65a35</code></td><td>2026-11-17 23:08:06 +0700</td><td>feat(v3/l1): configure rolling ETH candle retention via environment</td></tr><tr><td><code>a5bfb3f</code></td><td>2026-11-17 23:07:39 +0700</td><td>test(v3/l1): cover incremental persistence, resume, BingX cooldown and live safety</td></tr><tr><td><code>f9eaa92</code></td><td>2026-11-17 23:06:22 +0700</td><td>fix(v3/l1): run one incremental backfill page every 15 minutes</td></tr><tr><td><code>d25bc77</code></td><td>2026-11-17 23:06:01 +0700</td><td>fix(v3/l1): persist each validated historical page and resume from DB</td></tr><tr><td><code>2e9a84f</code></td><td>2026-11-17 12:50:31 +0000</td><td>feat(v3-live): ETH giữ 12000 nến trong DB, L1 V3 tự bù nến</td></tr><tr><td><code>b559bef</code></td><td>2026-11-16 23:11:27 +0700</td><td>feat(v3-live): thông báo khởi động và nến 15m thiếu lúc đầu (#131)</td></tr><tr><td><code>26d330d</code></td><td>2026-11-16 23:04:21 +0700</td><td>Live L2: giữ tiến độ tải 12000 nến ETH, ghi mã lỗi BingX, gộp cảnh báo L5 (#130)</td></tr><tr><td><code>41ab58e</code></td><td>2026-11-16 22:06:50 +0700</td><td>feat(v3-live): L2 registry V3_LIVE_20_POSITIVE_FIXED_V1 (20 combo-symbols) (#129)</td></tr><tr><td><code>c692661</code></td><td>2026-11-16 21:36:01 +0700</td><td>feat(v3-live): H1_BOTH_1 cho ETH-USDT/C1 trong L2 (pre-edge, cache 12000 nến) (#128)</td></tr><tr><td><code>3e45089</code></td><td>2026-11-15 16:45:05 +0700</td><td>feat(v3): chuyển cả 20 combo sang TP/SL cố định (FIXED_TP_SL) (#125)</td></tr><tr><td><code>30367d7</code></td><td>2026-11-15 09:38:27 +0700</td><td>Merge pull request #123 from trungtn87/feat/v3-l4-sl-resize-121</td></tr><tr><td><code>2c36930</code></td><td>2026-11-15 09:38:02 +0700</td><td>Merge pull request #122 from trungtn87/fix/v3-shared-position-attribution-121</td></tr><tr><td><code>23e55ba</code></td><td>2026-11-15 09:29:01 +0700</td><td>test(v3): replay ETH C13/C15 trailing then amended SL against full combo volume</td></tr><tr><td><code>4075211</code></td><td>2026-11-15 09:28:01 +0700</td><td>fix(v3): start SL watch only when V3 has trading credentials</td></tr><tr><td><code>4e5ca6b</code></td><td>2026-11-15 09:26:49 +0700</td><td>chore(v3): remove unused SL watcher import</td></tr><tr><td><code>2cfed6f</code></td><td>2026-11-15 09:26:13 +0700</td><td>test(v3): verify SL resize never resends Entry or replacement protection</td></tr></tbody></table></div>
+</div>
+</body>
+</html>
