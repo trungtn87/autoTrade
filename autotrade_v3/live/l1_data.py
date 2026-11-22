@@ -125,10 +125,8 @@ class L1Data:
                 if state["count"] and now_ms - state["last_ms"] < RECOVERY_RETRY_MS:
                     continue
                 if state["count"] == 0:
-                    # First miss for this candle: alert once, before REST recovery runs.
-                    self.control.report("L1", "candle_stale",
-                                        f"Thiếu nến 15m {symbol} open={expected}, đang khôi phục từ REST",
-                                        symbol=symbol, details={"expected_open_time": expected})
+                    # WS may simply be late. Log only; no Discord alert unless REST repair fails.
+                    log.info("V3_L1_CANDLE_LATE symbol=%s open=%s, REST recovery started", symbol, expected)
                 self._attempts[key] = {"count": state["count"] + 1, "last_ms": now_ms}
                 try:
                     snap, missing = self.recover(symbol, now_ms)
@@ -140,6 +138,11 @@ class L1Data:
                     on_snapshot(symbol, snap)
                 except Exception as exc:
                     self.set_health(symbol, False, error=str(exc), expected_open_time=expected, source="watchdog")
+                    if processed_open(symbol) >= expected:
+                        # WS delivered the candle while REST was failing: not an error.
+                        log.info("V3_L1_CANDLE_LATE_RESOLVED_BY_WS symbol=%s open=%s rest_error=%s",
+                                 symbol, expected, exc)
+                        continue
                     self.control.report("L1", "candle_recovery",
                                         f"Thiếu nến 15m {symbol} open={expected}, khôi phục lần {state['count'] + 1} thất bại: {exc}",
                                         symbol=symbol, details={"expected_open_time": expected,
