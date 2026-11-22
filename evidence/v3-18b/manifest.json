@@ -1,0 +1,50 @@
+{
+  "config_canonical_sha256": "e5a3581a818bdbb4fa61195d8d35f7cec3564bfc5d530f493b64f1f6b166e704",
+  "config_file_sha256": "bc968de78abe66865c3bd3a140d602f69bfa04867be09d125b08806985b42a51",
+  "config_path": "autotrade_v3/research_v3_18b/config.json",
+  "counts_by_group": {
+    "add_7": 7,
+    "drop_23": 23,
+    "filter_3": 3
+  },
+  "dataset": {
+    "data_manifest_hash": "a18fc2e1bf5985945fee6609847cce753cd319da74415dc23d4f4bae231487be",
+    "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628"
+  },
+  "git_commit": "2f310d739807ab890344c00590d288cc4d35155e",
+  "html_file_sha256": "9320e3f6537ec42380362f5bf736841411e65b01ccf05596dd85fbbd44e2a7da",
+  "html_path": "lab11_report.html",
+  "lab11_all30_spec_hash": "0c49ca935c84de93e4098bee7c1d232362ad5771cc240e815eaff815e1824d7a",
+  "lab11_prune23_spec_hash": "74efcc417f48df820183c1dd76a7c0afc831c7f5fc7724667f36db1d19e9e4d0",
+  "live_23_count": 23,
+  "report_canonical_sha256": "633874235bf8f5ecbd05f4d6d3a3c57d2afd2dd3d8bf9133ff1a54d2b2d80ce8",
+  "report_file_sha256": "48e2413ce0ce353575e7199e1e376677337c06a4124f09defa2837a14240cd41",
+  "report_path": "lab11_report.json",
+  "research_id": "V3_18B_LAB11_LIVE_BASE_RESEARCH",
+  "schema_version": "1.0.0",
+  "split_bounds": {
+    "DEVELOPMENT": {
+      "end": "2025-10-31T23:59:59.999Z",
+      "end_ms": 1761955199999,
+      "label_vi": "PHÁT_TRIỂN",
+      "start": "2023-11-01T00:00:00Z",
+      "start_ms": 1698796800000
+    },
+    "HOLDOUT": {
+      "alignment_note_vi": "Khớp đúng chuỗi end 2026-10-31T23:59:59.999Z (tránh lệch 1 ngày 1793404799999 trong regimes.py).",
+      "end": "2026-10-31T23:59:59.999Z",
+      "end_ms": 1793491199999,
+      "label_vi": "KIỂM_CHỨNG_CUỐI",
+      "start": "2026-05-01T00:00:00Z",
+      "start_ms": 1777593600000
+    },
+    "VALIDATION": {
+      "end": "2026-04-30T23:59:59.999Z",
+      "end_ms": 1777593599999,
+      "label_vi": "KIỂM_ĐỊNH",
+      "start": "2025-11-01T00:00:00Z",
+      "start_ms": 1761955200000
+    }
+  },
+  "total_trials_m": 33
+}

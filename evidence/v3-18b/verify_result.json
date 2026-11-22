@@ -1,0 +1,62 @@
+{
+  "status": "PASS",
+  "evidence_dir": "D:\\AutoTrade\\evidence\\v3-18b",
+  "checks": [
+    {
+      "check": "files_exist",
+      "ok": true,
+      "detail": "missing=[]"
+    },
+    {
+      "check": "config_hashes",
+      "ok": true,
+      "detail": "manifest_cfg=e5a3581a818bdbb4fa61195d8d35f7cec3564bfc5d530f493b64f1f6b166e704 actual=e5a3581a818bdbb4fa61195d8d35f7cec3564bfc5d530f493b64f1f6b166e704"
+    },
+    {
+      "check": "report_and_html_hashes",
+      "ok": true,
+      "detail": "canon_ok=True rep_file_ok=True html_ok=True"
+    },
+    {
+      "check": "dataset_hash",
+      "ok": true,
+      "detail": "manifest=ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628 actual=ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628"
+    },
+    {
+      "check": "lab11_spec_hashes",
+      "ok": true,
+      "detail": "prune23_ok=True all30_ok=True"
+    },
+    {
+      "check": "v3_16_prune23_base_parity",
+      "ok": true,
+      "detail": "sigs=4364/4364 trades=3138/3138 diff=0.0"
+    },
+    {
+      "check": "combos_23_accounting",
+      "ok": true,
+      "detail": "errors=[]"
+    },
+    {
+      "check": "min_sample_size_rule",
+      "ok": true,
+      "detail": "errors=[]"
+    },
+    {
+      "check": "experiments_33_and_gating",
+      "ok": true,
+      "detail": "errors=[]"
+    },
+    {
+      "check": "vietnamese_only_html",
+      "ok": true,
+      "detail": "leaks=[]"
+    },
+    {
+      "check": "live_placeholder_compare_from",
+      "ok": true,
+      "detail": "compare_from=2026-11-22T04:00:00Z"
+    }
+  ],
+  "failures": []
+}
