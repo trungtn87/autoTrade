@@ -270,3 +270,45 @@ def test_engine_candle_deletion_mutation_changes_signals() -> None:
         only_warmup_ready_by_sym=only_warmup,
     )
     assert len(sigs_trimmed) != len(sigs_full)
+
+
+def test_missing_lab10_signals_diagnosis_and_refresh_auth_fail(tmp_path: Path, monkeypatch) -> None:
+    if not (REAL_DATA_ROOT / "manifests" / "latest_manifest.json").is_file():
+        pytest.skip("Không có kho dữ liệu local D:/AutoTrade/data/bingx")
+
+    # Kiểm tra chẩn đoán 4 tín hiệu THIẾU kỷ nguyên Lab 10
+    report = json.loads(Path("D:/AutoTrade/evidence/v3-17a/reconcile_report.json").read_text(encoding="utf-8"))
+    missing = {
+        it["event_id"]: it
+        for it in report["signal_reconciliation"]["items"]
+        if it["status"] == "THIẾU"
+    }
+    assert len(missing) == 4
+    assert missing["ETH-USDT|1h|C6|SELL|1795190399999"]["reason_code"] == "HỆ_THỐNG_L2_CRASH"
+    assert missing["ETH-USDT|1h|C6|SELL|1795190399999"]["is_genuine_live_miss"] is True
+    assert missing["ETH-USDT|1h|C4|SELL|1795190399999"]["reason_code"] == "HỆ_THỐNG_L2_CRASH"
+    assert missing["ETH-USDT|1h|C4|SELL|1795190399999"]["is_genuine_live_miss"] is True
+    assert missing["BTC-USDT|1h|TIER|SELL|1795193999999"]["reason_code"] == "CHƯA_GIẢI_THÍCH"
+    assert missing["ETH-USDT|15m|C7|SELL|1795232699999"]["reason_code"] == "CHƯA_GIẢI_THÍCH"
+
+    # Kiểm tra cmd_refresh dừng ngay khi collector lỗi xác thực (không retry)
+    from types import SimpleNamespace
+    import subprocess
+    from autotrade_v3.reconcile_v3 import __main__ as rec_main
+
+    calls = 0
+
+    def _fake_run(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return SimpleNamespace(returncode=1, stdout="", stderr="401 Unauthorized: invalid api key")
+
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+    rc = rec_main.cmd_refresh(
+        data_root=REAL_DATA_ROOT,
+        output_dir=tmp_path / "out",
+        repo_root=Path("D:/AutoTrade"),
+        skip_collector=False,
+    )
+    assert rc == 1
+    assert calls == 1

@@ -52,6 +52,7 @@ def run_reconcile_pipeline(
         vps_off_windows=vps_off_windows,
         compare_from_utc=compare_from_utc,
         deploy_23_finalized_utc=tolerances.get("deploy_23_finalized_utc"),
+        control_logs=store.control_logs,
     )
 
     mirror_results = run_live_mirror_simulation(

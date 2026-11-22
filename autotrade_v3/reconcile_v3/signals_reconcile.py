@@ -102,6 +102,8 @@ class SignalReconcileItem:
     reason_code: str
     reason_detail_vi: str
     time_diff_ms: int = 0
+    candle_created_delay_sec: float | None = None
+    is_genuine_live_miss: bool = False
 
 
 @dataclass(frozen=True)
@@ -175,6 +177,7 @@ def reconcile_signals(
     compare_from_utc: str = "2026-11-22T02:30:33Z",
     deploy_23_finalized_utc: str | None = None,
     live_start_ms: int = DEFAULT_LIVE_START_MS,
+    control_logs: list[dict[str, Any]] | None = None,
 ) -> SignalReconcileSummary:
     """Chạy đúng engine Lab cho từng kỷ nguyên trên cùng nến M15 và kiểm tra ngang bằng với Live."""
     _ = execution_orders, execution_results  # reserved for future interval checks
@@ -192,6 +195,24 @@ def reconcile_signals(
     notes = [
         f"BTC-USDT: live_events/candles.parquet giữ {len(bars_by_sym['BTC-USDT'])} nến 15m (rolling 3400), chạy với only_warmup_ready=False."
     ]
+
+    # Index thời điểm tạo nến M15 (created_at) và log lỗi L2 để điều tra tín hiệu THIẾU
+    candle_delay_by_sym_close: dict[tuple[str, int], float] = {}
+    for cr in candles_15m:
+        sym_c = str(cr.get("symbol") or "")
+        ct_ms = int(cr["close_time"])
+        ca_str = cr.get("created_at")
+        if ca_str:
+            ca_ms = _iso_ms(str(ca_str))
+            candle_delay_by_sym_close[(sym_c, ct_ms)] = round((ca_ms - ct_ms) / 1000.0, 2)
+
+    logs_list = control_logs or []
+    has_eth_c6_nameerror_in_logs = any(
+        "name 'Signal' is not defined" in str(lg.get("message") or "")
+        for lg in logs_list
+    )
+    pr174_fix_ms = _iso_ms("2026-11-21T09:08:51Z")
+    pr173_fix_ms = _iso_ms("2026-11-21T04:37:54Z")
 
     live_by_eid: dict[str, dict[str, Any]] = {str(r["event_id"]): r for r in live_signals}
     items: list[SignalReconcileItem] = []
@@ -340,6 +361,32 @@ def reconcile_signals(
                 )
                 continue
 
+            delay_sec = candle_delay_by_sym_close.get((pk.symbol, pk.close_ms))
+            eth_c6_same_bar = f"ETH-USDT|{pk.timeframe}|C6|{pk.side}|{pk.close_ms}"
+            if delay_sec is not None and delay_sec > 120.0:
+                r_code = "NẾN_BÙ_MUỘN"
+                r_detail = f"Nến M15 tạo muộn {delay_sec}s sau khi đóng nến (REST recovery)"
+                genuine_miss = True
+            elif (
+                pk.symbol == "ETH-USDT"
+                and has_eth_c6_nameerror_in_logs
+                and pk.close_ms < pr174_fix_ms
+                and (pk.combo_name == "C6" or (pk.close_ms < pr173_fix_ms and eth_c6_same_bar in lab_era_by_eid))
+            ):
+                r_code = "HỆ_THỐNG_L2_CRASH"
+                r_detail = (
+                    "CẢNH BÁO LIVE BỎ SÓT TÍN HIỆU THẬT: Lỗi NameError ('Signal' is not defined) trên ETH-C6 trước PR #174 (c211617) "
+                    "đã làm rơi ETH-C6 và (trước PR #173 d11d894) rơi cả batch ETH-USDT cùng chu kỳ 1H; xác nhận qua control_logs L2 strategy_calculate."
+                )
+                genuine_miss = True
+            else:
+                r_code = "CHƯA_GIẢI_THÍCH"
+                r_detail = (
+                    f"Engine {era['engine_ref']} phát tín hiệu nhưng Live không có; nến M15 tạo đúng giờ "
+                    f"(độ trễ={delay_sec}s), không có log lỗi L1/L2 tại chu kỳ này (thiếu log thực thi L2 từng chu kỳ trước PR #173)."
+                )
+                genuine_miss = False
+
             era_items.append(
                 SignalReconcileItem(
                     event_id=eid,
@@ -352,8 +399,10 @@ def reconcile_signals(
                     signal_close_utc=_ms_to_iso(pk.close_ms),
                     signal_era_id=era_id,
                     status="THIẾU",
-                    reason_code="CHƯA_GIẢI_THÍCH",
-                    reason_detail_vi=f"Engine {era['engine_ref']} phát tín hiệu nhưng Live không có",
+                    reason_code=r_code,
+                    reason_detail_vi=r_detail,
+                    candle_created_delay_sec=delay_sec,
+                    is_genuine_live_miss=genuine_miss,
                 )
             )
 

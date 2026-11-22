@@ -2,8 +2,8 @@
   "schema_version": "2.0.0",
   "tool": "autotrade_v3.reconcile_v3",
   "compare_from_utc": "2026-11-22T04:00:00Z",
-  "manifest_run_id": "run_20261122T042001Z",
-  "manifest_sha256": "86600f610ce5a8a120b4d6f084abba48b8339db2f6630652053877cf3fda711b",
+  "manifest_run_id": "run_20261122T052001Z",
+  "manifest_sha256": "b41e4583ce6f2ce0fdeed5a718e7c591070c4a23807a4865ec72a94bb687ebc3",
   "slippage_convention": {
     "reference_source": "strategy_signals.entry",
     "unit": "bps",
@@ -131,7 +131,7 @@
       "source": "live_events_v3.strategy_signals",
       "path": "live_events/strategy_signals.parquet",
       "row_count": 22,
-      "sha256": "fef62a52d99962ff8261c15499fbff87e42ce486f08d5ec1977dc39e2a8b8477",
+      "sha256": "ba9e7b6b42052cbccfe063870ba25a1f4eb97c51cb3d32872739e51e3965fa08",
       "min_ts_ms": 1794625199999,
       "max_ts_ms": 1795240799999,
       "min_ts_utc": "2026-11-14T02:59:59.999000Z",
@@ -144,7 +144,7 @@
       "source": "live_events_v3.execution_orders",
       "path": "live_events/execution_orders.parquet",
       "row_count": 22,
-      "sha256": "07889c216515b1832f6ecb5f91fef7f54bca492d7711ee7514aab1272cc92dc0",
+      "sha256": "e20cb334013f26bf945670916c873686bd47e9a1e150a0a8fede5916bda03bb1",
       "min_ts_ms": 1794625226894,
       "max_ts_ms": 1795240848931,
       "min_ts_utc": "2026-11-14T03:00:26.894000Z",
@@ -157,7 +157,7 @@
       "source": "live_events_v3.execution_results",
       "path": "live_events/execution_results.parquet",
       "row_count": 32,
-      "sha256": "12d23be055e5358a6bb808ca19a29632829d6c3e71c452389b01d3ca56a0cb7a",
+      "sha256": "8419aaec5546d4421205a50ce08f70b6bcd0e4d1ddd3c17eba2b2082636f8e5d",
       "min_ts_ms": 1794627347000,
       "max_ts_ms": 1795242812000,
       "min_ts_utc": "2026-11-14T03:35:47Z",
@@ -170,7 +170,7 @@
       "source": "live_events_v3.execution_finances",
       "path": "live_events/execution_finances.parquet",
       "row_count": 22,
-      "sha256": "745a7e0e6e8ae0d96c19b873be917c34c36819eac29b9c8be086b724f1b33958",
+      "sha256": "0706d01a495f922811c3eef99944b03c27a57b571136eceb7547af1519c03860",
       "min_ts_ms": 1794632905844,
       "max_ts_ms": 1795284422514,
       "min_ts_utc": "2026-11-14T05:08:25.844000Z",
@@ -182,12 +182,12 @@
     {
       "source": "live_events_v3.control_logs",
       "path": "live_events/control_logs.parquet",
-      "row_count": 214,
-      "sha256": "e9fc788b5ec5ded2fc53dedba5dce2fbb30f09d3b2e0835e0ece5bd544f326ab",
+      "row_count": 217,
+      "sha256": "7da821681c66ea39d9748681561675306dbe66ce044e5c351f0399458c3fd041",
       "min_ts_ms": 1794672522101,
-      "max_ts_ms": 1795320036933,
+      "max_ts_ms": 1795324533565,
       "min_ts_utc": "2026-11-14T16:08:42.101000Z",
-      "max_ts_utc": "2026-11-22T04:00:36.933000Z",
+      "max_ts_utc": "2026-11-22T05:15:33.565000Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Nhật ký hệ thống V3 (dùng suy ra VPS_TẮT)"
@@ -195,12 +195,12 @@
     {
       "source": "live_events_v3.candles",
       "path": "live_events/candles.parquet",
-      "row_count": 15414,
-      "sha256": "601c8c76829694f0479aa2d1a785b41f2b94482a29aa539205b2cd8746c346e9",
+      "row_count": 15422,
+      "sha256": "7fd52d4da14a4606433b425489470f7d4bd4f7004ff2048ab6f2eb0ed946f717",
       "min_ts_ms": 1784514600000,
-      "max_ts_ms": 1795320000000,
+      "max_ts_ms": 1795323600000,
       "min_ts_utc": "2026-07-20T02:30:00Z",
-      "max_ts_utc": "2026-11-22T04:00:00Z",
+      "max_ts_utc": "2026-11-22T05:00:00Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Nến 15m cache live (BTC=3400, ETH=12000)"
@@ -209,7 +209,7 @@
       "source": "bingx_orders",
       "path": "execution/orders/orders.parquet",
       "row_count": 491,
-      "sha256": "52d23713b50bb3cc8a6ab4704d8d2486a1d55a8a87894245c5451710ee883e4a",
+      "sha256": "3e36ab552db1299dadda66ec7187b7ce1942f11bc6e40ef1029139f89f6565ff",
       "min_ts_ms": 1790334924000,
       "max_ts_ms": 1794670587000,
       "min_ts_utc": "2026-09-25T11:15:24Z",
@@ -222,7 +222,7 @@
       "source": "bingx_fills",
       "path": "execution/fills/fills.parquet",
       "row_count": 172,
-      "sha256": "e7a9c17802a843fc1d022cb2453e94916ddd565581e83d91eb40a81331c01db8",
+      "sha256": "9463ff931275317eac7a8433ba454a2a62b928086034013d29301f748738528c",
       "min_ts_ms": 1792330021000,
       "max_ts_ms": 1794670587000,
       "min_ts_utc": "2026-10-18T13:27:01Z",
@@ -235,7 +235,7 @@
       "source": "bingx_income",
       "path": "execution/income/income.parquet",
       "row_count": 564,
-      "sha256": "666877a6281ccff2d3387ee040fa9d635bad3e8aadb3038b57bef8bbf9a356ab",
+      "sha256": "53235664d86caee95f032552080902984ce5b897dfd99ea2684770b0c859c2d6",
       "min_ts_ms": 1790334924000,
       "max_ts_ms": 1794672014000,
       "min_ts_utc": "2026-09-25T11:15:24Z",
@@ -260,12 +260,12 @@
     {
       "source": "market_candles_1m.BTC-USDT",
       "path": "market/candles_1m/BTC-USDT.parquet",
-      "row_count": 30500,
-      "sha256": "d6a4638ce55b17ec38b707442e513280a5794fb9b6204e5fcc6ef91f88812b75",
+      "row_count": 30560,
+      "sha256": "ed4764f516a8a477900a71b9f3c40a324d0ce1382bbd50b7d4726fb129ad3edc",
       "min_ts_ms": 1793491200000,
-      "max_ts_ms": 1795321140000,
+      "max_ts_ms": 1795324740000,
       "min_ts_utc": "2026-11-01T00:00:00Z",
-      "max_ts_utc": "2026-11-22T04:19:00Z",
+      "max_ts_utc": "2026-11-22T05:19:00Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Nến M1 liên tục"
@@ -273,12 +273,12 @@
     {
       "source": "market_candles_1m.ETH-USDT",
       "path": "market/candles_1m/ETH-USDT.parquet",
-      "row_count": 30500,
-      "sha256": "e1e749dbc0b2fe9c70016df90d2531bc54acc3c6290abbb78feb87e57da7f94e",
+      "row_count": 30560,
+      "sha256": "3156f15944516ed1bd472c1a543c3322c88d930a94454d64864b36abf01ef6d5",
       "min_ts_ms": 1793491200000,
-      "max_ts_ms": 1795321140000,
+      "max_ts_ms": 1795324740000,
       "min_ts_utc": "2026-11-01T00:00:00Z",
-      "max_ts_utc": "2026-11-22T04:19:00Z",
+      "max_ts_utc": "2026-11-22T05:19:00Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Nến M1 liên tục"
@@ -287,7 +287,7 @@
       "source": "market_funding.BTC-USDT",
       "path": "market/funding/BTC-USDT.parquet",
       "row_count": 44,
-      "sha256": "c263c8885b0a499ce88cbda8c90001b4442e5013beea292ca3ee860986570485",
+      "sha256": "db17d68799f1bb4eead7816b50366a5480e7b29553157d4991b32b847bdc44dd",
       "min_ts_ms": 1794067200000,
       "max_ts_ms": 1795305600000,
       "min_ts_utc": "2026-11-07T16:00:00Z",
@@ -300,7 +300,7 @@
       "source": "market_funding.ETH-USDT",
       "path": "market/funding/ETH-USDT.parquet",
       "row_count": 44,
-      "sha256": "76e7ebe8e1ef30f03d0563b4ad91c9dcb028cf79b25c7411d3109f0db0c94609",
+      "sha256": "659adbe5aa0ec4627db9de79ade6c3d4fdc36b28e1a1f720086079d45b833d89",
       "min_ts_ms": 1794067200000,
       "max_ts_ms": 1795305600000,
       "min_ts_utc": "2026-11-07T16:00:00Z",
@@ -313,11 +313,11 @@
       "source": "market_contract_rules",
       "path": "market/contract_rules/contracts.parquet",
       "row_count": 2,
-      "sha256": "99fc1735a1d4152f1052b836f598c0941d3ff0a33ed639092056d84bff448ca4",
-      "min_ts_ms": 1795321201592,
-      "max_ts_ms": 1795321201592,
-      "min_ts_utc": "2026-11-22T04:20:01.592000Z",
-      "max_ts_utc": "2026-11-22T04:20:01.592000Z",
+      "sha256": "df272152554b8c9ea5160d8ad4c2ee1d2e14aaa15f1e891e935d8944ee3283c6",
+      "min_ts_ms": 1795324801622,
+      "max_ts_ms": 1795324801622,
+      "min_ts_utc": "2026-11-22T05:20:01.622000Z",
+      "max_ts_utc": "2026-11-22T05:20:01.622000Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Quy tắc hợp đồng BingX"
@@ -780,7 +780,7 @@
     "time_skew_count": 0,
     "match_rate_vs_live_pct": 95.45,
     "notes": [
-      "BTC-USDT: live_events/candles.parquet giữ 3407 nến 15m (rolling 3400), chạy với only_warmup_ready=False."
+      "BTC-USDT: live_events/candles.parquet giữ 3411 nến 15m (rolling 3400), chạy với only_warmup_ready=False."
     ],
     "items": [
       {
@@ -796,7 +796,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794628799999",
@@ -811,7 +813,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794632399999",
@@ -826,7 +830,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794635999999",
@@ -841,7 +847,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794639599999",
@@ -856,7 +864,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794643199999",
@@ -871,7 +881,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794646799999",
@@ -886,7 +898,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794650399999",
@@ -901,7 +915,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794653999999",
@@ -916,7 +932,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794657599999",
@@ -931,7 +949,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794661199999",
@@ -946,7 +966,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794664799999",
@@ -961,7 +983,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794668399999",
@@ -976,7 +1000,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C4|SELL|1794668399999",
@@ -991,7 +1017,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C4|SELL|1794668399999",
@@ -1006,7 +1034,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794671999999",
@@ -1021,7 +1051,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794675599999",
@@ -1036,7 +1068,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|TIER|SELL|1794675599999",
@@ -1051,7 +1085,9 @@
         "status": "THỪA",
         "reason_code": "WARMUP_WINDOW_3400",
         "reason_detail_vi": "BTC-USDT chỉ có 3400 nến rolling; trạng thái warmup/L2 tại thời điểm live có thể khác",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C13|SELL|1794675599999",
@@ -1066,7 +1102,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C15|SELL|1794675599999",
@@ -1081,7 +1119,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794679199999",
@@ -1096,7 +1136,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794682799999",
@@ -1111,7 +1153,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794686399999",
@@ -1126,7 +1170,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794689999999",
@@ -1141,7 +1187,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794693599999",
@@ -1156,7 +1204,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794697199999",
@@ -1171,7 +1221,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C13|SELL|1794697199999",
@@ -1186,7 +1238,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C15|SELL|1794697199999",
@@ -1201,7 +1255,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794700799999",
@@ -1216,7 +1272,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794704399999",
@@ -1231,7 +1289,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1794707999999",
@@ -1246,7 +1306,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C4|SELL|1794707999999",
@@ -1261,7 +1323,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C13|SELL|1794707999999",
@@ -1276,7 +1340,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C15|SELL|1794707999999",
@@ -1291,7 +1357,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|15m|C10|SELL|1795046399999",
@@ -1306,7 +1374,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine 20FINAL_FIXED_TPSL_ETH_C1_H1_BOTH_1@1.0.0",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C4|SELL|1795125599999",
@@ -1321,7 +1391,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine V3_LAB_5@5.0.0 (23 mã)",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C12|SELL|1795139999999",
@@ -1336,7 +1408,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C4|SELL|1795190399999",
@@ -1349,9 +1423,11 @@
         "signal_close_utc": "2026-11-20T15:59:59.999000Z",
         "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
         "status": "THIẾU",
-        "reason_code": "CHƯA_GIẢI_THÍCH",
-        "reason_detail_vi": "Engine V3_LAB_10@e6422fd (23 mã) phát tín hiệu nhưng Live không có",
-        "time_diff_ms": 0
+        "reason_code": "HỆ_THỐNG_L2_CRASH",
+        "reason_detail_vi": "CẢNH BÁO LIVE BỎ SÓT TÍN HIỆU THẬT: Lỗi NameError ('Signal' is not defined) trên ETH-C6 trước PR #174 (c211617) đã làm rơi ETH-C6 và (trước PR #173 d11d894) rơi cả batch ETH-USDT cùng chu kỳ 1H; xác nhận qua control_logs L2 strategy_calculate.",
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": 15.68,
+        "is_genuine_live_miss": true
       },
       {
         "event_id": "ETH-USDT|1h|C6|SELL|1795190399999",
@@ -1364,9 +1440,11 @@
         "signal_close_utc": "2026-11-20T15:59:59.999000Z",
         "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
         "status": "THIẾU",
-        "reason_code": "CHƯA_GIẢI_THÍCH",
-        "reason_detail_vi": "Engine V3_LAB_10@e6422fd (23 mã) phát tín hiệu nhưng Live không có",
-        "time_diff_ms": 0
+        "reason_code": "HỆ_THỐNG_L2_CRASH",
+        "reason_detail_vi": "CẢNH BÁO LIVE BỎ SÓT TÍN HIỆU THẬT: Lỗi NameError ('Signal' is not defined) trên ETH-C6 trước PR #174 (c211617) đã làm rơi ETH-C6 và (trước PR #173 d11d894) rơi cả batch ETH-USDT cùng chu kỳ 1H; xác nhận qua control_logs L2 strategy_calculate.",
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": 15.68,
+        "is_genuine_live_miss": true
       },
       {
         "event_id": "BTC-USDT|1h|TIER|SELL|1795193999999",
@@ -1380,8 +1458,10 @@
         "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
         "status": "THIẾU",
         "reason_code": "CHƯA_GIẢI_THÍCH",
-        "reason_detail_vi": "Engine V3_LAB_10@e6422fd (23 mã) phát tín hiệu nhưng Live không có",
-        "time_diff_ms": 0
+        "reason_detail_vi": "Engine V3_LAB_10@e6422fd (23 mã) phát tín hiệu nhưng Live không có; nến M15 tạo đúng giờ (độ trễ=17.92s), không có log lỗi L1/L2 tại chu kỳ này (thiếu log thực thi L2 từng chu kỳ trước PR #173).",
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": 17.92,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C13|SELL|1795204799999",
@@ -1396,7 +1476,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C15|SELL|1795215599999",
@@ -1411,7 +1493,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C15|SELL|1795219199999",
@@ -1426,7 +1510,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C15|SELL|1795222799999",
@@ -1441,7 +1527,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C15|SELL|1795226399999",
@@ -1456,7 +1544,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C15|SELL|1795229999999",
@@ -1471,7 +1561,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|15m|C7|SELL|1795232699999",
@@ -1485,8 +1577,10 @@
         "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
         "status": "THIẾU",
         "reason_code": "CHƯA_GIẢI_THÍCH",
-        "reason_detail_vi": "Engine V3_LAB_10@e6422fd (23 mã) phát tín hiệu nhưng Live không có",
-        "time_diff_ms": 0
+        "reason_detail_vi": "Engine V3_LAB_10@e6422fd (23 mã) phát tín hiệu nhưng Live không có; nến M15 tạo đúng giờ (độ trễ=21.42s), không có log lỗi L1/L2 tại chu kỳ này (thiếu log thực thi L2 từng chu kỳ trước PR #173).",
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": 21.42,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C13|SELL|1795233599999",
@@ -1501,7 +1595,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C15|SELL|1795233599999",
@@ -1516,7 +1612,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|TIER|SELL|1795237199999",
@@ -1531,7 +1629,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine V3_LAB_10@e6422fd (23 mã)",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C15|SELL|1795237199999",
@@ -1546,7 +1646,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "BTC-USDT|1h|C11|SELL|1795240799999",
@@ -1561,7 +1663,9 @@
         "status": "KHỚP",
         "reason_code": "KHỚP",
         "reason_detail_vi": "Khớp chính xác với engine V3_LAB_10@e6422fd (23 mã)",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       },
       {
         "event_id": "ETH-USDT|1h|C15|SELL|1795240799999",
@@ -1576,7 +1680,9 @@
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
         "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
-        "time_diff_ms": 0
+        "time_diff_ms": 0,
+        "candle_created_delay_sec": null,
+        "is_genuine_live_miss": false
       }
     ]
   },
@@ -5220,5 +5326,5 @@
       "system_issue_note": null
     }
   ],
-  "report_sha256": "0414adf884e09df0690d364efdb18253707dc1de4118537fb0f828fb6ece10fd"
+  "report_sha256": "24e04ee55667001273e6042dcccba98d27da4f7f7c55bafdb42ebec7c786cad1"
 }
