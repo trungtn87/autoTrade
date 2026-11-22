@@ -79,7 +79,8 @@ def render() -> None:
     st.title(all_signals.vi("report_title"))
     st.caption(all_signals.vi("report_subtitle"))
     if st.button(all_signals.vi("back_to_runs"), key="back-to-runs"):
-        st.switch_page("pages/p09_all_signals_runs.py")
+        main_page = st.session_state.get("ninlab_main_page")
+        st.switch_page(main_page if main_page is not None else "pages/p09_all_signals_runs.py")
 
     runs = all_signals.list_all_signals_runs()
     if not runs:

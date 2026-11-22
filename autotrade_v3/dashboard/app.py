@@ -18,8 +18,10 @@ def _page_one() -> None:
 
 
 def main() -> None:
+    main_page = st.Page(_page_one, title=all_signals.vi("ninlab_title"), icon="⚡", default=True)
+    st.session_state["ninlab_main_page"] = main_page
     pages = [
-        st.Page(_page_one, title=all_signals.vi("ninlab_title"), icon="⚡", default=True),
+        main_page,
         st.Page("pages/p10_mt5_report.py", title=all_signals.vi("dashboard_report_nav"), icon="📊"),
     ]
     nav = st.navigation(pages, position="hidden")
