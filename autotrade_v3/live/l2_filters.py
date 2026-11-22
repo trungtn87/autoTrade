@@ -599,3 +599,145 @@ class C7R2V2AsymFilter:
             return FilterDecision(action="KEEP", reason="PASS", label=self.name)
 
         return FilterDecision(action="DROP", reason="BLOCKED_C7_UNKNOWN_SIDE", label=self.name)
+
+
+# --- BTC-USDT/C1 H2_ATR_1.00: from autotrade_v3/filters/btc_c1_h2_atr_100.py (V3_LAB_11_PRUNE23 @ v3_lab 166aafd)
+BTC_C1_SYMBOL = "BTC-USDT"
+BTC_C1_COMBO_ID = 1
+BTC_C1_MIN_ATR_RATIO_50 = 1.00
+
+
+def build_btc_c1_atr_ratio_lookup(df_btc_m15: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Closed-bar 1H atr_ratio_50 = ATR(14) / SMA(ATR(14), 50); SMA==0 maps to NaN (lab semantics)."""
+    if df_btc_m15 is None or df_btc_m15.empty:
+        return np.array([], dtype=np.int64), np.array([], dtype=float)
+    d1 = resample_ohlcv(ensure_dt(df_btc_m15), "1h")
+    if d1.empty:
+        return np.array([], dtype=np.int64), np.array([], dtype=float)
+    a14 = atr(d1, 14)
+    sma50 = a14.rolling(50).mean().replace(0.0, np.nan)
+    atr_ratio_50 = (a14 / sma50).to_numpy(dtype=float)
+    close_ms_1h = (datetime_index_to_ms(d1.index) + H1_MS - 1).astype(np.int64)
+    return close_ms_1h, atr_ratio_50
+
+
+class BtcC1H2Atr100Filter:
+    """Block BTC-USDT/C1 entries unless the closed 1H atr_ratio_50 >= 1.00."""
+
+    name: str = "BTC_C1_H2_ATR_1_00"
+
+    def __init__(self, close_ms_1h: np.ndarray, atr_ratio_50: np.ndarray, min_atr_ratio_50: float = BTC_C1_MIN_ATR_RATIO_50) -> None:
+        self.close_ms_1h = np.asarray(close_ms_1h, dtype=np.int64)
+        self.atr_ratio_50 = np.asarray(atr_ratio_50, dtype=float)
+        self.min_atr_ratio_50 = float(min_atr_ratio_50)
+
+    @classmethod
+    def from_m15_dataframe(cls, df_btc_m15: pd.DataFrame | None, min_atr_ratio_50: float = BTC_C1_MIN_ATR_RATIO_50) -> BtcC1H2Atr100Filter:
+        close_ms_1h, atr_ratio_50 = build_btc_c1_atr_ratio_lookup(df_btc_m15)
+        return cls(close_ms_1h, atr_ratio_50, min_atr_ratio_50=min_atr_ratio_50)
+
+    def evaluate(self, signal: Any, ctx: FilterContext) -> FilterDecision:
+        return self.evaluate_signal(signal)
+
+    def evaluate_signal(self, sig: Signal) -> FilterDecision:
+        if len(self.close_ms_1h) == 0:
+            return FilterDecision(action="DROP", reason="BLOCKED_BTC_C1_NO_1H_DATA", label=self.name)
+        sig_ms = int(sig.signal_close_ms)
+        idx1 = int(np.searchsorted(self.close_ms_1h, sig_ms, side="right")) - 1
+        if idx1 < 0 or not np.isfinite(self.atr_ratio_50[idx1]):
+            return FilterDecision(action="DROP", reason="BLOCKED_BTC_C1_WARMUP_1H", label=self.name)
+        if float(self.atr_ratio_50[idx1]) < self.min_atr_ratio_50:
+            return FilterDecision(action="DROP", reason="BLOCKED_BTC_C1_LOW_ATR_RATIO_50", label=self.name)
+        return FilterDecision(action="KEEP", reason="PASS", label=self.name)
+
+
+# --- BTC-USDT/C4 B1_VOL_CONFIRM: from autotrade_v3/filters/btc_c4_b1_vol_confirm.py (v3_lab f8b390f)
+BTC_C4_SYMBOL = "BTC-USDT"
+BTC_C4_COMBO_ID = 4
+BTC_C4_MIN_VOL_RATIO_20 = 2.20
+
+
+def build_btc_c4_vol_ratio_lookup(df_btc_m15: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Closed-bar 1H vol_ratio_20 = volume / SMA(volume, 20) lookup arrays."""
+    d1 = resample_ohlcv(ensure_dt(df_btc_m15), "1h")
+    if d1.empty:
+        return np.array([], dtype=np.int64), np.array([], dtype=float)
+    v = d1["volume"].astype(float)
+    vol_ratio_20 = (v / v.rolling(20).mean().replace(0, np.nan)).to_numpy(dtype=float)
+    close_ms_1h = (datetime_index_to_ms(d1.index) + H1_MS - 1).astype(np.int64)
+    return close_ms_1h, vol_ratio_20
+
+
+class BtcC4B1VolConfirmFilter:
+    """Block BTC-USDT/C4 entries unless the closed 1H vol_ratio_20 >= 2.20."""
+
+    name: str = "BTC_C4_B1_VOL_CONFIRM"
+
+    def __init__(self, close_ms_1h: np.ndarray, vol_ratio_20: np.ndarray, min_vol_ratio_20: float = BTC_C4_MIN_VOL_RATIO_20) -> None:
+        self.close_ms_1h = close_ms_1h
+        self.vol_ratio_20 = vol_ratio_20
+        self.min_vol_ratio_20 = float(min_vol_ratio_20)
+
+    @classmethod
+    def from_m15_dataframe(cls, df_btc_m15: pd.DataFrame, min_vol_ratio_20: float = BTC_C4_MIN_VOL_RATIO_20) -> BtcC4B1VolConfirmFilter:
+        close_ms_1h, vol_ratio_20 = build_btc_c4_vol_ratio_lookup(df_btc_m15)
+        return cls(close_ms_1h, vol_ratio_20, min_vol_ratio_20=min_vol_ratio_20)
+
+    def evaluate(self, signal: Any, ctx: FilterContext) -> FilterDecision:
+        return self.evaluate_signal(signal)
+
+    def evaluate_signal(self, sig: Signal) -> FilterDecision:
+        sig_ms = int(sig.signal_close_ms)
+        idx1 = int(np.searchsorted(self.close_ms_1h, sig_ms, side="right")) - 1
+        if idx1 < 0 or np.isnan(self.vol_ratio_20[idx1]):
+            return FilterDecision(action="DROP", reason="BLOCKED_BTC_C4_WARMUP_1H", label=self.name)
+        if float(self.vol_ratio_20[idx1]) < self.min_vol_ratio_20:
+            return FilterDecision(action="DROP", reason="BLOCKED_BTC_C4_LOW_VOL_RATIO_20", label=self.name)
+        return FilterDecision(action="KEEP", reason="PASS", label=self.name)
+
+
+# --- BTC-USDT/C7 B1_NO_CHASE_1H: from autotrade_v3/filters/btc_c7_b1_no_chase_1h.py (v3_lab f8b390f)
+BTC_C7_SYMBOL = "BTC-USDT"
+BTC_C7_COMBO_ID = 7
+BTC_C7_MAX_EMA_TREND_1H_DIR = 0.75
+
+
+def build_btc_c7_ema_trend_lookup(df_btc_m15: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Closed-bar 1H ema_trend_1h = (EMA20 - EMA50) / close * 100 lookup arrays."""
+    d1 = resample_ohlcv(ensure_dt(df_btc_m15), "1h")
+    if d1.empty:
+        return np.array([], dtype=np.int64), np.array([], dtype=float)
+    c = d1["close"].astype(float)
+    ema_trend_1h = ((ema(c, 20) - ema(c, 50)) / c * 100.0).to_numpy(dtype=float)
+    close_ms_1h = (datetime_index_to_ms(d1.index) + H1_MS - 1).astype(np.int64)
+    return close_ms_1h, ema_trend_1h
+
+
+class BtcC7B1NoChase1HFilter:
+    """Block BTC-USDT/C7 entries when directional 1H EMA20/50 extension exceeds 0.75%."""
+
+    name: str = "BTC_C7_B1_NO_CHASE_1H"
+
+    def __init__(self, close_ms_1h: np.ndarray, ema_trend_1h: np.ndarray, max_ema_trend_1h_dir: float = BTC_C7_MAX_EMA_TREND_1H_DIR) -> None:
+        self.close_ms_1h = close_ms_1h
+        self.ema_trend_1h = ema_trend_1h
+        self.max_ema_trend_1h_dir = float(max_ema_trend_1h_dir)
+
+    @classmethod
+    def from_m15_dataframe(cls, df_btc_m15: pd.DataFrame, max_ema_trend_1h_dir: float = BTC_C7_MAX_EMA_TREND_1H_DIR) -> BtcC7B1NoChase1HFilter:
+        close_ms_1h, ema_trend_1h = build_btc_c7_ema_trend_lookup(df_btc_m15)
+        return cls(close_ms_1h, ema_trend_1h, max_ema_trend_1h_dir=max_ema_trend_1h_dir)
+
+    def evaluate(self, signal: Any, ctx: FilterContext) -> FilterDecision:
+        return self.evaluate_signal(signal)
+
+    def evaluate_signal(self, sig: Signal) -> FilterDecision:
+        sig_ms = int(sig.signal_close_ms)
+        idx1 = int(np.searchsorted(self.close_ms_1h, sig_ms, side="right")) - 1
+        if idx1 < 0 or np.isnan(self.ema_trend_1h[idx1]):
+            return FilterDecision(action="DROP", reason="BLOCKED_BTC_C7_WARMUP_1H", label=self.name)
+        sgn = 1.0 if str(sig.side).upper() == "BUY" else -1.0
+        ema_trend_1h_dir = float(self.ema_trend_1h[idx1]) * sgn
+        if ema_trend_1h_dir > self.max_ema_trend_1h_dir:
+            return FilterDecision(action="DROP", reason="BLOCKED_BTC_C7_OVEREXTENDED_1H", label=self.name)
+        return FilterDecision(action="KEEP", reason="PASS", label=self.name)
