@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0.0",
+  "research_id": "V3_18_REGIME_SMC_30_COMBOS",
+  "locked_at_utc": "2026-11-22T06:30:00Z",
+  "policy_note": "Tham số cố định khóa trước khi chạy và xem kết quả; không tinh chỉnh theo kết quả.",
+  "dataset": {
+    "name": "3Y_BTC_ETH_M1_HYBRID_PARQUET",
+    "start_date": "2023-11-01",
+    "end_date": "2026-11-01",
+    "symbols": ["BTC-USDT", "ETH-USDT"]
+  },
+  "simulation": {
+    "mode_single_combo": "ALL_SIGNALS",
+    "mode_portfolio": "ALL_SIGNALS_PORTFOLIO",
+    "cost_profile": "BASE",
+    "initial_equity": 1000.0,
+    "notional_per_trade": 100.0,
+    "slippage_bps_per_side": 2.0,
+    "taker_fee_rate": 0.0005,
+    "ambiguity_policy": "CONSERVATIVE"
+  },
+  "splits": {
+    "DEVELOPMENT": {
+      "label_vi": "PHÁT_TRIỂN",
+      "start": "2023-11-01T00:00:00Z",
+      "end": "2025-10-31T23:59:59.999Z",
+      "start_ms": 1698796800000,
+      "end_ms": 1761955199999
+    },
+    "VALIDATION": {
+      "label_vi": "KIỂM_ĐỊNH",
+      "start": "2025-11-01T00:00:00Z",
+      "end": "2026-04-30T23:59:59.999Z",
+      "start_ms": 1761955200000,
+      "end_ms": 1777593599999
+    },
+    "HOLDOUT": {
+      "label_vi": "KIỂM_CHỨNG_CUỐI",
+      "start": "2026-05-01T00:00:00Z",
+      "end": "2026-10-31T23:59:59.999Z",
+      "start_ms": 1777593600000,
+      "end_ms": 1793491199999,
+      "alignment_note_vi": "Khớp đúng chuỗi end 2026-10-31T23:59:59.999Z (tránh lệch 1 ngày 1793404799999 trong regimes.py làm rơi 1 tín hiệu ngày 2026-10-31)."
+    }
+  },
+  "statistics": {
+    "min_sample_size": 30,
+    "insufficient_sample_label": "CHƯA ĐỦ MẪU",
+    "bootstrap_iterations": 1000,
+    "bootstrap_ci_level": 0.95,
+    "bootstrap_seed": 20261118,
+    "family_wise_alpha": 0.05
+  },
+  "regime_params": {
+    "candle_timeframe": "1h",
+    "higher_timeframe": "4h",
+    "ema_fast_1h": 50,
+    "ema_slow_1h": 150,
+    "ema_slow_4h": 150,
+    "slope_4h_bars": 10,
+    "trend_slope_threshold_pct": 0.5,
+    "atr_period": 14,
+    "atr_sma_period": 50,
+    "atr_quantile_window": 720,
+    "vol_ratio_low": 0.85,
+    "vol_ratio_high": 1.25,
+    "volume_sma_period": 20,
+    "liq_ratio_low": 0.80,
+    "liq_ratio_high": 1.50,
+    "smc_swing_len": 50,
+    "smc_bos_recent_bars": 5,
+    "smc_sweep_lookback": 20,
+    "ob_pivot_len": 5,
+    "ob_search_bars": 12,
+    "ob_max_age": 80,
+    "ob_proximity_atr": 1.0,
+    "sessions_utc": {
+      "PHIÊN_Á": [0, 8],
+      "PHIÊN_ÂU": [8, 16],
+      "PHIÊN_MỸ": [16, 24]
+    }
+  },
+  "portfolio_selection_rules": {
+    "require_val_and_holdout_positive_delta": true,
+    "max_dd_multiplier_vs_baseline": 1.25,
+    "dev_filter_min_trades": 30,
+    "dev_filter_min_net_pnl": 0.0,
+    "dev_bad_regime_max_net_pnl": -2.0
+  }
+}
