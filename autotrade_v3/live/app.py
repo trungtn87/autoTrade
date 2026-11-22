@@ -253,6 +253,16 @@ class Runtime:
         from .exchange.websocket import BingXKlineStream
         self.status = "checking_candles"
         self.l1.startup_sync()
+        # The in-memory cursor starts empty after a restart. Seed it from the persisted
+        # latest candle so the watchdog does not raise a false stale alert for a complete DB.
+        for symbol in self.settings.symbols:
+            try:
+                latest = self.candles.stats(symbol, "15m").get("latest_open_time")
+            except Exception as exc:
+                log.warning("V3_L1_CURSOR_SEED_FAILED symbol=%s error=%s", symbol, exc)
+                continue
+            if latest:
+                self._processed[symbol] = max(self._processed.get(symbol, 0), int(latest))
         self.stream = BingXKlineStream(self.settings.symbols, self.on_closed, url=self.settings.bingx_ws_url,
                                        on_event=self._ws_event)
         self.stream.start()
