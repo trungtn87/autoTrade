@@ -16,7 +16,7 @@ from autotrade_v3.dashboard import all_signals
 from autotrade_v3.dashboard.ui_shared import inject_research_theme, style_plotly
 
 DEFAULT_BINGX_MANIFEST = Path("data/bingx/manifests/latest_manifest.json")
-DEFAULT_RECONCILE_DIR = Path("autotrade_v3/reconcile_v3")
+DEFAULT_RECONCILE_DIR = Path("evidence/v3-17a")
 LIVE_SAMPLE_THRESHOLD = 60
 
 DRIFT_CAUSES: tuple[str, ...] = (
@@ -87,18 +87,113 @@ def load_freshness_info(manifest_path: str = str(DEFAULT_BINGX_MANIFEST)) -> dic
 
 @st.cache_data(show_spinner=False)
 def load_reconcile_17a(reconcile_dir: str = str(DEFAULT_RECONCILE_DIR)) -> dict[str, Any]:
-    """Read 17a reconciliation summary if available; otherwise return CHƯA CÓ ĐỐI SOÁT."""
+    """Read 17a reconcile_report.json with mandatory verify_report() fail-closed check."""
+    from autotrade_v3.reconcile_v3.verify import verify_report
+
     rdir = Path(reconcile_dir)
-    cand = rdir / "reconcile_summary.json"
-    if cand.is_file():
+    report_path = rdir / "reconcile_report.json"
+    if report_path.is_file():
         try:
-            data = json.loads(cand.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                return {"available": True, **data}
-        except (OSError, json.JSONDecodeError):
-            pass
+            data = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            return {
+                "available": True,
+                "verify_failed": True,
+                "verify_errors": [f"Lỗi đọc JSON 17a: {exc}"],
+                "live_trades_count": 0,
+                "threshold": LIVE_SAMPLE_THRESHOLD,
+                "status": "LỖI XÁC MINH",
+                "drift_causes": {k: 0.0 for k in DRIFT_CAUSES},
+                "combo_live": {},
+                "vps_off_windows": [],
+                "exit_change_markers": [],
+            }
+
+        vr = verify_report(data)
+        if not vr.passed:
+            return {
+                "available": True,
+                "verify_failed": True,
+                "verify_errors": vr.errors,
+                "live_trades_count": 0,
+                "threshold": LIVE_SAMPLE_THRESHOLD,
+                "status": "LỖI XÁC MINH",
+                "drift_causes": {k: 0.0 for k in DRIFT_CAUSES},
+                "combo_live": {},
+                "vps_off_windows": [],
+                "exit_change_markers": [],
+            }
+
+        sg = data.get("sample_governance") or {}
+        sr = data.get("signal_reconciliation") or {}
+        since_sr = sr.get("since_compare_from") or {}
+        proj_23 = sr.get("projected_23_finalized_since_compare_from") or {}
+        closed_n = int(sg.get("closed_orders") or 0)
+        thresh = int(sg.get("min_closed_orders_conclusive") or LIVE_SAMPLE_THRESHOLD)
+
+        # Chỉ tổng hợp lệnh từ compare_from (mẫu nhỏ < 60 không bao giờ hiện ĐỒNG BỘ)
+        main_orders = [o for o in (data.get("orders") or []) if o.get("is_after_compare_from")]
+        combo_live: dict[str, dict[str, Any]] = {}
+        for o in main_orders:
+            ck = f"{o.get('symbol')}/{o.get('combo')}"
+            entry = combo_live.setdefault(
+                ck,
+                {"trades": 0, "wins": 0, "pnl": 0.0, "fees": 0.0, "slips": [], "status": "CHƯA ĐỦ MẪU", "drift_pct": 0.0},
+            )
+            net_v = float(((o.get("items") or {}).get("pnl") or {}).get("live_net_pnl") or 0.0)
+            fee_v = float(((o.get("items") or {}).get("fees") or {}).get("live_total_fee") or 0.0)
+            slip_v = float(((o.get("items") or {}).get("entry") or {}).get("live_slippage_bps") or 0.0)
+            entry["trades"] += 1
+            if net_v > 0:
+                entry["wins"] += 1
+            entry["pnl"] += net_v
+            entry["fees"] += fee_v
+            entry["slips"].append(slip_v)
+        for ck, entry in combo_live.items():
+            t = entry["trades"]
+            entry["wr"] = (entry["wins"] / t * 100.0) if t else 0.0
+            entry["avg_slip_bps"] = sum(entry["slips"]) / t if t else 0.0
+
+        cause_dist_raw = data.get("cause_distribution") or {}
+        drift_causes = {
+            "DỮ_LIỆU": float(cause_dist_raw.get("DỮ_LIỆU", 0)),
+            "CHIẾN_LƯỢC": float(cause_dist_raw.get("CHIẾN_LƯỢC", 0)),
+            "THỰC_THI": float(cause_dist_raw.get("MÔ_HÌNH_THỰC_THI", 0)),
+            "HỆ_THỐNG": float(cause_dist_raw.get("HỆ_THỐNG", 0)),
+            "VPS_TẮT": float(cause_dist_raw.get("VPS_TẮT", 0)),
+            "CHƯA_GIẢI_THÍCH": float(cause_dist_raw.get("CHƯA_GIẢI_THÍCH", 0)),
+        }
+        vps_wins = [
+            {"start": w.get("start_utc"), "end": w.get("end_utc")}
+            for w in (data.get("vps_off_windows") or [])
+            if w.get("start_utc") and w.get("end_utc")
+        ]
+        return {
+            "available": True,
+            "verify_failed": False,
+            "verify_errors": [],
+            "report_sha256": data.get("report_sha256", ""),
+            "compare_from_utc": data.get("compare_from_utc", ""),
+            "live_trades_count": closed_n,
+            "threshold": thresh,
+            "status": "CHƯA CÓ LỆNH SAU MỐC SO SÁNH" if closed_n == 0 else "CHƯA ĐỦ MẪU",
+            "signal_matched": int(since_sr.get("matched_count") or 0),
+            "signal_missing": int(since_sr.get("missing_count") or 0),
+            "signal_extra": int(since_sr.get("extra_count") or 0),
+            "projected_lab_signals_since_compare_from": int(proj_23.get("projected_lab_signals_since_compare_from") or 0),
+            "avg_slippage_bps": (data.get("summary_overall_stats") or {}).get("avg_entry_slippage_bps"),
+            "live_equity": [],
+            "mirror_equity": [],
+            "combo_live": combo_live,
+            "drift_causes": drift_causes,
+            "vps_off_windows": vps_wins,
+            "exit_change_markers": ["2026-11-15T09:45:05Z", data.get("compare_from_utc", "2026-11-22T04:00:00Z")],
+        }
+
     return {
         "available": False,
+        "verify_failed": False,
+        "verify_errors": [],
         "live_trades_count": 0,
         "threshold": LIVE_SAMPLE_THRESHOLD,
         "status": "CHƯA CÓ ĐỐI SOÁT",
@@ -190,9 +285,13 @@ def _render_css() -> None:
     )
 
 
-def _live_status_badge(live_n: int, threshold: int, has_reconcile: bool, drifted: bool = False) -> tuple[str, str]:
+def _live_status_badge(live_n: int, threshold: int, has_reconcile: bool, drifted: bool = False, verify_failed: bool = False) -> tuple[str, str]:
+    if verify_failed:
+        return "LỖI XÁC MINH 17a", "nl-bad"
     if not has_reconcile:
         return all_signals.vi("ninlab_status_no_reconcile"), "nl-warn"
+    if live_n == 0:
+        return "CHƯA CÓ LỆNH SAU MỐC SO SÁNH", "nl-warn"
     if live_n < threshold:
         return all_signals.vi("ninlab_status_insufficient"), "nl-warn"
     if drifted:
@@ -422,6 +521,8 @@ def render_one_page_terminal() -> None:
 
     freshness = load_freshness_info()
     rec = load_reconcile_17a()
+    if rec.get("verify_failed"):
+        st.error(f"LỖI XÁC MINH ĐỐI SOÁT 17a (ẩn số liệu 17a): {'; '.join(rec.get('verify_errors') or [])}")
 
     # Extract top-level metrics
     acc = payload.get("kpi", {}).get("account", {})
@@ -438,7 +539,14 @@ def render_one_page_terminal() -> None:
 
     live_n = int(rec.get("live_trades_count") or 0)
     thresh = int(rec.get("threshold") or LIVE_SAMPLE_THRESHOLD)
-    live_lbl, live_cls = _live_status_badge(live_n, thresh, bool(rec.get("available")), bool(rec.get("drifted", False)))
+    rec_failed = bool(rec.get("verify_failed"))
+    live_lbl, live_cls = _live_status_badge(live_n, thresh, bool(rec.get("available")), bool(rec.get("drifted", False)), verify_failed=rec_failed)
+    proj_sig_n = int(rec.get("projected_lab_signals_since_compare_from") or 0)
+    live_sub_txt = (
+        "Ẩn số do lỗi xác minh"
+        if rec_failed
+        else f"{live_n} / {thresh} lệnh · Lab sau mốc: {proj_sig_n} tín hiệu"
+    )
     dot_cls = f"nl-dot-{freshness['status']}"
 
     # 1. Top Status Strip (max 6 tiles)
@@ -454,8 +562,8 @@ def render_one_page_terminal() -> None:
         f'<div class="nl-tile-val nl-cyan">{html.escape(be_txt)}</div>'
         f'<div class="nl-tile-sub">mỗi chiều (BASE = 2,0 bps)</div></div>'
         f'<div class="nl-tile"><div class="nl-tile-lbl">{html.escape(all_signals.vi("ninlab_kpi_live_vs_lab"))}</div>'
-        f'<div class="nl-tile-val {live_cls}" style="font-size:1.08rem">{html.escape(live_lbl)}</div>'
-        f'<div class="nl-tile-sub">{live_n} / {thresh} lệnh</div></div>'
+        f'<div class="nl-tile-val {live_cls}" style="font-size:1.02rem">{html.escape(live_lbl)}</div>'
+        f'<div class="nl-tile-sub">{html.escape(live_sub_txt)}</div></div>'
         f'<div class="nl-tile"><div class="nl-tile-lbl">{html.escape(all_signals.vi("ninlab_kpi_freshness"))}</div>'
         f'<div class="nl-tile-val" style="font-size:1.02rem"><span class="nl-dot {dot_cls}"></span>{html.escape(freshness["overall_status"])}</div>'
         f'<div class="nl-tile-sub">{html.escape(freshness["collected_at"][:19].replace("T"," "))}Z</div></div>'
