@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from .config import V3Settings
-from .l1_data import STEP_15M_MS, L1Data
+from .l1_data import STEP_15M_MS, L1Data, expected_closed_open
 from .l2_strategy import L2Strategy
 from .l3_execution import L3Executor
 from .l4_leftover import LeftoverCleaner, v3_threads_busy
@@ -27,6 +27,7 @@ from .transport import V3BingXClient
 
 log = logging.getLogger("autotrade_v3")
 ENGINE_NAME = "autotrade-v3"
+L2_RETRY_INTERVAL_MS = 60_000
 
 
 class Runtime:
@@ -44,7 +45,7 @@ class Runtime:
         self.client = client or V3BingXClient(s)
         self.reader = L4Reader(self.client, self.store, self.control)
         self.executor = L3Executor(s, self.client, self.store, self.reader, self.control, self.alert)
-        self.l1 = L1Data(s, self.candles, self.control)
+        self.l1 = L1Data(s, self.candles, self.control, on_backfilled=self.on_backfilled)
         self.l2 = L2Strategy(self.store, self.control, self.alert, self.executor if s.execution_enabled else None,
                              registry=s.strategy_registry)
         self.leftover = LeftoverCleaner(s, self.client, self.store, self.reader, self.control, self.alert,
@@ -54,7 +55,12 @@ class Runtime:
                                              interval_sec=s.sl_resize_poll_sec)
         self.hourly = HourlySync(self.store, self.control, admit=self._archive_ready, client=self.client, after_sync=self.leftover.request)
         self.stream = None
-        self._processed: dict[str, int] = {}
+        self._processed: dict[str, int] = {}  # latest candle persisted by L1
+        self._l2_last_success: dict[str, int] = {}  # L2 completed calculation and dispatch
+        self._l2_pending: dict[str, object] = {}
+        self._l2_pending_signals: dict[str, list] = {}
+        self._l2_retry_after: dict[str, int] = {}
+        self._history_preview: dict[str, dict] = {}
         self._symbol_locks = {sym: threading.Lock() for sym in s.symbols}
         self.last_run: dict = {"status": "not_started"}
         self.status = "idle"
@@ -101,18 +107,104 @@ class Runtime:
             self._run_strategy(symbol, snapshot)
 
     def _run_strategy(self, symbol: str, snapshot) -> None:
+        """Retain failed L2 evaluation separately from the L1 persisted cursor.
+
+        A calculation that succeeded is never recomputed after a dispatch error:
+        the exact original signals are cached for a safe, idempotent retry.
+        """
+        open_time = int(snapshot.latest_open_time)
+        now_ms = int(time.time() * 1000)
+        if open_time <= self._l2_last_success.get(symbol, -1):
+            return
+        if (open_time != expected_closed_open(now_ms)
+                or int(snapshot.latest_close_time) < self.started_ms):
+            return  # no historical or superseded Entries
+        previous = self._l2_pending.get(symbol)
+        if previous is not None and int(previous.latest_open_time) != open_time:
+            self._l2_pending_signals.pop(symbol, None)
+        self._l2_pending[symbol] = snapshot
         try:
-            signals = self.l2.calculate(snapshot)
+            signals = self._l2_pending_signals.get(symbol)
+            if signals is None:
+                signals = self.l2.calculate(snapshot)
+                self._l2_pending_signals[symbol] = signals
+            self.l2.dispatch(signals)
         except Exception as exc:
+            self._l2_retry_after[symbol] = now_ms + L2_RETRY_INTERVAL_MS
             version = self.l2.registry.version if self.l2.registry else "registry"
-            self.control.report("L2", "strategy_calculate", f"{version} không tính được cho {symbol}: {exc}", symbol=symbol,
-                                details={"latest_open_time": getattr(snapshot, "latest_open_time", None)})
+            self.control.report(
+                "L2", "strategy_calculate", f"{version} không xử lý được cho {symbol}: {exc}",
+                symbol=symbol, details={"latest_open_time": open_time,
+                                        "retry_after_ms": self._l2_retry_after[symbol]})
             self.last_run = {"ok": False, "symbol": symbol, "stage": "strategy", "error": str(exc)}
             return
-        self.l2.dispatch(signals)
-        self.last_run = {"ok": True, "symbol": symbol, "latest_open_time": snapshot.latest_open_time,
+        self._l2_last_success[symbol] = open_time
+        self._l2_pending.pop(symbol, None)
+        self._l2_pending_signals.pop(symbol, None)
+        self._l2_retry_after.pop(symbol, None)
+        self.last_run = {"ok": True, "symbol": symbol, "latest_open_time": open_time,
                          "signals": [s.event_id for s in signals], "at_ms": int(time.time() * 1000),
                          "execution_enabled": self.settings.execution_enabled}
+
+    def retry_pending(self, symbol: str, *, force: bool = False) -> None:
+        """Retry L2 without REST; discard old bars when a newer M15 has closed."""
+        symbol = str(symbol).upper()
+        lock = self._symbol_locks.setdefault(symbol, threading.Lock())
+        with lock:
+            snapshot = self._l2_pending.get(symbol)
+            if snapshot is None:
+                return
+            now_ms = int(time.time() * 1000)
+            open_time = int(snapshot.latest_open_time)
+            if open_time != expected_closed_open(now_ms):
+                self._l2_pending.pop(symbol, None)
+                self._l2_pending_signals.pop(symbol, None)
+                self._l2_retry_after.pop(symbol, None)
+                self.control.report(
+                    "L2", "strategy_retry_expired",
+                    f"Bỏ qua tín hiệu quá hạn {symbol} open={open_time}; không đặt lệnh nến cũ",
+                    symbol=symbol, details={"latest_open_time": open_time})
+                return
+            if not force and now_ms < self._l2_retry_after.get(symbol, 0):
+                return
+            if symbol not in self._l2_pending_signals:
+                try:
+                    updated = self.l1.services[symbol].snapshot_from_store(symbol, now_ms)
+                    if int(updated.latest_open_time) == open_time:
+                        snapshot = updated
+                except Exception:
+                    pass  # the last validated L1 snapshot remains safe to retry
+            self._run_strategy(symbol, snapshot)
+
+    def on_backfilled(self, symbol: str) -> None:
+        """After REST backfill, check historical signals without placing orders."""
+        symbol = str(symbol).upper()
+        now_ms = int(time.time() * 1000)
+        try:
+            snapshot = self.l1.services[symbol].snapshot_from_store(symbol, now_ms)
+        except Exception as exc:
+            log.info("V3_L1_BACKFILL_PREVIEW_WAIT symbol=%s error=%s", symbol, exc)
+            return
+        # A newly repaired CURRENT bar can still run the live pipeline once.
+        if (int(snapshot.latest_open_time) == expected_closed_open(now_ms)
+                and int(snapshot.latest_close_time) >= self.started_ms):
+            if int(snapshot.latest_open_time) > self.processed_open(symbol):
+                self.on_recovered(symbol, snapshot)
+            else:
+                self.retry_pending(symbol, force=True)
+        try:
+            signals = self.l2.preview(snapshot)
+            self._history_preview[symbol] = {
+                "latest_open_time": int(snapshot.latest_open_time),
+                "signals": [s.event_id for s in signals],
+                "checked_at_ms": int(time.time() * 1000),
+                "mode": "read_only",
+            }
+        except Exception as exc:
+            self._history_preview[symbol] = {
+                "latest_open_time": int(snapshot.latest_open_time),
+                "error": str(exc), "mode": "read_only"}
+            log.warning("V3_L1_BACKFILL_PREVIEW_FAILED symbol=%s error=%s", symbol, exc)
 
     # ---- hourly archive admission (keeps BingX headroom for trading) ---
     def _archive_ready(self) -> bool:
@@ -164,7 +256,7 @@ class Runtime:
         self.stream = BingXKlineStream(self.settings.symbols, self.on_closed, url=self.settings.bingx_ws_url,
                                        on_event=self._ws_event)
         self.stream.start()
-        threading.Thread(target=self.l1.watchdog, args=(self.processed_open, self.on_recovered),
+        threading.Thread(target=self.l1.watchdog, args=(self.processed_open, self.on_recovered, self.retry_pending),
                          name="v3-candle-watchdog", daemon=True).start()
         self.status = "websocket_running"
 
@@ -193,6 +285,9 @@ class Runtime:
             "data_health": self.l1.health,
             "websocket": self.stream.status() if self.stream is not None else None,
             "last_run": self.last_run,
+            "l2_last_success": dict(self._l2_last_success),
+            "l2_pending": {sym: int(snap.latest_open_time) for sym, snap in self._l2_pending.items()},
+            "history_preview": self._history_preview,
             "last_signals": self.l2.last_signals[-20:],
             "last_executions": self.executor.results[-20:],
             "control_recent": self.control.recent[-20:],
