@@ -84,6 +84,22 @@ class L2Strategy:
             self._last_calculated_open[sym] = incoming_open
             return signals
 
+    def preview(self, snapshot) -> list[V3Signal]:
+        """Read-only signal check of a stored bar after historical backfill.
+
+        Never advances the live cursor or dispatches/persists any orders.
+        Preview and live calculation on the same coin share the same lock.
+        """
+        if self.registry is None or self.lab5 is None:
+            raise RuntimeError(self.registry_error or "registry chưa nạp được")
+        from .l2_lab5 import LAB5_WINDOW_BARS
+        sym = str(snapshot.symbol).upper()
+        lock = self._calculate_locks.get(sym)
+        if lock is None:
+            return []
+        with lock:
+            return self.lab5.calculate(sym, {sym: snapshot.candles.tail(LAB5_WINDOW_BARS)})
+
     def dispatch(self, signals: list[V3Signal]) -> list:
         """Dispatch at most one side per (symbol, combo, candle close), never replay older bars.
 
