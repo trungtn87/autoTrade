@@ -340,13 +340,77 @@ def list_strategies_info(params_dir: str | Path | None = None) -> list[dict[str,
                 "spec_hash": sp.spec_hash,
             }
         )
+    if p_dir is None:
+        from autotrade_v3.strategy.registry import StrategyRegistry
+
+        seen_refs = {r["ref"] for r in rows}
+        for (sid, ver), strat_inst in StrategyRegistry._strategies.items():
+            ref = f"{sid}@{ver}"
+            if ref in seen_refs or (sid == "20FINAL_BASELINE" and "20FINAL@1" in seen_refs):
+                continue
+            seen_refs.add(ref)
+            rows.append(
+                {
+                    "ref": ref,
+                    "strategy_id": sid,
+                    "version": ver,
+                    "parent": "V3_LAB_11@11.0.0" if sid == "V3_LAB_11_PRUNE23" else None,
+                    "is_locked": False,
+                    "combo_count": len(strat_inst.config.get("combos", [])),
+                    "signal_spec_hash": strat_inst.get_signal_spec_hash(),
+                    "exit_spec_hash": strat_inst.get_exit_spec_hash(),
+                    "spec_hash": strat_inst.get_spec_hash(),
+                }
+            )
     return rows
 
 
 def get_strategy_detail(strategy_ref: str, params_dir: str | Path | None = None) -> dict[str, Any]:
     """Return full strategy spec and combo table for a strategy version."""
     p_dir = Path(params_dir) if params_dir is not None else None
-    strat = StrategyCoreRegistry.get(strategy_ref, params_dir=p_dir)
+    try:
+        strat = StrategyCoreRegistry.get(strategy_ref, params_dir=p_dir)
+    except KeyError:
+        if p_dir is not None:
+            raise
+        from autotrade_v3.strategy.registry import StrategyRegistry
+
+        reg_strat = StrategyRegistry.get(strategy_ref)
+        combos_rows: list[dict[str, Any]] = []
+        for c in reg_strat.config.get("combos", []):
+            sym = str(c["symbol"])
+            cid = int(c["combo_id"])
+            ep = reg_strat.get_exit_policy(sym, cid)
+            combos_rows.append(
+                {
+                    "combo_key": f"{sym}/{c.get('combo_name', cid)}",
+                    "combo_id": cid,
+                    "symbol": sym,
+                    "combo_name": c.get("combo_name", str(cid)),
+                    "timeframe": c.get("timeframe", ""),
+                    "entry_variant": c.get("entry_variant", ""),
+                    "entry": json.dumps(c.get("entry", {}), sort_keys=True),
+                    "filters": c.get("layer2", ""),
+                    "tp_pct": ep.tp_pct,
+                    "sl_pct": ep.sl_pct,
+                    "trailing_act_pct": ep.trailing_act_pct,
+                    "trailing_cb_pct": ep.trailing_cb_pct,
+                    "max_bars_held": ep.max_bars_held,
+                    "leg_weights": json.dumps(list(ep.leg_weights)),
+                    "exit_policy_hash": ep.get_policy_hash(),
+                }
+            )
+        return {
+            "ref": f"{reg_strat.strategy_id}@{reg_strat.version}",
+            "strategy_id": reg_strat.strategy_id,
+            "version": reg_strat.version,
+            "is_locked": False,
+            "warmup_bars": int(reg_strat.config.get("warmup_bars", 3400)),
+            "signal_spec_hash": reg_strat.get_signal_spec_hash(),
+            "exit_spec_hash": reg_strat.get_exit_spec_hash(),
+            "spec_hash": reg_strat.get_spec_hash(),
+            "combos": combos_rows,
+        }
     sp = strat.spec()
     sid, ver = parse_strategy_ref(sp.strategy_id, sp.version)
     is_locked = (sid, ver) == ("20FINAL", "1")

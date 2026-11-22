@@ -72,3 +72,9 @@ from autotrade_v3.lab.v3_lab_11_loader import (
     load_v3_lab_11_config,
     load_v3_lab_11_strategy,
 )
+from autotrade_v3.lab.v3_lab_11_prune23_loader import (
+    V3_LAB_11_PRUNE23_ACTIVE_VERSION,
+    V3_LAB_11_PRUNE23_STRATEGY_ID,
+    load_v3_lab_11_prune23_config,
+    load_v3_lab_11_prune23_strategy,
+)
