@@ -176,10 +176,12 @@ def test_backfill_callback_occurs_once_only_after_page_persisted():
     class StopOnce:
         def __init__(self):
             self.waits = []
+            self.stopped = False
         def is_set(self):
-            return False
+            return self.stopped
         def wait(self, seconds):
             self.waits.append(seconds)
+            self.stopped = True
             return True
 
     class OnePage:
@@ -205,9 +207,12 @@ def test_backfill_callback_occurs_once_only_after_page_persisted():
 
 def test_backfill_callback_exception_does_not_repeat_saved_page():
     class StopOnce:
+        def __init__(self):
+            self.stopped = False
         def is_set(self):
-            return False
+            return self.stopped
         def wait(self, _seconds):
+            self.stopped = True
             return True
 
     class OnePage:
