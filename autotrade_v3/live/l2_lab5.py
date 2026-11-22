@@ -1,4 +1,4 @@
-"""L2 adapter for ``V3_LIVE_23_LAB_10_V1``: calculate each symbol independently.
+"""L2 adapter for ``V3_LIVE_23_LAB_11_V1``: calculate each symbol independently.
 
 No strategy logic is re-implemented here. ``V3Lab10Strategy.generate_signals_for_combos`` is the single
 source of signals (indicators, Layer 2, ETH-C15 V5 filter, BTC-C14 H3a Kumo band, ETH-C1 H1_BOTH_1, exit

@@ -1,4 +1,4 @@
-"""L2 STRATEGY: run the active registry (``V3_LIVE_23_LAB_10_V1``); persist and hand off every signal.
+"""L2 STRATEGY: run the active registry (``V3_LIVE_23_LAB_11_V1``); persist and hand off every signal.
 
 The signals come from the flat lab module ``autotrade_v3.live.l2_lab10`` (V3_LAB_10@10.0.0) through
 ``l2_lab5.Lab5Engine``. This module only converts its output, stores the 9 agreed fields in

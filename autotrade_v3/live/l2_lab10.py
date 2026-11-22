@@ -1,4 +1,4 @@
-"""Lab 10 L2 signal module for live (V3_LIVE_23_LAB_10_V1).
+"""Lab 10 L2 signal module for live (V3_LIVE_23_LAB_11_V1).
 
 Hand-maintained since the pruning PR: unused incremental/live-state, annotation and
 registry-extension code was removed; logic was kept as-is and proven identical by a
@@ -77,6 +77,15 @@ from autotrade_v3.live.l2_filters import (  # ETH C3/C6/C7/C12-C15 filters and l
     C12_COMBO_ID,
     C13B1VolRegimeFilter,
     C13_COMBO_ID,
+    BtcC1H2Atr100Filter,
+    BtcC4B1VolConfirmFilter,
+    BtcC7B1NoChase1HFilter,
+    BTC_C1_COMBO_ID,
+    BTC_C1_SYMBOL,
+    BTC_C4_COMBO_ID,
+    BTC_C4_SYMBOL,
+    BTC_C7_COMBO_ID,
+    BTC_C7_SYMBOL,
     C13_MAX_ATR_RATIO_50,
     C13_SYMBOL,
     C14H3aKumoBandFilter,
@@ -2232,24 +2241,45 @@ class V3Lab10Strategy(V3Lab9Strategy):
         )
 
         eth_df = data.get(C13_SYMBOL)
-        if eth_df is None or eth_df.empty:
-            return base_signals
+        btc_df = data.get(BTC_C4_SYMBOL)
 
-        c13_filter = C13B1VolRegimeFilter.from_m15_dataframe(eth_df)
+        # Lab 10 (v3_lab f8b390f): C13 on ETH, C4 and C7 on BTC. Lab 11 (v3_lab 166aafd): BTC C1 ATR last.
+        c13_filter = C13B1VolRegimeFilter.from_m15_dataframe(eth_df) if eth_df is not None and not eth_df.empty else None
+        btc_c4_filter = BtcC4B1VolConfirmFilter.from_m15_dataframe(btc_df) if btc_df is not None and not btc_df.empty else None
+        btc_c7_filter = BtcC7B1NoChase1HFilter.from_m15_dataframe(btc_df) if btc_df is not None and not btc_df.empty else None
 
         out: list[Signal] = []
         for sig in base_signals:
-            if sig.symbol == C13_SYMBOL and int(sig.combo_id) == C13_COMBO_ID:
+            dec = None
+            if c13_filter is not None and sig.symbol == C13_SYMBOL and int(sig.combo_id) == C13_COMBO_ID:
                 dec = c13_filter.evaluate_signal(sig)
-                if dec.action != "KEEP":
-                    if only_approved:
-                        continue
-                    sig = Signal(
-                        **{
-                            **sig.__dict__,
-                            "approved": False,
-                            "rejection_reason": dec.reason,
-                        }
-                    )
+            elif btc_c4_filter is not None and sig.symbol == BTC_C4_SYMBOL and int(sig.combo_id) == BTC_C4_COMBO_ID:
+                dec = btc_c4_filter.evaluate_signal(sig)
+            elif btc_c7_filter is not None and sig.symbol == BTC_C7_SYMBOL and int(sig.combo_id) == BTC_C7_COMBO_ID:
+                dec = btc_c7_filter.evaluate_signal(sig)
+            if dec is not None and dec.action != "KEEP":
+                if only_approved:
+                    continue
+                sig = Signal(
+                    **{
+                        **sig.__dict__,
+                        "approved": False,
+                        "rejection_reason": dec.reason,
+                    }
+                )
             out.append(sig)
+
+        # Lab 11 (V3_LAB_11_PRUNE23): BTC-USDT/C1 H2_ATR_1.00 on every BTC C1 signal (both sides).
+        if btc_df is not None and not btc_df.empty:
+            c1_filter = BtcC1H2Atr100Filter.from_m15_dataframe(btc_df)
+            filtered: list[Signal] = []
+            for sig in out:
+                if sig.symbol == BTC_C1_SYMBOL and int(sig.combo_id) == BTC_C1_COMBO_ID:
+                    dec = c1_filter.evaluate_signal(sig)
+                    if dec.action != "KEEP":
+                        if only_approved:
+                            continue
+                        sig = Signal(**{**sig.__dict__, "approved": False, "rejection_reason": dec.reason})
+                filtered.append(sig)
+            out = filtered
         return out

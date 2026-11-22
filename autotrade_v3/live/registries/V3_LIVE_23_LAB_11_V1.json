@@ -2,25 +2,33 @@
   "live_combo_count": 23,
   "live_exit_policy": "FIXED_TP_SL",
   "no_trailing": true,
-  "registry_version": "V3_LIVE_23_LAB_10_V1",
+  "registry_version": "V3_LIVE_23_LAB_11_V1",
   "parent_source": {
-    "strategy": "V3_LAB_10",
-    "version": "10.0.0",
+    "strategy": "V3_LAB_11_PRUNE23",
+    "version": "11.0.0",
     "lab_branch": "v3_lab",
-    "lab_commit": "e6422fd",
-    "supersedes": "V3_LIVE_23_LAB_8_V1 (V3_LAB_8@8.0.0)",
-    "signal_changes_vs_lab8": "ETH-USDT/C3 B2_NOT_OVEREXTENDED_4H (ema_trend_4h_dir<=3.0) from V3_LAB_9; ETH-USDT/C13 B1_VOL_REGIME (atr_ratio_50<=1.50) from V3_LAB_10; TP/SL/layer2/timeframe of the 23 keys unchanged",
-    "previous_lab8_parent_source": {
-      "strategy": "V3_LAB_8",
-      "version": "8.0.0",
+    "lab_commit": "166aafd",
+    "supersedes": "V3_LIVE_23_LAB_10_V1 (V3_LAB_10@10.0.0, lab commit e6422fd)",
+    "signal_changes_vs_lab10": "BTC-USDT/C4 B1_VOL_CONFIRM (vol_ratio_20>=2.20), BTC-USDT/C7 B1_NO_CHASE_1H (ema_trend_1h_dir<=0.75) from f8b390f; BTC-USDT/C1 H2_ATR_1.00 (atr_ratio_50>=1.00, both sides) from cbe991c. Combo set and TP/SL unchanged.",
+    "previous_parent_source": {
+      "strategy": "V3_LAB_10",
+      "version": "10.0.0",
       "lab_branch": "v3_lab",
-      "lab_commit": "b7fec33396bdbb623288086876f32caa5f8f55a0",
-      "lab_prs": [
-        150,
-        151
-      ],
-      "supersedes": "V3_LIVE_23_LAB_5_V1 (V3_LAB_5@5.0.0, lab merge 0312d5b, PR #147)",
-      "signal_changes_vs_lab5": "ETH-USDT/C6 (R2_V4_COMBINED), ETH-USDT/C7 (R2_V2_ASYM), ETH-USDT/C12 (V3_ATR065_NO_EXT24H): lab 6/7/8 filters on top of lab 5 signals"
+      "lab_commit": "e6422fd",
+      "supersedes": "V3_LIVE_23_LAB_8_V1 (V3_LAB_8@8.0.0)",
+      "signal_changes_vs_lab8": "ETH-USDT/C3 B2_NOT_OVEREXTENDED_4H (ema_trend_4h_dir<=3.0) from V3_LAB_9; ETH-USDT/C13 B1_VOL_REGIME (atr_ratio_50<=1.50) from V3_LAB_10; TP/SL/layer2/timeframe of the 23 keys unchanged",
+      "previous_lab8_parent_source": {
+        "strategy": "V3_LAB_8",
+        "version": "8.0.0",
+        "lab_branch": "v3_lab",
+        "lab_commit": "b7fec33396bdbb623288086876f32caa5f8f55a0",
+        "lab_prs": [
+          150,
+          151
+        ],
+        "supersedes": "V3_LIVE_23_LAB_5_V1 (V3_LAB_5@5.0.0, lab merge 0312d5b, PR #147)",
+        "signal_changes_vs_lab5": "ETH-USDT/C6 (R2_V4_COMBINED), ETH-USDT/C7 (R2_V2_ASYM), ETH-USDT/C12 (V3_ATR065_NO_EXT24H): lab 6/7/8 filters on top of lab 5 signals"
+      }
     }
   },
   "excluded_combos": [
