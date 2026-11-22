@@ -37,6 +37,96 @@ DRIFT_CAUSES: tuple[str, ...] = (
 )
 
 
+def get_live_23_combo_keys() -> set[str]:
+    """Return canonical '{symbol}/{combo_name}' keys of the 23 locked live V3_LAB_11_PRUNE23 combos."""
+    from autotrade_v3.reconcile_v3.era_engines import get_23_finalized_combos_info
+
+    info = get_23_finalized_combos_info()
+    return {f"{c['symbol']}/{c['combo_name']}" for c in info.get("combos", [])}
+
+
+def strategy_family_of(run_id: str) -> str:
+    """Strip cost profile suffix from run_id to group IDEAL/BASE/STRESS together."""
+    for suffix in ("_IDEAL", "_BASE", "_STRESS"):
+        if run_id.endswith(suffix):
+            return run_id[: -len(suffix)]
+    return run_id
+
+
+def cost_profile_desc_vi(profile: str) -> str:
+    """Return explicit Vietnamese cost assumptions for IDEAL, BASE, or STRESS."""
+    key_map = {
+        "IDEAL": "ninlab_cost_ideal_desc",
+        "BASE": "ninlab_cost_base_desc",
+        "STRESS": "ninlab_cost_stress_desc",
+    }
+    key = key_map.get(profile.upper())
+    return all_signals.vi(key) if key else profile
+
+
+def select_run_for_family_and_profile(
+    runs: list[all_signals.RunReport],
+    family: str,
+    profile: str,
+) -> all_signals.RunReport | None:
+    """Select the RunReport matching (strategy_family, cost_profile)."""
+    prof_u = profile.upper()
+    for r in runs:
+        if strategy_family_of(r.run_id) == family and r.cost_profile.upper() == prof_u:
+            return r
+    return None
+
+
+def split_live_and_non_live_combos(
+    combos: list[dict[str, Any]],
+    live_keys: set[str],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Partition combos into (in_live_registry, outside_live_registry)."""
+    live_list: list[dict[str, Any]] = []
+    non_live_list: list[dict[str, Any]] = []
+    for c in combos:
+        ck = str(c.get("combo_key", ""))
+        if ck in live_keys:
+            live_list.append(c)
+        else:
+            non_live_list.append(c)
+    return live_list, non_live_list
+
+
+def verify_one_page_totals(
+    selected: all_signals.RunReport,
+    payload: dict[str, Any],
+    tol: float = 0.02,
+) -> tuple[bool, str]:
+    """Fail-closed check: run_id matches selected and top-strip Net == sum(combos) == report total."""
+    rep_run_id = str(payload.get("run_info", {}).get("run_id") or "")
+    if rep_run_id != selected.run_id:
+        return False, f"RUN_ID_MISMATCH: selected={selected.run_id} != report={rep_run_id}"
+
+    kpi = payload.get("kpi", {})
+    acc = kpi.get("account", {})
+    res = kpi.get("mt5_results", {})
+    init_cap = float((acc.get("initial_capital") or {}).get("value") or 0.0)
+    final_eq = float((acc.get("final_equity_mtm") or {}).get("value") or init_cap)
+    net_3y = final_eq - init_cap
+    tot_net_raw = (res.get("total_net_profit") or {}).get("value")
+    if not isinstance(tot_net_raw, (int, float)):
+        return False, "TOTAL_MISMATCH: missing total_net_profit"
+    tot_net = float(tot_net_raw)
+
+    combos = payload.get("breakdowns", {}).get("combos") or []
+    sum_vwap = sum(float((c.get("portfolio_net_pnl") or {}).get("value") or 0.0) for c in combos)
+    sum_own = sum(float((c.get("own_entry_pnl") or {}).get("value") or 0.0) for c in combos)
+
+    if abs(net_3y - tot_net) > tol:
+        return False, f"TOTAL_MISMATCH: strip_net={net_3y:.4f} != report_total={tot_net:.4f}"
+    if abs(sum_vwap - tot_net) > tol:
+        return False, f"TOTAL_MISMATCH: sum_combo_vwap={sum_vwap:.4f} != report_total={tot_net:.4f}"
+    if abs(sum_own - tot_net) > tol:
+        return False, f"TOTAL_MISMATCH: sum_combo_own={sum_own:.4f} != report_total={tot_net:.4f}"
+    return True, ""
+
+
 def compute_breakeven_bps(cost_rows: list[dict[str, Any]]) -> float | None:
     """Linearly interpolate break-even slippage bps where net_pnl crosses zero."""
     pts: list[tuple[float, float]] = []
@@ -307,7 +397,13 @@ def _live_status_badge(live_n: int, threshold: int, has_reconcile: bool, drifted
     return all_signals.vi("ninlab_status_synced"), "nl-good"
 
 
-def _build_main_equity_chart(payload: dict[str, Any], rec: dict[str, Any]) -> go.Figure:
+def _build_main_equity_chart(
+    payload: dict[str, Any],
+    rec: dict[str, Any],
+    *,
+    run_label: str = "",
+    cost_profile: str = "BASE",
+) -> go.Figure:
     eq = payload.get("series", {}).get("equity_mtm") or []
     tw = payload.get("run_info", {}).get("time_window_utc", {})
     start_s = pd.to_datetime(tw.get("start", "2023-11-01"), utc=True)
@@ -321,7 +417,7 @@ def _build_main_equity_chart(payload: dict[str, Any], rec: dict[str, Any]) -> go
                 x=x_dates,
                 y=eq,
                 mode="lines",
-                name=all_signals.vi("ninlab_trace_backtest"),
+                name=f"Backtest {cost_profile} (3 năm)",
                 line=dict(color="#35d9ff", width=2.4),
                 hovertemplate="%{x|%Y-%m-%d}<br>Vốn: $%{y:,.2f}<extra></extra>",
             )
@@ -360,7 +456,8 @@ def _build_main_equity_chart(payload: dict[str, Any], rec: dict[str, Any]) -> go
             line_width=0,
         )
 
-    fig.update_layout(title=all_signals.vi("ninlab_chart_main_title"))
+    title = f"Đường vốn 3 năm ({run_label}) & Đối soát Live" if run_label else all_signals.vi("ninlab_chart_main_title")
+    fig.update_layout(title=title)
     return style_plotly(fig, height=400)
 
 
@@ -435,7 +532,13 @@ def _build_drift_bar_chart(drift_causes: dict[str, float]) -> go.Figure:
     return style_plotly(fig, height=250)
 
 
-def _render_drawer(combo_row: dict[str, Any], rec: dict[str, Any]) -> None:
+def _render_drawer(
+    combo_row: dict[str, Any],
+    rec: dict[str, Any],
+    *,
+    cost_profile: str = "BASE",
+    run_id: str = "",
+) -> None:
     ck = str(combo_row.get("combo_key", ""))
     live_info = (rec.get("combo_live") or {}).get(ck)
     own_pnl = float((combo_row.get("own_entry_pnl") or {}).get("value") or 0.0)
@@ -453,7 +556,7 @@ def _render_drawer(combo_row: dict[str, Any], rec: dict[str, Any]) -> None:
         ("PnL entry riêng", f"${live_info['pnl']:,.2f}" if live_info else "—", f"${own_pnl:,.2f}", "—", "EXACT" if live_info else "UNRESOLVED"),
         ("PnL danh mục (VWAP)", "—", f"${vwap_pnl:,.2f}", "—", "RECONCILED"),
         ("Phí giao dịch", f"${live_info['fees']:,.2f}" if live_info else "—", f"${fees:,.2f}", "—", "EXACT" if live_info else "UNRESOLVED"),
-        ("Trượt giá thực", "—", "Theo BASE", "—", "ESTIMATED"),
+        ("Trượt giá thực", "—", f"Theo {cost_profile}", "—", "ESTIMATED"),
         ("Funding thực", "—", "Trong mô phỏng", "—", "ESTIMATED"),
         ("Trạng thái đối soát", all_signals.vi("ninlab_status_no_reconcile") if not live_info else live_info["status"], "Sẵn sàng", "—", "EXACT" if live_info else "UNRESOLVED"),
     ]
@@ -467,9 +570,10 @@ def _render_drawer(combo_row: dict[str, Any], rec: dict[str, Any]) -> None:
             f"<td style='text-align:right'>{html.escape(df_s)}</td>"
             f"<td><span class='nl-badge nl-b-off'>{html.escape(ev)}</span></td></tr>"
         )
+    run_badge = f" · <span>{html.escape(run_id)}</span>" if run_id else ""
     st.markdown(
         f'<div class="nl-drawer" data-testid="ninlab-drawer">'
-        f'<div style="font-weight:700;margin-bottom:8px;color:#f8fafc">{html.escape(all_signals.vi("ninlab_drawer_title"))} · <code>{html.escape(ck)}</code></div>'
+        f'<div style="font-weight:700;margin-bottom:8px;color:#f8fafc">{html.escape(all_signals.vi("ninlab_drawer_title"))} · <code>{html.escape(ck)}</code>{run_badge}</div>'
         f'<div class="nl-table-wrap"><table class="nl-table"><thead><tr>'
         f"<th>{html.escape(all_signals.vi('ninlab_drawer_item'))}</th>"
         f"<th>{html.escape(all_signals.vi('ninlab_drawer_live'))}</th>"
@@ -483,48 +587,114 @@ def _render_drawer(combo_row: dict[str, Any], rec: dict[str, Any]) -> None:
     )
 
 
+def _render_combo_table_html(
+    rows: list[dict[str, Any]],
+    sparks: dict[str, list[float]],
+    rec: dict[str, Any],
+    max_abs_pnl: float,
+    *,
+    test_id: str,
+) -> None:
+    """Render combo summary table HTML safely from verified payload rows."""
+    rows_html = ""
+    for c in rows:
+        ck = str(c.get("combo_key", ""))
+        pnl = float((c.get("portfolio_net_pnl") or {}).get("value") or 0.0)
+        w_pct = min(100.0, abs(pnl) / max_abs_pnl * 100.0)
+        bar_cls = "nl-bar-pos" if pnl >= 0 else "nl-bar-neg"
+        pnl_cls = "nl-good" if pnl >= 0 else "nl-bad"
+        pnl_txt = f"{'+' if pnl >= 0 else '-'}${abs(pnl):,.2f}"
+        sp_svg = _svg_sparkline(sparks.get(ck, []))
+        live_info = (rec.get("combo_live") or {}).get(ck)
+        live_cnt = str(live_info["trades"]) if live_info else "0"
+        st_lbl = all_signals.vi("ninlab_status_low_trades") if not live_info else live_info["status"]
+        b_cls = (
+            "nl-b-wait"
+            if st_lbl == all_signals.vi("ninlab_status_low_trades")
+            else ("nl-b-sync" if st_lbl == all_signals.vi("ninlab_status_synced") else "nl-b-drift")
+        )
+        drift_s = f"{live_info['drift_pct']:+.1f}%" if live_info else "—"
+        rows_html += (
+            f"<tr>"
+            f"<td><strong>{html.escape(ck)}</strong></td>"
+            f"<td><div style='display:flex;align-items:center;gap:8px'>"
+            f"<div class='nl-bar-bg'><div class='{bar_cls}' style='width:{w_pct:.1f}%'></div></div>"
+            f"<span class='{pnl_cls}' style='min-width:64px;text-align:right;font-size:.78rem'>{html.escape(pnl_txt)}</span>"
+            f"</div></td>"
+            f"<td>{sp_svg}</td>"
+            f"<td style='text-align:right'>{html.escape(live_cnt)}</td>"
+            f"<td><span class='nl-badge {b_cls}'>{html.escape(st_lbl)}</span></td>"
+            f"<td style='text-align:right'>{html.escape(drift_s)}</td>"
+            f"</tr>"
+        )
+    st.markdown(
+        f'<div class="nl-table-wrap" data-testid="{html.escape(test_id)}"><table class="nl-table"><thead><tr>'
+        f"<th>{html.escape(all_signals.vi('ninlab_col_combo'))}</th>"
+        f"<th>{html.escape(all_signals.vi('ninlab_col_bar'))}</th>"
+        f"<th>{html.escape(all_signals.vi('ninlab_col_spark'))}</th>"
+        f"<th style='text-align:right'>{html.escape(all_signals.vi('ninlab_col_live_n'))}</th>"
+        f"<th>{html.escape(all_signals.vi('ninlab_col_status'))}</th>"
+        f"<th style='text-align:right'>{html.escape(all_signals.vi('ninlab_col_drift'))}</th>"
+        f"</tr></thead><tbody>{rows_html}</tbody></table></div>",
+        unsafe_allow_html=True,
+    )
+
+
 def render_one_page_terminal() -> None:
     """Render the single-page NinLab Terminal Lab Dashboard."""
     inject_research_theme()
     _render_css()
 
     runs = all_signals.list_all_signals_runs()
-    base_runs = [r for r in runs if r.cost_profile == "BASE"]
-    if not base_runs:
-        base_runs = runs
-
-    if not base_runs:
+    if not runs:
         st.error(all_signals.vi("no_runs"))
         return
 
-    # Header + Run selector + Link to full MT5 report
-    h_col1, h_col2, h_col3 = st.columns([3.2, 1.5, 1.3])
+    families: list[str] = []
+    for r in runs:
+        fam = strategy_family_of(r.run_id)
+        if fam not in families:
+            families.append(fam)
+    default_fam = (
+        "V3_LAB_11_PRUNE23"
+        if "V3_LAB_11_PRUNE23" in families
+        else ("ALL_SIGNALS" if "ALL_SIGNALS" in families else families[0])
+    )
+
+    # Header + Strategy family + IDEAL/BASE/STRESS toggle + Link to full detail report
+    h_col1, h_col2, h_col3, h_col4 = st.columns([2.5, 1.3, 1.4, 1.2])
     with h_col1:
-        st.markdown(f'<div class="v3-brand">AUTOTRADE V3 · NINLAB TERMINAL</div>', unsafe_allow_html=True)
+        st.markdown('<div class="v3-brand">AUTOTRADE V3 · NINLAB TERMINAL</div>', unsafe_allow_html=True)
         st.subheader(all_signals.vi("ninlab_title"))
     with h_col2:
-        run_ids = [r.run_id for r in base_runs]
-        if "V3_LAB_11_PRUNE23_BASE" in run_ids:
-            default_idx = run_ids.index("V3_LAB_11_PRUNE23_BASE")
-        elif "ALL_SIGNALS_BASE" in run_ids:
-            default_idx = run_ids.index("ALL_SIGNALS_BASE")
-        else:
-            default_idx = 0
-        sel_run_id = st.selectbox(
+        sel_family = st.selectbox(
             all_signals.vi("ninlab_kpi_run_view"),
-            run_ids,
-            index=default_idx,
+            families,
+            index=families.index(default_fam),
             label_visibility="collapsed",
         )
     with h_col3:
+        sel_profile = st.radio(
+            all_signals.vi("ninlab_cost_profile_label"),
+            ["IDEAL", "BASE", "STRESS"],
+            index=1,
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+    with h_col4:
         if st.button(all_signals.vi("ninlab_btn_full_report"), use_container_width=True):
-            st.session_state["v3_16_selected_run"] = sel_run_id
+            target = select_run_for_family_and_profile(runs, sel_family, sel_profile)
+            if target is not None:
+                st.session_state["v3_16_selected_run"] = target.run_id
             st.switch_page("pages/p10_mt5_report.py")
 
-    selected = next(r for r in base_runs if r.run_id == sel_run_id)
+    selected = select_run_for_family_and_profile(runs, sel_family, sel_profile)
+    if selected is None:
+        st.warning(f"{all_signals.vi('profile_unavailable')} ({sel_family}_{sel_profile})")
+        return
     st.session_state["v3_16_selected_run"] = selected.run_id
 
-    # Mandatory fail-closed verification on open
+    # Mandatory fail-closed verification on open (ledger hash + total reconciliation)
     verification = all_signals.verify_open_report(selected)
     payload = all_signals.load_report_json(selected) if verification.passed else None
     if not verification.passed or payload is None:
@@ -532,10 +702,18 @@ def render_one_page_terminal() -> None:
         st.error(f"{all_signals.vi('verify_fail')}: {verification.detail}")
         return
 
+    totals_ok, totals_err = verify_one_page_totals(selected, payload)
+    if not totals_ok:
+        err_key = "ninlab_run_id_mismatch" if totals_err.startswith("RUN_ID_MISMATCH") else "ninlab_total_verify_fail"
+        st.error(f"{all_signals.vi(err_key)} ({totals_err})")
+        return
+
     freshness = load_freshness_info()
     rec = load_reconcile_17a()
     if rec.get("verify_failed"):
         st.error(f"LỖI XÁC MINH ĐỐI SOÁT 17a (ẩn số liệu 17a): {'; '.join(rec.get('verify_errors') or [])}")
+
+    cost_desc = cost_profile_desc_vi(selected.cost_profile)
 
     # Extract top-level metrics
     acc = payload.get("kpi", {}).get("account", {})
@@ -553,7 +731,9 @@ def render_one_page_terminal() -> None:
     live_n = int(rec.get("live_trades_count") or 0)
     thresh = int(rec.get("threshold") or LIVE_SAMPLE_THRESHOLD)
     rec_failed = bool(rec.get("verify_failed"))
-    live_lbl, live_cls = _live_status_badge(live_n, thresh, bool(rec.get("available")), bool(rec.get("drifted", False)), verify_failed=rec_failed)
+    live_lbl, live_cls = _live_status_badge(
+        live_n, thresh, bool(rec.get("available")), bool(rec.get("drifted", False)), verify_failed=rec_failed
+    )
     proj_sig_n = int(rec.get("projected_lab_signals_since_compare_from") or 0)
     live_sub_txt = (
         "Ẩn số do lỗi xác minh"
@@ -567,13 +747,13 @@ def render_one_page_terminal() -> None:
         f'<div class="nl-grid" data-testid="ninlab-top-strip">'
         f'<div class="nl-tile"><div class="nl-tile-lbl">{html.escape(all_signals.vi("ninlab_kpi_net_3y"))}</div>'
         f'<div class="nl-tile-val {"nl-good" if net_3y>=0 else "nl-bad"}">{"+" if net_3y>=0 else "-"}${abs(net_3y):,.2f}</div>'
-        f'<div class="nl-tile-sub">ROI {roi_3y:+.1f}% · {html.escape(selected.run_id)}</div></div>'
+        f'<div class="nl-tile-sub">ROI {roi_3y:+.1f}% · {html.escape(selected.run_id)} · {html.escape(cost_desc)}</div></div>'
         f'<div class="nl-tile"><div class="nl-tile-lbl">{html.escape(all_signals.vi("ninlab_kpi_dd_m2m"))}</div>'
         f'<div class="nl-tile-val nl-warn">${m2m_dd_usd:,.2f}</div>'
-        f'<div class="nl-tile-sub">{m2m_dd_pct:.2f}% vốn đỉnh</div></div>'
+        f'<div class="nl-tile-sub">{m2m_dd_pct:.2f}% vốn đỉnh · {html.escape(selected.run_id)}</div></div>'
         f'<div class="nl-tile"><div class="nl-tile-lbl">{html.escape(all_signals.vi("ninlab_kpi_breakeven"))}</div>'
         f'<div class="nl-tile-val nl-cyan">{html.escape(be_txt)}</div>'
-        f'<div class="nl-tile-sub">mỗi chiều (BASE = 2,0 bps)</div></div>'
+        f'<div class="nl-tile-sub">mỗi chiều ({html.escape(cost_desc)})</div></div>'
         f'<div class="nl-tile"><div class="nl-tile-lbl">{html.escape(all_signals.vi("ninlab_kpi_live_vs_lab"))}</div>'
         f'<div class="nl-tile-val {live_cls}" style="font-size:1.02rem">{html.escape(live_lbl)}</div>'
         f'<div class="nl-tile-sub">{html.escape(live_sub_txt)}</div></div>'
@@ -589,48 +769,81 @@ def render_one_page_terminal() -> None:
 
     with st.expander(all_signals.vi("ninlab_freshness_detail"), expanded=False):
         src_rows = [
-            {"Nguồn": k, "Trạng thái": v.get("status"), "Bản ghi": v.get("total_records"), "SHA-256": (v.get("parquet_files") or [{}])[0].get("sha256", "")[:16]}
+            {
+                "Nguồn": k,
+                "Trạng thái": v.get("status"),
+                "Bản ghi": v.get("total_records"),
+                "SHA-256": (v.get("parquet_files") or [{}])[0].get("sha256", "")[:16],
+            }
             for k, v in (freshness.get("sources") or {}).items()
         ]
         if src_rows:
             st.dataframe(pd.DataFrame(src_rows), use_container_width=True, hide_index=True)
 
     # 2. Main Equity Chart (half screen)
-    st.plotly_chart(_build_main_equity_chart(payload, rec), use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(
+        _build_main_equity_chart(
+            payload,
+            rec,
+            run_label=f"{selected.run_id} · {cost_desc}",
+            cost_profile=selected.cost_profile,
+        ),
+        use_container_width=True,
+        config={"displayModeBar": False},
+    )
 
-    # 3. NinLab Combo Table + Optional Right Detail Drawer
+    # 3. NinLab Combo Table (scoped to live 23 combos) + Optional Right Detail Drawer
     combos_raw = payload.get("breakdowns", {}).get("combos", [])
+    live_keys = get_live_23_combo_keys()
+    live_combos, non_live_combos = split_live_and_non_live_combos(combos_raw, live_keys)
     sparks = load_combo_sparklines(str(selected.run_dir))
 
-    st.markdown(f"**{all_signals.vi('ninlab_table_title')}**")
+    st.markdown(f"**{all_signals.vi('ninlab_table_title')} · {len(live_combos)} mã · `{selected.run_id}` ({cost_desc})**")
     f1, f2, f3, f4 = st.columns([1.2, 1.2, 1.3, 1.6])
     with f1:
-        pair_f = st.selectbox(all_signals.vi("ninlab_filter_pair"), [all_signals.vi("ninlab_filter_all"), "BTC-USDT", "ETH-USDT"])
+        pair_f = st.selectbox(
+            all_signals.vi("ninlab_filter_pair"), [all_signals.vi("ninlab_filter_all"), "BTC-USDT", "ETH-USDT"]
+        )
     with f2:
         status_f = st.selectbox(
             all_signals.vi("ninlab_filter_status"),
-            [all_signals.vi("ninlab_filter_all"), all_signals.vi("ninlab_status_low_trades"), all_signals.vi("ninlab_status_synced"), all_signals.vi("ninlab_status_drift")],
+            [
+                all_signals.vi("ninlab_filter_all"),
+                all_signals.vi("ninlab_status_low_trades"),
+                all_signals.vi("ninlab_status_synced"),
+                all_signals.vi("ninlab_status_drift"),
+            ],
         )
     with f3:
         sort_f = st.selectbox(
             all_signals.vi("ninlab_sort_label"),
-            [all_signals.vi("ninlab_sort_pnl_desc"), all_signals.vi("ninlab_sort_pnl_asc"), all_signals.vi("ninlab_sort_name")],
+            [
+                all_signals.vi("ninlab_sort_pnl_desc"),
+                all_signals.vi("ninlab_sort_pnl_asc"),
+                all_signals.vi("ninlab_sort_name"),
+            ],
         )
     with f4:
-        combo_keys_all = [str(c.get("combo_key", "")) for c in combos_raw]
-        if "ninlab_drawer_sel" not in st.session_state or st.session_state["ninlab_drawer_sel"] not in (["—"] + combo_keys_all):
+        combo_keys_live = [str(c.get("combo_key", "")) for c in live_combos]
+        if "ninlab_drawer_sel" not in st.session_state or st.session_state["ninlab_drawer_sel"] not in (
+            ["—"] + combo_keys_live
+        ):
             st.session_state["ninlab_drawer_sel"] = "—"
-        drawer_sel = st.selectbox(all_signals.vi("ninlab_drawer_select"), ["—"] + combo_keys_all, key="ninlab_drawer_sel")
+        drawer_sel = st.selectbox(all_signals.vi("ninlab_drawer_select"), ["—"] + combo_keys_live, key="ninlab_drawer_sel")
 
-    # Filter & Sort combos
+    # Filter & Sort live combos
     filtered: list[dict[str, Any]] = []
-    for c in combos_raw:
+    for c in live_combos:
         sym = str(c.get("symbol", ""))
         ck = str(c.get("combo_key", ""))
         if pair_f != all_signals.vi("ninlab_filter_all") and sym != pair_f:
             continue
         live_info = (rec.get("combo_live") or {}).get(ck)
-        st_lbl = all_signals.vi("ninlab_status_low_trades") if not live_info else live_info.get("status", all_signals.vi("ninlab_status_low_trades"))
+        st_lbl = (
+            all_signals.vi("ninlab_status_low_trades")
+            if not live_info
+            else live_info.get("status", all_signals.vi("ninlab_status_low_trades"))
+        )
         if status_f != all_signals.vi("ninlab_filter_all") and st_lbl != status_f:
             continue
         filtered.append(c)
@@ -644,54 +857,23 @@ def render_one_page_terminal() -> None:
 
     max_abs_pnl = max([abs(float((c.get("portfolio_net_pnl") or {}).get("value") or 0.0)) for c in combos_raw] or [1.0])
 
-    def _render_combo_table() -> None:
-        rows_html = ""
-        for c in filtered:
-            ck = str(c.get("combo_key", ""))
-            pnl = float((c.get("portfolio_net_pnl") or {}).get("value") or 0.0)
-            w_pct = min(100.0, abs(pnl) / max_abs_pnl * 100.0)
-            bar_cls = "nl-bar-pos" if pnl >= 0 else "nl-bar-neg"
-            sp_svg = _svg_sparkline(sparks.get(ck, []))
-            live_info = (rec.get("combo_live") or {}).get(ck)
-            live_cnt = str(live_info["trades"]) if live_info else "0"
-            st_lbl = all_signals.vi("ninlab_status_low_trades") if not live_info else live_info["status"]
-            b_cls = "nl-b-wait" if st_lbl == all_signals.vi("ninlab_status_low_trades") else ("nl-b-sync" if st_lbl == all_signals.vi("ninlab_status_synced") else "nl-b-drift")
-            drift_s = f"{live_info['drift_pct']:+.1f}%" if live_info else "—"
-            rows_html += (
-                f"<tr>"
-                f"<td><strong>{html.escape(ck)}</strong></td>"
-                f"<td><div class='nl-bar-bg'><div class='{bar_cls}' style='width:{w_pct:.1f}%'></div></div></td>"
-                f"<td>{sp_svg}</td>"
-                f"<td style='text-align:right'>{html.escape(live_cnt)}</td>"
-                f"<td><span class='nl-badge {b_cls}'>{html.escape(st_lbl)}</span></td>"
-                f"<td style='text-align:right'>{html.escape(drift_s)}</td>"
-                f"</tr>"
-            )
-        st.markdown(
-            f'<div class="nl-table-wrap" data-testid="ninlab-combo-table"><table class="nl-table"><thead><tr>'
-            f"<th>{html.escape(all_signals.vi('ninlab_col_combo'))}</th>"
-            f"<th>{html.escape(all_signals.vi('ninlab_col_bar'))}</th>"
-            f"<th>{html.escape(all_signals.vi('ninlab_col_spark'))}</th>"
-            f"<th style='text-align:right'>{html.escape(all_signals.vi('ninlab_col_live_n'))}</th>"
-            f"<th>{html.escape(all_signals.vi('ninlab_col_status'))}</th>"
-            f"<th style='text-align:right'>{html.escape(all_signals.vi('ninlab_col_drift'))}</th>"
-            f"</tr></thead><tbody>{rows_html}</tbody></table></div>",
-            unsafe_allow_html=True,
-        )
-
     if drawer_sel != "—":
         t_col, d_col = st.columns([1.65, 1.15])
         with t_col:
-            _render_combo_table()
+            _render_combo_table_html(filtered, sparks, rec, max_abs_pnl, test_id="ninlab-combo-table")
         with d_col:
-            sel_row = next((c for c in combos_raw if str(c.get("combo_key")) == drawer_sel), None)
+            sel_row = next((c for c in live_combos if str(c.get("combo_key")) == drawer_sel), None)
             if sel_row is not None:
-                _render_drawer(sel_row, rec)
+                _render_drawer(sel_row, rec, cost_profile=selected.cost_profile, run_id=selected.run_id)
                 if st.button(all_signals.vi("ninlab_drawer_close"), use_container_width=True):
                     st.session_state["ninlab_drawer_sel"] = "—"
                     st.rerun()
     else:
-        _render_combo_table()
+        _render_combo_table_html(filtered, sparks, rec, max_abs_pnl, test_id="ninlab-combo-table")
+
+    if non_live_combos:
+        with st.expander(f"{all_signals.vi('ninlab_non_live_title')} ({len(non_live_combos)} mã)", expanded=False):
+            _render_combo_table_html(non_live_combos, sparks, rec, max_abs_pnl, test_id="ninlab-non-live-table")
 
     # 4. Two compact side-by-side panels below the table
     c_left, c_right = st.columns(2)

@@ -235,6 +235,13 @@ LABELS_VI: dict[str, str] = {
     "ninlab_freshness_detail": "Chi tiết độ tươi kho dữ liệu BingX",
     "ninlab_hash_fail_banner": "FAIL — Xác minh hash/số liệu không đạt; toàn bộ số liệu đã bị ẩn.",
     "ninlab_no_live_yet": "Chưa có dữ liệu đối soát 17a — ô Live hiển thị trạng thái chờ.",
+    "ninlab_cost_profile_label": "Chế độ chi phí",
+    "ninlab_cost_ideal_desc": "IDEAL: phí 0,05% + trượt 0 bps/bên",
+    "ninlab_cost_base_desc": "BASE: phí 0,05% + trượt 2 bps/bên",
+    "ninlab_cost_stress_desc": "STRESS: phí 0,05% + trượt 5 bps/bên",
+    "ninlab_non_live_title": "Ngoài live (không thuộc 23 mã đang chạy)",
+    "ninlab_total_verify_fail": "LỖI ĐỐI KHỚP TỔNG PNL — Tổng dải trạng thái, bảng combo và báo cáo chi tiết không khớp; toàn bộ số liệu đã bị ẩn.",
+    "ninlab_run_id_mismatch": "LỖI ĐỐI KHỚP RUN_ID — run_id trong báo cáo không khớp run đang chọn; toàn bộ số liệu đã bị ẩn.",
 }
 
 # English metric/UI labels that must NOT leak into rendered Vietnamese HTML.
