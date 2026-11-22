@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.1.0",
+  "compare_from": "2026-11-22T04:00:00Z",
+  "deploy_23_finalized_utc": "2026-11-22T04:00:00Z",
+  "entry_slippage_bps_warn": "10.0",
+  "entry_slippage_bps_system": "25.0",
+  "tp_sl_price_diff_pct_tol": "0.05",
+  "fee_diff_usd_tol": "0.02",
+  "fee_diff_pct_tol": "15.0",
+  "pnl_diff_usd_tol": "0.25",
+  "pnl_diff_pct_tol": "20.0",
+  "signal_time_diff_ms_tol": 0,
+  "vps_off_min_gap_seconds": 7200,
+  "min_closed_orders_conclusive": 60
+}
