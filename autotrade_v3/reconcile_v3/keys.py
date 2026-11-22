@@ -83,11 +83,18 @@ def signal_id_to_event_id(signal_id: str) -> str:
 
 
 def build_combo_table() -> dict[tuple[str, str], ComboSpec]:
-    """Xây dựng bảng tra cứu (symbol, combo_name) -> ComboSpec từ 20FINAL@1."""
-    strat = StrategyCoreRegistry.get("20FINAL", "1")
+    """Xây dựng bảng tra cứu (symbol, combo_name) -> ComboSpec từ 20FINAL@1 và V3_LAB_11_PRUNE23."""
+    from autotrade_v3.reconcile_v3.era_engines import ensure_fixed_v1_registered
+    from autotrade_v3.strategy.v3_lab_11_prune23 import V3Lab11Prune23Strategy
+
     table: dict[tuple[str, str], ComboSpec] = {}
-    for c in strat.spec().combos:
+    strat_20 = StrategyCoreRegistry.get("20FINAL", "1")
+    for c in strat_20.spec().combos:
         table[(c.symbol, c.combo_name)] = c
+    ensure_fixed_v1_registered()
+    strat_23 = V3Lab11Prune23Strategy()
+    for c in strat_23.spec().combos:
+        table.setdefault((c.symbol, c.combo_name), c)
     return table
 
 

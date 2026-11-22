@@ -174,8 +174,8 @@ def test_real_store_step2_classifications_and_compare_from(tmp_path: Path) -> No
     assert html1 == html2
     assert find_english_label_leaks(html1) == []
 
-    # compare_from = 2026-11-22T02:30:33Z -> chưa có lệnh sau mốc
-    assert p1["compare_from_utc"] == "2026-11-22T02:30:33Z"
+    # compare_from = 2026-11-22T04:00:00Z -> chưa có lệnh sau mốc
+    assert p1["compare_from_utc"] == "2026-11-22T04:00:00Z"
     assert p1["sample_governance"]["closed_orders"] == 0
     assert p1["sample_governance"]["has_orders_since_compare_from"] is False
     assert p1["sample_governance"]["empty_state_label_vi"] == "CHƯA CÓ LỆNH SAU MỐC SO SÁNH"
@@ -204,10 +204,69 @@ def test_real_store_step2_classifications_and_compare_from(tmp_path: Path) -> No
     assert tier["is_large_favorable_outlier"] is True
     assert tier["entry_latency_sec"] is not None
 
-    # Kiểm tra đối soát tín hiệu theo kỷ nguyên & NEW6_VIRTUAL_POSITION
+    # Kiểm tra đối soát tín hiệu theo kỷ nguyên (nay cả 6 kỷ nguyên đều AVAILABLE)
     eras = {eb["era_id"]: eb for eb in p1["signal_reconciliation"]["era_breakdown"]}
-    assert eras["SIGNAL_ERA_20FINAL"]["engine_status"] == "AVAILABLE"
+    for active_era in (
+        "SIGNAL_ERA_20FINAL",
+        "SIGNAL_ERA_V3_LIVE_20_POSITIVE_FIXED_V1",
+        "SIGNAL_ERA_V3_LIVE_23_LAB_5_V1",
+        "SIGNAL_ERA_V3_LIVE_23_LAB_8_V1",
+        "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "SIGNAL_ERA_23_FINALIZED_LAB11_PRUNE23",
+    ):
+        assert eras[active_era]["engine_status"] == "AVAILABLE"
     assert eras["SIGNAL_ERA_20FINAL"]["new6_virtual_position_count"] > 0
-    assert eras["SIGNAL_ERA_V3_LIVE_23_LAB_10_V1"]["engine_status"] == "KHÔNG_DỰNG_ĐƯỢC_ENGINE"
+    assert eras["SIGNAL_ERA_V3_LIVE_20_POSITIVE_FIXED_V1"]["matched_count"] == 1
+    assert eras["SIGNAL_ERA_V3_LIVE_23_LAB_5_V1"]["matched_count"] == 1
+    assert eras["SIGNAL_ERA_V3_LIVE_23_LAB_10_V1"]["matched_count"] == 2
+
+    # Kiểm tra thông tin 23 mã chốt khớp với V3_LIVE_23_LAB_11_V1 (78b4601)
+    info23 = p1["finalized_23_combos_info"]
+    assert info23["combo_count"] == 23
+    assert info23["matches_live_registry"] is True
+    assert info23["parameter_diffs_vs_live"] == []
 
     assert verify_report(p1, html1).passed is True
+
+
+def test_engine_candle_deletion_mutation_changes_signals() -> None:
+    if not (REAL_DATA_ROOT / "manifests" / "latest_manifest.json").is_file():
+        pytest.skip("Không có kho dữ liệu local D:/AutoTrade/data/bingx")
+
+    from autotrade_v3.reconcile_v3.era_engines import generate_signals_for_era
+    from autotrade_v3.reconcile_v3.signals_reconcile import _build_m15_df
+
+    store = load_local_store(REAL_DATA_ROOT)
+    bars = {sym: _build_m15_df(store.candles_15m, sym) for sym in ("BTC-USDT", "ETH-USDT")}
+    only_warmup = {"BTC-USDT": False, "ETH-USDT": True}
+
+    sigs_full = generate_signals_for_era(
+        era_id="SIGNAL_ERA_23_FINALIZED_LAB11_PRUNE23",
+        bars_by_sym=bars,
+        only_warmup_ready_by_sym=only_warmup,
+    )
+    # Mutation 1: xóa 1 nến ở giữa chuỗi ETH-USDT -> engine phải báo lỗi gapped (FAIL)
+    eth_df = bars["ETH-USDT"]
+    mid = len(eth_df) // 2
+    bars_gapped = {
+        "BTC-USDT": bars["BTC-USDT"],
+        "ETH-USDT": eth_df.drop(eth_df.index[mid]),
+    }
+    with pytest.raises(ValueError):
+        generate_signals_for_era(
+            era_id="SIGNAL_ERA_23_FINALIZED_LAB11_PRUNE23",
+            bars_by_sym=bars_gapped,
+            only_warmup_ready_by_sym=only_warmup,
+        )
+
+    # Mutation 2: cắt bớt 500 nến cuối của ETH-USDT (vẫn đủ warmup >= 3400) -> số tín hiệu đổi
+    bars_trimmed = {
+        "BTC-USDT": bars["BTC-USDT"],
+        "ETH-USDT": eth_df.iloc[:-500],
+    }
+    sigs_trimmed = generate_signals_for_era(
+        era_id="SIGNAL_ERA_23_FINALIZED_LAB11_PRUNE23",
+        bars_by_sym=bars_trimmed,
+        only_warmup_ready_by_sym=only_warmup,
+    )
+    assert len(sigs_trimmed) != len(sigs_full)

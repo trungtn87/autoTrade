@@ -10,6 +10,7 @@ import math
 from typing import Any
 
 from autotrade_v3.collector_v3.models import to_decimal_str
+from autotrade_v3.reconcile_v3.era_engines import get_23_finalized_combos_info
 from autotrade_v3.reconcile_v3.eras import ERA_1_50TP_50TRAIL, ERA_2_FIXED_TP_SL, LiveCommitInfo, VpsOffWindow
 from autotrade_v3.reconcile_v3.labels_vi import RECONCILE_LABELS_VI as L
 from autotrade_v3.reconcile_v3.loader import LocalStoreData
@@ -192,6 +193,7 @@ def build_report_payload(
         "tolerances": tolerances,
         "signal_reconciliation": {
             "since_compare_from": signal_summary.since_compare_from,
+            "projected_23_finalized_since_compare_from": signal_summary.projected_23_finalized_since_compare_from,
             "era_breakdown": [asdict(eb) for eb in signal_summary.era_breakdown],
             "lab_total_in_window": signal_summary.lab_total_in_window,
             "live_total": signal_summary.live_total,
@@ -205,6 +207,7 @@ def build_report_payload(
             "notes": signal_summary.notes,
             "items": [asdict(it) for it in signal_summary.items],
         },
+        "finalized_23_combos_info": get_23_finalized_combos_info(),
         "orders": [r.to_dict() for r in order_rows],
     }
     payload["report_sha256"] = compute_canonical_hash(payload)
@@ -427,7 +430,9 @@ def render_html_report(payload: dict[str, Any]) -> str:
 
   <h2>{_esc(L['sec_signal_reconcile'])} theo đúng engine từng kỷ nguyên</h2>
   <div class="info-box">
-    Từ <code>{_esc(compare_from_utc)}</code>: Live={sig_rec['since_compare_from']['live_total']} | Khớp={sig_rec['since_compare_from']['matched_count']} | Engine={_esc(sig_rec['since_compare_from']['engine_status_at_compare_from'])}
+    Từ <code>{_esc(compare_from_utc)}</code>: Live={sig_rec['since_compare_from']['live_total']} | Khớp={sig_rec['since_compare_from']['matched_count']} | Engine={_esc(sig_rec['since_compare_from']['engine_status_at_compare_from'])} |
+    <strong>Dự kiến 23 mã chốt ({_esc(sig_rec['projected_23_finalized_since_compare_from']['engine_ref'])}) sau mốc:</strong> {sig_rec['projected_23_finalized_since_compare_from']['projected_lab_signals_since_compare_from']} tín hiệu
+    (trạng thái: {'ĐÃ DEPLOY' if sig_rec['projected_23_finalized_since_compare_from']['deployed'] else 'CHỜ DEPLOY'})
   </div>
   <div class="table-wrap">
     <table>

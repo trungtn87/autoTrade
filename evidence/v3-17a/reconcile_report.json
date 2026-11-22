@@ -1,9 +1,9 @@
 {
   "schema_version": "2.0.0",
   "tool": "autotrade_v3.reconcile_v3",
-  "compare_from_utc": "2026-11-22T02:30:33Z",
-  "manifest_run_id": "run_20261122T024038Z",
-  "manifest_sha256": "9404622c50c5ff431f48e5f935f4d727d2a1194b62128b0df29f479e6b5055af",
+  "compare_from_utc": "2026-11-22T04:00:00Z",
+  "manifest_run_id": "run_20261122T042001Z",
+  "manifest_sha256": "86600f610ce5a8a120b4d6f084abba48b8339db2f6630652053877cf3fda711b",
   "slippage_convention": {
     "reference_source": "strategy_signals.entry",
     "unit": "bps",
@@ -27,7 +27,7 @@
     "signal_match_rate_vs_live_pct": null,
     "avg_entry_slippage_bps": null,
     "p95_entry_slippage_bps": null,
-    "note_vi": "Mốc bắt đầu so sánh chính thức (compare_from): 2026-11-22T02:30:33Z. Mọi số tổng chính chỉ tính từ mốc này."
+    "note_vi": "Mốc bắt đầu so sánh chính thức (compare_from): 2026-11-22T04:00:00Z. Mọi số tổng chính chỉ tính từ mốc này."
   },
   "era_summaries": {
     "ERA_1_50TP_50TRAIL": {
@@ -124,14 +124,14 @@
       "VỊ_THẾ_GỘP_KHÔNG_PHÂN_BỔ_ĐƯỢC": 2
     },
     "system_issues": [],
-    "note_vi": "Các lệnh và tín hiệu trước mốc 2026-11-22T02:30:33Z chỉ hiển thị tham khảo theo từng kỷ nguyên cũ, không cộng vào số tổng chính."
+    "note_vi": "Các lệnh và tín hiệu trước mốc 2026-11-22T04:00:00Z chỉ hiển thị tham khảo theo từng kỷ nguyên cũ, không cộng vào số tổng chính."
   },
   "sources_coverage": [
     {
       "source": "live_events_v3.strategy_signals",
       "path": "live_events/strategy_signals.parquet",
       "row_count": 22,
-      "sha256": "f165536bb75922329435f5be77df997466c28c63ac16a7417ae71ac4206976b5",
+      "sha256": "fef62a52d99962ff8261c15499fbff87e42ce486f08d5ec1977dc39e2a8b8477",
       "min_ts_ms": 1794625199999,
       "max_ts_ms": 1795240799999,
       "min_ts_utc": "2026-11-14T02:59:59.999000Z",
@@ -144,7 +144,7 @@
       "source": "live_events_v3.execution_orders",
       "path": "live_events/execution_orders.parquet",
       "row_count": 22,
-      "sha256": "e37b2074603200d37d8a7e9d59249d253794d7e86c6ad5a22a18c2ae2aff6fc8",
+      "sha256": "07889c216515b1832f6ecb5f91fef7f54bca492d7711ee7514aab1272cc92dc0",
       "min_ts_ms": 1794625226894,
       "max_ts_ms": 1795240848931,
       "min_ts_utc": "2026-11-14T03:00:26.894000Z",
@@ -157,7 +157,7 @@
       "source": "live_events_v3.execution_results",
       "path": "live_events/execution_results.parquet",
       "row_count": 32,
-      "sha256": "1d8e95ce6332d622067b0e013835c00e5120606a8eda3876b942b4916153d318",
+      "sha256": "12d23be055e5358a6bb808ca19a29632829d6c3e71c452389b01d3ca56a0cb7a",
       "min_ts_ms": 1794627347000,
       "max_ts_ms": 1795242812000,
       "min_ts_utc": "2026-11-14T03:35:47Z",
@@ -170,7 +170,7 @@
       "source": "live_events_v3.execution_finances",
       "path": "live_events/execution_finances.parquet",
       "row_count": 22,
-      "sha256": "be3a8ace23162175ca98ce3eb9db5836ba0ff277eab08f543da3fe1cd94564c9",
+      "sha256": "745a7e0e6e8ae0d96c19b873be917c34c36819eac29b9c8be086b724f1b33958",
       "min_ts_ms": 1794632905844,
       "max_ts_ms": 1795284422514,
       "min_ts_utc": "2026-11-14T05:08:25.844000Z",
@@ -182,12 +182,12 @@
     {
       "source": "live_events_v3.control_logs",
       "path": "live_events/control_logs.parquet",
-      "row_count": 210,
-      "sha256": "300e477f0667c765134733c318698bb895a888f1e8a2e02413cbe326a4b4ca54",
+      "row_count": 214,
+      "sha256": "e9fc788b5ec5ded2fc53dedba5dce2fbb30f09d3b2e0835e0ece5bd544f326ab",
       "min_ts_ms": 1794672522101,
-      "max_ts_ms": 1795314633889,
+      "max_ts_ms": 1795320036933,
       "min_ts_utc": "2026-11-14T16:08:42.101000Z",
-      "max_ts_utc": "2026-11-22T02:30:33.889000Z",
+      "max_ts_utc": "2026-11-22T04:00:36.933000Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Nhật ký hệ thống V3 (dùng suy ra VPS_TẮT)"
@@ -195,12 +195,12 @@
     {
       "source": "live_events_v3.candles",
       "path": "live_events/candles.parquet",
-      "row_count": 15400,
-      "sha256": "0f8fcf2c167b61ea3eaa61bf4bf825db5f722de5cf5d58218608ba34e1f278e8",
+      "row_count": 15414,
+      "sha256": "601c8c76829694f0479aa2d1a785b41f2b94482a29aa539205b2cd8746c346e9",
       "min_ts_ms": 1784514600000,
-      "max_ts_ms": 1795313700000,
+      "max_ts_ms": 1795320000000,
       "min_ts_utc": "2026-07-20T02:30:00Z",
-      "max_ts_utc": "2026-11-22T02:15:00Z",
+      "max_ts_utc": "2026-11-22T04:00:00Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Nến 15m cache live (BTC=3400, ETH=12000)"
@@ -209,7 +209,7 @@
       "source": "bingx_orders",
       "path": "execution/orders/orders.parquet",
       "row_count": 491,
-      "sha256": "5e7571af4f77c98851c4b81316d742aed806998358fd13963bd8e215e0572ce7",
+      "sha256": "52d23713b50bb3cc8a6ab4704d8d2486a1d55a8a87894245c5451710ee883e4a",
       "min_ts_ms": 1790334924000,
       "max_ts_ms": 1794670587000,
       "min_ts_utc": "2026-09-25T11:15:24Z",
@@ -222,7 +222,7 @@
       "source": "bingx_fills",
       "path": "execution/fills/fills.parquet",
       "row_count": 172,
-      "sha256": "23536d418e1e354972be6a9d731a7eb03addebf12f73926d5b3db400df4de5da",
+      "sha256": "e7a9c17802a843fc1d022cb2453e94916ddd565581e83d91eb40a81331c01db8",
       "min_ts_ms": 1792330021000,
       "max_ts_ms": 1794670587000,
       "min_ts_utc": "2026-10-18T13:27:01Z",
@@ -235,7 +235,7 @@
       "source": "bingx_income",
       "path": "execution/income/income.parquet",
       "row_count": 564,
-      "sha256": "b3a352c0a66d10f4a5f53a07cf4c9bc0f9a3cfe3851ee7db71b2dc2f0c231c3f",
+      "sha256": "666877a6281ccff2d3387ee040fa9d635bad3e8aadb3038b57bef8bbf9a356ab",
       "min_ts_ms": 1790334924000,
       "max_ts_ms": 1794672014000,
       "min_ts_utc": "2026-09-25T11:15:24Z",
@@ -260,12 +260,12 @@
     {
       "source": "market_candles_1m.BTC-USDT",
       "path": "market/candles_1m/BTC-USDT.parquet",
-      "row_count": 30400,
-      "sha256": "c0ecfded58daf5383310414d0cbe99b1dbcba8a44d0422bb954c9708a35cf527",
+      "row_count": 30500,
+      "sha256": "d6a4638ce55b17ec38b707442e513280a5794fb9b6204e5fcc6ef91f88812b75",
       "min_ts_ms": 1793491200000,
-      "max_ts_ms": 1795315140000,
+      "max_ts_ms": 1795321140000,
       "min_ts_utc": "2026-11-01T00:00:00Z",
-      "max_ts_utc": "2026-11-22T02:39:00Z",
+      "max_ts_utc": "2026-11-22T04:19:00Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Nến M1 liên tục"
@@ -273,12 +273,12 @@
     {
       "source": "market_candles_1m.ETH-USDT",
       "path": "market/candles_1m/ETH-USDT.parquet",
-      "row_count": 30400,
-      "sha256": "575f4ec845be65afd2de3ecfda9c78a0416e3d1b10f09973c69e5b68f9108f02",
+      "row_count": 30500,
+      "sha256": "e1e749dbc0b2fe9c70016df90d2531bc54acc3c6290abbb78feb87e57da7f94e",
       "min_ts_ms": 1793491200000,
-      "max_ts_ms": 1795315140000,
+      "max_ts_ms": 1795321140000,
       "min_ts_utc": "2026-11-01T00:00:00Z",
-      "max_ts_utc": "2026-11-22T02:39:00Z",
+      "max_ts_utc": "2026-11-22T04:19:00Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Nến M1 liên tục"
@@ -287,7 +287,7 @@
       "source": "market_funding.BTC-USDT",
       "path": "market/funding/BTC-USDT.parquet",
       "row_count": 44,
-      "sha256": "9dfcd8b91a5c831888b094bb6f5671bda92c23783e13b532e305ff406dfc44e3",
+      "sha256": "c263c8885b0a499ce88cbda8c90001b4442e5013beea292ca3ee860986570485",
       "min_ts_ms": 1794067200000,
       "max_ts_ms": 1795305600000,
       "min_ts_utc": "2026-11-07T16:00:00Z",
@@ -300,7 +300,7 @@
       "source": "market_funding.ETH-USDT",
       "path": "market/funding/ETH-USDT.parquet",
       "row_count": 44,
-      "sha256": "530d0617a87d25ce0b3dd43eb3354bb13edb9344ea4d027917f56f9b67c53ed3",
+      "sha256": "76e7ebe8e1ef30f03d0563b4ad91c9dcb028cf79b25c7411d3109f0db0c94609",
       "min_ts_ms": 1794067200000,
       "max_ts_ms": 1795305600000,
       "min_ts_utc": "2026-11-07T16:00:00Z",
@@ -313,11 +313,11 @@
       "source": "market_contract_rules",
       "path": "market/contract_rules/contracts.parquet",
       "row_count": 2,
-      "sha256": "974a8f96d35e02bb538706a73838407916da886d6bb1c09b85db303f93fe4fc1",
-      "min_ts_ms": 1795315238333,
-      "max_ts_ms": 1795315238333,
-      "min_ts_utc": "2026-11-22T02:40:38.333000Z",
-      "max_ts_utc": "2026-11-22T02:40:38.333000Z",
+      "sha256": "99fc1735a1d4152f1052b836f598c0941d3ff0a33ed639092056d84bff448ca4",
+      "min_ts_ms": 1795321201592,
+      "max_ts_ms": 1795321201592,
+      "min_ts_utc": "2026-11-22T04:20:01.592000Z",
+      "max_ts_utc": "2026-11-22T04:20:01.592000Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Quy tắc hợp đồng BingX"
@@ -448,6 +448,16 @@
     }
   ],
   "live_commits": [
+    {
+      "sha": "461a9fe",
+      "date_iso": "2026-11-22 02:44:17 +0000",
+      "subject": "chore(v3 live L2): rename registry to V3_LIVE_23_LAB_11_V1"
+    },
+    {
+      "sha": "864d1fe",
+      "date_iso": "2026-11-22 02:37:02 +0000",
+      "subject": "feat(v3 live L2): port lab 11 BTC C1/C4/C7 filters for 23-combo set"
+    },
     {
       "sha": "c211617",
       "date_iso": "2026-11-21 16:08:51 +0700",
@@ -637,21 +647,12 @@
       "sha": "4075211",
       "date_iso": "2026-11-15 09:28:01 +0700",
       "subject": "fix(v3): start SL watch only when V3 has trading credentials"
-    },
-    {
-      "sha": "4e5ca6b",
-      "date_iso": "2026-11-15 09:26:49 +0700",
-      "subject": "chore(v3): remove unused SL watcher import"
-    },
-    {
-      "sha": "2cfed6f",
-      "date_iso": "2026-11-15 09:26:13 +0700",
-      "subject": "test(v3): verify SL resize never resends Entry or replacement protection"
     }
   ],
   "tolerances": {
-    "schema_version": "1.0.0",
-    "compare_from": "2026-11-22T02:30:33Z",
+    "schema_version": "1.1.0",
+    "compare_from": "2026-11-22T04:00:00Z",
+    "deploy_23_finalized_utc": "2026-11-22T04:00:00Z",
     "entry_slippage_bps_warn": "10.0",
     "entry_slippage_bps_system": "25.0",
     "tp_sl_price_diff_pct_tol": "0.05",
@@ -665,7 +666,7 @@
   },
   "signal_reconciliation": {
     "since_compare_from": {
-      "compare_from_utc": "2026-11-22T02:30:33Z",
+      "compare_from_utc": "2026-11-22T04:00:00Z",
       "live_total": 0,
       "matched_count": 0,
       "missing_count": 0,
@@ -674,7 +675,14 @@
       "vps_off_count": 0,
       "time_skew_count": 0,
       "match_rate_vs_live_pct": null,
-      "engine_status_at_compare_from": "KHÔNG_DỰNG_ĐƯỢC_ENGINE"
+      "engine_status_at_compare_from": "AVAILABLE"
+    },
+    "projected_23_finalized_since_compare_from": {
+      "engine_ref": "V3_LAB_11_PRUNE23@11.0.0 (166aafd)",
+      "deploy_23_finalized_utc": "2026-11-22T04:00:00Z",
+      "deployed": true,
+      "projected_lab_signals_since_compare_from": 0,
+      "projected_event_ids": []
     },
     "era_breakdown": [
       {
@@ -694,11 +702,11 @@
       {
         "era_id": "SIGNAL_ERA_V3_LIVE_20_POSITIVE_FIXED_V1",
         "label_vi": "V3_LIVE_20_POSITIVE_FIXED_V1 (PR #129: 16/11 15:06:50 – 19/11 12:47:21 UTC)",
-        "engine_ref": "V3_LIVE_20_POSITIVE_FIXED_V1",
-        "engine_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-        "lab_total": 0,
+        "engine_ref": "20FINAL_FIXED_TPSL_ETH_C1_H1_BOTH_1@1.0.0",
+        "engine_status": "AVAILABLE",
+        "lab_total": 1,
         "live_total": 1,
-        "matched_count": 0,
+        "matched_count": 1,
         "missing_count": 0,
         "extra_count": 0,
         "new6_virtual_position_count": 0,
@@ -708,22 +716,22 @@
       {
         "era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_5_V1",
         "label_vi": "V3_LIVE_23_LAB_5_V1 (PR #148: 19/11 12:47:21 – 20/11 03:16:27 UTC)",
-        "engine_ref": "V3_LIVE_23_LAB_5_V1",
-        "engine_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-        "lab_total": 0,
+        "engine_ref": "V3_LAB_5@5.0.0 (23 mã)",
+        "engine_status": "AVAILABLE",
+        "lab_total": 2,
         "live_total": 1,
-        "matched_count": 0,
+        "matched_count": 1,
         "missing_count": 0,
         "extra_count": 0,
-        "new6_virtual_position_count": 0,
+        "new6_virtual_position_count": 1,
         "vps_off_count": 0,
         "time_skew_count": 0
       },
       {
         "era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_8_V1",
         "label_vi": "V3_LIVE_23_LAB_8_V1 (PR #159: 20/11 03:16:27 – 20/11 04:35:34 UTC)",
-        "engine_ref": "V3_LIVE_23_LAB_8_V1",
-        "engine_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+        "engine_ref": "V3_LAB_8@8.0.0 (23 mã)",
+        "engine_status": "AVAILABLE",
         "lab_total": 0,
         "live_total": 0,
         "matched_count": 0,
@@ -736,10 +744,24 @@
       {
         "era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
         "label_vi": "V3_LIVE_23_LAB_10_V1 (PR #160+: từ 20/11 04:35:34 UTC)",
-        "engine_ref": "V3_LIVE_23_LAB_10_V1",
-        "engine_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-        "lab_total": 0,
+        "engine_ref": "V3_LAB_10@e6422fd (23 mã)",
+        "engine_status": "AVAILABLE",
+        "lab_total": 16,
         "live_total": 2,
+        "matched_count": 2,
+        "missing_count": 4,
+        "extra_count": 0,
+        "new6_virtual_position_count": 10,
+        "vps_off_count": 0,
+        "time_skew_count": 0
+      },
+      {
+        "era_id": "SIGNAL_ERA_23_FINALIZED_LAB11_PRUNE23",
+        "label_vi": "23 mã chốt V3_LAB_11_PRUNE23 (từ 2026-11-22T04:00:00Z)",
+        "engine_ref": "V3_LAB_11_PRUNE23@11.0.0 (166aafd)",
+        "engine_status": "AVAILABLE",
+        "lab_total": 0,
+        "live_total": 0,
         "matched_count": 0,
         "missing_count": 0,
         "extra_count": 0,
@@ -748,17 +770,17 @@
         "time_skew_count": 0
       }
     ],
-    "lab_total_in_window": 33,
+    "lab_total_in_window": 52,
     "live_total": 22,
-    "matched_count": 17,
-    "missing_count": 0,
+    "matched_count": 21,
+    "missing_count": 4,
     "extra_count": 1,
-    "new6_virtual_position_count": 16,
+    "new6_virtual_position_count": 27,
     "vps_off_count": 0,
     "time_skew_count": 0,
-    "match_rate_vs_live_pct": 94.44,
+    "match_rate_vs_live_pct": 95.45,
     "notes": [
-      "BTC-USDT: live_events/candles.parquet chỉ giữ 3400 nến 15m (rolling 3400), chạy 20FINAL với only_warmup_ready=False cho kỷ nguyên 20FINAL."
+      "BTC-USDT: live_events/candles.parquet giữ 3407 nến 15m (rolling 3400), chạy với only_warmup_ready=False."
     ],
     "items": [
       {
@@ -773,7 +795,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -788,7 +810,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -803,7 +825,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -818,7 +840,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -833,7 +855,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -848,7 +870,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -863,7 +885,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -878,7 +900,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -893,7 +915,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -908,7 +930,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -923,7 +945,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -938,7 +960,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -953,7 +975,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -968,7 +990,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -983,7 +1005,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -998,7 +1020,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -1013,7 +1035,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -1028,7 +1050,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "THỪA",
         "reason_code": "WARMUP_WINDOW_3400",
-        "reason_detail_vi": "BTC-USDT chỉ có 3400 nến rolling; warmup/L2 tại thời điểm live có thể khác",
+        "reason_detail_vi": "BTC-USDT chỉ có 3400 nến rolling; trạng thái warmup/L2 tại thời điểm live có thể khác",
         "time_diff_ms": 0
       },
       {
@@ -1043,7 +1065,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -1058,7 +1080,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -1073,7 +1095,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -1088,7 +1110,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -1103,7 +1125,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -1118,7 +1140,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -1133,7 +1155,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -1148,7 +1170,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -1163,7 +1185,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -1178,7 +1200,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -1193,7 +1215,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -1208,7 +1230,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "NEW6_VIRTUAL_POSITION",
         "reason_code": "NEW6_VIRTUAL_POSITION",
-        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live chỉ giữ 1 vị thế thực.",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -1223,7 +1245,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -1238,7 +1260,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -1253,7 +1275,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -1268,7 +1290,7 @@
         "signal_era_id": "SIGNAL_ERA_20FINAL",
         "status": "KHỚP",
         "reason_code": "KHỚP",
-        "reason_detail_vi": "Khớp chính xác event_id với engine 20FINAL",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL@1",
         "time_diff_ms": 0
       },
       {
@@ -1281,9 +1303,9 @@
         "signal_close_ms": 1795046399999,
         "signal_close_utc": "2026-11-18T23:59:59.999000Z",
         "signal_era_id": "SIGNAL_ERA_V3_LIVE_20_POSITIVE_FIXED_V1",
-        "status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-        "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-        "reason_detail_vi": "Engine V3_LIVE_20_POSITIVE_FIXED_V1 chưa có trong nhánh lab hiện tại",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác với engine 20FINAL_FIXED_TPSL_ETH_C1_H1_BOTH_1@1.0.0",
         "time_diff_ms": 0
       },
       {
@@ -1296,9 +1318,204 @@
         "signal_close_ms": 1795125599999,
         "signal_close_utc": "2026-11-19T21:59:59.999000Z",
         "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_5_V1",
-        "status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-        "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-        "reason_detail_vi": "Engine V3_LIVE_23_LAB_5_V1 chưa có trong nhánh lab hiện tại",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác với engine V3_LAB_5@5.0.0 (23 mã)",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C12|SELL|1795139999999",
+        "signal_id": "SIG_ETHUSDT_C12_1h_SELL_1795139999999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C12",
+        "side": "SELL",
+        "signal_close_ms": 1795139999999,
+        "signal_close_utc": "2026-11-20T01:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_5_V1",
+        "status": "NEW6_VIRTUAL_POSITION",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C4|SELL|1795190399999",
+        "signal_id": "SIG_ETHUSDT_C4_1h_SELL_1795190399999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C4",
+        "side": "SELL",
+        "signal_close_ms": 1795190399999,
+        "signal_close_utc": "2026-11-20T15:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "THIẾU",
+        "reason_code": "CHƯA_GIẢI_THÍCH",
+        "reason_detail_vi": "Engine V3_LAB_10@e6422fd (23 mã) phát tín hiệu nhưng Live không có",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C6|SELL|1795190399999",
+        "signal_id": "SIG_ETHUSDT_C6_1h_SELL_1795190399999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C6",
+        "side": "SELL",
+        "signal_close_ms": 1795190399999,
+        "signal_close_utc": "2026-11-20T15:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "THIẾU",
+        "reason_code": "CHƯA_GIẢI_THÍCH",
+        "reason_detail_vi": "Engine V3_LAB_10@e6422fd (23 mã) phát tín hiệu nhưng Live không có",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|TIER|SELL|1795193999999",
+        "signal_id": "SIG_BTCUSDT_TIER_1h_SELL_1795193999999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "TIER",
+        "side": "SELL",
+        "signal_close_ms": 1795193999999,
+        "signal_close_utc": "2026-11-20T16:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "THIẾU",
+        "reason_code": "CHƯA_GIẢI_THÍCH",
+        "reason_detail_vi": "Engine V3_LAB_10@e6422fd (23 mã) phát tín hiệu nhưng Live không có",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C13|SELL|1795204799999",
+        "signal_id": "SIG_ETHUSDT_C13_1h_SELL_1795204799999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C13",
+        "side": "SELL",
+        "signal_close_ms": 1795204799999,
+        "signal_close_utc": "2026-11-20T19:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "NEW6_VIRTUAL_POSITION",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795215599999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795215599999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795215599999,
+        "signal_close_utc": "2026-11-20T22:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "NEW6_VIRTUAL_POSITION",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795219199999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795219199999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795219199999,
+        "signal_close_utc": "2026-11-20T23:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "NEW6_VIRTUAL_POSITION",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795222799999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795222799999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795222799999,
+        "signal_close_utc": "2026-11-21T00:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "NEW6_VIRTUAL_POSITION",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795226399999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795226399999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795226399999,
+        "signal_close_utc": "2026-11-21T01:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "NEW6_VIRTUAL_POSITION",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795229999999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795229999999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795229999999,
+        "signal_close_utc": "2026-11-21T02:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "NEW6_VIRTUAL_POSITION",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|15m|C7|SELL|1795232699999",
+        "signal_id": "SIG_ETHUSDT_C7_15m_SELL_1795232699999",
+        "symbol": "ETH-USDT",
+        "timeframe": "15m",
+        "combo": "C7",
+        "side": "SELL",
+        "signal_close_ms": 1795232699999,
+        "signal_close_utc": "2026-11-21T03:44:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "THIẾU",
+        "reason_code": "CHƯA_GIẢI_THÍCH",
+        "reason_detail_vi": "Engine V3_LAB_10@e6422fd (23 mã) phát tín hiệu nhưng Live không có",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "BTC-USDT|1h|C13|SELL|1795233599999",
+        "signal_id": "SIG_BTCUSDT_C13_1h_SELL_1795233599999",
+        "symbol": "BTC-USDT",
+        "timeframe": "1h",
+        "combo": "C13",
+        "side": "SELL",
+        "signal_close_ms": 1795233599999,
+        "signal_close_utc": "2026-11-21T03:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "NEW6_VIRTUAL_POSITION",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795233599999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795233599999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795233599999,
+        "signal_close_utc": "2026-11-21T03:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "NEW6_VIRTUAL_POSITION",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -1311,9 +1528,24 @@
         "signal_close_ms": 1795237199999,
         "signal_close_utc": "2026-11-21T04:59:59.999000Z",
         "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
-        "status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-        "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-        "reason_detail_vi": "Engine V3_LIVE_23_LAB_10_V1 chưa có trong nhánh lab hiện tại",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác với engine V3_LAB_10@e6422fd (23 mã)",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795237199999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795237199999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795237199999,
+        "signal_close_utc": "2026-11-21T04:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "NEW6_VIRTUAL_POSITION",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       },
       {
@@ -1326,12 +1558,247 @@
         "signal_close_ms": 1795240799999,
         "signal_close_utc": "2026-11-21T05:59:59.999000Z",
         "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
-        "status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-        "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-        "reason_detail_vi": "Engine V3_LIVE_23_LAB_10_V1 chưa có trong nhánh lab hiện tại",
+        "status": "KHỚP",
+        "reason_code": "KHỚP",
+        "reason_detail_vi": "Khớp chính xác với engine V3_LAB_10@e6422fd (23 mã)",
+        "time_diff_ms": 0
+      },
+      {
+        "event_id": "ETH-USDT|1h|C15|SELL|1795240799999",
+        "signal_id": "SIG_ETHUSDT_C15_1h_SELL_1795240799999",
+        "symbol": "ETH-USDT",
+        "timeframe": "1h",
+        "combo": "C15",
+        "side": "SELL",
+        "signal_close_ms": 1795240799999,
+        "signal_close_utc": "2026-11-21T05:59:59.999000Z",
+        "signal_era_id": "SIGNAL_ERA_V3_LIVE_23_LAB_10_V1",
+        "status": "NEW6_VIRTUAL_POSITION",
+        "reason_code": "NEW6_VIRTUAL_POSITION",
+        "reason_detail_vi": "Lab phát lặp trên các nến 1H theo virtual_position; Live giữ 1 vị thế thực.",
         "time_diff_ms": 0
       }
     ]
+  },
+  "finalized_23_combos_info": {
+    "strategy_id": "V3_LAB_11_PRUNE23",
+    "version": "11.0.0",
+    "source_commit": "166aafd (origin/v3_lab)",
+    "live_registry_compared": "V3_LIVE_23_LAB_11_V1 (78b4601)",
+    "matches_live_registry": true,
+    "combo_count": 23,
+    "combos": [
+      {
+        "symbol": "BTC-USDT",
+        "combo_id": 1,
+        "combo_name": "C1",
+        "timeframe": "1h",
+        "layer2": "SMC_STRICT",
+        "tp_pct": 0.02,
+        "sl_pct": 0.008
+      },
+      {
+        "symbol": "BTC-USDT",
+        "combo_id": 2,
+        "combo_name": "C2",
+        "timeframe": "1h",
+        "layer2": "SMC_VETO_OB",
+        "tp_pct": 0.012,
+        "sl_pct": 0.008
+      },
+      {
+        "symbol": "BTC-USDT",
+        "combo_id": 4,
+        "combo_name": "C4",
+        "timeframe": "1h",
+        "layer2": "SMC_VETO",
+        "tp_pct": 0.018,
+        "sl_pct": 0.009
+      },
+      {
+        "symbol": "BTC-USDT",
+        "combo_id": 6,
+        "combo_name": "C6",
+        "timeframe": "1h",
+        "layer2": "SMC_VETO_OB",
+        "tp_pct": 0.02,
+        "sl_pct": 0.00666667
+      },
+      {
+        "symbol": "BTC-USDT",
+        "combo_id": 7,
+        "combo_name": "C7",
+        "timeframe": "15m",
+        "layer2": "OFF",
+        "tp_pct": 0.02,
+        "sl_pct": 0.008
+      },
+      {
+        "symbol": "BTC-USDT",
+        "combo_id": 9,
+        "combo_name": "C9",
+        "timeframe": "15m",
+        "layer2": "SMC_VETO",
+        "tp_pct": 0.01,
+        "sl_pct": 0.004
+      },
+      {
+        "symbol": "BTC-USDT",
+        "combo_id": 10,
+        "combo_name": "C10",
+        "timeframe": "15m",
+        "layer2": "SMC_VETO",
+        "tp_pct": 0.01,
+        "sl_pct": 0.008
+      },
+      {
+        "symbol": "BTC-USDT",
+        "combo_id": 11,
+        "combo_name": "TIER",
+        "timeframe": "1h",
+        "layer2": "OFF",
+        "tp_pct": 0.018,
+        "sl_pct": 0.009
+      },
+      {
+        "symbol": "BTC-USDT",
+        "combo_id": 101,
+        "combo_name": "C11",
+        "timeframe": "1h",
+        "layer2": "SMC_STRICT_OB",
+        "tp_pct": 0.018,
+        "sl_pct": 0.009
+      },
+      {
+        "symbol": "BTC-USDT",
+        "combo_id": 104,
+        "combo_name": "C14",
+        "timeframe": "1h",
+        "layer2": "OB",
+        "tp_pct": 0.02,
+        "sl_pct": 0.006666666666666667
+      },
+      {
+        "symbol": "BTC-USDT",
+        "combo_id": 106,
+        "combo_name": "C16",
+        "timeframe": "1h",
+        "layer2": "OB",
+        "tp_pct": 0.011,
+        "sl_pct": 0.009
+      },
+      {
+        "symbol": "ETH-USDT",
+        "combo_id": 1,
+        "combo_name": "C1",
+        "timeframe": "1h",
+        "layer2": "SMC_VETO",
+        "tp_pct": 0.02,
+        "sl_pct": 0.00666667
+      },
+      {
+        "symbol": "ETH-USDT",
+        "combo_id": 3,
+        "combo_name": "C3",
+        "timeframe": "1h",
+        "layer2": "SMC_STRICT",
+        "tp_pct": 0.018,
+        "sl_pct": 0.006
+      },
+      {
+        "symbol": "ETH-USDT",
+        "combo_id": 4,
+        "combo_name": "C4",
+        "timeframe": "1h",
+        "layer2": "SMC_VETO",
+        "tp_pct": 0.02,
+        "sl_pct": 0.008
+      },
+      {
+        "symbol": "ETH-USDT",
+        "combo_id": 6,
+        "combo_name": "C6",
+        "timeframe": "1h",
+        "layer2": "SMC_VETO",
+        "tp_pct": 0.02,
+        "sl_pct": 0.00666667
+      },
+      {
+        "symbol": "ETH-USDT",
+        "combo_id": 7,
+        "combo_name": "C7",
+        "timeframe": "15m",
+        "layer2": "OB",
+        "tp_pct": 0.018,
+        "sl_pct": 0.009
+      },
+      {
+        "symbol": "ETH-USDT",
+        "combo_id": 10,
+        "combo_name": "C10",
+        "timeframe": "15m",
+        "layer2": "SMC_VETO",
+        "tp_pct": 0.018,
+        "sl_pct": 0.009
+      },
+      {
+        "symbol": "ETH-USDT",
+        "combo_id": 102,
+        "combo_name": "C12",
+        "timeframe": "1h",
+        "layer2": "SMC_VETO_OB",
+        "tp_pct": 0.018,
+        "sl_pct": 0.009
+      },
+      {
+        "symbol": "ETH-USDT",
+        "combo_id": 103,
+        "combo_name": "C13",
+        "timeframe": "1h",
+        "layer2": "OFF",
+        "tp_pct": 0.02,
+        "sl_pct": 0.008
+      },
+      {
+        "symbol": "ETH-USDT",
+        "combo_id": 105,
+        "combo_name": "C15",
+        "timeframe": "1h",
+        "layer2": "OB",
+        "tp_pct": 0.02,
+        "sl_pct": 0.008
+      },
+      {
+        "symbol": "ETH-USDT",
+        "combo_id": 101,
+        "combo_name": "C11",
+        "timeframe": "1h",
+        "layer2": "SMC_STRICT_OB",
+        "tp_pct": 0.018,
+        "sl_pct": 0.009
+      },
+      {
+        "symbol": "BTC-USDT",
+        "combo_id": 103,
+        "combo_name": "C13",
+        "timeframe": "1h",
+        "layer2": "OFF",
+        "tp_pct": 0.02,
+        "sl_pct": 0.008
+      },
+      {
+        "symbol": "ETH-USDT",
+        "combo_id": 104,
+        "combo_name": "C14",
+        "timeframe": "1h",
+        "layer2": "OB",
+        "tp_pct": 0.02,
+        "sl_pct": 0.006666666666666667
+      }
+    ],
+    "added_combos": [],
+    "removed_combos": [],
+    "parameter_diffs_vs_live": []
   },
   "orders": [
     {
@@ -2458,7 +2925,7 @@
         }
       },
       "root_cause": "DỮ_LIỆU",
-      "root_cause_detail_vi": "BTC-USDT chỉ có 3400 nến rolling; warmup/L2 tại thời điểm live có thể khác",
+      "root_cause_detail_vi": "BTC-USDT chỉ có 3400 nến rolling; trạng thái warmup/L2 tại thời điểm live có thể khác",
       "overall_provenance": "EXACT",
       "system_issue_note": null
     },
@@ -4224,8 +4691,8 @@
         "signal": {
           "live_signal_time": "2026-11-18T23:59:59.999000Z",
           "live_ref_entry": "63035.8",
-          "reconcile_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-          "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
           "provenance": "EXACT"
         },
         "entry": {
@@ -4360,8 +4827,8 @@
         "signal": {
           "live_signal_time": "2026-11-19T21:59:59.999000Z",
           "live_ref_entry": "1740.75",
-          "reconcile_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-          "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
           "provenance": "EXACT"
         },
         "entry": {
@@ -4498,8 +4965,8 @@
         "signal": {
           "live_signal_time": "2026-11-21T04:59:59.999000Z",
           "live_ref_entry": "56268.8",
-          "reconcile_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-          "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
           "provenance": "EXACT"
         },
         "entry": {
@@ -4638,8 +5105,8 @@
         "signal": {
           "live_signal_time": "2026-11-21T05:59:59.999000Z",
           "live_ref_entry": "55775.3",
-          "reconcile_status": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
-          "reason_code": "KHÔNG_DỰNG_ĐƯỢC_ENGINE",
+          "reconcile_status": "KHỚP",
+          "reason_code": "KHỚP",
           "provenance": "EXACT"
         },
         "entry": {
@@ -4753,5 +5220,5 @@
       "system_issue_note": null
     }
   ],
-  "report_sha256": "2179af564223f6899c40d485eb180ef291e17a27ba6f6c650c1a9b3506f08ff6"
+  "report_sha256": "0414adf884e09df0690d364efdb18253707dc1de4118537fb0f828fb6ece10fd"
 }
