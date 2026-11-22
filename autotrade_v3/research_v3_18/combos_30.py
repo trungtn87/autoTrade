@@ -30,30 +30,33 @@ CROSS30_PR124_ANCESTOR = "c99e4529ac1761614ccfd1fdbed8a92315e7a5d7"
 LIVE23_SOURCE_COMMIT = "166aafd"
 LIVE23_REGISTRY_REF = "V3_LAB_11_PRUNE23@11.0.0"
 
-# 20 mã dương được xác nhận trong AUDIT_20_POSITIVE_FIXED_TPSL_20261116
-AUDIT_20_POSITIVE_KEYS: frozenset[str] = frozenset(
+# 20 mã dương được xác nhận trong AUDIT_20_POSITIVE_FIXED_TPSL_20261116 (theo cặp symbol, combo_id)
+AUDIT_20_POSITIVE_PAIRS: frozenset[tuple[str, int]] = frozenset(
     {
-        "ETH-USDT/C4",
-        "BTC-USDT/C11",
-        "BTC-USDT/C101",  # alias C11
-        "BTC-USDT/C6",
-        "ETH-USDT/C7",
-        "BTC-USDT/C4",
-        "ETH-USDT/C13",
-        "ETH-USDT/C3",
-        "BTC-USDT/C1",
-        "BTC-USDT/C2",
-        "ETH-USDT/C15",
-        "BTC-USDT/C7",
-        "BTC-USDT/C16",
-        "ETH-USDT/C1",
-        "ETH-USDT/C11",
-        "ETH-USDT/C10",
-        "ETH-USDT/C12",
-        "ETH-USDT/C6",
-        "BTC-USDT/C10",
-        "BTC-USDT/C9",
+        ("BTC-USDT", 1),
+        ("BTC-USDT", 2),
+        ("BTC-USDT", 4),
+        ("BTC-USDT", 6),
+        ("BTC-USDT", 7),
+        ("BTC-USDT", 9),
+        ("BTC-USDT", 10),
+        ("BTC-USDT", 11),
+        ("BTC-USDT", 101),
+        ("BTC-USDT", 106),
+        ("ETH-USDT", 1),
+        ("ETH-USDT", 3),
+        ("ETH-USDT", 4),
+        ("ETH-USDT", 6),
+        ("ETH-USDT", 7),
+        ("ETH-USDT", 10),
+        ("ETH-USDT", 101),
+        ("ETH-USDT", 102),
+        ("ETH-USDT", 103),
+        ("ETH-USDT", 105),
     }
+)
+AUDIT_20_POSITIVE_KEYS: frozenset[str] = frozenset(
+    f"{sym}/C{cid}" for sym, cid in AUDIT_20_POSITIVE_PAIRS
 )
 
 
@@ -275,10 +278,7 @@ def build_30_combo_catalog(strat: CrossSymbol30FixedStrategy | None = None) -> l
         if c.symbol == "ETH-USDT" and int(c.combo_id) == 1:
             entry_variant = f"{c.entry_variant} + H1_BOTH_1(slope4h<={H1_BUY_MAX_SLOPE_4H_PCT}, dist4h>={H1_SELL_MIN_DIST_EMA150_4H_PCT}, CCI<-80)"
 
-        is_pos_20 = (
-            c.combo_key in AUDIT_20_POSITIVE_KEYS
-            or f"{c.symbol}/C{c.combo_id}" in AUDIT_20_POSITIVE_KEYS
-        )
+        is_pos_20 = (c.symbol, int(c.combo_id)) in AUDIT_20_POSITIVE_PAIRS
         short_sym = c.symbol.split("-")[0]
         rows.append(
             ComboCatalogRow(

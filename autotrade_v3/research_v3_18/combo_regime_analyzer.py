@@ -212,7 +212,7 @@ def trades_to_dataframe(
     for t in trades:
         row = asdict(t)
         sig = signal_lookup.get(str(t.signal_id)) if signal_lookup is not None else None
-        row["combo_key"] = f"{t.symbol}_C{int(t.combo_id)}"
+        row["combo_key"] = f"{t.symbol}/C{int(t.combo_id)}"
         row["signal_close_ms"] = int(sig.signal_close_ms) if sig is not None else (int(t.entry_time_ms) - 1)
         rows.append(row)
     return pd.DataFrame(rows)
@@ -329,11 +329,15 @@ def run_combo_regime_analysis(
     bad_dev_pnl = float(cfg["portfolio_selection_rules"]["dev_bad_regime_max_net_pnl"])
 
     for item in catalog:
-        c_df = trades_annotated.loc[trades_annotated["combo_key"] == item.combo_key]
+        pair_key = f"{item.symbol}/C{int(item.combo_id)}"
+        c_df = trades_annotated.loc[
+            (trades_annotated["symbol"] == item.symbol)
+            & (trades_annotated["combo_id"].astype(int) == int(item.combo_id))
+        ]
         overall_by_split: dict[str, Any] = {}
         for sp_name in ("ALL",) + SPLIT_ORDER:
             sp_df = c_df if sp_name == "ALL" else c_df.loc[c_df["split"] == sp_name]
-            seed = _stable_cell_seed(base_seed, item.combo_key, "OVERALL", sp_name)
+            seed = _stable_cell_seed(base_seed, pair_key, "OVERALL", sp_name)
             overall_by_split[sp_name] = summarize_trade_slice(
                 sp_df,
                 min_sample_size=min_n,
@@ -358,7 +362,7 @@ def run_combo_regime_analysis(
                 insufficient_label=insuff,
                 n_boot=n_boot,
                 ci_level=ci_level,
-                seed=_stable_cell_seed(base_seed, item.combo_key, reg_name, "ALL"),
+                seed=_stable_cell_seed(base_seed, pair_key, reg_name, "ALL"),
             )
             by_regime_all[reg_name] = all_cell
 
@@ -370,7 +374,7 @@ def run_combo_regime_analysis(
                     insufficient_label=insuff,
                     n_boot=n_boot,
                     ci_level=ci_level,
-                    seed=_stable_cell_seed(base_seed, item.combo_key, reg_name, sp_name),
+                    seed=_stable_cell_seed(base_seed, pair_key, reg_name, sp_name),
                 )
                 by_regime_splits[sp_name][reg_name] = sp_cell
                 if sp_name == "DEVELOPMENT" and sp_cell["conclusive"]:
@@ -379,8 +383,8 @@ def run_combo_regime_analysis(
                     if float(sp_cell["net_pnl_usd"]) <= bad_dev_pnl:
                         bad_dev.append(reg_name)
 
-        dev_positive_regimes_by_combo[item.combo_key] = pos_dev
-        dev_bad_regimes_by_combo[item.combo_key] = bad_dev
+        dev_positive_regimes_by_combo[pair_key] = pos_dev
+        dev_bad_regimes_by_combo[pair_key] = bad_dev
 
         per_combo_rows.append(
             {

@@ -67,6 +67,8 @@ def test_catalog_30_combos_exact_23_live_and_7_non_live() -> None:
     assert len(non_live) == 7
     assert set(live) == get_live_23_pairs()
     assert set(non_live) == {(s, cid) for s, cid, _ in get_non_live_7_pairs()}
+    assert sum(1 for r in catalog if r.audit_20_status == "DƯƠNG_20") == 20
+    assert sum(1 for r in catalog if r.audit_20_status == "ÂM_10") == 10
     for r in catalog:
         assert len(r.source_commit_cross30) >= 7
         assert CROSS30_SOURCE_COMMIT.startswith(r.source_commit_cross30)
@@ -194,7 +196,10 @@ def test_evidence_verify_and_regime_label_mutations(tmp_path: Path) -> None:
 
     report = json.loads((DEFAULT_EVIDENCE_DIR / "regime_report.json").read_text(encoding="utf-8"))
     manifest = json.loads((DEFAULT_EVIDENCE_DIR / "manifest.json").read_text(encoding="utf-8"))
-    assert len(report["combo_regime_analysis"]["per_combo"]) == 30
+    per_combo = report["combo_regime_analysis"]["per_combo"]
+    assert len(per_combo) == 30
+    assert sum(int(r["overall_all"]["so_lenh"]) for r in per_combo) == report["combo_regime_analysis"]["total_trades_all_signals"] > 0
+    assert all(int(r["overall_all"]["so_lenh"]) > 0 for r in per_combo)
     assert manifest["live_23_count"] == 23
     assert manifest["non_live_7_count"] == 7
     assert manifest["combos_spec_hash"] == CrossSymbol30FixedStrategy().get_spec_hash()

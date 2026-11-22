@@ -117,10 +117,14 @@ def verify_evidence_dir(
     }
     live_pairs_found = {k for k, is_l in found_pairs.items() if is_l}
     non_live_pairs_found = {k for k, is_l in found_pairs.items() if not is_l}
+    pos20_count = sum(1 for row in per_combo if row["catalog"].get("audit_20_status") == "DƯƠNG_20")
     record(
         "catalog_30_23_7_exact",
-        len(per_combo) == 30 and live_pairs_found == expected_live and non_live_pairs_found == expected_non_live,
-        f"count={len(per_combo)} live={len(live_pairs_found)} non_live={len(non_live_pairs_found)}",
+        len(per_combo) == 30
+        and live_pairs_found == expected_live
+        and non_live_pairs_found == expected_non_live
+        and pos20_count == 20,
+        f"count={len(per_combo)} live={len(live_pairs_found)} non_live={len(non_live_pairs_found)} pos20={pos20_count}",
     )
 
     min_n = int(cfg["statistics"]["min_sample_size"])
@@ -170,6 +174,16 @@ def verify_evidence_dir(
                 n_trades = int(cell["so_lenh"])
                 if n_trades < min_n and (cell.get("status") != insuff_lbl or cell.get("conclusive") is not False):
                     sample_rule_errors.append(f"DIM/{entry['dimension']}/{entry['label']}/{sp_k}: n={n_trades}")
+
+    total_trades_expected = int(combo_ana.get("total_trades_all_signals", 0))
+    total_trades_by_combo = sum(int(row["overall_all"]["so_lenh"]) for row in per_combo)
+    zero_trade_combos = [
+        str(row["catalog"]["combo_symbol"]) for row in per_combo if int(row["overall_all"]["so_lenh"]) <= 0
+    ]
+    if total_trades_expected <= 0 or total_trades_by_combo != total_trades_expected or zero_trade_combos:
+        accounting_errors.append(
+            f"total_trades_by_combo={total_trades_by_combo} vs total={total_trades_expected}, zero_combos={zero_trade_combos}"
+        )
 
     record(
         "combo_regime_accounting",
@@ -233,6 +247,10 @@ def verify_evidence_dir(
         actual_cand_ids = [str(c["trial_id"]) for c in port_res.get("candidate_watchlist", [])]
         if actual_cand_ids != expected_cand_ids:
             port_errors.append(f"watchlist={actual_cand_ids} != expected={expected_cand_ids}")
+
+    audit20_rows = [p for p in portfolios if p.get("trial_id") == "DANH_MỤC_20_MÃ_DƯƠNG_AUDIT"]
+    if len(audit20_rows) != 1 or int(audit20_rows[0].get("signal_count", 0)) <= 0:
+        port_errors.append("DANH_MỤC_20_MÃ_DƯƠNG_AUDIT missing or empty")
 
     record("portfolio_consistency_and_gating", len(port_errors) == 0, f"errors={port_errors[:3]}")
 

@@ -16,7 +16,7 @@ from autotrade_v3.research_v3_18.combo_regime_analyzer import (
     trades_to_dataframe,
 )
 from autotrade_v3.research_v3_18.combos_30 import (
-    AUDIT_20_POSITIVE_KEYS,
+    AUDIT_20_POSITIVE_PAIRS,
     ComboCatalogRow,
     get_live_23_pairs,
     get_non_live_7_pairs,
@@ -40,7 +40,7 @@ def _short_combo_label(symbol: str, combo_id: int) -> str:
 
 
 def _combo_key(symbol: str, combo_id: int) -> str:
-    return f"{symbol}_C{int(combo_id)}"
+    return f"{symbol}/C{int(combo_id)}"
 
 
 def _compute_max_concurrent_positions(sub_trades: pd.DataFrame) -> int:
@@ -373,7 +373,7 @@ def run_portfolio_experiments(
             }
         )
 
-    audit20_sigs = [s for s in eval_signals if _combo_key(s.symbol, int(s.combo_id)) in AUDIT_20_POSITIVE_KEYS]
+    audit20_sigs = [s for s in eval_signals if (s.symbol, int(s.combo_id)) in AUDIT_20_POSITIVE_PAIRS]
     specs.append(
         {
             "trial_id": "DANH_MỤC_30_MÃ_ĐẦY_ĐỦ",
@@ -548,7 +548,7 @@ def run_portfolio_experiments(
 
     portfolio_rows: list[dict[str, Any]] = []
     candidate_watchlist: list[dict[str, Any]] = []
-    catalog_by_key = {row.combo_key: row for row in catalog}
+    catalog_by_key = {f"{row.symbol}/C{int(row.combo_id)}": row for row in catalog}
 
     for r in evaluated_runs:
         tid = str(r["trial_id"])
