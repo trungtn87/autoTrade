@@ -26,6 +26,10 @@ def main(argv: list[str] | None = None) -> int:
         "--server.headless=true",
         "--server.fileWatcherType=none",
         "--browser.gatherUsageStats=false",
+        "--theme.base=dark",
+        "--theme.backgroundColor=#080d16",
+        "--theme.secondaryBackgroundColor=#172235",
+        "--theme.textColor=#f8fafc",
     ]
     return int(stcli.main())
 
