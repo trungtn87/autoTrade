@@ -247,3 +247,38 @@ def test_preview_on_real_l2_does_not_advance_cursor_or_dispatch():
     assert l2._last_calculated_open == {}
     assert calls == [(BTC, [BTC])]
     assert len(l2.calculate(snap)) == 1  # same bar is still eligible for live L2
+
+def test_watchdog_retries_l2_even_when_l1_candle_is_already_persisted(monkeypatch):
+    # Watchdog must not call REST once L1 has the current candle, but it must
+    # still offer the pending L2 calculation a retry.
+    now_ms = OPEN + M15 + 45_000
+    monkeypatch.setattr("autotrade_v3.live.l1_data.time.time", lambda: now_ms / 1000)
+
+    class TwoPolls:
+        calls = 0
+        def wait(self, _seconds):
+            self.calls += 1
+            return self.calls > 1
+
+    l1 = L1Data.__new__(L1Data)
+    l1._stop = TwoPolls()
+    l1._attempts = {}
+    l1.settings = SimpleNamespace(symbols=(BTC, ETH))
+    recovered = []
+    retries = []
+    l1.watchdog(lambda _symbol: OPEN, lambda *args: recovered.append(args), retries.append)
+    assert recovered == []  # current bars already stored: no REST recovery
+    assert retries == [BTC, ETH]
+
+
+def test_backfill_forces_retry_when_new_history_repairs_l2_input(monkeypatch):
+    rt, _ = _runtime(monkeypatch)
+    rt.l2.fail_calculate.add(ETH)
+    rt.on_recovered(ETH, _snapshot(ETH))
+    assert ETH in rt._l2_pending
+    # Newly persisted history triggers a fresh attempt even inside the
+    # standard 60-second cooldown, without replaying other bars.
+    rt.on_backfilled(ETH)
+    assert rt._l2_last_success[ETH] == OPEN
+    assert rt.l2.calculate_calls == [(ETH, OPEN), (ETH, OPEN)]
+    assert rt.l2.dispatch_calls == [[f"{ETH}:{OPEN}"]]
