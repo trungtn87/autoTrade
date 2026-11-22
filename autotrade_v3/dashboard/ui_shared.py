@@ -48,8 +48,14 @@ def inject_research_theme() -> None:
         [data-testid="stMetricLabel"] p{color:#c5d2e3!important}
         [data-testid="stMetricValue"]{color:#f8fafc!important}
         [data-testid="stMetricDelta"]{color:#b8c5d6!important}
-        [data-testid="stAlert"]{background:#211b0e!important;border:1px solid #8a6728!important;border-radius:12px}
-        [data-testid="stAlert"] p,[data-testid="stAlert"] span,[data-testid="stAlert"] div{color:#ffe7b0!important}
+        [data-testid="stAlert"],
+        [data-testid="stAlertContainer"],
+        [data-testid="stNotification"],
+        [role="alert"]{background:#1f1912!important;border:1px solid #d97706!important;border-radius:12px!important}
+        [data-testid="stAlert"] *,
+        [data-testid="stAlertContainer"] *,
+        [data-testid="stNotification"] *,
+        [role="alert"] *{color:#fef3c7!important}
         .stApp code{background:#27364a!important;color:#f8fafc!important;border:1px solid #43536a}
         .stApp [data-baseweb="select"]>div{background:#f8fafc!important;color:#0f172a!important;border-color:#cbd5e1!important}
         .stApp [data-baseweb="select"] span,.stApp [data-baseweb="select"] input{color:#0f172a!important}
