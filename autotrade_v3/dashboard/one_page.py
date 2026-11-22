@@ -504,7 +504,12 @@ def render_one_page_terminal() -> None:
         st.subheader(all_signals.vi("ninlab_title"))
     with h_col2:
         run_ids = [r.run_id for r in base_runs]
-        default_idx = run_ids.index("ALL_SIGNALS_BASE") if "ALL_SIGNALS_BASE" in run_ids else 0
+        if "V3_LAB_11_PRUNE23_BASE" in run_ids:
+            default_idx = run_ids.index("V3_LAB_11_PRUNE23_BASE")
+        elif "ALL_SIGNALS_BASE" in run_ids:
+            default_idx = run_ids.index("ALL_SIGNALS_BASE")
+        else:
+            default_idx = 0
         sel_run_id = st.selectbox(
             all_signals.vi("ninlab_kpi_run_view"),
             run_ids,

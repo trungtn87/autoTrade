@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -30,11 +31,15 @@ def cmd_refresh(
 ) -> int:
     """Chạy collector (dừng ngay nếu lỗi xác thực), verify kho, chạy đối soát 17a và in tóm tắt 1 dòng."""
     if not skip_collector:
+        sub_env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
         proc = subprocess.run(
             [sys.executable, "-m", "autotrade_v3.collector_v3", "run"],
             cwd=str(repo_root),
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=sub_env,
             check=False,
         )
         combined = f"{proc.stdout or ''}\n{proc.stderr or ''}".lower()

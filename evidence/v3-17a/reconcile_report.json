@@ -2,8 +2,8 @@
   "schema_version": "2.0.0",
   "tool": "autotrade_v3.reconcile_v3",
   "compare_from_utc": "2026-11-22T04:00:00Z",
-  "manifest_run_id": "run_20261122T060624Z",
-  "manifest_sha256": "71a6066d98861df278145f27735e1b350a5c4bad183719495e373de2f77536c8",
+  "manifest_run_id": "run_20261122T063616Z",
+  "manifest_sha256": "0fd02dbbf3fdcd25b003ac88a1f3566c6e733d611272b705276f33e746fbcd9b",
   "slippage_convention": {
     "reference_source": "strategy_signals.entry",
     "unit": "bps",
@@ -182,12 +182,12 @@
     {
       "source": "live_events_v3.control_logs",
       "path": "live_events/control_logs.parquet",
-      "row_count": 217,
+      "row_count": 219,
       "sha256": "",
       "min_ts_ms": 1794672522101,
-      "max_ts_ms": 1795324533565,
+      "max_ts_ms": 1795328132959,
       "min_ts_utc": "2026-11-14T16:08:42.101000Z",
-      "max_ts_utc": "2026-11-22T05:15:33.565000Z",
+      "max_ts_utc": "2026-11-22T06:15:32.959000Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Nhật ký hệ thống V3 (dùng suy ra VPS_TẮT)"
@@ -195,12 +195,12 @@
     {
       "source": "live_events_v3.candles",
       "path": "live_events/candles.parquet",
-      "row_count": 15422,
+      "row_count": 15432,
       "sha256": "",
       "min_ts_ms": 1784514600000,
-      "max_ts_ms": 1795323600000,
+      "max_ts_ms": 1795328100000,
       "min_ts_utc": "2026-07-20T02:30:00Z",
-      "max_ts_utc": "2026-11-22T05:00:00Z",
+      "max_ts_utc": "2026-11-22T06:15:00Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Nến 15m cache live (BTC=3400, ETH=12000)"
@@ -260,12 +260,12 @@
     {
       "source": "market_candles_1m.BTC-USDT",
       "path": "market/candles_1m/BTC-USDT.parquet",
-      "row_count": 30606,
-      "sha256": "114fedff3ade28dc060e22543bd29dcf9f3c08b8e0f9c40f186f601193e1d952",
+      "row_count": 30636,
+      "sha256": "30ac6360ea8ba222be351c564a66a6f4d4bcb71a861149b350699ca00b15f192",
       "min_ts_ms": 1793491200000,
-      "max_ts_ms": 1795327500000,
+      "max_ts_ms": 1795329300000,
       "min_ts_utc": "2026-11-01T00:00:00Z",
-      "max_ts_utc": "2026-11-22T06:05:00Z",
+      "max_ts_utc": "2026-11-22T06:35:00Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Nến M1 liên tục"
@@ -273,12 +273,12 @@
     {
       "source": "market_candles_1m.ETH-USDT",
       "path": "market/candles_1m/ETH-USDT.parquet",
-      "row_count": 30606,
-      "sha256": "aec00dc7ed0acaff2f66c71c00429b662de13581073bcd12c63e7b2e90b2ae2a",
+      "row_count": 30636,
+      "sha256": "c0f1e8b5224c0b6da0fe22b301ab5f4407edbc46ef4f00b016938ee3dfd873b8",
       "min_ts_ms": 1793491200000,
-      "max_ts_ms": 1795327500000,
+      "max_ts_ms": 1795329300000,
       "min_ts_utc": "2026-11-01T00:00:00Z",
-      "max_ts_utc": "2026-11-22T06:05:00Z",
+      "max_ts_utc": "2026-11-22T06:35:00Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Nến M1 liên tục"
@@ -287,7 +287,7 @@
       "source": "market_funding.BTC-USDT",
       "path": "market/funding/BTC-USDT.parquet",
       "row_count": 44,
-      "sha256": "c2d406e9b869de505b888721da9cbecc35d4799b428ae415eab9e16955bdcd9a",
+      "sha256": "591226f3c5131f6e1f840f912649b0a14862f092ca83cc97370232ead2897138",
       "min_ts_ms": 1794067200000,
       "max_ts_ms": 1795305600000,
       "min_ts_utc": "2026-11-07T16:00:00Z",
@@ -300,7 +300,7 @@
       "source": "market_funding.ETH-USDT",
       "path": "market/funding/ETH-USDT.parquet",
       "row_count": 44,
-      "sha256": "b6b3fed2fb7870a80165e08b73580e247ba7fde1b363f89aee9e3f1c4ae255bc",
+      "sha256": "f28364a6a2d43ce320f8a699889416a92e544e379b917a505f973334c049837a",
       "min_ts_ms": 1794067200000,
       "max_ts_ms": 1795305600000,
       "min_ts_utc": "2026-11-07T16:00:00Z",
@@ -313,11 +313,11 @@
       "source": "market_contract_rules",
       "path": "market/contract_rules/contracts.parquet",
       "row_count": 2,
-      "sha256": "d60b39699af8ac47adc2c0d1d7fcbfc7ea5d73254e90cace05ae70a4d0f40842",
-      "min_ts_ms": 1795327584969,
-      "max_ts_ms": 1795327584969,
-      "min_ts_utc": "2026-11-22T06:06:24.969000Z",
-      "max_ts_utc": "2026-11-22T06:06:24.969000Z",
+      "sha256": "6ed0941ed0ee00b38290c59f8a356957ad894d68da01c4dfa36f33aa655ba9d8",
+      "min_ts_ms": 1795329376470,
+      "max_ts_ms": 1795329376470,
+      "min_ts_utc": "2026-11-22T06:36:16.470000Z",
+      "max_ts_utc": "2026-11-22T06:36:16.470000Z",
       "status": "COMPLETE",
       "provenance": "EXACT",
       "note": "Quy tắc hợp đồng BingX"
@@ -653,6 +653,9 @@
     "schema_version": "1.1.0",
     "compare_from": "2026-11-22T04:00:00Z",
     "deploy_23_finalized_utc": "2026-11-22T04:00:00Z",
+    "sync_cooldown_seconds": 60,
+    "sync_warn_hours": 6,
+    "sync_critical_hours": 24,
     "entry_slippage_bps_warn": "10.0",
     "entry_slippage_bps_system": "25.0",
     "tp_sl_price_diff_pct_tol": "0.05",
@@ -780,7 +783,7 @@
     "time_skew_count": 0,
     "match_rate_vs_live_pct": 95.45,
     "notes": [
-      "BTC-USDT: live_events/candles.parquet giữ 3411 nến 15m (rolling 3400), chạy với only_warmup_ready=False."
+      "BTC-USDT: live_events/candles.parquet giữ 3416 nến 15m (rolling 3400), chạy với only_warmup_ready=False."
     ],
     "items": [
       {
@@ -5326,5 +5329,5 @@
       "system_issue_note": null
     }
   ],
-  "report_sha256": "a1315ce80eebc9e15f26d072a29c7dcffda2230297d3a844a0771ec694518a8f"
+  "report_sha256": "56151b432bbbd87256e2d027e7cc26685802eb6e575e0e833b80c7e5309a219f"
 }

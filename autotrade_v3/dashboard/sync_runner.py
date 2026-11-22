@@ -199,12 +199,16 @@ def trigger_manual_sync(
 
     def _worker() -> None:
         try:
+            sub_env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
             proc = subprocess.Popen(
                 cmd,
                 cwd=str(repo_root),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=sub_env,
             )
             _write_sync_state(
                 evidence_dir,
