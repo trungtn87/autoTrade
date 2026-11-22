@@ -30,7 +30,8 @@ def expected_closed_open(now_ms: int) -> int:
 
 
 class L1Data:
-    def __init__(self, settings, candle_store, control, historical: HistoricalKlineClient | None = None):
+    def __init__(self, settings, candle_store, control, historical: HistoricalKlineClient | None = None,
+                 on_backfilled: Callable[[str], None] | None = None):
         self.settings = settings
         self.store = candle_store
         self.control = control
@@ -46,6 +47,7 @@ class L1Data:
         self.health: dict[str, dict] = {}
         self._stop = threading.Event()
         self._attempts: dict[tuple[str, int], dict] = {}
+        self.on_backfilled = on_backfilled
 
     def ingest(self, symbol: str, frame):
         return self.services[symbol.upper()].ingest_closed_candle(symbol, frame)
@@ -86,6 +88,14 @@ class L1Data:
                 total = self._stats_count(symbol)
                 log.info("V3_L1_BACKFILL_SAVED symbol=%s page_bars=%s total=%s target=%s",
                          symbol, saved, total, keep)
+                # Notify only after validated data is persisted; never re-save a page
+                # just because the optional L2 callback failed.
+                callback = getattr(self, "on_backfilled", None)
+                if saved > 0 and callback is not None:
+                    try:
+                        callback(symbol)
+                    except Exception:
+                        log.exception("V3_L1_BACKFILL_CALLBACK_FAILED symbol=%s", symbol)
             except Exception as exc:  # API/cooldown/validation: keep all prior pages, retry next cycle
                 log.warning("V3_L1_BACKFILL_RETRY symbol=%s error=%s", symbol, exc)
             self._stop.wait(BACKFILL_RETRY_SEC)
@@ -96,7 +106,8 @@ class L1Data:
         except Exception as exc:
             return {"error": str(exc)}
 
-    def watchdog(self, processed_open: Callable[[str], int], on_snapshot: Callable[[str, object], None]) -> None:
+    def watchdog(self, processed_open: Callable[[str], int], on_snapshot: Callable[[str, object], None],
+                 retry_pending: Callable[[str], None] | None = None) -> None:
         """If the WebSocket missed a closed candle, repair it from REST and run the pipeline."""
         while not self._stop.wait(WATCHDOG_POLL_SEC):
             now_ms = int(time.time() * 1000)
@@ -133,6 +144,14 @@ class L1Data:
                                         f"Thiếu nến 15m {symbol} open={expected}, khôi phục lần {state['count'] + 1} thất bại: {exc}",
                                         symbol=symbol, details={"expected_open_time": expected,
                                                                 "stats": self._safe_stats(symbol)})
+            # The L1 cursor can be current even when the L2 evaluation failed.
+            # Retry L2 separately: no redundant REST requests or cross-coin gate.
+            if retry_pending is not None:
+                for symbol in self.settings.symbols:
+                    try:
+                        retry_pending(symbol)
+                    except Exception:
+                        log.exception("V3_L2_RETRY_CALLBACK_FAILED symbol=%s", symbol)
             for key in [k for k in self._attempts if k[1] < expected - STEP_15M_MS]:
                 self._attempts.pop(key, None)
 
