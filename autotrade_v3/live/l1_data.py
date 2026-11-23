@@ -22,6 +22,7 @@ CANDLE_GRACE_MS = 30_000
 WATCHDOG_POLL_SEC = 5.0
 RECOVERY_RETRY_MS = 60_000
 RECOVERY_MAX_ATTEMPTS = 2
+RECOVERY_ALERT_DELAY_MS = 30_000  # let late WebSocket candles land before Discord alerts
 BACKFILL_RETRY_SEC = 15 * 60.0  # one persisted page per 15-minute backfill cycle
 
 
@@ -106,6 +107,38 @@ class L1Data:
         except Exception as exc:
             return {"error": str(exc)}
 
+    def _latest_candle_is(self, symbol: str, expected_open: int) -> bool:
+        """Recheck DB; a failed REST call does not prove a candle is missing."""
+        try:
+            latest = self.store.load(symbol, "15m", 1)
+            return not latest.empty and int(latest.iloc[-1]["open_time"]) == expected_open
+        except Exception:
+            log.exception("V3_L1_CANDLE_ALERT_DB_CHECK_FAILED symbol=%s open=%s", symbol, expected_open)
+            return False
+
+    def _check_delayed_recovery_alert(self, symbol: str, expected: int, state: dict,
+                                      processed_open: Callable[[str], int], now_ms: int) -> None:
+        """Send one error only if a candle remains missing after the WS catch-up window."""
+        failed_ms = state.get("first_failed_ms")
+        if failed_ms is None or state.get("alert_sent"):
+            return
+        if processed_open(symbol) >= expected or self._latest_candle_is(symbol, expected):
+            state.pop("first_failed_ms", None)
+            state.pop("last_error", None)
+            log.info("V3_L1_REST_ERROR_RESOLVED symbol=%s open=%s", symbol, expected)
+            return
+        if now_ms - failed_ms < RECOVERY_ALERT_DELAY_MS:
+            return
+        state["alert_sent"] = True
+        self.control.report(
+            "L1", "candle_recovery",
+            f"Thiếu nến 15m {symbol} open={expected} sau {RECOVERY_ALERT_DELAY_MS // 1000}s xác minh; "
+            f"REST khôi phục lỗi: {state.get('last_error', 'unknown')}",
+            symbol=symbol,
+            details={"expected_open_time": expected, "stats": self._safe_stats(symbol),
+                     "rest_attempts": state["count"], "alert_delay_ms": RECOVERY_ALERT_DELAY_MS},
+        )
+
     def watchdog(self, processed_open: Callable[[str], int], on_snapshot: Callable[[str, object], None],
                  retry_pending: Callable[[str], None] | None = None) -> None:
         """If the WebSocket missed a closed candle, repair it from REST and run the pipeline."""
@@ -116,10 +149,11 @@ class L1Data:
                 continue
             expected = boundary - STEP_15M_MS
             for symbol in self.settings.symbols:
-                if processed_open(symbol) >= expected:
-                    continue
                 key = (symbol, expected)
                 state = self._attempts.get(key, {"count": 0, "last_ms": 0})
+                self._check_delayed_recovery_alert(symbol, expected, state, processed_open, now_ms)
+                if processed_open(symbol) >= expected:
+                    continue
                 if state["count"] >= RECOVERY_MAX_ATTEMPTS:
                     continue
                 if state["count"] and now_ms - state["last_ms"] < RECOVERY_RETRY_MS:
@@ -127,7 +161,7 @@ class L1Data:
                 if state["count"] == 0:
                     # WS may simply be late. Log only; no Discord alert unless REST repair fails.
                     log.info("V3_L1_CANDLE_LATE symbol=%s open=%s, REST recovery started", symbol, expected)
-                self._attempts[key] = {"count": state["count"] + 1, "last_ms": now_ms}
+                self._attempts[key] = {**state, "count": state["count"] + 1, "last_ms": now_ms}
                 try:
                     snap, missing = self.recover(symbol, now_ms)
                     if int(snap.latest_open_time) != expected:
@@ -143,10 +177,11 @@ class L1Data:
                         log.info("V3_L1_CANDLE_LATE_RESOLVED_BY_WS symbol=%s open=%s rest_error=%s",
                                  symbol, expected, exc)
                         continue
-                    self.control.report("L1", "candle_recovery",
-                                        f"Thiếu nến 15m {symbol} open={expected}, khôi phục lần {state['count'] + 1} thất bại: {exc}",
-                                        symbol=symbol, details={"expected_open_time": expected,
-                                                                "stats": self._safe_stats(symbol)})
+                    pending = self._attempts[key]
+                    pending.setdefault("first_failed_ms", now_ms)
+                    pending["last_error"] = str(exc)
+                    log.warning("V3_L1_REST_RECOVERY_FAILED_WAITING_FOR_WS symbol=%s open=%s attempt=%s error=%s",
+                                symbol, expected, pending["count"], exc)
             # The L1 cursor can be current even when the L2 evaluation failed.
             # Retry L2 separately: no redundant REST requests or cross-coin gate.
             if retry_pending is not None:
