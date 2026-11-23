@@ -54,6 +54,7 @@ def _watchdog_fixture(monkeypatch, polls: int):
     clock = PollClock(polls)
     l1._stop = clock
     l1._attempts = {}
+    l1.health = {}
     l1.settings = SimpleNamespace(symbols=("BTC-USDT",))
     l1.store = FakeStore()
     l1.control = RecordingControl()
