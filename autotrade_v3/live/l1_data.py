@@ -161,7 +161,7 @@ class L1Data:
                 if state["count"] == 0:
                     # WS may simply be late. Log only; no Discord alert unless REST repair fails.
                     log.info("V3_L1_CANDLE_LATE symbol=%s open=%s, REST recovery started", symbol, expected)
-                self._attempts[key] = {"count": state["count"] + 1, "last_ms": now_ms}
+                self._attempts[key] = {**state, "count": state["count"] + 1, "last_ms": now_ms}
                 try:
                     snap, missing = self.recover(symbol, now_ms)
                     if int(snap.latest_open_time) != expected:
