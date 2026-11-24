@@ -32,36 +32,21 @@ class DataService:
         historical: HistoricalKlineClient,
         store: CandleStore,
         *,
-        keep: int = 3400,
+        retention: int = 3400,
+        signal_window: int = 3400,
         required: int = 3400,
-        recover_window: int | None = None,
     ):
         self.historical = historical
         self.store = store
-        self.keep = int(keep)
+        self.retention = int(retention)
+        self.signal_window = int(signal_window)
         self.required = int(required)
-        # Window repaired/bootstrapped from REST. ETH C1 uses 12000 bars; other combos keep `required`.
-        self.recover_window = int(recover_window or required)
-        if self.recover_window > self.keep:
-            raise ValueError("recover_window must not exceed keep")
+        if not 0 < self.required <= self.signal_window <= self.retention:
+            raise ValueError("required <= signal_window <= retention must hold")
         # Shared per-service limiter across BTC/ETH recovery calls.
         self._recovery_rest_lock=threading.Lock()
         self._recovery_rest_calls=deque()
         self._recovery_rest_cooldown_until=0.0
-
-    def bootstrap(self, symbol: str, now_ms: int | None = None) -> MarketSnapshot:
-        """Use a valid stored window or rebuild the required window from REST."""
-        symbol = symbol.upper()
-        now_ms = int(now_ms or time.time() * 1000)
-        try:
-            return self.snapshot_from_store(symbol, now_ms)
-        except (DataLayerError, StrategyInsufficientCandlesError):
-            pass
-
-        candles = self.historical.fetch_history(symbol, self.recover_window, now_ms)
-        self.store.upsert(symbol, "15m", candles)
-        self.store.trim(symbol, "15m", self.keep)
-        return self.snapshot_from_store(symbol, now_ms)
 
     def _recovery_fetch_window(
         self,
@@ -144,48 +129,6 @@ class DataService:
                     or h < max(o, c, l) or l > min(o, c)):
                 raise DataLayerError(f"{symbol} REST candle OHLCV invalid: open={open_ms}")
 
-    def backfill_complete(self, symbol: str, now_ms: int | None = None) -> bool:
-        """A full, strictly contiguous and current keep-window is present in DB."""
-        try:
-            return len(self.snapshot_from_store(symbol, now_ms).candles) == self.keep
-        except (DataLayerError, StrategyInsufficientCandlesError):
-            return False
-
-    def backfill_one_page(self, symbol: str, now_ms: int | None = None) -> int:
-        """Fetch and durably save at most ONE 1000-bar REST page per invocation.
-
-        Work backward from the newest missing bar so each successful page extends
-        the contiguous live tail. Partial progress survives rate limits, crashes
-        and process restarts; L2 continues to use the valid latest window.
-        """
-        symbol = symbol.upper()
-        now_ms = int(now_ms or time.time() * 1000)
-        latest = (now_ms // STEP_15M_MS) * STEP_15M_MS - STEP_15M_MS
-        oldest = latest - (self.keep - 1) * STEP_15M_MS
-        current = self.store.load(symbol, "15m", None)
-        existing = set(int(x) for x in current["open_time"].tolist()) if not current.empty else set()
-        missing_end = next(
-            (t for t in range(latest, oldest - STEP_15M_MS, -STEP_15M_MS) if t not in existing),
-            None,
-        )
-        if missing_end is None:
-            return 0
-
-        start = missing_end
-        take = 1
-        while (take < self.historical.request_limit and start > oldest
-               and start - STEP_15M_MS not in existing):
-            start -= STEP_15M_MS
-            take += 1
-        frame = self._recovery_fetch_window(
-            symbol, start, missing_end + STEP_15M_MS - 1, take,
-        )
-        expected = list(range(start, missing_end + STEP_15M_MS, STEP_15M_MS))
-        self._validate_recovery_page(symbol, frame, expected)
-        self.store.upsert(symbol, "15m", frame)
-        self.store.trim(symbol, "15m", self.keep)
-        return len(frame)
-
     def ingest_closed_candle(
         self,
         symbol: str,
@@ -197,7 +140,7 @@ class DataService:
         if candle is None or len(candle) != 1:
             raise DataLayerError("WebSocket ingest requires exactly one closed candle")
         self.store.upsert(symbol, "15m", candle)
-        self.store.trim(symbol, "15m", self.keep)
+        self.store.trim(symbol, "15m", self.retention)
         now_ms = int(now_ms or max(time.time() * 1000, int(candle.iloc[-1]["close_time"]) + 1))
         return self.snapshot_from_store(symbol, now_ms)
 
@@ -210,11 +153,11 @@ class DataService:
         symbol=symbol.upper()
         now_ms=int(now_ms or time.time()*1000)
         expected_latest=(now_ms//STEP_15M_MS)*STEP_15M_MS-STEP_15M_MS
-        # Urgent WebSocket/watchdog repair only needs the live 3400-bar window.
-        # Older ETH history is loaded separately, ONE persisted page per backfill cycle.
+        # Urgent WebSocket/watchdog repair is intentionally bounded to the existing
+        # realtime recovery window. Retention growth must never trigger deep REST history.
         first_required=expected_latest-(self.required-1)*STEP_15M_MS
 
-        current=self.store.load(symbol,"15m",None)
+        current=self.store.load(symbol,"15m",self.signal_window)
         existing={
             int(x)
             for x in current["open_time"].tolist()
@@ -250,7 +193,7 @@ class DataService:
                 self._validate_recovery_page(symbol, frame, expected)
                 # Do not discard earlier successfully repaired pages on later errors.
                 self.store.upsert(symbol,"15m",frame)
-                self.store.trim(symbol,"15m",self.keep)
+                self.store.trim(symbol,"15m",self.retention)
                 chunk_start=chunk_end+STEP_15M_MS
 
         snapshot=self.snapshot_from_store(symbol,now_ms)
@@ -259,7 +202,7 @@ class DataService:
     def snapshot_from_store(self, symbol: str, now_ms: int | None = None) -> MarketSnapshot:
         symbol = symbol.upper()
         now_ms = int(now_ms or time.time() * 1000)
-        candles = self.store.load(symbol, "15m", self.keep)
+        candles = self.store.load(symbol, "15m", self.signal_window)
         if len(candles) < self.required:
             raise StrategyInsufficientCandlesError(
                 symbol,

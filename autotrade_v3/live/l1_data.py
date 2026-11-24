@@ -23,7 +23,6 @@ WATCHDOG_POLL_SEC = 5.0
 RECOVERY_RETRY_MS = 60_000
 RECOVERY_MAX_ATTEMPTS = 2
 RECOVERY_ALERT_DELAY_MS = 30_000  # let late WebSocket candles land before Discord alerts
-BACKFILL_RETRY_SEC = 15 * 60.0  # one persisted page per 15-minute backfill cycle
 
 
 def expected_closed_open(now_ms: int) -> int:
@@ -39,15 +38,23 @@ class L1Data:
         self.historical = historical or HistoricalKlineClient(
             base_url=settings.bingx_base_url, min_interval_sec=settings.historical_min_interval_ms / 1000.0,
             request_limit=settings.historical_request_limit)
-        # One V3-owned service per symbol: ETH keeps 12000 bars (ETH C1), BTC keeps 3400.
+        # DB retention is larger than the unchanged PRUNE23 signal windows. REST
+        # remains limited to recent-candle repair and never fills the retention gap.
         self.services = {
-            symbol: DataService(self.historical, candle_store, keep=settings.candle_keep_for(symbol),
-                                required=settings.required_15m, recover_window=settings.candle_keep_for(symbol))
+            symbol: DataService(
+                self.historical,
+                candle_store,
+                retention=settings.candle_retention_for(symbol),
+                signal_window=settings.signal_window_for(symbol),
+                required=settings.required_15m,
+            )
             for symbol in settings.symbols
         }
         self.health: dict[str, dict] = {}
         self._stop = threading.Event()
         self._attempts: dict[tuple[str, int], dict] = {}
+        # Kept for compatibility with explicit/manual history review. Startup no
+        # longer launches a deep-history producer that could invoke this callback.
         self.on_backfilled = on_backfilled
 
     def ingest(self, symbol: str, frame):
@@ -60,7 +67,7 @@ class L1Data:
         self.health[symbol] = {"ok": bool(ok), "checked_at_ms": int(time.time() * 1000), **details}
 
     def startup_sync(self) -> None:
-        """Fill the gap between the stored candles and now (bounded REST), then keep backfilling."""
+        """Repair only the recent live window; never backfill toward DB retention."""
         for symbol in self.settings.symbols:
             try:
                 snap, missing = self.recover(symbol)
@@ -69,38 +76,6 @@ class L1Data:
             except Exception as exc:
                 self.set_health(symbol, False, error=str(exc), source="startup")
                 log.warning("V3_L1_STARTUP_WAIT symbol=%s error=%s", symbol, exc)
-            if not self.services[symbol].backfill_complete(symbol):
-                threading.Thread(target=self.backfill_loop, args=(symbol,),
-                                 name=f"v3-candle-backfill-{symbol}", daemon=True).start()
-
-    def _stats_count(self, symbol: str) -> int:
-        return int(self.store.stats(symbol, "15m").get("count", 0))
-
-    def backfill_loop(self, symbol: str) -> None:
-        """Fetch at most one page, persist, then wait 15 minutes; resume after restart."""
-        keep = self.settings.candle_keep_for(symbol)
-        service = self.services[symbol]
-        while not self._stop.is_set():
-            try:
-                if service.backfill_complete(symbol):
-                    log.info("V3_L1_BACKFILL_DONE symbol=%s bars=%s", symbol, keep)
-                    return
-                saved = service.backfill_one_page(symbol)
-                total = self._stats_count(symbol)
-                log.info("V3_L1_BACKFILL_SAVED symbol=%s page_bars=%s total=%s target=%s",
-                         symbol, saved, total, keep)
-                # Notify only after validated data is persisted; never re-save a page
-                # just because the optional L2 callback failed.
-                callback = getattr(self, "on_backfilled", None)
-                if saved > 0 and callback is not None:
-                    try:
-                        callback(symbol)
-                    except Exception:
-                        log.exception("V3_L1_BACKFILL_CALLBACK_FAILED symbol=%s", symbol)
-            except Exception as exc:  # API/cooldown/validation: keep all prior pages, retry next cycle
-                log.warning("V3_L1_BACKFILL_RETRY symbol=%s error=%s", symbol, exc)
-            self._stop.wait(BACKFILL_RETRY_SEC)
-
     def _safe_stats(self, symbol: str) -> dict:
         try:
             return self.store.stats(symbol, "15m")

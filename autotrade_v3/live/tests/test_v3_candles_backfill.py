@@ -7,12 +7,15 @@ import pytest
 
 from autotrade_v3.live.candles import service as svc
 from autotrade_v3.live.candles.errors import DataLayerError
-from autotrade_v3.live.l1_data import BACKFILL_RETRY_SEC, L1Data
+from autotrade_v3.live.config import V3Settings
+from autotrade_v3.live.l1_data import L1Data
 from autotrade_v3.live.store import CandleStore
 
 STEP = 15 * 60_000
-LATEST = 1_794_917_700_000  # latest closed 15m bar in these offline tests
+LATEST = 1_794_917_700_000
 NOW = LATEST + STEP + 1
+BTC = "BTC-USDT"
+ETH = "ETH-USDT"
 
 
 class FakeHistory:
@@ -21,7 +24,7 @@ class FakeHistory:
     def __init__(self, bars: pd.DataFrame):
         self.bars = bars
         self.calls = 0
-        self.windows = []
+        self.windows: list[tuple] = []
 
     def fetch_window(self, symbol, start_time, end_time, limit):
         self.calls += 1
@@ -45,209 +48,173 @@ def _bars(n: int) -> pd.DataFrame:
     })
 
 
-def _initial(n: int = 12_000, keep: int = 12_000):
-    bars = _bars(n)
+def _service(symbol: str, stored: int | None = None):
+    retention = 13_440 if symbol == BTC else 25_920
+    signal_window = 3_400 if symbol == BTC else 12_000
+    bars = _bars(retention)
     store = CandleStore()
-    store.upsert("ETH-USDT", "15m", bars.tail(3400))
-    hist = FakeHistory(bars)
-    service = svc.DataService(hist, store, keep=keep, required=3400, recover_window=keep)
-    return store, hist, service
+    store.upsert(symbol, "15m", bars.tail(stored or retention))
+    history = FakeHistory(bars)
+    service = svc.DataService(
+        history,
+        store,
+        retention=retention,
+        signal_window=signal_window,
+        required=3_400,
+    )
+    return bars, store, history, service
 
 
-def test_each_backfill_call_saves_one_page_and_keeps_snapshot_contiguous(monkeypatch):
-    # Simulate nine 15-minute cycles without real waiting or the rolling REST budget.
-    monkeypatch.setattr(svc, "RECOVERY_REST_MAX_REQUESTS", 20)
-    store, hist, service = _initial()
-    first_existing = int(store.load("ETH-USDT", "15m").iloc[0].open_time)
-    assert not service.backfill_complete("ETH-USDT", NOW)
-
-    for page in range(1, 10):
-        saved = service.backfill_one_page("ETH-USDT", NOW)
-        assert saved == (1000 if page < 9 else 600)
-        expected_total = 3400 + min(page * 1000, 8600)
-        assert store.stats("ETH-USDT", "15m")["count"] == expected_total
-        # All live strategies keep receiving a valid, contiguous recent window.
-        snapshot = service.snapshot_from_store("ETH-USDT", NOW)
-        assert len(snapshot.candles) == expected_total
-        assert snapshot.validation["gap_count"] == 0
-        assert hist.calls == page
-
-    assert hist.windows[0][2] == first_existing - 1
-    assert hist.windows[0][3] == 1000
-    assert service.backfill_complete("ETH-USDT", NOW)
-    assert service.backfill_one_page("ETH-USDT", NOW) == 0
-    assert hist.calls == 9  # never make a tenth, redundant REST request
+def test_plus44_retention_defaults_and_signal_windows_are_separate(monkeypatch):
+    monkeypatch.delenv("V3_CANDLE_KEEP_ETH_15M", raising=False)
+    settings = V3Settings()
+    assert settings.candle_retention_for(BTC) == 13_440
+    assert settings.candle_retention_for(ETH) == 25_920
+    assert settings.signal_window_for(BTC) == 3_400
+    assert settings.signal_window_for(ETH) == 12_000
 
 
-def test_six_request_budget_preserves_six_pages_and_resumes_after_cooldown():
-    store, hist, service = _initial()
-    for _ in range(svc.RECOVERY_REST_MAX_REQUESTS):
-        assert service.backfill_one_page("ETH-USDT", NOW) == 1000
-    assert store.stats("ETH-USDT", "15m")["count"] == 9400
-
-    with pytest.raises(DataLayerError, match="budget exhausted"):
-        service.backfill_one_page("ETH-USDT", NOW)
-    assert hist.calls == svc.RECOVERY_REST_MAX_REQUESTS
-    assert store.stats("ETH-USDT", "15m")["count"] == 9400
-
-    service._recovery_rest_calls.clear()  # simulate the 15-minute rolling window elapsing
-    assert [service.backfill_one_page("ETH-USDT", NOW) for _ in range(3)] == [1000, 1000, 600]
-    assert service.backfill_complete("ETH-USDT", NOW)
-    assert store.stats("ETH-USDT", "15m")["count"] == 12_000
+def test_stale_live_eth_environment_value_cannot_downgrade_retention(monkeypatch):
+    monkeypatch.setenv("V3_CANDLE_KEEP_ETH_15M", "12000")
+    settings = V3Settings()
+    assert settings.candle_retention_for(BTC) == 13_440
+    assert settings.candle_retention_for(ETH) == 25_920
 
 
-def test_restart_continues_from_db_without_repeating_successful_pages():
-    store, hist, service = _initial()
-    assert service.backfill_one_page("ETH-USDT", NOW) == 1000
-    assert service.backfill_one_page("ETH-USDT", NOW) == 1000
-    first_after_two = int(store.load("ETH-USDT", "15m").iloc[0].open_time)
-    replacement = svc.DataService(FakeHistory(_bars(12_000)), store,
-                                  keep=12_000, required=3400, recover_window=12_000)
-    assert replacement.backfill_one_page("ETH-USDT", NOW) == 1000
-    assert store.stats("ETH-USDT", "15m")["count"] == 6400
-    assert int(store.load("ETH-USDT", "15m").iloc[0].open_time) == first_after_two - 1000 * STEP
-    assert replacement.historical.calls == 1
+def test_eth_environment_can_raise_but_not_lower_approved_retention(monkeypatch):
+    monkeypatch.setenv("V3_CANDLE_KEEP_ETH_15M", "30000")
+    settings = V3Settings()
+    assert settings.candle_retention_for(BTC) == 13_440
+    assert settings.candle_retention_for(ETH) == 30_000
 
 
-def test_100410_cooldown_does_not_change_database():
-    store, _, service = _initial()
-
-    class RateLimited(FakeHistory):
-        def fetch_window(self, symbol, start_time, end_time, limit):
-            self.calls += 1
-            raise DataLayerError("historical BingX error status=200 code=100410 msg=retry")
-
-    hist = RateLimited(_bars(12_000))
-    service.historical = hist
-    with pytest.raises(DataLayerError, match="code=100410"):
-        service.backfill_one_page("ETH-USDT", NOW)
-    assert store.stats("ETH-USDT", "15m")["count"] == 3400
-    assert service.recovery_rest_status()["cooldown_remaining_sec"] > 0
-    with pytest.raises(DataLayerError, match="cooldown active"):
-        service.backfill_one_page("ETH-USDT", NOW)
-    assert hist.calls == 1
+@pytest.mark.parametrize(
+    "symbol,retention,signal_window",
+    [(BTC, 13_440, 3_400), (ETH, 25_920, 12_000)],
+)
+def test_snapshot_uses_unchanged_signal_window(symbol, retention, signal_window):
+    bars, store, history, service = _service(symbol)
+    snapshot = service.snapshot_from_store(symbol, NOW)
+    assert len(snapshot.candles) == signal_window
+    assert store.stats(symbol, "15m")["count"] == retention
+    assert int(snapshot.candles.iloc[0].open_time) == int(bars.iloc[-signal_window].open_time)
+    assert history.calls == 0
 
 
-@pytest.mark.parametrize("bad_kind", ["empty", "negative_volume", "misaligned_open"])
-def test_invalid_rest_page_is_not_persisted(bad_kind):
-    store, _, service = _initial()
-
-    class Malformed(FakeHistory):
-        def fetch_window(self, symbol, start_time, end_time, limit):
-            result = super().fetch_window(symbol, start_time, end_time, limit)
-            if bad_kind == "empty":
-                return result.iloc[0:0].copy()
-            if bad_kind == "negative_volume":
-                result.loc[0, "volume"] = -1.0
-            if bad_kind == "misaligned_open":
-                result.loc[0, "open_time"] += 1
-            return result
-
-    service.historical = Malformed(_bars(12_000))
-    with pytest.raises(DataLayerError):
-        service.backfill_one_page("ETH-USDT", NOW)
-    assert store.stats("ETH-USDT", "15m")["count"] == 3400
-
-
-def test_watchdog_repairs_only_recent_3400_not_whole_12000():
-    store, hist, service = _initial()
-    snapshot, missing = service.recover_missing_closed("ETH-USDT", NOW)
-    assert missing == []
-    assert len(snapshot.candles) == 3400
-    assert hist.calls == 0
-
-    df = store.load("ETH-USDT", "15m")
-    # Simulate one recent missed WebSocket bar. Preserve the original older 3399.
-    missing_open = int(df.iloc[-5].open_time)
-    store._run("DELETE FROM candles WHERE symbol=? AND timeframe=? AND open_time=?",
-               ("ETH-USDT", "15m", missing_open))
-    snapshot, missing = service.recover_missing_closed("ETH-USDT", NOW)
-    assert missing == [missing_open]
-    assert len(snapshot.candles) == 3400
-    assert hist.calls == 1
-
-
-def test_btc_keeps_3400_without_historical_backfill():
-    store = CandleStore()
-    bars = _bars(3400)
-    store.upsert("BTC-USDT", "15m", bars)
-    hist = FakeHistory(bars)
-    service = svc.DataService(hist, store, keep=3400, required=3400)
-    assert service.backfill_complete("BTC-USDT", NOW)
-    assert service.backfill_one_page("BTC-USDT", NOW) == 0
-    snap, missing = service.recover_missing_closed("BTC-USDT", NOW)
-    assert missing == [] and len(snap.candles) == 3400 and hist.calls == 0
-
-
-def test_keep_limit_can_be_raised_without_backfill_logic_changes():
-    keep = 14_000
-    store, hist, service = _initial(n=keep, keep=keep)
-    for _ in range(11):
-        assert service.backfill_one_page("ETH-USDT", NOW) > 0
-        if service.recovery_rest_status()["used_requests"] == svc.RECOVERY_REST_MAX_REQUESTS:
-            service._recovery_rest_calls.clear()
-    assert service.backfill_complete("ETH-USDT", NOW)
-    assert store.stats("ETH-USDT", "15m")["count"] == keep
-    assert hist.calls == 11
-
-
-def test_backfill_loop_calls_one_page_then_sleeps_15_minutes():
-    assert BACKFILL_RETRY_SEC == 15 * 60
-
-    class StopAfterFirstWait:
-        stopped = False
-        waits = []
-
-        def is_set(self):
-            return self.stopped
-
-        def wait(self, sec):
-            self.waits.append(sec)
-            self.stopped = True
-            return True
-
-    class OnePage:
-        calls = 0
-
-        def backfill_complete(self, _):
-            return False
-
-        def backfill_one_page(self, _):
-            self.calls += 1
-            return 1000
-
-    l1 = L1Data.__new__(L1Data)
-    l1.services = {"ETH-USDT": OnePage()}
-    l1.settings = SimpleNamespace(candle_keep_for=lambda _: 12_000)
-    l1._stop = StopAfterFirstWait()
-    l1._stats_count = lambda _: 4400
-    l1.backfill_loop("ETH-USDT")
-    assert l1.services["ETH-USDT"].calls == 1
-    assert l1._stop.waits == [BACKFILL_RETRY_SEC]
-
-def test_rolling_window_trims_oldest_bar_after_target_is_full():
-    bars = _bars(12_000)
-    store = CandleStore()
-    store.upsert("ETH-USDT", "15m", bars)
-    service = svc.DataService(FakeHistory(bars), store,
-                              keep=12_000, required=3400, recover_window=12_000)
-    first_before = int(store.load("ETH-USDT", "15m").iloc[0].open_time)
-    next_open = LATEST + STEP
-    candle = pd.DataFrame({
+@pytest.mark.parametrize(
+    "symbol,retention,signal_window",
+    [(BTC, 13_440, 3_400), (ETH, 25_920, 12_000)],
+)
+def test_ingest_over_retention_deletes_only_oldest(symbol, retention, signal_window):
+    _, store, _, service = _service(symbol)
+    before = store.load(symbol, "15m")
+    first_before = int(before.iloc[0].open_time)
+    second_before = int(before.iloc[1].open_time)
+    next_open = int(before.iloc[-1].open_time) + STEP
+    new_candle = pd.DataFrame({
         "open_time": [next_open], "open": [1.0], "high": [1.0],
         "low": [1.0], "close": [1.0], "volume": [1.0],
         "close_time": [next_open + STEP - 1],
     })
-    snapshot = service.ingest_closed_candle("ETH-USDT", candle, now_ms=next_open + STEP + 1)
+
+    snapshot = service.ingest_closed_candle(symbol, new_candle, now_ms=next_open + STEP + 1)
+    after = store.load(symbol, "15m")
+    assert len(snapshot.candles) == signal_window
+    assert len(after) == retention
+    assert first_before not in set(after.open_time.astype(int))
+    assert int(after.iloc[0].open_time) == second_before
+    assert int(after.iloc[-1].open_time) == next_open
+
+
+@pytest.mark.parametrize("symbol,retention", [(BTC, 13_440), (ETH, 25_920)])
+def test_ingest_below_retention_does_not_delete_existing_candles(symbol, retention):
+    stored = retention - 1
+    _, store, _, service = _service(symbol, stored=stored)
+    before = store.load(symbol, "15m")
+    first_before = int(before.iloc[0].open_time)
+    next_open = int(before.iloc[-1].open_time) + STEP
+    new_candle = pd.DataFrame({
+        "open_time": [next_open], "open": [1.0], "high": [1.0],
+        "low": [1.0], "close": [1.0], "volume": [1.0],
+        "close_time": [next_open + STEP - 1],
+    })
+
+    service.ingest_closed_candle(symbol, new_candle, now_ms=next_open + STEP + 1)
+    after = store.load(symbol, "15m")
+    assert len(after) == retention
+    assert int(after.iloc[0].open_time) == first_before
+
+
+def test_retention_growth_never_requests_deep_bingx_history():
+    _, store, history, service = _service(ETH, stored=12_000)
+    snapshot, missing = service.recover_missing_closed(ETH, NOW)
+    assert missing == []
     assert len(snapshot.candles) == 12_000
-    assert store.stats("ETH-USDT", "15m")["count"] == 12_000
-    assert int(store.load("ETH-USDT", "15m").iloc[0].open_time) == first_before + STEP
+    assert store.stats(ETH, "15m")["count"] == 12_000
+    assert history.calls == 0
+    assert not hasattr(service, "backfill_one_page")
+    assert not hasattr(L1Data, "backfill_loop")
 
 
-def test_eth_retention_target_is_environment_configurable(monkeypatch):
-    from autotrade_v3.live.config import V3Settings
+def test_gap_older_than_realtime_window_is_not_backfilled_from_bingx():
+    _, store, history, service = _service(ETH, stored=12_000)
+    older_open = int(store.load(ETH, "15m").iloc[-5_000].open_time)
+    store._run(
+        "DELETE FROM candles WHERE symbol=? AND timeframe=? AND open_time=?",
+        (ETH, "15m", older_open),
+    )
+    with pytest.raises(DataLayerError, match="validation failed"):
+        service.recover_missing_closed(ETH, NOW)
+    assert history.calls == 0
 
-    monkeypatch.setenv("V3_CANDLE_KEEP_ETH_15M", "14000")
-    settings = V3Settings()
-    assert settings.candle_keep_for("ETH-USDT") == 14_000
-    assert settings.candle_keep_for("BTC-USDT") == 3400
+
+def test_watchdog_repairs_one_recent_missing_candle_only():
+    _, store, history, service = _service(ETH, stored=12_000)
+    missing_open = int(store.load(ETH, "15m").iloc[-5].open_time)
+    store._run(
+        "DELETE FROM candles WHERE symbol=? AND timeframe=? AND open_time=?",
+        (ETH, "15m", missing_open),
+    )
+    snapshot, missing = service.recover_missing_closed(ETH, NOW)
+    assert missing == [missing_open]
+    assert len(snapshot.candles) == 12_000
+    assert history.calls == 1
+    assert history.windows == [(ETH, missing_open, missing_open + STEP - 1, 1)]
+
+
+def test_invalid_recent_recovery_page_is_not_persisted():
+    _, store, _, service = _service(BTC, stored=3_400)
+    missing_open = int(store.load(BTC, "15m").iloc[-5].open_time)
+    store._run(
+        "DELETE FROM candles WHERE symbol=? AND timeframe=? AND open_time=?",
+        (BTC, "15m", missing_open),
+    )
+    before = store.stats(BTC, "15m")["count"]
+
+    class Malformed(FakeHistory):
+        def fetch_window(self, symbol, start_time, end_time, limit):
+            result = super().fetch_window(symbol, start_time, end_time, limit)
+            result.loc[0, "volume"] = -1.0
+            return result
+
+    service.historical = Malformed(_bars(13_440))
+    with pytest.raises(DataLayerError, match="OHLCV invalid"):
+        service.recover_missing_closed(BTC, NOW)
+    assert store.stats(BTC, "15m")["count"] == before
+
+
+def test_startup_sync_has_no_historical_backfill_or_entry_callback():
+    calls: list[str] = []
+
+    class RecentOnly:
+        def recover_missing_closed(self, symbol, now_ms=None):
+            calls.append(symbol)
+            return SimpleNamespace(latest_open_time=LATEST), []
+
+    l1 = L1Data.__new__(L1Data)
+    l1.settings = SimpleNamespace(symbols=(BTC, ETH))
+    l1.services = {BTC: RecentOnly(), ETH: RecentOnly()}
+    l1.health = {}
+    l1.startup_sync()
+    assert calls == [BTC, ETH]
+    assert all(item["source"] == "startup" for item in l1.health.values())
