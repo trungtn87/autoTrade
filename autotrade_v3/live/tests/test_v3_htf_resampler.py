@@ -148,7 +148,10 @@ def test_resampler_ohlcv_matches_pandas_and_supports_both_input_formats(
     pd.testing.assert_frame_equal(df_col, df_col_orig)
     pd.testing.assert_frame_equal(df_idx, df_idx_orig)
     pd.testing.assert_frame_equal(out_col, out_idx)
-    pd.testing.assert_frame_equal(out_col, ref, check_names=False, check_freq=False)
+    # Compare values, not index resolution (pandas 2 uses ns, pandas 3 may use ms).
+    out_cmp = out_col.copy(); out_cmp.index = out_cmp.index.as_unit("ns")
+    ref_cmp = ref.copy(); ref_cmp.index = ref_cmp.index.as_unit("ns")
+    pd.testing.assert_frame_equal(out_cmp, ref_cmp, check_names=False, check_freq=False)
     assert len(out_col) == expected_count
 
     last_open_ms = int(out_col.index[-1].value // 1_000_000)
