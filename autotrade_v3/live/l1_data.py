@@ -38,15 +38,15 @@ class L1Data:
         self.historical = historical or HistoricalKlineClient(
             base_url=settings.bingx_base_url, min_interval_sec=settings.historical_min_interval_ms / 1000.0,
             request_limit=settings.historical_request_limit)
-        # DB retention is larger than the unchanged PRUNE23 signal windows. REST
-        # remains limited to recent-candle repair and never fills the retention gap.
+        # L1 snapshots read the full coin capacity (BTC 13440, ETH 25920) so L2
+        # can slice per combo. REST remains limited to recent-candle repair.
         self.services = {
             symbol: DataService(
                 self.historical,
                 candle_store,
                 retention=settings.candle_retention_for(symbol),
-                signal_window=settings.signal_window_for(symbol),
-                required=settings.required_15m,
+                signal_window=settings.snapshot_window_for(symbol),
+                required=settings.required_15m_for(symbol),
             )
             for symbol in settings.symbols
         }

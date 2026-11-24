@@ -15,6 +15,7 @@ from .validator import DataValidationError, validate_15m_candles
 
 
 STEP_15M_MS=15*60_000
+DEFAULT_RECOVERY_WINDOW=3400
 RECOVERY_REST_WINDOW_SEC=15*60
 RECOVERY_REST_MAX_REQUESTS=6
 RECOVERY_REST_COOLDOWN_SEC=15*60
@@ -35,14 +36,20 @@ class DataService:
         retention: int = 3400,
         signal_window: int = 3400,
         required: int = 3400,
+        recovery_window: int | None = None,
     ):
         self.historical = historical
         self.store = store
         self.retention = int(retention)
         self.signal_window = int(signal_window)
         self.required = int(required)
-        if not 0 < self.required <= self.signal_window <= self.retention:
-            raise ValueError("required <= signal_window <= retention must hold")
+        self.recovery_window = (
+            min(self.required, DEFAULT_RECOVERY_WINDOW)
+            if recovery_window is None
+            else int(recovery_window)
+        )
+        if not 0 < self.recovery_window <= self.required <= self.signal_window <= self.retention:
+            raise ValueError("recovery_window <= required <= signal_window <= retention must hold")
         # Shared per-service limiter across BTC/ETH recovery calls.
         self._recovery_rest_lock=threading.Lock()
         self._recovery_rest_calls=deque()
@@ -155,7 +162,7 @@ class DataService:
         expected_latest=(now_ms//STEP_15M_MS)*STEP_15M_MS-STEP_15M_MS
         # Urgent WebSocket/watchdog repair is intentionally bounded to the existing
         # realtime recovery window. Retention growth must never trigger deep REST history.
-        first_required=expected_latest-(self.required-1)*STEP_15M_MS
+        first_required=expected_latest-(self.recovery_window-1)*STEP_15M_MS
 
         current=self.store.load(symbol,"15m",self.signal_window)
         existing={

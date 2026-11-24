@@ -19,8 +19,24 @@ from typing import Any
 REGISTRY_LAB11_23 = "V3_LIVE_23_LAB_11_V1"
 DEFAULT_REGISTRY = REGISTRY_LAB11_23
 KNOWN_REGISTRIES = (REGISTRY_LAB11_23,)
+DEFAULT_WINDOW_BARS: dict[str, int] = {
+    "BTC-USDT": 3_400,
+    "ETH-USDT": 12_000,
+}
+MAX_WINDOW_BARS: dict[str, int] = {
+    "BTC-USDT": 13_440,
+    "ETH-USDT": 25_920,
+}
 
 _DIR = Path(__file__).resolve().parent / "registries"
+
+
+def default_window_bars_for(symbol: str) -> int:
+    return DEFAULT_WINDOW_BARS.get(str(symbol).upper(), 3_400)
+
+
+def max_window_bars_for(symbol: str) -> int:
+    return MAX_WINDOW_BARS.get(str(symbol).upper(), 13_440)
 
 
 def canonical_sha256(obj: Any) -> str:
@@ -48,6 +64,20 @@ class ComboSpec:
     tp_pct: float
     sl_pct: float
     signal_variant: str = "BASELINE"
+    window_bars: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.window_bars is not None:
+            w = int(self.window_bars)
+            max_w = max_window_bars_for(self.symbol)
+            if w <= 0 or w > max_w:
+                raise ValueError(
+                    f"{self.symbol}/{self.combo_id}: window_bars={w} phải trong khoảng 1..{max_w}"
+                )
+
+    @property
+    def effective_window_bars(self) -> int:
+        return int(self.window_bars) if self.window_bars is not None else default_window_bars_for(self.symbol)
 
     @property
     def token(self) -> str:
@@ -62,7 +92,7 @@ class ComboSpec:
         return {"symbol": self.symbol, "combo_id": self.combo_id, "native_timeframe": self.native_timeframe,
                 "is_new6": self.is_new6, "entry_variant": self.entry_variant, "entry": self.entry,
                 "layer2": self.layer2, "tp_pct": self.tp_pct, "sl_pct": self.sl_pct,
-                "signal_variant": self.signal_variant}
+                "signal_variant": self.signal_variant, "window_bars": self.effective_window_bars}
 
     @property
     def spec_hash(self) -> str:
@@ -120,7 +150,8 @@ def _load_lab10_23() -> StrategyRegistry:
     combos = tuple(
         ComboSpec(symbol=c["symbol"], combo_id=int(c["combo_id"]), native_timeframe=c["timeframe"],
                   is_new6=False, entry_variant=str(c["execution_version"]), entry={}, layer2=str(c["layer2"]),
-                  tp_pct=float(c["tp_pct"]), sl_pct=float(c["sl_pct"]), signal_variant="LAB_10")
+                  tp_pct=float(c["tp_pct"]), sl_pct=float(c["sl_pct"]), signal_variant="LAB_10",
+                  window_bars=(int(c["window_bars"]) if c.get("window_bars") is not None else None))
         for c in raw["combos"])
     if len(combos) != 23 or len({(c.symbol, c.combo_id) for c in combos}) != 23:
         raise ValueError(f"{REGISTRY_LAB11_23} phải có đúng 23 combo-symbol duy nhất")

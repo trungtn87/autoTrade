@@ -17,7 +17,7 @@ from __future__ import annotations
 import pandas as pd
 
 from .l3_execution import V3Signal
-from .strategy_registry import StrategyRegistry
+from .strategy_registry import StrategyRegistry, default_window_bars_for
 
 M15_MS = 900_000
 BTC = "BTC-USDT"
@@ -48,6 +48,9 @@ class Lab5Engine:
         self.registry_version: str = registry.version
         self.spec_hash: str = strategy.get_spec_hash()
         self.allowed: set[tuple[str, int]] = {(c.symbol, int(c.combo_id)) for c in registry.combos}
+        self.combo_windows: dict[tuple[str, int], int] = {
+            (c.symbol, int(c.combo_id)): c.effective_window_bars for c in registry.combos
+        }
         lab_keys = {(c.symbol, int(c.combo_id)) for c in strategy.spec().combos}
         if not self.allowed <= lab_keys:
             raise ValueError(f"{registry.version}: combo không có trong V3_LAB_5: {sorted(self.allowed - lab_keys)}")
@@ -55,37 +58,46 @@ class Lab5Engine:
     def calculate(self, symbol: str, frames: dict[str, pd.DataFrame]) -> list[V3Signal]:
         """Evaluate only this symbol's latest closed M15 bar; never gate on the other symbol.
 
-        CandleStore.load gives BTC (3400 bars) and ETH (12000 bars) distinct
-        RangeIndexes. Convert the requested symbol's own M15 open_time to UTC
-        timestamps before computing signals; the last closed M15 bar remains
-        the sole publishable bar.
+        Each combo slices its own ``window_bars`` with ``tail()`` on the same
+        DataFrame so new PLUS44 combos can read deeper history without changing
+        the EMA/warmup inputs of existing PRUNE23 combos.
         """
         symbol = str(symbol).upper()
         frame = frames.get(symbol)
         if frame is None or frame.empty:
             return []
-        if not any(allowed_sym == symbol for allowed_sym, _ in self.allowed):
+        symbol_combos = [(sym, cid) for (sym, cid) in self.allowed if sym == symbol]
+        if not symbol_combos:
             return []
-        data = {symbol: to_lab_frame(frame.tail(LAB5_WINDOW_BARS))}
-        mine = data[symbol]
-        if mine.empty:
-            return []
-        latest_close_ms = int(mine.index[-1].value // 1_000_000) + M15_MS - 1
-        sigs = self.strategy.generate_signals_for_combos(
-            data, allowed_combos=self.allowed, symbols=[symbol],
-            only_approved=True, only_warmup_ready=True)
+        combo_windows = getattr(self, "combo_windows", None) or {}
+        default_w = default_window_bars_for(symbol)
+        groups: dict[int, set[tuple[str, int]]] = {}
+        for key in symbol_combos:
+            w = int(combo_windows.get(key, default_w))
+            groups.setdefault(w, set()).add(key)
+
         out: list[V3Signal] = []
-        for s in sigs:
-            if s.symbol != symbol or int(s.signal_close_ms) != latest_close_ms:
+        for window_bars in sorted(groups):
+            group_combos = groups[window_bars]
+            data = {symbol: to_lab_frame(frame.tail(window_bars))}
+            mine = data[symbol]
+            if mine.empty:
                 continue
-            if (s.symbol, int(s.combo_id)) not in self.allowed:
-                continue  # defensive: never hand a combo outside the registry to L3
-            out.append(V3Signal(
-                event_id=f"{s.symbol}|{s.timeframe}|{s.combo_name}|{s.side}|{int(s.signal_close_ms)}",
-                symbol=s.symbol, combo=int(s.combo_id), combo_name=str(s.combo_name), side=s.side,
-                timeframe=str(s.timeframe), close_time=int(s.signal_close_ms), entry=float(s.entry_price),
-                tp=float(s.tp_price), sl=float(s.sl_price), tp_pct=float(s.tp_pct), sl_pct=float(s.sl_pct),
-                registry_version=self.registry_version, spec_hash=self.spec_hash,
-                signal_variant=None,
-            ))
+            latest_close_ms = int(mine.index[-1].value // 1_000_000) + M15_MS - 1
+            sigs = self.strategy.generate_signals_for_combos(
+                data, allowed_combos=group_combos, symbols=[symbol],
+                only_approved=True, only_warmup_ready=True)
+            for s in sigs:
+                if s.symbol != symbol or int(s.signal_close_ms) != latest_close_ms:
+                    continue
+                if (s.symbol, int(s.combo_id)) not in group_combos:
+                    continue  # defensive: never hand a combo outside the registry to L3
+                out.append(V3Signal(
+                    event_id=f"{s.symbol}|{s.timeframe}|{s.combo_name}|{s.side}|{int(s.signal_close_ms)}",
+                    symbol=s.symbol, combo=int(s.combo_id), combo_name=str(s.combo_name), side=s.side,
+                    timeframe=str(s.timeframe), close_time=int(s.signal_close_ms), entry=float(s.entry_price),
+                    tp=float(s.tp_price), sl=float(s.sl_price), tp_pct=float(s.tp_pct), sl_pct=float(s.sl_pct),
+                    registry_version=self.registry_version, spec_hash=self.spec_hash,
+                    signal_variant=None,
+                ))
         return out
