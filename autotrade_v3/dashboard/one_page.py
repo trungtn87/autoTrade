@@ -18,6 +18,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from autotrade_v3.dashboard import all_signals
+from autotrade_v3.dashboard import plus44_source
 from autotrade_v3.dashboard.sync_runner import evaluate_sync_freshness, read_sync_state, trigger_manual_sync
 from autotrade_v3.dashboard.ui_shared import inject_research_theme, style_plotly
 from autotrade_v3.reconcile_v3.labels_vi import RECONCILE_LABELS_VI
@@ -309,10 +310,14 @@ def _live_status_badge(live_n: int, threshold: int, has_reconcile: bool, drifted
 
 def _build_main_equity_chart(payload: dict[str, Any], rec: dict[str, Any]) -> go.Figure:
     eq = payload.get("series", {}).get("equity_mtm") or []
+    timestamps_ms = payload.get("series", {}).get("timestamps_ms") or []
     tw = payload.get("run_info", {}).get("time_window_utc", {})
     start_s = pd.to_datetime(tw.get("start", "2023-11-01"), utc=True)
     end_s = pd.to_datetime(tw.get("end", "2026-11-01"), utc=True)
-    x_dates = pd.date_range(start_s, end_s, periods=max(len(eq), 2), tz="UTC") if eq else []
+    if eq and len(timestamps_ms) == len(eq):
+        x_dates = pd.to_datetime(timestamps_ms, unit="ms", utc=True)
+    else:
+        x_dates = pd.date_range(start_s, end_s, periods=max(len(eq), 2), tz="UTC") if eq else []
 
     fig = go.Figure()
     if eq:
@@ -488,7 +493,9 @@ def render_one_page_terminal() -> None:
     inject_research_theme()
     _render_css()
 
-    runs = all_signals.list_all_signals_runs()
+    # V3_LAB_44 is now the canonical Lab source. Values are rebuilt read-only
+    # from the PLUS44 SQLite ledger instead of the obsolete ALL_SIGNALS store.
+    runs = plus44_source.list_runs()
     base_runs = [r for r in runs if r.cost_profile == "BASE"]
     if not base_runs:
         base_runs = runs
@@ -504,12 +511,7 @@ def render_one_page_terminal() -> None:
         st.subheader(all_signals.vi("ninlab_title"))
     with h_col2:
         run_ids = [r.run_id for r in base_runs]
-        if "V3_LAB_11_PRUNE23_BASE" in run_ids:
-            default_idx = run_ids.index("V3_LAB_11_PRUNE23_BASE")
-        elif "ALL_SIGNALS_BASE" in run_ids:
-            default_idx = run_ids.index("ALL_SIGNALS_BASE")
-        else:
-            default_idx = 0
+        default_idx = next((i for i, run_id in enumerate(run_ids) if run_id.endswith("__BASE")), 0)
         sel_run_id = st.selectbox(
             all_signals.vi("ninlab_kpi_run_view"),
             run_ids,
@@ -517,16 +519,14 @@ def render_one_page_terminal() -> None:
             label_visibility="collapsed",
         )
     with h_col3:
-        if st.button(all_signals.vi("ninlab_btn_full_report"), use_container_width=True):
-            st.session_state["v3_16_selected_run"] = sel_run_id
-            st.switch_page("pages/p10_mt5_report.py")
+        st.caption("44 chiến lược · vốn chung")
 
     selected = next(r for r in base_runs if r.run_id == sel_run_id)
     st.session_state["v3_16_selected_run"] = selected.run_id
 
     # Mandatory fail-closed verification on open
-    verification = all_signals.verify_open_report(selected)
-    payload = all_signals.load_report_json(selected) if verification.passed else None
+    verification = plus44_source.verify(selected)
+    payload = plus44_source.load_payload(selected) if verification.passed else None
     if not verification.passed or payload is None:
         st.error(all_signals.vi("ninlab_hash_fail_banner"))
         st.error(f"{all_signals.vi('verify_fail')}: {verification.detail}")
@@ -558,7 +558,7 @@ def render_one_page_terminal() -> None:
     live_sub_txt = (
         "Ẩn số do lỗi xác minh"
         if rec_failed
-        else f"{live_n} / {thresh} lệnh · Lab sau mốc: {proj_sig_n} tín hiệu"
+        else f"{live_n} / {thresh} lệnh · Lab sau mốc: {proj_sig_n} tín hiệu · Live hiện phủ PRUNE23"
     )
     dot_cls = f"nl-dot-{freshness['status']}"
 
@@ -600,7 +600,7 @@ def render_one_page_terminal() -> None:
 
     # 3. NinLab Combo Table + Optional Right Detail Drawer
     combos_raw = payload.get("breakdowns", {}).get("combos", [])
-    sparks = load_combo_sparklines(str(selected.run_dir))
+    sparks = plus44_source.combo_sparklines(selected.run_id)
 
     st.markdown(f"**{all_signals.vi('ninlab_table_title')}**")
     f1, f2, f3, f4 = st.columns([1.2, 1.2, 1.3, 1.6])
@@ -763,12 +763,10 @@ def render_one_page_terminal() -> None:
             st.cache_data.clear()
             st.rerun()
     with f_btn2:
-        json_bytes = all_signals.report_json_bytes(selected)
-        if json_bytes is not None:
-            st.download_button(
-                all_signals.vi("export_ai_json"),
-                data=json_bytes,
-                file_name=f"{selected.run_id}_report_v1.json",
-                mime="application/json",
-                use_container_width=True,
-            )
+        st.download_button(
+            all_signals.vi("export_ai_json"),
+            data=plus44_source.payload_bytes(payload),
+            file_name=f"{selected.run_id}_dashboard.json",
+            mime="application/json",
+            use_container_width=True,
+        )

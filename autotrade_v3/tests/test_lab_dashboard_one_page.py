@@ -36,11 +36,11 @@ def test_main_dashboard_renders_plus44_at_root() -> None:
     at = AppTest.from_file(str(app_path), default_timeout=20)
     at.run()
     assert not at.exception
-    assert any("V3_LAB_44" in title.value for title in at.title)
-    metric_values = {metric.label: metric.value for metric in at.metric}
-    assert metric_values["Chiến lược"] == "44"
-    assert metric_values["Net PnL"] == "$1,168.42"
-    assert metric_values["Tổng lệnh"] == "5,208"
+    all_md = "\n".join(markdown.value for markdown in at.markdown)
+    assert 'data-testid="ninlab-top-strip"' in all_md
+    assert 'data-testid="ninlab-combo-table"' in all_md
+    assert "V3PLUS44" in all_md
+    assert "+$1,168.42" in all_md
 
 
 def test_mutation_fails_verify_and_hides_numbers(tmp_path: Path, monkeypatch) -> None:
