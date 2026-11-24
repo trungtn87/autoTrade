@@ -1,13 +1,15 @@
-"""Tests for the NinLab Terminal One-Page Lab Dashboard (Step B)."""
+"""Tests for the NinLab Terminal One-Page Lab Dashboard (PLUS44 ALL_SIGNALS_PORTFOLIO)."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import shutil
 
+import pandas as pd
+import pytest
+
 from streamlit.testing.v1 import AppTest
 
-from autotrade_v3.dashboard import all_signals, one_page
+from autotrade_v3.dashboard import all_signals, one_page, plus44_source
 from autotrade_v3.reports.labels_vi import find_english_label_leaks
 
 
@@ -38,32 +40,76 @@ def test_main_dashboard_renders_plus44_at_root() -> None:
     assert not at.exception
     all_md = "\n".join(markdown.value for markdown in at.markdown)
     assert 'data-testid="ninlab-top-strip"' in all_md
+    assert 'data-testid="ninlab-splits-table"' in all_md
+    assert 'data-testid="ninlab-yearly-table"' in all_md
+    assert 'data-testid="ninlab-reconciliation-box"' in all_md
     assert 'data-testid="ninlab-combo-table"' in all_md
-    assert "V3PLUS44" in all_md
-    assert "+$1,168.42" in all_md
+    assert "V3PLUS43_ALLSIG" in all_md
+    assert "+$1,525.84" in all_md
+    assert "+$1,168.42" not in all_md
+    assert "pnl_own_entry" in all_md
+    assert "DEVELOPMENT" in all_md
+    assert "VALIDATION" in all_md
+    assert "HOLDOUT" in all_md
+    assert "Y1" in all_md
+    assert "Y2" in all_md
+    assert "Y3" in all_md
 
 
-def test_mutation_fails_verify_and_hides_numbers(tmp_path: Path, monkeypatch) -> None:
-    src_run = Path("runs/v3_16_all_signals/BASE")
-    src_rep = Path("evidence/v3-16/reports/ALL_SIGNALS_BASE")
-    if not (src_run.is_dir() and src_rep.is_dir()):
-        return
+def test_plus44_list_runs_includes_base_and_stress() -> None:
+    runs = plus44_source.list_runs()
+    assert [r.cost_profile for r in runs] == ["IDEAL", "BASE", "STRESS"]
+    ideal_run, base_run, stress_run = runs
+    assert ideal_run.net_profit == pytest.approx(1773.1034, abs=1e-3)
+    assert base_run.net_profit == pytest.approx(1525.8433, abs=1e-3)
+    assert stress_run.net_profit == pytest.approx(1077.4334, abs=1e-3)
+    assert ideal_run.entry_count == 6472
+    assert base_run.entry_count == 6472
+    assert stress_run.entry_count == 6472
 
-    store = tmp_path / "runs"
-    rep_store = tmp_path / "reports"
-    dst_run = store / "BASE"
-    dst_rep = rep_store / "ALL_SIGNALS_BASE"
-    shutil.copytree(src_run, dst_run)
-    shutil.copytree(src_rep, dst_rep)
+    base_payload = plus44_source.load_payload(base_run)
+    stress_payload = plus44_source.load_payload(stress_run)
+    assert base_payload is not None and stress_payload is not None
+    base_rec = base_payload["breakdowns"]["reconciliation"]
+    stress_rec = stress_payload["breakdowns"]["reconciliation"]
+    assert base_rec["prune23_summary_net"] == pytest.approx(924.0799919104808)
+    assert stress_rec["prune23_summary_net"] == pytest.approx(616.9395952240635)
+    assert base_rec["plus44_delta_vs_summary"] == pytest.approx(0.0, abs=1e-6)
+    assert stress_rec["plus44_delta_vs_summary"] == pytest.approx(0.0, abs=1e-6)
 
-    # Mutate a single number in report_v1.json
-    rjson_path = dst_rep / "report_v1.json"
-    data = json.loads(rjson_path.read_text(encoding="utf-8"))
-    data["kpi"]["account"]["final_equity_mtm"]["value"] += 123.45
-    rjson_path.write_text(json.dumps(data), encoding="utf-8")
 
-    monkeypatch.setenv("AUTOTRADE_V3_16_RUN_STORE_DIR", str(store))
-    monkeypatch.setenv("AUTOTRADE_V3_16_REPORT_DIR", str(rep_store))
+def test_plus44_combo_table_uses_own_entry_only() -> None:
+    runs = {r.cost_profile: r for r in plus44_source.list_runs()}
+    expected_totals = {
+        "IDEAL": float(runs["IDEAL"].net_profit or 0.0),
+        "BASE": float(runs["BASE"].net_profit or 0.0),
+        "STRESS": float(runs["STRESS"].net_profit or 0.0),
+    }
+    for profile, expected_net in expected_totals.items():
+        payload = plus44_source.load_payload(runs[profile])
+        assert payload is not None
+        assert payload["run_info"]["attribution"] == "OWN_ENTRY_ONLY"
+        assert payload["run_info"]["mode"] == "ALL_SIGNALS_PORTFOLIO"
+        combos = {row["combo_key"]: row for row in payload["breakdowns"]["combos"]}
+        assert len(combos) == 43
+        assert "TV13" not in combos
+        assert all("portfolio_net_pnl" not in row for row in combos.values())
+        assert sum(row["own_entry_pnl"]["value"] for row in combos.values()) == pytest.approx(expected_net)
+        assert sum(s["net_pnl"] for s in payload["breakdowns"]["splits"]) == pytest.approx(expected_net)
+        assert sum(y["net_pnl"] for y in payload["breakdowns"]["yearly"]) == pytest.approx(expected_net)
+
+
+def test_mutation_fails_verify_and_hides_numbers(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    src_dir = plus44_source.DEFAULT_OUTPUT
+    dst_dir = tmp_path / "plus43_all_signals"
+    shutil.copytree(src_dir, dst_dir)
+
+    summary_path = dst_dir / "PORTFOLIO_SUMMARY_ALL_SIGNALS.csv"
+    df = pd.read_csv(summary_path)
+    df.loc[df["study_group"].eq("PRUNE23_PLUS_TV20") & df["profile"].eq("BASE"), "net_pnl"] += 123.45
+    df.to_csv(summary_path, index=False)
+
+    monkeypatch.setenv("AUTOTRADE_PLUS43_ALL_SIGNALS_DIR", str(dst_dir))
 
     app_path = Path(__file__).resolve().parents[1] / "dashboard" / "app.py"
     at = AppTest.from_file(str(app_path), default_timeout=20)
@@ -75,7 +121,7 @@ def test_mutation_fails_verify_and_hides_numbers(tmp_path: Path, monkeypatch) ->
     assert all_signals.vi("ninlab_hash_fail_banner") in errors
 
 
-def test_serve_command_dark_and_loopback(monkeypatch) -> None:
+def test_serve_command_dark_and_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
     from autotrade_v3.dashboard import __main__ as dmain
     from streamlit.web import cli as stcli
 

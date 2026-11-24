@@ -148,7 +148,13 @@ def _ms_to_iso(ts_ms: int) -> str:
 
 
 def _build_m15_df(candles_15m: list[dict[str, Any]], symbol: str) -> pd.DataFrame:
-    rows = sorted((r for r in candles_15m if r.get("symbol") == symbol), key=lambda x: int(x["open_time"]))
+    by_open: dict[int, dict[str, Any]] = {}
+    for r in sorted(
+        (x for x in candles_15m if x.get("symbol") == symbol),
+        key=lambda x: (int(x["open_time"]), str(x.get("created_at") or "")),
+    ):
+        by_open[int(r["open_time"])] = r
+    rows = [by_open[k] for k in sorted(by_open)]
     if not rows:
         raise ValueError(f"Không có nến 15m cho {symbol} trong live_events/candles.parquet")
     return pd.DataFrame(
