@@ -18,7 +18,7 @@ def api_get(path: str, params: tuple[tuple[str, str], ...] = ()) -> Any:
     return response.json()
 
 
-st.title("Backtest V3_LAB_11 + TV31")
+st.title("Backtest V3_LAB_11 + TV31 / PLUS44")
 st.caption("Dữ liệu đã lưu trong database local; dashboard không phụ thuộc tiến trình backtest.")
 try:
     all_runs = api_get("/api/research/runs")
@@ -29,7 +29,19 @@ if not all_runs:
     st.warning("Chưa có lần chạy backtest trong database.")
     st.stop()
 
-labels = {f"{r['study_group']} · {r['profile']} · {r['created_at']}": r["run_id"] for r in all_runs}
+GROUP_LABELS = {
+    "PRUNE23_ONLY": "PRUNE23",
+    "TV21_ONLY": "TV21",
+    "PRUNE23_PLUS_TV21": "PLUS44",
+    "PRUNE23_PLUS_TV31": "PLUS54",
+    "TV21_STANDALONE": "TV21 · standalone",
+    "TV31_STANDALONE": "TV31 · standalone",
+    "TV31_ONLY": "TV31",
+}
+labels = {
+    f"{GROUP_LABELS.get(r['study_group'], r['study_group'])} · {r['profile']} · {r['created_at']}": r["run_id"]
+    for r in all_runs
+}
 run_id = labels[st.selectbox("Lần chạy", list(labels))]
 overview = api_get("/api/research/overview", (("run_id", run_id),))
 metrics = overview["metrics"]
@@ -41,6 +53,16 @@ c4.metric("ROI", f"{metrics.get('roi_pct', 0):.2f}%")
 c5.metric("MaxDD", f"${metrics.get('m2m_dd', 0):,.2f}")
 c6.metric("Tổng lệnh", f"{metrics.get('executed_trades', 0):,}")
 st.caption(f"{overview['start_time']} đến {overview['end_time']} UTC · {overview['profile']}")
+if overview["portfolio_valid"]:
+    st.info("Kết quả từng mã bên dưới là PnL được phân bổ trong mô phỏng danh mục vốn chung (SHARED_PORTFOLIO_ALLOCATION).")
+else:
+    st.warning("Đây là kết quả từng mã chạy độc lập (STANDALONE_INDEPENDENT); tổng Net không được xem là PnL danh mục.")
+
+if all(key in metrics for key in ("p1_net", "p2_net", "p3_net")):
+    y1, y2, y3 = st.columns(3)
+    y1.metric("Năm 1 · 11/2023–10/2024", f"${metrics['p1_net']:,.2f}")
+    y2.metric("Năm 2 · 11/2024–10/2025", f"${metrics['p2_net']:,.2f}")
+    y3.metric("Năm 3 · 11/2025–10/2026", f"${metrics['p3_net']:,.2f}")
 
 f1, f2, f3, f4 = st.columns(4)
 symbol = f1.selectbox("Coin", ["Tất cả", "BTC-USDT", "ETH-USDT"])

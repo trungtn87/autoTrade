@@ -259,7 +259,7 @@ def init_db(conn: sqlite3.Connection) -> None:
 def save_database(
     manifest: dict[str, Any], registry: pd.DataFrame, summaries: dict[tuple[str, str], dict[str, Any]],
     trades: dict[tuple[str, str], pd.DataFrame], equity: dict[tuple[str, str], pd.DataFrame],
-    tv_standalone: pd.DataFrame,
+    tv_standalone: pd.DataFrame, standalone_group: str = "TV31_STANDALONE",
 ) -> None:
     conn = sqlite3.connect(DB_PATH)
     init_db(conn)
@@ -325,11 +325,11 @@ def save_database(
 
         # Standalone rows are stored under their own explicit non-portfolio run.
         for profile in ("BASE", "STRESS"):
-            run_id = f"{manifest['execution_id']}__TV31_STANDALONE__{profile}"
+            run_id = f"{manifest['execution_id']}__{standalone_group}__{profile}"
             metrics = {"independent_sum_only": True, "net_pnl": float(tv_standalone[f"net_pnl_{profile.lower()}"] .sum())}
             conn.execute(
                 "INSERT OR REPLACE INTO research_runs VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                (run_id, "TV31_STANDALONE", profile, dataset_hash, config_hash, SIMULATOR_VERSION,
+                (run_id, standalone_group, profile, dataset_hash, config_hash, SIMULATOR_VERSION,
                  profile, START, END, created, "COMPLETED", 0, INITIAL_EQUITY, json.dumps(metrics)),
             )
             conn.execute("DELETE FROM strategy_results WHERE run_id=?", (run_id,))

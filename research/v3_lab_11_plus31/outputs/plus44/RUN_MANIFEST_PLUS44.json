@@ -1,0 +1,69 @@
+{
+  "execution_id": "V3PLUS44_20261124T081526Z",
+  "study": "V3_LAB_11_PLUS44",
+  "started_at": "2026-11-24T08:15:26.902326+00:00",
+  "finished_at": "2026-11-24T08:21:01.563169+00:00",
+  "elapsed_seconds": 337.1564486026764,
+  "dataset_hash": "a18fc2e1bf5985945fee6609847cce753cd319da74415dc23d4f4bae231487be",
+  "config_hash": "49e897b5d92f094fd0e7dd3776108e6c4c461145950e83c9e1fed224d0445dab",
+  "simulator_version": "UnifiedSimulator/local-current",
+  "git_head": "44b1296ef54cb068f19a0d58bc3bce0781458bee",
+  "window": {
+    "start": "2023-11-01",
+    "end_exclusive": "2026-11-01"
+  },
+  "initial_equity": 1000.0,
+  "kept_tv": [
+    "TV03",
+    "TV04",
+    "TV07",
+    "TV08",
+    "TV09",
+    "TV10",
+    "TV12",
+    "TV13",
+    "TV14",
+    "TV15",
+    "TV16",
+    "TV17",
+    "TV20",
+    "TV21",
+    "TV22",
+    "TV23",
+    "TV24",
+    "TV27",
+    "TV28",
+    "TV30",
+    "TV31"
+  ],
+  "removed_tv": [
+    "TV01",
+    "TV02",
+    "TV05",
+    "TV06",
+    "TV11",
+    "TV18",
+    "TV19",
+    "TV25",
+    "TV26",
+    "TV29"
+  ],
+  "portfolio_valid": true,
+  "accounting_all_pass": true,
+  "signals": {
+    "PRUNE23_ONLY": 4247,
+    "TV21_ONLY": 2327,
+    "PRUNE23_PLUS_TV21": 6574
+  },
+  "resource_metrics": {
+    "scope": "aggregate local python.exe fleet; dashboard/API stopped during replay",
+    "logical_cpu_count": 48,
+    "sample_count": 96,
+    "peak_python_processes": 6,
+    "peak_working_set_mb": 1802.55078125,
+    "avg_cpu_pct_total_capacity": 2.0656678383475664,
+    "peak_cpu_pct_total_capacity": 17.401549459091772
+  },
+  "database": "research/v3_lab_11_plus31/backtests.sqlite3",
+  "database_sha256": "359a39894c3ef93e06f5d13d6c7bfdbdf381bf5f7be8193bd409adbeea00abac"
+}

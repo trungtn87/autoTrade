@@ -24,7 +24,7 @@ def main() -> None:
         main_page,
         st.Page("pages/p10_mt5_report.py", title=all_signals.vi("dashboard_report_nav"), icon="📊"),
     ]
-    pages.append(st.Page("pages/p11_v3_plus31.py", title="V3_LAB_11 + TV31", icon="🧪"))
+    pages.append(st.Page("pages/p11_v3_plus31.py", title="V3_LAB_11 + TV31 / PLUS44", icon="🧪"))
     nav = st.navigation(pages, position="sidebar")
     nav.run()
 
