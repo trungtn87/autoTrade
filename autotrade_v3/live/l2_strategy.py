@@ -71,7 +71,6 @@ class L2Strategy:
         """
         if self.registry is None or self.lab5 is None:
             raise RuntimeError(self.registry_error or "registry chưa nạp được")
-        from .l2_lab5 import LAB5_WINDOW_BARS
         sym = str(snapshot.symbol).upper()
         lock = self._calculate_locks.get(sym)
         if lock is None:
@@ -80,7 +79,7 @@ class L2Strategy:
         with lock:
             if incoming_open <= self._last_calculated_open.get(sym, -1):
                 return []
-            signals = self.lab5.calculate(sym, {sym: snapshot.candles.tail(LAB5_WINDOW_BARS)})
+            signals = self.lab5.calculate(sym, {sym: snapshot.candles})
             self._last_calculated_open[sym] = incoming_open
             return signals
 
@@ -92,13 +91,12 @@ class L2Strategy:
         """
         if self.registry is None or self.lab5 is None:
             raise RuntimeError(self.registry_error or "registry chưa nạp được")
-        from .l2_lab5 import LAB5_WINDOW_BARS
         sym = str(snapshot.symbol).upper()
         lock = self._calculate_locks.get(sym)
         if lock is None:
             return []
         with lock:
-            return self.lab5.calculate(sym, {sym: snapshot.candles.tail(LAB5_WINDOW_BARS)})
+            return self.lab5.calculate(sym, {sym: snapshot.candles})
 
     def dispatch(self, signals: list[V3Signal]) -> list:
         """Dispatch at most one side per (symbol, combo, candle close), never replay older bars.

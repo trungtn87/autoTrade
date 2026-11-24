@@ -32,10 +32,14 @@ class V3Settings:
     candle_retention_eth_15m: int = field(
         default_factory=lambda: max(25_920, int(os.getenv("V3_CANDLE_KEEP_ETH_15M", "25920")))
     )
-    # Existing PRUNE23 signal windows. Do not couple these to database retention.
+    # Existing PRUNE23 default per-combo signal windows. L1 snapshots read the full
+    # coin capacity so L2 can slice each combo independently.
     signal_window_btc_15m: int = 3_400
     signal_window_eth_15m: int = 12_000
-    required_15m: int = 3400
+    snapshot_window_btc_15m: int = 13_440
+    snapshot_window_eth_15m: int = 25_920
+    required_btc_15m: int = 13_440
+    required_eth_15m: int = 25_920
 
     def candle_retention_for(self, symbol: str) -> int:
         return (self.candle_retention_eth_15m if str(symbol).upper() == "ETH-USDT"
@@ -44,6 +48,14 @@ class V3Settings:
     def signal_window_for(self, symbol: str) -> int:
         return (self.signal_window_eth_15m if str(symbol).upper() == "ETH-USDT"
                 else self.signal_window_btc_15m)
+
+    def snapshot_window_for(self, symbol: str) -> int:
+        return (self.snapshot_window_eth_15m if str(symbol).upper() == "ETH-USDT"
+                else self.snapshot_window_btc_15m)
+
+    def required_15m_for(self, symbol: str) -> int:
+        return (self.required_eth_15m if str(symbol).upper() == "ETH-USDT"
+                else self.required_btc_15m)
     historical_request_limit: int = 1000
     historical_min_interval_ms: int = 1100
 
