@@ -94,10 +94,14 @@ def test_tv21_catalog_complete_and_live_registry_stays_prune23_only() -> None:
     assert TV21_CONFIG_MAP["TV31"].min_native_bars == 214
     assert TV21_CONFIG_MAP["TV20"].min_native_bars == 60
 
-    # Active live registry MUST remain strictly the 23 PRUNE23 combos.
+    # Active default live registry is PLUS44 (23 PRUNE23 + 21 TV21 = 44 combos),
+    # while V3_LIVE_23_LAB_11_V1 remains strictly the 23 PRUNE23 combos for rollback.
     live_reg = load_registry()
-    assert len(live_reg.combos) == 23
-    assert all(not c.token.startswith("TV") for c in live_reg.combos)
+    assert len(live_reg.combos) == 44
+    assert len([c for c in live_reg.combos if c.token.startswith("TV")]) == 21
+    rollback_reg = load_registry("V3_LIVE_23_LAB_11_V1")
+    assert len(rollback_reg.combos) == 23
+    assert all(not c.token.startswith("TV") for c in rollback_reg.combos)
 
 
 def test_tp_extension_and_sl_tightening_apply_once_without_double_scaling() -> None:

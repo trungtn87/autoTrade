@@ -96,6 +96,8 @@ class L2Strategy:
         if lock is None:
             return []
         with lock:
+            if hasattr(self.lab5, "preview"):
+                return self.lab5.preview(sym, {sym: snapshot.candles})
             return self.lab5.calculate(sym, {sym: snapshot.candles})
 
     def dispatch(self, signals: list[V3Signal]) -> list:

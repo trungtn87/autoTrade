@@ -10,7 +10,12 @@ import pandas as pd
 
 from autotrade_v3.live.l2_lab10 import V3Lab10Strategy
 from autotrade_v3.live.l2_lab5 import Lab5Engine
-from autotrade_v3.live.strategy_registry import DEFAULT_REGISTRY, REGISTRY_LAB11_23, load_registry
+from autotrade_v3.live.strategy_registry import (
+    DEFAULT_REGISTRY,
+    REGISTRY_LAB11_23,
+    REGISTRY_PLUS44_44,
+    load_registry,
+)
 
 M15_MS = 900_000
 
@@ -23,9 +28,9 @@ EXPECTED_KEYS = {
 }
 
 
-def test_lab10_registry_is_the_only_default_with_fixed_23_keys() -> None:
+def test_lab10_registry_keeps_fixed_23_keys_for_rollback() -> None:
     reg = load_registry(REGISTRY_LAB11_23)
-    assert DEFAULT_REGISTRY == REGISTRY_LAB11_23
+    assert DEFAULT_REGISTRY == REGISTRY_PLUS44_44
     assert len(reg.combos) == 23
     assert reg.allowed() == EXPECTED_KEYS
     assert {c.signal_variant for c in reg.combos} == {"LAB_10"}
