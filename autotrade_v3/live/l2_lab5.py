@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .l2_resampler import TimeframeCloseGate
+from .l2_tv21 import TV21_CONFIG_MAP, TV21ComboConfig, generate_tv21_signals_from_m15
 from .l3_execution import V3Signal
 from .strategy_registry import StrategyRegistry, default_window_bars_for
 
@@ -38,66 +40,109 @@ def to_lab_frame(candles: pd.DataFrame) -> pd.DataFrame:
 
 
 class Lab5Engine:
-    """Runs the lab V3_LAB_5 strategy on closed M15 frames, restricted to one registry."""
+    """Runs PRUNE23 (V3_LAB_5/10) and TV21 (l2_tv21) on closed M15 frames for one registry."""
 
     def __init__(self, registry: StrategyRegistry, strategy=None) -> None:
-        if strategy is None:
+        tv21_specs = [c for c in registry.combos if c.signal_variant == "TV21"]
+        lab_specs = [c for c in registry.combos if c.signal_variant != "TV21"]
+
+        if strategy is None and lab_specs:
             from autotrade_v3.lab.v3_lab_5_loader import load_v3_lab_5_strategy
             strategy = load_v3_lab_5_strategy()
         self.strategy = strategy
         self.registry_version: str = registry.version
-        self.spec_hash: str = strategy.get_spec_hash()
+        self.registry_spec_hash: str = registry.spec_hash
+        self.spec_hash: str = strategy.get_spec_hash() if strategy is not None else registry.spec_hash
         self.allowed: set[tuple[str, int]] = {(c.symbol, int(c.combo_id)) for c in registry.combos}
+        self.lab_allowed: set[tuple[str, int]] = {(c.symbol, int(c.combo_id)) for c in lab_specs}
         self.combo_windows: dict[tuple[str, int], int] = {
             (c.symbol, int(c.combo_id)): c.effective_window_bars for c in registry.combos
         }
-        lab_keys = {(c.symbol, int(c.combo_id)) for c in strategy.spec().combos}
-        if not self.allowed <= lab_keys:
-            raise ValueError(f"{registry.version}: combo không có trong V3_LAB_5: {sorted(self.allowed - lab_keys)}")
+        if self.lab_allowed:
+            if strategy is None:
+                raise ValueError(f"{registry.version}: missing lab strategy for PRUNE23 combos")
+            lab_keys = {(c.symbol, int(c.combo_id)) for c in strategy.spec().combos}
+            if not self.lab_allowed <= lab_keys:
+                raise ValueError(f"{registry.version}: combo không có trong V3_LAB_5: {sorted(self.lab_allowed - lab_keys)}")
 
-    def calculate(self, symbol: str, frames: dict[str, pd.DataFrame]) -> list[V3Signal]:
+        self.tv21_configs: dict[tuple[str, int], TV21ComboConfig] = {}
+        for spec in tv21_specs:
+            cfg = TV21_CONFIG_MAP.get(spec.token)
+            if cfg is None or cfg.symbol != spec.symbol or cfg.combo_id != int(spec.combo_id):
+                raise ValueError(f"{registry.version}: unknown TV21 combo {spec.symbol}/{spec.combo_id}")
+            self.tv21_configs[(cfg.symbol, cfg.combo_id)] = cfg
+        self.tv21_gate: TimeframeCloseGate = TimeframeCloseGate()
+
+    def calculate(self, symbol: str, frames: dict[str, pd.DataFrame], *, use_gate: bool = True) -> list[V3Signal]:
         """Evaluate only this symbol's latest closed M15 bar; never gate on the other symbol.
 
-        Each combo slices its own ``window_bars`` with ``tail()`` on the same
-        DataFrame so new PLUS44 combos can read deeper history without changing
-        the EMA/warmup inputs of existing PRUNE23 combos.
+        PRUNE23 combos dispatch through ``self.strategy.generate_signals_for_combos``.
+        TV21 combos dispatch through ``generate_tv21_signals_from_m15`` with
+        ``only_latest_closed=True`` and ``TimeframeCloseGate``.
         """
         symbol = str(symbol).upper()
         frame = frames.get(symbol)
         if frame is None or frame.empty:
             return []
-        symbol_combos = [(sym, cid) for (sym, cid) in self.allowed if sym == symbol]
-        if not symbol_combos:
+
+        lab_allowed = getattr(self, "lab_allowed", None)
+        if lab_allowed is None:
+            lab_allowed = self.allowed
+        tv21_configs = getattr(self, "tv21_configs", None) or {}
+        lab_symbol_combos = [(sym, cid) for (sym, cid) in lab_allowed if sym == symbol]
+        tv21_symbol_configs = [cfg for (sym, _), cfg in sorted(tv21_configs.items()) if sym == symbol]
+        if not lab_symbol_combos and not tv21_symbol_configs:
             return []
-        combo_windows = getattr(self, "combo_windows", None) or {}
-        default_w = default_window_bars_for(symbol)
-        groups: dict[int, set[tuple[str, int]]] = {}
-        for key in symbol_combos:
-            w = int(combo_windows.get(key, default_w))
-            groups.setdefault(w, set()).add(key)
 
         out: list[V3Signal] = []
-        for window_bars in sorted(groups):
-            group_combos = groups[window_bars]
-            data = {symbol: to_lab_frame(frame.tail(window_bars))}
-            mine = data[symbol]
-            if mine.empty:
-                continue
-            latest_close_ms = int(mine.index[-1].value // 1_000_000) + M15_MS - 1
-            sigs = self.strategy.generate_signals_for_combos(
-                data, allowed_combos=group_combos, symbols=[symbol],
-                only_approved=True, only_warmup_ready=True)
-            for s in sigs:
-                if s.symbol != symbol or int(s.signal_close_ms) != latest_close_ms:
+        if lab_symbol_combos:
+            combo_windows = getattr(self, "combo_windows", None) or {}
+            default_w = default_window_bars_for(symbol)
+            groups: dict[int, set[tuple[str, int]]] = {}
+            for key in lab_symbol_combos:
+                w = int(combo_windows.get(key, default_w))
+                groups.setdefault(w, set()).add(key)
+
+            for window_bars in sorted(groups):
+                group_combos = groups[window_bars]
+                data = {symbol: to_lab_frame(frame.tail(window_bars))}
+                mine = data[symbol]
+                if mine.empty:
                     continue
-                if (s.symbol, int(s.combo_id)) not in group_combos:
-                    continue  # defensive: never hand a combo outside the registry to L3
-                out.append(V3Signal(
-                    event_id=f"{s.symbol}|{s.timeframe}|{s.combo_name}|{s.side}|{int(s.signal_close_ms)}",
-                    symbol=s.symbol, combo=int(s.combo_id), combo_name=str(s.combo_name), side=s.side,
-                    timeframe=str(s.timeframe), close_time=int(s.signal_close_ms), entry=float(s.entry_price),
-                    tp=float(s.tp_price), sl=float(s.sl_price), tp_pct=float(s.tp_pct), sl_pct=float(s.sl_pct),
-                    registry_version=self.registry_version, spec_hash=self.spec_hash,
-                    signal_variant=None,
-                ))
+                latest_close_ms = int(mine.index[-1].value // 1_000_000) + M15_MS - 1
+                sigs = self.strategy.generate_signals_for_combos(
+                    data, allowed_combos=group_combos, symbols=[symbol],
+                    only_approved=True, only_warmup_ready=True)
+                for s in sigs:
+                    if s.symbol != symbol or int(s.signal_close_ms) != latest_close_ms:
+                        continue
+                    if (s.symbol, int(s.combo_id)) not in group_combos:
+                        continue  # defensive: never hand a combo outside the registry to L3
+                    out.append(V3Signal(
+                        event_id=f"{s.symbol}|{s.timeframe}|{s.combo_name}|{s.side}|{int(s.signal_close_ms)}",
+                        symbol=s.symbol, combo=int(s.combo_id), combo_name=str(s.combo_name), side=s.side,
+                        timeframe=str(s.timeframe), close_time=int(s.signal_close_ms), entry=float(s.entry_price),
+                        tp=float(s.tp_price), sl=float(s.sl_price), tp_pct=float(s.tp_pct), sl_pct=float(s.sl_pct),
+                        registry_version=self.registry_version, spec_hash=self.spec_hash,
+                        signal_variant=None,
+                    ))
+
+        if tv21_symbol_configs:
+            gate = getattr(self, "tv21_gate", None) if use_gate else None
+            tv21_spec_hash = getattr(self, "registry_spec_hash", None) or self.spec_hash
+            for cfg in tv21_symbol_configs:
+                out.extend(
+                    generate_tv21_signals_from_m15(
+                        frame,
+                        cfg,
+                        only_latest_closed=True,
+                        gate=gate,
+                        registry_version=self.registry_version,
+                        spec_hash=tv21_spec_hash,
+                    )
+                )
         return out
+
+    def preview(self, symbol: str, frames: dict[str, pd.DataFrame]) -> list[V3Signal]:
+        """Read-only evaluation without advancing the TV21 close gate."""
+        return self.calculate(symbol, frames, use_gate=False)

@@ -1,8 +1,10 @@
 """L2 strategy registry: which combo-symbols the live engine may trade, and how.
 
-Single registry: ``V3_LIVE_23_LAB_11_V1`` (default and only value of ``V3_STRATEGY_REGISTRY``).
-The 23 combo-symbols of lab ``V3_LAB_11_PRUNE23@11.0.0`` (Lab 10 signals plus BTC C1/C4/C7 filters) with Fixed TP/SL. Signals come from the flat lab
-module ``autotrade_v3.live.l2_lab10`` through ``l2_lab5.Lab5Engine``.
+Supported registries:
+- ``V3_LIVE_44_PLUS44_V1`` (default ``V3_STRATEGY_REGISTRY``): 23 PRUNE23 combos
+  (``l2_lab10``) + 20 TV21 HTF combos (``l2_tv21``, excluding TV13) = 43 combos with Fixed TP/SL.
+- ``V3_LIVE_23_LAB_11_V1`` (rollback): the 23 PRUNE23 combos of
+  ``V3_LAB_11_PRUNE23@11.0.0`` with Fixed TP/SL.
 
 Exit policy is the live FIXED_TP_SL for every new entry (one TP + one SL on the real fill). The registry never
 closes, reverses or reopens a position: it only decides which NEW signals L2 emits.
@@ -17,8 +19,9 @@ from typing import Any
 
 
 REGISTRY_LAB11_23 = "V3_LIVE_23_LAB_11_V1"
-DEFAULT_REGISTRY = REGISTRY_LAB11_23
-KNOWN_REGISTRIES = (REGISTRY_LAB11_23,)
+REGISTRY_PLUS44_44 = "V3_LIVE_44_PLUS44_V1"
+DEFAULT_REGISTRY = REGISTRY_PLUS44_44
+KNOWN_REGISTRIES = (REGISTRY_PLUS44_44, REGISTRY_LAB11_23)
 DEFAULT_WINDOW_BARS: dict[str, int] = {
     "BTC-USDT": 3_400,
     "ETH-USDT": 12_000,
@@ -45,10 +48,12 @@ def canonical_sha256(obj: Any) -> str:
 
 
 def case_name(combo: int) -> str:
-    """Live token for a combo id: C1..C10, TIER (C11 in the lab), C11..C16 (NEW6 ids 101..106)."""
+    """Live token for a combo id: C1..C10, TIER (11), C11..C16 (101..106), TV01..TV99 (31001..31099)."""
     combo = int(combo)
     if 101 <= combo <= 106:
         return f"C{combo - 90}"
+    if 31001 <= combo <= 31099:
+        return f"TV{combo - 31000:02d}"
     return "TIER" if combo == 11 else f"C{combo}"
 
 
@@ -160,6 +165,71 @@ def _load_lab10_23() -> StrategyRegistry:
                                         "parent_source": dict(raw["parent_source"])})
 
 
+def _load_plus44_44() -> StrategyRegistry:
+    """43 combo-symbols of PLUS44 (23 PRUNE23 + 20 TV21, file ``V3_LIVE_44_PLUS44_V1.json``)."""
+    from .l2_tv21 import TV21_CONFIG_MAP
+
+    raw = json.loads((_DIR / f"{REGISTRY_PLUS44_44}.json").read_text(encoding="utf-8"))
+    if raw["registry_version"] != REGISTRY_PLUS44_44:
+        raise ValueError(f"registry file declares {raw['registry_version']!r}")
+    specs: list[ComboSpec] = []
+    for c in raw["combos"]:
+        cid = int(c["combo_id"])
+        token = case_name(cid)
+        if 31001 <= cid <= 31099:
+            cfg = TV21_CONFIG_MAP.get(token)
+            if cfg is None or cfg.symbol != c["symbol"] or cfg.combo_id != cid or cfg.timeframe != c["timeframe"]:
+                raise ValueError(f"{REGISTRY_PLUS44_44}: TV21 config mismatch for {c['symbol']}/{cid}")
+            specs.append(
+                ComboSpec(
+                    symbol=c["symbol"],
+                    combo_id=cid,
+                    native_timeframe=c["timeframe"],
+                    is_new6=False,
+                    entry_variant=str(c["execution_version"]),
+                    entry={
+                        "strategy_id": cfg.strategy_id,
+                        "internal_variant": cfg.internal_variant,
+                        "wrapper_variant": cfg.wrapper_variant,
+                        "warmup_bars": cfg.warmup_bars,
+                    },
+                    layer2=str(c["layer2"]),
+                    tp_pct=float(c["tp_pct"]),
+                    sl_pct=float(c["sl_pct"]),
+                    signal_variant="TV21",
+                    window_bars=(int(c["window_bars"]) if c.get("window_bars") is not None else None),
+                )
+            )
+        else:
+            specs.append(
+                ComboSpec(
+                    symbol=c["symbol"],
+                    combo_id=cid,
+                    native_timeframe=c["timeframe"],
+                    is_new6=False,
+                    entry_variant=str(c["execution_version"]),
+                    entry={},
+                    layer2=str(c["layer2"]),
+                    tp_pct=float(c["tp_pct"]),
+                    sl_pct=float(c["sl_pct"]),
+                    signal_variant="LAB_10",
+                    window_bars=(int(c["window_bars"]) if c.get("window_bars") is not None else None),
+                )
+            )
+    combos = tuple(specs)
+    if len(combos) != 43 or len({(c.symbol, c.combo_id) for c in combos}) != 43:
+        raise ValueError(f"{REGISTRY_PLUS44_44} phải có đúng 43 combo-symbol duy nhất")
+    return StrategyRegistry(
+        version=f"{REGISTRY_PLUS44_44}@1.0.0",
+        combos=combos,
+        new6_signal_mode="virtual_position",
+        provenance={
+            "source": "autotrade_v3.live.l2_lab10 + autotrade_v3.live.l2_tv21 (PLUS44)",
+            "parent_source": dict(raw["parent_source"]),
+        },
+    )
+
+
 _CACHE: dict[str, StrategyRegistry] = {}
 
 
@@ -168,7 +238,7 @@ def load_registry(version: str | None = None) -> StrategyRegistry:
     if v not in KNOWN_REGISTRIES:
         raise ValueError(f"V3_STRATEGY_REGISTRY không hợp lệ: {version!r} (chỉ nhận {', '.join(KNOWN_REGISTRIES)})")
     if v not in _CACHE:
-        _CACHE[v] = _load_lab10_23()
+        _CACHE[v] = _load_plus44_44() if v == REGISTRY_PLUS44_44 else _load_lab10_23()
     return _CACHE[v]
 
 
