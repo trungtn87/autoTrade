@@ -1,0 +1,62 @@
+{
+  "status": "PASS",
+  "evidence_dir": "D:\\AutoTrade\\evidence\\v3-18",
+  "checks": [
+    {
+      "check": "files_exist",
+      "ok": true,
+      "detail": "missing=[]"
+    },
+    {
+      "check": "config_hashes",
+      "ok": true,
+      "detail": "manifest_cfg=f0357a006a9259beaf43fb0448c48fc35a30d103b2a7c65225046528674e1c57 actual=f0357a006a9259beaf43fb0448c48fc35a30d103b2a7c65225046528674e1c57"
+    },
+    {
+      "check": "report_and_html_hashes",
+      "ok": true,
+      "detail": "canon_ok=True file_ok=True html_ok=True"
+    },
+    {
+      "check": "dataset_hash",
+      "ok": true,
+      "detail": "manifest=ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628 actual=ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628"
+    },
+    {
+      "check": "combos_spec_hash",
+      "ok": true,
+      "detail": "manifest=70515282d746334744aee53287d624fd351d88f5d052b0a6204331810b97c022 actual=70515282d746334744aee53287d624fd351d88f5d052b0a6204331810b97c022"
+    },
+    {
+      "check": "catalog_30_23_7_exact",
+      "ok": true,
+      "detail": "count=30 live=23 non_live=7 pos20=20"
+    },
+    {
+      "check": "combo_regime_accounting",
+      "ok": true,
+      "detail": "errors=[]"
+    },
+    {
+      "check": "min_sample_size_rule",
+      "ok": true,
+      "detail": "errors=[]"
+    },
+    {
+      "check": "portfolio_consistency_and_gating",
+      "ok": true,
+      "detail": "errors=[]"
+    },
+    {
+      "check": "vietnamese_only_html",
+      "ok": true,
+      "detail": "leaks=[]"
+    },
+    {
+      "check": "splits_contiguous_disjoint",
+      "ok": true,
+      "detail": "dev_end+1=1761955200000 val_start=1761955200000 val_end+1=1777593600000 hold_start=1777593600000"
+    }
+  ],
+  "failures": []
+}

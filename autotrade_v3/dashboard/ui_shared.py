@@ -43,22 +43,27 @@ def inject_research_theme() -> None:
         .v3-kpi{min-height:120px}.v3-kpi-label{color:#c5d2e3!important;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}.v3-kpi-value{font-size:1.72rem;font-weight:800;margin:.32rem 0}.v3-kpi-note{color:#b8c5d6!important;font-size:.78rem}.tone-good{color:var(--v3-green)!important}.tone-warn{color:var(--v3-amber)!important}.tone-bad{color:var(--v3-red)!important}.tone-info{color:var(--v3-cyan)!important}
         .v3-badge{display:inline-block;padding:4px 9px;border-radius:999px;background:#1c2b40;color:#bfefff;border:1px solid #294a65;font-size:.72rem;font-weight:700}
         [data-testid="stDataFrame"]{border:1px solid var(--v3-line);border-radius:12px;overflow:hidden}
-        .stButton>button{border-radius:10px;border-color:#40516b;background:#172235;color:#fff!important;font-weight:700}.stButton>button:hover{border-color:var(--v3-cyan);color:var(--v3-cyan)!important}
+        .stButton>button,.stDownloadButton>button{border-radius:10px;border-color:#40516b;background:#172235!important;color:#fff!important;font-weight:700}.stButton>button:hover,.stDownloadButton>button:hover{border-color:var(--v3-cyan);color:var(--v3-cyan)!important}
         [data-testid="stMetric"]{border:1px solid var(--v3-line);background:#111827;border-radius:13px;padding:14px}
         [data-testid="stMetricLabel"] p{color:#c5d2e3!important}
         [data-testid="stMetricValue"]{color:#f8fafc!important}
         [data-testid="stMetricDelta"]{color:#b8c5d6!important}
         [data-testid="stAlert"],
+        [data-testid="stAlert"]>div,
         [data-testid="stAlertContainer"],
         [data-testid="stNotification"],
-        [role="alert"]{background:#1f1912!important;border:1px solid #d97706!important;border-radius:12px!important}
+        .stAlert,
+        [role="alert"]{background:#1f1912!important;background-color:#1f1912!important;border:1px solid #d97706!important;border-radius:12px!important}
         [data-testid="stAlert"] *,
         [data-testid="stAlertContainer"] *,
         [data-testid="stNotification"] *,
+        .stAlert *,
         [role="alert"] *{color:#fef3c7!important}
         .stApp code{background:#27364a!important;color:#f8fafc!important;border:1px solid #43536a}
-        .stApp [data-baseweb="select"]>div{background:#f8fafc!important;color:#0f172a!important;border-color:#cbd5e1!important}
-        .stApp [data-baseweb="select"] span,.stApp [data-baseweb="select"] input{color:#0f172a!important}
+        .stApp [data-baseweb="select"],
+        .stApp [data-baseweb="select"] div{background:#172235!important;background-color:#172235!important;color:#f8fafc!important;border-color:#40516b!important}
+        .stApp [data-baseweb="select"] *{color:#f8fafc!important}
+        .stApp [data-baseweb="select"] svg{fill:#f8fafc!important}
         .stApp input{color:#f8fafc}
         .stApp [data-testid="stNumberInput"] input,.stApp [data-testid="stTextInput"] input{background:#121c2b!important;color:#f8fafc!important}
         hr{border-color:var(--v3-line)}
@@ -89,13 +94,14 @@ def style_plotly(fig: object, height: int = 400) -> object:
         height=height,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#dce6f2", family="Inter, sans-serif"),
-        margin=dict(l=20, r=20, t=42, b=28),
-        hoverlabel=dict(bgcolor="#172235"),
-        legend=dict(orientation="h", y=1.12),
+        font=dict(color="#e2e8f0", family="Inter, sans-serif"),
+        title_font=dict(color="#f8fafc", size=15),
+        margin=dict(l=20, r=20, t=46, b=28),
+        hoverlabel=dict(bgcolor="#172235", font=dict(color="#f8fafc")),
+        legend=dict(orientation="h", y=1.12, font=dict(color="#e2e8f0")),
     )
-    fig.update_xaxes(gridcolor="#263244", zerolinecolor="#263244")
-    fig.update_yaxes(gridcolor="#263244", zerolinecolor="#263244")
+    fig.update_xaxes(gridcolor="#263244", zerolinecolor="#263244", tickfont=dict(color="#cbd5e1"), title_font=dict(color="#cbd5e1"))
+    fig.update_yaxes(gridcolor="#263244", zerolinecolor="#263244", tickfont=dict(color="#cbd5e1"), title_font=dict(color="#cbd5e1"))
     return fig
 
 

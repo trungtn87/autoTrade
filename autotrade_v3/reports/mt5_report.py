@@ -867,7 +867,7 @@ def render_html_report(payload: dict[str, Any]) -> str:
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AutoTrade V3 — Báo cáo kiểu MT5 ({html.escape(ri['run_id'])})</title>
+  <title>AutoTrade V3 — Báo cáo chi tiết ({html.escape(ri['run_id'])})</title>
   <style>
     :root {{ --bg:#f1f5f9; --surface:#ffffff; --border:#cbd5e1; --text:#0f172a; --muted:#475569; --pos:#15803d; --pos-bg:#dcfce7; --neg:#b91c1c; --neg-bg:#fee2e2; }}
     * {{ box-sizing:border-box; }}

@@ -79,16 +79,23 @@ def render() -> None:
     st.title(all_signals.vi("report_title"))
     st.caption(all_signals.vi("report_subtitle"))
     if st.button(all_signals.vi("back_to_runs"), key="back-to-runs"):
-        st.switch_page("pages/p09_all_signals_runs.py")
+        main_page = st.session_state.get("ninlab_main_page")
+        st.switch_page(main_page if main_page is not None else "pages/p09_all_signals_runs.py")
 
     runs = all_signals.list_all_signals_runs()
     if not runs:
         st.warning(all_signals.vi("no_runs"))
         return
-    profiles = all_signals.runs_by_profile(runs)
     requested = st.session_state.get("v3_16_selected_run")
     selected = all_signals.choose_default_run(runs, str(requested) if requested else None)
     assert selected is not None
+    if selected.run_id.startswith("V3_LAB_11_PRUNE23_"):
+        family_runs = [r for r in runs if r.run_id.startswith("V3_LAB_11_PRUNE23_")]
+    elif selected.run_id.startswith("ALL_SIGNALS_"):
+        family_runs = [r for r in runs if r.run_id.startswith("ALL_SIGNALS_")]
+    else:
+        family_runs = runs
+    profiles = all_signals.runs_by_profile(family_runs)
     available_profiles = [profile for profile in all_signals.SUPPORTED_PROFILES if profile in profiles]
     profile = st.radio(
         all_signals.vi("choose_cost_profile"),
@@ -128,7 +135,7 @@ def render() -> None:
         return
     st.success(all_signals.vi("verify_pass"))
 
-    if not _comparison(runs):
+    if not _comparison(family_runs):
         st.warning(all_signals.vi("profile_unavailable"))
 
     json_bytes = all_signals.report_json_bytes(selected)

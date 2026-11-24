@@ -1,0 +1,23 @@
+{
+  "execution_id": "V3PLUS31_20261124T073304Z",
+  "started_at": "2026-11-24T07:33:04.616322+00:00",
+  "finished_at": "2026-11-24T07:39:36.518113+00:00",
+  "elapsed_seconds": 391.9017915725708,
+  "dataset_hash": "a18fc2e1bf5985945fee6609847cce753cd319da74415dc23d4f4bae231487be",
+  "config_hash": "08071b3f56d06ea24b1635dbe1fb22b3a4b2c001f6f880b8507a5213f4ada79b",
+  "simulator_version": "UnifiedSimulator/local-current",
+  "git_head": "bf6ad4dcd00b6d3502e2e3f0b8f1216d8f37ddc7",
+  "window": {
+    "start": "2023-11-01",
+    "end_exclusive": "2026-11-01"
+  },
+  "portfolio_valid": true,
+  "accounting_all_pass": true,
+  "signals": {
+    "PRUNE23_ONLY": 4247,
+    "TV31_ONLY": 4129,
+    "PRUNE23_PLUS_TV31": 8376
+  },
+  "database": "research/v3_lab_11_plus31/backtests.sqlite3",
+  "database_sha256": "fc8fcf62c2ae9240179767557aa53bd92ba4b369c87e150913b8109e73f82089"
+}

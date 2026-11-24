@@ -48,14 +48,19 @@ class V3Lab11Prune23Strategy(V3Lab11Strategy):
         )
         if len(kept_core_combos) != 23:
             raise RuntimeError(f"Expected 23 combos in V3_LAB_11_PRUNE23, got {len(kept_core_combos)}")
-        self._core._spec = dataclasses.replace(
-            self._core.spec(),
-            strategy_id=self.strategy_id,
-            version=self._version_value,
-            combos=kept_core_combos,
+        setattr(
+            self._core,
+            "_spec",
+            dataclasses.replace(
+                self._core.spec(),
+                strategy_id=self.strategy_id,
+                version=self._version_value,
+                combos=kept_core_combos,
+            ),
         )
-        if hasattr(self._core, "_inner") and hasattr(self._core._inner, "_spec"):
-            self._core._inner._spec = self._core._spec
+        inner = getattr(self._core, "_inner", None)
+        if inner is not None and hasattr(inner, "_spec"):
+            setattr(inner, "_spec", self._core.spec())
         self.config["combos"] = [
             c
             for c in self.config["combos"]

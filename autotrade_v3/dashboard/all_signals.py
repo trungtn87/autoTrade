@@ -140,7 +140,10 @@ def list_all_signals_runs(
     rows: list[RunReport] = []
     for run_dir in _manifest_dirs(store):
         manifest = _read_json(run_dir / "run_manifest.json")
-        if manifest is None or str(manifest.get("execution_mode") or manifest.get("mode")) not in ("ALL_SIGNALS_PORTFOLIO", "BINGX_PORTFOLIO"):
+        if manifest is None or str(manifest.get("execution_mode") or manifest.get("mode")) not in (
+            "ALL_SIGNALS_PORTFOLIO",
+            "BINGX_PORTFOLIO",
+        ):
             continue
         run_id = str(manifest.get("run_id") or run_dir.name)
         profile = str(manifest.get("cost_profile") or "").upper()

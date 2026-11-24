@@ -1,4 +1,4 @@
-"""Differential test for runs/lab/scratch/run_entry_mode_suite.py (AT2-004).
+"""Differential test for autotrade_v3/tools/run_entry_mode_suite.py (AT2-004).
 
 Verifies that P0_ALL_SIGNALS and P1_ONE_TRADE_PER_COMBO from ``run_portfolio_variant``
 match the public ``ExecutionSimulator.simulate_research_mode`` engine on a fixed data slice
@@ -23,12 +23,7 @@ from autotrade_v3.sim.leg import extract_m1_arrays
 
 
 def _load_entry_mode_suite():
-    script_path = Path(__file__).resolve().parents[2] / "runs" / "lab" / "scratch" / "run_entry_mode_suite.py"
-    if not script_path.is_file():
-        pytest.skip(
-            "Optional local research source is not tracked: "
-            "runs/lab/scratch/run_entry_mode_suite.py"
-        )
+    script_path = Path(__file__).resolve().parents[1] / "tools" / "run_entry_mode_suite.py"
     spec = importlib.util.spec_from_file_location("run_entry_mode_suite", script_path)
     assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)

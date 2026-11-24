@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "checks": {
+    "rows": true,
+    "unique_display_id": true,
+    "unique_combo_id": true,
+    "unique_run_id": true,
+    "btc_18_eth_13": true,
+    "sources_verified": true,
+    "is_trades": true,
+    "is_net_base": true
+  },
+  "is_trades": 2377,
+  "is_net_base": 802.0403605800124,
+  "registry_sha256": "08071b3f56d06ea24b1635dbe1fb22b3a4b2c001f6f880b8507a5213f4ada79b"
+}

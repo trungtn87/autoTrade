@@ -1,0 +1,56 @@
+{
+  "combos_spec_hash": "70515282d746334744aee53287d624fd351d88f5d052b0a6204331810b97c022",
+  "config_canonical_sha256": "f0357a006a9259beaf43fb0448c48fc35a30d103b2a7c65225046528674e1c57",
+  "config_file_sha256": "6caa8e5b98c79901bc5d5fe37e4333d1faee1c6d5bb54f0efb160e72867b0b3b",
+  "config_path": "autotrade_v3/research_v3_18/config.json",
+  "dataset": {
+    "data_manifest_hash": "a18fc2e1bf5985945fee6609847cce753cd319da74415dc23d4f4bae231487be",
+    "dataset_hash": "ad51966ec716d4e42f533323858b95dd60086566ce5f147d19a653c4b9634628",
+    "file_count": null
+  },
+  "git_commit": "c35cead88f62e752c3865b9ba58bc91dbd9831e7",
+  "html_file_sha256": "201d6d799165a0fa317dc3432db8f603b5960cefcbfff86668e9f1804bba0b20",
+  "html_path": "regime_report.html",
+  "live_23_count": 23,
+  "non_live_7_count": 7,
+  "report_canonical_sha256": "1e6d03b41f58ef34ac92ac5301d6183324e041e25e0d6adc12d387d6745c3ec2",
+  "report_file_sha256": "3f8de6822181536fdeddc147494bf80fb65bb9ab2ddc433b7c1e9cd7071f93fc",
+  "report_path": "regime_report.json",
+  "research_id": "V3_18_REGIME_SMC_30_COMBOS",
+  "schema_version": "1.0.0",
+  "source_commits": {
+    "cross30_ancestor": "c99e4529ac1761614ccfd1fdbed8a92315e7a5d7",
+    "cross30_run": "51234e35a145e29cf4a5cd3fc3fb5e69a6366c55",
+    "cross30_spec": "5c471903090f174c349f062c0de8b555cadd2895",
+    "head_at_run": "c35cead88f62e752c3865b9ba58bc91dbd9831e7",
+    "live23": "166aafd",
+    "live23_registry": "V3_LAB_11_PRUNE23@11.0.0"
+  },
+  "split_bounds": {
+    "DEVELOPMENT": {
+      "end": "2025-10-31T23:59:59.999Z",
+      "end_ms": 1761955199999,
+      "label_vi": "PHÁT_TRIỂN",
+      "start": "2023-11-01T00:00:00Z",
+      "start_ms": 1698796800000
+    },
+    "HOLDOUT": {
+      "alignment_note_vi": "Khớp đúng chuỗi end 2026-10-31T23:59:59.999Z (tránh lệch 1 ngày 1793404799999 trong regimes.py làm rơi 1 tín hiệu ngày 2026-10-31).",
+      "end": "2026-10-31T23:59:59.999Z",
+      "end_ms": 1793491199999,
+      "label_vi": "KIỂM_CHỨNG_CUỐI",
+      "start": "2026-05-01T00:00:00Z",
+      "start_ms": 1777593600000
+    },
+    "VALIDATION": {
+      "end": "2026-04-30T23:59:59.999Z",
+      "end_ms": 1777593599999,
+      "label_vi": "KIỂM_ĐỊNH",
+      "start": "2025-11-01T00:00:00Z",
+      "start_ms": 1761955200000
+    }
+  },
+  "total_combos": 30,
+  "total_eval_signals": 10356,
+  "total_trials_m": 19
+}
