@@ -9,7 +9,7 @@ import threading
 from types import SimpleNamespace
 
 from autotrade_v3.live.app import L2_RETRY_INTERVAL_MS, Runtime
-from autotrade_v3.live.l1_data import BACKFILL_RETRY_SEC, L1Data
+from autotrade_v3.live.l1_data import L1Data
 from autotrade_v3.live.l2_strategy import L2Strategy
 
 M15 = 900_000
@@ -172,65 +172,8 @@ def test_backfill_of_new_current_bar_triggers_live_once(monkeypatch):
     assert rt.l2.preview_calls == [(BTC, OPEN), (BTC, OPEN)]
 
 
-def test_backfill_callback_occurs_once_only_after_page_persisted():
-    class StopOnce:
-        def __init__(self):
-            self.waits = []
-            self.stopped = False
-        def is_set(self):
-            return self.stopped
-        def wait(self, seconds):
-            self.waits.append(seconds)
-            self.stopped = True
-            return True
-
-    class OnePage:
-        count = 0
-        def backfill_complete(self, _symbol):
-            return False
-        def backfill_one_page(self, _symbol):
-            self.count += 1
-            return 1000
-
-    l1 = L1Data.__new__(L1Data)
-    l1.services = {ETH: OnePage()}
-    l1.settings = SimpleNamespace(candle_keep_for=lambda _sym: 12_000)
-    l1._stop = StopOnce()
-    l1._stats_count = lambda _sym: 4400
-    callbacks = []
-    l1.on_backfilled = callbacks.append
-    l1.backfill_loop(ETH)
-    assert l1.services[ETH].count == 1
-    assert callbacks == [ETH]
-    assert l1._stop.waits == [BACKFILL_RETRY_SEC]
-
-
-def test_backfill_callback_exception_does_not_repeat_saved_page():
-    class StopOnce:
-        def __init__(self):
-            self.stopped = False
-        def is_set(self):
-            return self.stopped
-        def wait(self, _seconds):
-            self.stopped = True
-            return True
-
-    class OnePage:
-        count = 0
-        def backfill_complete(self, _symbol):
-            return False
-        def backfill_one_page(self, _symbol):
-            self.count += 1
-            return 1000
-
-    l1 = L1Data.__new__(L1Data)
-    l1.services = {ETH: OnePage()}
-    l1.settings = SimpleNamespace(candle_keep_for=lambda _sym: 12_000)
-    l1._stop = StopOnce()
-    l1._stats_count = lambda _sym: 4400
-    l1.on_backfilled = lambda _symbol: (_ for _ in ()).throw(RuntimeError("mock preview error"))
-    l1.backfill_loop(ETH)
-    assert l1.services[ETH].count == 1
+def test_l1_exposes_no_autonomous_deep_backfill_loop():
+    assert not hasattr(L1Data, "backfill_loop")
 
 
 def test_preview_on_real_l2_does_not_advance_cursor_or_dispatch():
