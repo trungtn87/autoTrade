@@ -18,7 +18,7 @@ def api_get(path: str, params: tuple[tuple[str, str], ...] = ()) -> Any:
     return response.json()
 
 
-st.title("Backtest V3_LAB_11 + TV31 / PLUS44")
+st.title("Bảng điều khiển V3_LAB_44 · PLUS44")
 st.caption("Dữ liệu đã lưu trong database local; dashboard không phụ thuộc tiến trình backtest.")
 try:
     all_runs = api_get("/api/research/runs")
@@ -42,7 +42,12 @@ labels = {
     f"{GROUP_LABELS.get(r['study_group'], r['study_group'])} · {r['profile']} · {r['created_at']}": r["run_id"]
     for r in all_runs
 }
-run_id = labels[st.selectbox("Lần chạy", list(labels))]
+label_options = list(labels)
+default_label = next(
+    (label for label in label_options if label.startswith("PLUS44 · BASE ·")),
+    label_options[0],
+)
+run_id = labels[st.selectbox("Lần chạy", label_options, index=label_options.index(default_label))]
 overview = api_get("/api/research/overview", (("run_id", run_id),))
 metrics = overview["metrics"]
 c1, c2, c3, c4, c5, c6 = st.columns(6)

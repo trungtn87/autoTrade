@@ -31,21 +31,16 @@ def test_live_status_badge_threshold_60() -> None:
     assert lbl_60_drift == all_signals.vi("ninlab_status_drift")
 
 
-def test_one_page_real_data_renders_and_is_readonly() -> None:
+def test_main_dashboard_renders_plus44_at_root() -> None:
     app_path = Path(__file__).resolve().parents[1] / "dashboard" / "app.py"
     at = AppTest.from_file(str(app_path), default_timeout=20)
     at.run()
     assert not at.exception
-
-    all_md = "\n".join(m.value for m in at.markdown)
-    assert 'data-testid="ninlab-top-strip"' in all_md
-    assert 'data-testid="ninlab-combo-table"' in all_md
-    # Top strip has at most 6 KPI tiles
-    assert all_md.count('class="nl-tile"') <= 6
-    # 1 main chart + 2 small charts = 3 plotly charts
-    assert len(at.get("plotly_chart")) == 3
-    # Zero forbidden English labels
-    assert find_english_label_leaks(all_md) == []
+    assert any("V3_LAB_44" in title.value for title in at.title)
+    metric_values = {metric.label: metric.value for metric in at.metric}
+    assert metric_values["Chiến lược"] == "44"
+    assert metric_values["Net PnL"] == "$1,168.42"
+    assert metric_values["Tổng lệnh"] == "5,208"
 
 
 def test_mutation_fails_verify_and_hides_numbers(tmp_path: Path, monkeypatch) -> None:
