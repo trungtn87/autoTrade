@@ -78,7 +78,7 @@ class V3Settings:
     sl_resize_mode: str = field(default_factory=lambda: os.getenv("V3_SL_RESIZE_MODE", "shadow").strip().lower())
     sl_resize_poll_sec: int = field(default_factory=lambda: max(20, int(os.getenv("V3_SL_RESIZE_POLL_SEC", "30"))))
 
-    # L2 strategy registry: default V3_LIVE_44_PLUS44_V1 (PLUS44 = 23 PRUNE23 + 21 TV21);
+    # L2 strategy registry: default V3_LIVE_44_PLUS44_V1 (PLUS44 = 23 PRUNE23 + 20 TV21 = 43 combos);
     # set V3_STRATEGY_REGISTRY=V3_LIVE_23_LAB_11_V1 to roll back to PRUNE23 only.
     strategy_registry: str = field(default_factory=lambda: os.getenv("V3_STRATEGY_REGISTRY", "V3_LIVE_44_PLUS44_V1").strip().upper())
 

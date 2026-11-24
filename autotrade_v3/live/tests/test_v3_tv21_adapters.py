@@ -72,7 +72,7 @@ def _m15_bars(n: int, *, seed: int = 7, start: str = "2026-01-01T00:00:00Z") -> 
 
 
 def test_tv21_catalog_complete_and_live_registry_stays_prune23_only() -> None:
-    assert len(TV21_CONFIGS) == 21
+    assert len(TV21_CONFIGS) == 20
     assert {c.strategy_id for c in TV21_CONFIGS} == set(TV21_STRATEGIES)
     assert {c.internal_variant for c in TV21_CONFIGS} == {
         "B0",
@@ -94,11 +94,11 @@ def test_tv21_catalog_complete_and_live_registry_stays_prune23_only() -> None:
     assert TV21_CONFIG_MAP["TV31"].min_native_bars == 214
     assert TV21_CONFIG_MAP["TV20"].min_native_bars == 60
 
-    # Active default live registry is PLUS44 (23 PRUNE23 + 21 TV21 = 44 combos),
+    # Active default live registry is PLUS44 (23 PRUNE23 + 20 TV21 = 43 combos),
     # while V3_LIVE_23_LAB_11_V1 remains strictly the 23 PRUNE23 combos for rollback.
     live_reg = load_registry()
-    assert len(live_reg.combos) == 44
-    assert len([c for c in live_reg.combos if c.token.startswith("TV")]) == 21
+    assert len(live_reg.combos) == 43
+    assert len([c for c in live_reg.combos if c.token.startswith("TV")]) == 20
     rollback_reg = load_registry("V3_LIVE_23_LAB_11_V1")
     assert len(rollback_reg.combos) == 23
     assert all(not c.token.startswith("TV") for c in rollback_reg.combos)
@@ -118,7 +118,7 @@ def test_tp_extension_and_sl_tightening_apply_once_without_double_scaling() -> N
 
     # Generating live signals uses the locked pre-scaled tp_pct / sl_pct as-is.
     cfg_tp = TV21_CONFIG_MAP["TV07"]  # TP=0.036, SL=0.015
-    cfg_sl = TV21_CONFIG_MAP["TV13"]  # TP=0.030, SL=0.012
+    cfg_sl = TV21_CONFIG_MAP["TV27"]  # TP=0.030, SL=0.012
     assert cfg_tp.tp_pct == pytest.approx(0.036)
     assert cfg_sl.sl_pct == pytest.approx(0.012)
 
@@ -386,7 +386,7 @@ def test_l2_tv21_imports_without_duckdb_pyarrow_or_research() -> None:
                     raise ImportError('blocked ' + name)
         sys.meta_path.insert(0, Block())
         import autotrade_v3.live.l2_tv21 as m
-        assert len(m.TV21_CONFIGS) == 21
+        assert len(m.TV21_CONFIGS) == 20
         print('OK')
     """)
     res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)

@@ -2,7 +2,7 @@
 
 Supported registries:
 - ``V3_LIVE_44_PLUS44_V1`` (default ``V3_STRATEGY_REGISTRY``): 23 PRUNE23 combos
-  (``l2_lab10``) + 21 TV21 HTF combos (``l2_tv21``) = 44 combos with Fixed TP/SL.
+  (``l2_lab10``) + 20 TV21 HTF combos (``l2_tv21``, excluding TV13) = 43 combos with Fixed TP/SL.
 - ``V3_LIVE_23_LAB_11_V1`` (rollback): the 23 PRUNE23 combos of
   ``V3_LAB_11_PRUNE23@11.0.0`` with Fixed TP/SL.
 
@@ -166,7 +166,7 @@ def _load_lab10_23() -> StrategyRegistry:
 
 
 def _load_plus44_44() -> StrategyRegistry:
-    """44 combo-symbols of PLUS44 (23 PRUNE23 + 21 TV21, file ``V3_LIVE_44_PLUS44_V1.json``)."""
+    """43 combo-symbols of PLUS44 (23 PRUNE23 + 20 TV21, file ``V3_LIVE_44_PLUS44_V1.json``)."""
     from .l2_tv21 import TV21_CONFIG_MAP
 
     raw = json.loads((_DIR / f"{REGISTRY_PLUS44_44}.json").read_text(encoding="utf-8"))
@@ -217,8 +217,8 @@ def _load_plus44_44() -> StrategyRegistry:
                 )
             )
     combos = tuple(specs)
-    if len(combos) != 44 or len({(c.symbol, c.combo_id) for c in combos}) != 44:
-        raise ValueError(f"{REGISTRY_PLUS44_44} phải có đúng 44 combo-symbol duy nhất")
+    if len(combos) != 43 or len({(c.symbol, c.combo_id) for c in combos}) != 43:
+        raise ValueError(f"{REGISTRY_PLUS44_44} phải có đúng 43 combo-symbol duy nhất")
     return StrategyRegistry(
         version=f"{REGISTRY_PLUS44_44}@1.0.0",
         combos=combos,

@@ -1,5 +1,5 @@
 {
-  "live_combo_count": 44,
+  "live_combo_count": 43,
   "live_exit_policy": "FIXED_TP_SL",
   "no_trailing": true,
   "registry_version": "V3_LIVE_44_PLUS44_V1",
@@ -8,7 +8,7 @@
     "version": "11.0.0",
     "lab_branch": "v3_lab",
     "prune23_source": "V3_LIVE_23_LAB_11_V1 (23 combos, V3_LAB_11_PRUNE23@11.0.0)",
-    "tv21_source": "autotrade_v3.live.l2_tv21.TV21_CONFIGS (21 combos, TV03..TV31, combo_id 31003..31031)",
+    "tv21_source": "autotrade_v3.live.l2_tv21.TV21_CONFIGS (20 combos, TV03..TV31 excluding TV13, combo_id 31003..31031)",
     "supersedes": "V3_LIVE_23_LAB_11_V1 (kept intact for V3_STRATEGY_REGISTRY rollback)",
     "previous_parent_source": {
       "strategy": "V3_LAB_11_PRUNE23",
@@ -495,24 +495,6 @@
       "trailing_enabled": false,
       "split_legs": false,
       "warmup_bars": 60,
-      "window_bars": 13440
-    },
-    {
-      "symbol": "BTC-USDT",
-      "combo_id": 31013,
-      "combo_name": "TV13",
-      "timeframe": "H8",
-      "execution_version": "L1_S5:B0:V2_SL_TIGHTENING",
-      "strategy_id": "L1_S5",
-      "internal_variant": "B0",
-      "wrapper_variant": "V2_SL_TIGHTENING",
-      "layer2": "OFF",
-      "exit_mode": "FIXED_TP_SL",
-      "tp_pct": 0.03,
-      "sl_pct": 0.012,
-      "trailing_enabled": false,
-      "split_legs": false,
-      "warmup_bars": 120,
       "window_bars": 13440
     },
     {

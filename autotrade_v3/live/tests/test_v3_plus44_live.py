@@ -86,13 +86,13 @@ def test_plus44_registry_has_44_combos_stable_hash_and_no_token_collisions() -> 
     _CACHE.clear()
     reg2 = load_registry(REGISTRY_PLUS44_44)
 
-    assert len(reg1.combos) == 44
+    assert len(reg1.combos) == 43
     assert reg1.spec_hash == reg2.spec_hash
 
     prune23 = [c for c in reg1.combos if c.signal_variant == "LAB_10"]
     tv21 = [c for c in reg1.combos if c.signal_variant == "TV21"]
     assert len(prune23) == 23
-    assert len(tv21) == 21
+    assert len(tv21) == 20
 
     # No token collisions between PRUNE23 (C1..C16, TIER) and TV21 (TV03..TV31).
     prune_tokens = {(c.symbol, c.token) for c in prune23}
