@@ -66,7 +66,7 @@ class V3BingXClient(LegacyStyleBingXClient):
 
     def refresh_server_time(self, *, after=None) -> bool:
         """Unsigned, rate-spaced time sample; no trading mutation or secret.
-        
+
         Anchor the server time at receipt (conservative, slightly behind the
         actual clock). Reject slow or invalid samples; never replace a good
         sample with an error. Concurrent GET recovery may reuse a newer sample.
@@ -119,13 +119,12 @@ class V3BingXClient(LegacyStyleBingXClient):
         # replay window. Re-sign each attempt inside the existing rate guard.
         body = dict(params)
         body.setdefault("recvWindow", str(self.RECV_WINDOW_MS))
-        started = time.monotonic()
         try:
             return super()._signed_request(method, path, body)
         except BingXApiError as exc:
             if method.upper() != "GET" or not self._is_timestamp_error(exc):
                 raise
-            if not self.refresh_server_time(after=started):
+            if not self.refresh_server_time(after=time.monotonic()):
                 log.warning("BINGX_TIMESTAMP_RETRY_SKIPPED path=%s", path)
                 raise
             log.info("BINGX_TIMESTAMP_RETRY path=%s code=%s", path, exc.code)
