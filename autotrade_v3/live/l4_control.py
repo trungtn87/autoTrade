@@ -316,7 +316,8 @@ def project_results(store, control: ControlLog, client, *, lookback_days: int = 
             counts["finances"] += 1
         except Exception as exc:
             control.report("L4", "hourly_projection", f"Không dựng được kết quả/tài chính cho lệnh: {exc}",
-                           symbol=ex.get("symbol"), event_id=ex.get("event_id"), order_id=ex.get("entry_order_id"))
+                           symbol=ex.get("symbol"), event_id=ex.get("event_id"), order_id=ex.get("entry_order_id"),
+                           error_code=getattr(exc, "code", None))
     return counts
 
 
@@ -345,6 +346,11 @@ class HourlySync:
 
     def run_once(self) -> dict:
         try:
+            # Refresh on the existing :07 CONTROL cycle, even with no open trades.
+            # A failed sample must not suppress projection or leftover cleanup.
+            refresh_clock = getattr(self.client, "refresh_server_time", None)
+            if callable(refresh_clock):
+                refresh_clock()
             counts = project_results(self.store, self.control, self.client)
             # Accounting only: reconstruct shared-position allocations from already
             # persisted BingX order evidence. Never sends trade/cancel requests.

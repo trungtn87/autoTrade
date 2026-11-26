@@ -125,13 +125,16 @@ class LegacyStyleBingXClient:
     def _fmt_price(price:float)->str:
         return f"{float(price):.2f}".rstrip("0").rstrip(".")
 
+    def _timestamp_ms(self) -> int:
+        return int(time.time() * 1000)
+
     def _signed_request(self,method:str,path:str,params:dict)->dict:
         with self.guard.request_slot():
             # Recheck AFTER rate-limit waiting, immediately before transport.
             if method.upper() in {"POST","DELETE"} and getattr(self,"mutation_check",None):
                 self.mutation_check()
             body=dict(params)
-            body["timestamp"]=str(int(time.time()*1000))
+            body["timestamp"]=str(self._timestamp_ms())
             query="&".join(f"{k}={body[k]}" for k in sorted(body))
             signature=hmac.new(
                 self.settings.bingx_api_secret.encode("utf-8"),
@@ -145,6 +148,7 @@ class LegacyStyleBingXClient:
                 "BINGX_TRADE_REQ method=%s path=%s symbol=%s type=%s",
                 method.upper(),path,body.get("symbol"),body.get("type"),
             )
+            started = time.monotonic()
             try:
                 if method.upper()=="POST":
                     response=self.http.post(url,headers=headers)
@@ -176,8 +180,8 @@ class LegacyStyleBingXClient:
             code=payload.get("code") if isinstance(payload,dict) else None
             msg=str(payload.get("msg","")) if isinstance(payload,dict) else ""
             log.info(
-                "BINGX_TRADE_RESP method=%s path=%s status=%s code=%s",
-                method.upper(),path,response.status_code,code,
+                "BINGX_TRADE_RESP method=%s path=%s status=%s code=%s elapsed_ms=%.1f",
+                method.upper(),path,response.status_code,code,(time.monotonic()-started)*1000,
             )
             if response.status_code<200 or response.status_code>=300:
                 raise RuntimeError(
