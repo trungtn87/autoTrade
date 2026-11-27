@@ -442,18 +442,26 @@ class LeftoverCleaner:
         for kind, v in views.items():
             qty = _dec(v.get("executed"))
             if v["status"] == "TERMINAL" and qty and qty > 0 and v.get("price"):
-                filled.append({"kind": kind, "qty": str(qty), "price": v["price"]})
+                filled.append({"kind": kind, "qty": str(qty), "price": str(v["price"])})
         if not filled or self.alert is None:
             return
         if outcome == "would_cancel":
             left = {"mode": "shadow", "legs": [k for k in active]}
         else:
-            left = {"mode": self.mode, "legs": list(state.get("cleaned") or [])}
+            left = {"mode": self.mode, "legs": list(state.get("cleaned") or []),
+                    "verified": outcome in ("closed_clean", "cancelled")}
+        row = {"event_id": ex["event_id"], "symbol": ex["symbol"], "combo": ex.get("combo"),
+               "side": ex.get("side"), "avg_price": str(ex.get("avg_price")),
+               "entry_qty": str(ex.get("executed_qty")), "filled": filled, "leftover": left,
+               "closed_at_ms": self._now_ms(), "filled_at": ex.get("filled_at")}
+        if getattr(self.alert, "requires_close_reconciliation", False):
+            # Persist with the existing cleanup snapshot; no Discord I/O here.
+            if isinstance(row["filled_at"], datetime):
+                row["filled_at"] = row["filled_at"].isoformat()
+            state["discord_close_pending"] = clean(row)
+            return
         try:
-            self.alert.trade_closed({"event_id": ex["event_id"], "symbol": ex["symbol"], "combo": ex.get("combo"),
-                                     "side": ex.get("side"), "avg_price": ex.get("avg_price"),
-                                     "entry_qty": str(ex.get("executed_qty")), "filled": filled, "leftover": left,
-                                     "closed_at_ms": self._now_ms()})
+            self.alert.trade_closed(row)
         except Exception as exc:
             log.error("V3_L5_CLOSED_SUBMIT_FAILED error_class=%s", type(exc).__name__)
 

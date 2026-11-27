@@ -200,6 +200,23 @@ class MemoryStore:
                     and r.get("stage") in ("protected", "protection_incomplete")
                     and ((r.get("raw_protection") or {}).get("cleanup") or {}).get("status") != "done"]
 
+    def pending_discord_closes(self) -> list[dict]:
+        with self._lock:
+            return [dict(p) for e in self.executions.values()
+                    if (p := ((e.get("raw_protection") or {}).get("cleanup") or {}).get("discord_close_pending"))]
+
+    def mark_discord_close_sent(self, event_id: str) -> None:
+        with self._lock:
+            state = ((self.executions.get(event_id) or {}).get("raw_protection") or {}).get("cleanup") or {}
+            state.pop("discord_close_pending", None)
+
+    def finance_for_discord(self, event_id: str) -> dict | None:
+        """Read the same completed finance row as the dashboard; no writes."""
+        with self._lock:
+            ex = self.executions.get(event_id) or {}
+            row = self.finances.get(ex.get("id")) or {}
+            return dict(row) if row.get("is_fully_closed") is True else None
+
     def shared_allocation_for_cleanup(self, event_id: str) -> dict | None:
         with self._lock:
             ex = self.executions.get(event_id) or {}
@@ -219,6 +236,7 @@ class MemoryStore:
                 row = dict(ex)
                 finance = self.finances.get(ex.get("id")) or {}
                 row["existing_open_fee"] = finance.get("open_fee")
+                row["existing_finance_raw"] = finance.get("raw")
                 entries.append(row)
             events = {e["event_id"] for e in entries}
             results = [dict(r) for r in self.results.values() if r.get("event_id") in events]
@@ -300,13 +318,37 @@ class PostgresStore:
         return self._exec(
             f"SELECT e.* FROM {SCHEMA}.execution_orders e LEFT JOIN {SCHEMA}.execution_finances f"
             " ON f.execution_order_id=e.id WHERE e.entry_order_id IS NOT NULL AND e.executed_qty > 0"
-            " AND e.created_at >= %s AND COALESCE(f.is_fully_closed,false)=false", (since,), fetch="all") or []
+            " AND e.created_at >= %s AND (COALESCE(f.is_fully_closed,false)=false"
+            " OR (jsonb_typeof(e.raw_protection->'cleanup'->'discord_close_pending')='object'"
+            " AND COALESCE(f.raw->>'discord_finance_verified','false') <> 'true'))", (since,), fetch="all") or []
 
     def executions_for_cleanup(self, since: datetime) -> list[dict]:
         return self._exec(
             f"SELECT * FROM {SCHEMA}.execution_orders WHERE entry_order_id IS NOT NULL AND executed_qty > 0"
             " AND stage IN ('protected','protection_incomplete') AND created_at >= %s"
             " AND COALESCE(raw_protection->'cleanup'->>'status','') <> 'done' ORDER BY id", (since,), fetch="all") or []
+
+    def pending_discord_closes(self) -> list[dict]:
+        rows = self._exec(
+            f"SELECT raw_protection->'cleanup'->'discord_close_pending' AS payload"
+            f" FROM {SCHEMA}.execution_orders"
+            " WHERE jsonb_typeof(raw_protection->'cleanup'->'discord_close_pending')='object'"
+            " ORDER BY id", fetch="all") or []
+        return [r["payload"] for r in rows]
+
+    def mark_discord_close_sent(self, event_id: str) -> None:
+        self._exec(
+            f"UPDATE {SCHEMA}.execution_orders"
+            " SET raw_protection=raw_protection #- '{cleanup,discord_close_pending}'"
+            " WHERE event_id=%s", (event_id,))
+
+    def finance_for_discord(self, event_id: str) -> dict | None:
+        """Read completed finance projection for this exact event."""
+        rows = self._exec(
+            f"SELECT net_pnl,roi_pct,open_fee,close_fee,funding,gross_pnl,closed_qty,is_fully_closed,raw"
+            f" FROM {SCHEMA}.execution_finances WHERE event_id=%s AND is_fully_closed=true",
+            (event_id,), fetch="all") or []
+        return rows[0] if len(rows) == 1 else None
 
     def shared_allocation_for_cleanup(self, event_id: str) -> dict | None:
         got = self._exec(
@@ -320,7 +362,7 @@ class PostgresStore:
     def reconciliation_rows(self, since: datetime) -> tuple[list[dict], list[dict]]:
         """Load source fills for *all* position peers, even ones marked fully closed."""
         entries = self._exec(
-            f"SELECT e.*, f.open_fee AS existing_open_fee FROM {SCHEMA}.execution_orders e"
+            f"SELECT e.*, f.open_fee AS existing_open_fee, f.raw AS existing_finance_raw FROM {SCHEMA}.execution_orders e"
             f" LEFT JOIN {SCHEMA}.execution_finances f ON f.execution_order_id=e.id"
             " WHERE e.created_at >= %s AND e.entry_order_id IS NOT NULL AND e.executed_qty > 0",
             (since,), fetch="all") or []

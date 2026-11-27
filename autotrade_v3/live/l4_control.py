@@ -240,6 +240,13 @@ def _norm_history(row: dict) -> dict:
             "updated_ms": int(_num(row.get("updateTime") or row.get("time"))) or None, "raw": row}
 
 
+def _finance_number_present(value) -> bool:
+    try:
+        return value is not None and Decimal(str(value)).is_finite()
+    except (InvalidOperation, TypeError, ValueError):
+        return False
+
+
 def project_results(store, control: ControlLog, client, *, lookback_days: int = 7, now_ms=None) -> dict:
     """Mechanism 3: GET BingX order history for V3's own open combos and write
     execution_results + execution_finances (V3 tables only).
@@ -271,6 +278,7 @@ def project_results(store, control: ControlLog, client, *, lookback_days: int = 
             orders = [_norm_history(r) for r in rows if order_id_of(r)]
             by_id = {o["order_id"]: o for o in orders}
             open_fee = abs(_num((by_id.get(entry_id) or {}).get("raw", {}).get("commission")))
+            finance_verified = _finance_number_present((by_id.get(entry_id) or {}).get("raw", {}).get("commission"))
             closed_qty = 0.0
             gross = 0.0
             close_fee = 0.0
@@ -287,6 +295,7 @@ def project_results(store, control: ControlLog, client, *, lookback_days: int = 
                     continue
                 if o["status"].upper() not in {"FILLED", "PARTIALLY_FILLED"} or o["filled_qty"] <= 0:
                     continue
+                finance_verified = finance_verified and all(_finance_number_present(raw.get(k)) for k in ("profit", "commission", "avgPrice", "executedQty"))
                 pnl = _num(raw.get("profit"))
                 fee = abs(_num(raw.get("commission")))
                 qty = o["filled_qty"]
@@ -312,7 +321,8 @@ def project_results(store, control: ControlLog, client, *, lookback_days: int = 
                 "funding": None,  # BingX funding is per symbol/position, not per order: not attributed
                 "gross_pnl": gross, "net_pnl": net, "roi_pct": (net / margin * 100) if margin else None,
                 "closed_qty": closed_qty, "is_fully_closed": qty_open > 0 and closed_qty + 1e-12 >= qty_open,
-                "raw": {"source": "bingx order history GET (v3)", "legs": legs}})
+                "raw": {"source": "bingx order history GET (v3)", "legs": legs,
+                        "discord_finance_verified": finance_verified}})
             counts["finances"] += 1
         except Exception as exc:
             control.report("L4", "hourly_projection", f"Không dựng được kết quả/tài chính cho lệnh: {exc}",
@@ -333,10 +343,11 @@ class HourlySync:
     Own thread, no V2 collector, no autotrade_analytics.* tables.
     """
 
-    def __init__(self, store, control: ControlLog, admit, client=None, after_sync=None, now=None):
+    def __init__(self, store, control: ControlLog, admit, client=None, after_sync=None, now=None, after_finance=None):
         self.store = store
         self.client = client
         self.after_sync = after_sync
+        self.after_finance = after_finance
         self.control = control
         self.admit = admit
         self.last: dict = {"state": "not_started"}
@@ -369,6 +380,11 @@ class HourlySync:
             self.last = {"state": "failed", "result": "failed", "error_class": type(exc).__name__}
             self.control.report("L4", "hourly_sync", f"Đồng bộ BingX định kỳ :07 lỗi: {exc}")
             return self.last
+        if self.after_finance is not None and allocated.get("state") != "failed":
+            try:
+                self.after_finance(allocated.get("unverified_events", ()))
+            except Exception as exc:
+                log.warning("V3_L5_FINANCE_HANDOFF_FAILED error_class=%s", type(exc).__name__)
         if self.after_sync is not None:
             try:
                 self.after_sync("hourly_sync")
