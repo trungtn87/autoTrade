@@ -53,7 +53,8 @@ class Runtime:
         self.executor.on_settled = self.leftover.request
         self.sl_resize_poll = SLResizePoller(self.leftover, self.store, admit=self._archive_ready,
                                              interval_sec=s.sl_resize_poll_sec)
-        self.hourly = HourlySync(self.store, self.control, admit=self._archive_ready, client=self.client, after_sync=self.leftover.request)
+        self.hourly = HourlySync(self.store, self.control, admit=self._archive_ready, client=self.client, after_sync=self.leftover.request,
+                                 after_finance=getattr(self.alert, "flush_reconciled", None))
         self.stream = None
         self._processed: dict[str, int] = {}  # latest candle persisted by L1
         self._l2_last_success: dict[str, int] = {}  # L2 completed calculation and dispatch
