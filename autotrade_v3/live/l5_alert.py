@@ -199,7 +199,7 @@ def _positive(value: Any) -> Decimal | None:
 def _money(value: Decimal | None) -> str:
     if value is None:
         return "Chưa có dữ liệu"
-    return f"{value:+.4f} USDT"
+    return f"{value:+.1f} USDT"
 
 
 def _qty(value: Any, symbol: Any) -> str:
