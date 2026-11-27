@@ -111,3 +111,22 @@ def test_network_failure_is_isolated():
         alert.trade_success(opened())
     assert alert.failures == 1
     assert alert.sent[-1]["status"] == "failed"
+
+
+def test_closed_finance_from_dashboard_projection_in_worker():
+    from autotrade_v3.live.store import MemoryStore
+    store = MemoryStore()
+    row = closed()
+    store.executions[row["event_id"]] = {"id": 1}
+    store.finances[1] = {"is_fully_closed": True, "net_pnl": "-0.8123",
+                         "roi_pct": "-4.12", "open_fee": "0.05", "close_fee": "0.06", "funding": None}
+    alert = L5Alert(enabled=True, webhook_btc="btc", webhook_eth="eth",
+                    webhook_error="error", store=store, synchronous=True)
+    with patch("autotrade_v3.live.l5_alert.requests.post") as post:
+        post.return_value.status_code = 204
+        alert.trade_closed(row)
+        embed = post.call_args.kwargs["json"]["embeds"][0]
+    assert "Net PnL theo DB: -0.8123 USDT" in embed["description"]
+    assert "Funding chưa phân bổ" in embed["description"]
+    assert fields(embed)["ROI theo DB"] == "-4.12%"
+    assert fields(embed)["Phí giao dịch"] == "0.1100 USDT"
