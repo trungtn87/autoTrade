@@ -260,8 +260,8 @@ def _duration(r: dict) -> str:
         if seconds < 0:
             return "Chưa có dữ liệu"
         hours, rem = divmod(seconds, 3600)
-        mins, sec = divmod(rem, 60)
-        return f"~{hours}h {mins:02d}m {sec:02d}s" if hours else f"~{mins}m {sec:02d}s"
+        mins = rem // 60
+        return f"~{hours}h {mins:02d}m" if hours else f"~{mins}m"
     except (ValueError, TypeError, OverflowError, OSError):
         return "Chưa có dữ liệu"
 
