@@ -313,8 +313,6 @@ def closed_embed(r: dict, finance: dict) -> dict:
         f"{_fmt_price(entry)} → {_fmt_price(exit_price)} · KL {_qty(qty, r.get('symbol'))}",
         f"Giữ lệnh {_duration(r)} · {cleanup}",
     ]
-    if finance.get("funding") is None:
-        lines.append("Funding chưa phân bổ.")
     if (finance.get("raw") or {}).get("source") == "BingX exact close orders; logical shared-position allocation":
         lines.append("PnL phân bổ theo vị thế gộp.")
     return _embed(_title(r, status), color, [], description="\n".join(lines),
