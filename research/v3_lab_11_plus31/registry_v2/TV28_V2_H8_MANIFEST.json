@@ -1,0 +1,32 @@
+{
+  "version_tag": "TV28_V2_H8",
+  "display_id": "TV28",
+  "symbol": "BTC-USDT",
+  "timeframe": "H8",
+  "timeframe_minutes": 480,
+  "bar_close_schedule_utc": [
+    "00:00",
+    "08:00",
+    "16:00"
+  ],
+  "phase_offset_hours": 0,
+  "strategy_id": "L2_S1",
+  "variant": "B0",
+  "variant_id": "V2_SL_TIGHTENING",
+  "tp_pct": 0.03,
+  "sl_pct": 0.012,
+  "notional_usd": 100.0,
+  "warmup_bars": 120,
+  "safe_leverage_50pct_buffer": 41,
+  "strategy_source_path": "research/v3_tv_strategy_lab_2/strategies/s1_ssl_hybrid_qqe.py",
+  "strategy_source_sha256": "5bc7918935e17920cb7e8267c65fdcfe52ffda4633f91f24d74e45efd02cac0b",
+  "configuration_sha256": "5ec8829b22ca87d0d28c55c93d2c98e4a5dddcc9515f2d8099a9c6a921d26b40",
+  "registry_v2_path": "research/v3_lab_11_plus31/registry_v2/TV20_PLUS43_V2_REGISTRY.csv",
+  "registry_v2_sha256": "a5a371c9b8251e4d45944454c6da4bdbfa838bc023b730e1834f26ff4ad1323d",
+  "rollback_registry_path": "research/v3_lab_11_plus31/freeze/TV31_SELECTED_REGISTRY.csv",
+  "rollback_registry_sha256": "08071b3f56d06ea24b1635dbe1fb22b3a4b2c001f6f880b8507a5213f4ada79b",
+  "independent_h8_peers": [
+    "TV10",
+    "TV12"
+  ]
+}

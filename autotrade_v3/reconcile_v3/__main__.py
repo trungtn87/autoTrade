@@ -64,6 +64,29 @@ def cmd_refresh(
 
     backtest_tag = ""
     if with_backtest:
+        fwd_script = repo_root / "research" / "v3_lab_11_plus31" / "run_plus43_forward.py"
+        if fwd_script.is_file():
+            v2_1_reg = repo_root / "research" / "v3_lab_11_plus31" / "registry_v2" / "TV20_PLUS43_V2_1_TP_REGISTRY.csv"
+            v2_1_fwd_out = repo_root / "research" / "v3_lab_11_plus31" / "outputs" / "plus43_v2_1_tp_only" / "FORWARD_POST_3Y.json"
+            fwd_cmd = [sys.executable, str(fwd_script), "--data-root", str(data_root)]
+            if v2_1_reg.is_file() and v2_1_fwd_out.parent.is_dir():
+                fwd_cmd.extend(["--registry", str(v2_1_reg), "--out-json", str(v2_1_fwd_out)])
+            fwd_proc = subprocess.run(
+                fwd_cmd,
+                cwd=str(repo_root),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=sub_env,
+                check=False,
+            )
+            if fwd_proc.returncode != 0:
+                err_txt = (fwd_proc.stderr or fwd_proc.stdout or f"exit={fwd_proc.returncode}").strip()[:400]
+                print(f"LỖI CẬP NHẬT FORWARD PLUS43: {err_txt}", file=sys.stderr)
+                return fwd_proc.returncode or 1
+            backtest_tag = " | plus43_forward=DA_CAP_NHAT"
+
         export_script = repo_root / "scripts" / "export_prune23_to_dashboard.py"
         if export_script.is_file():
             bt_proc = subprocess.run(

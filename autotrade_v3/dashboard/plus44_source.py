@@ -17,7 +17,7 @@ import pandas as pd
 from autotrade_v3.dashboard.all_signals import RunReport, VerificationResult
 
 
-DEFAULT_OUTPUT = Path("research/v3_lab_11_plus31/outputs/plus43_all_signals")
+DEFAULT_OUTPUT = Path("research/v3_lab_11_plus31/outputs/plus43_v2_1_tp_only")
 PLUS43_GROUP = "PRUNE23_PLUS_TV20"
 PLUS44_GROUP = PLUS43_GROUP
 PRUNE23_GROUP = "PRUNE23_ONLY"
@@ -366,11 +366,29 @@ def load_payload(run: RunReport) -> dict[str, Any] | None:
         "bingx_prune23_net": float(bingx_prune23.iloc[0]["ref_net_pnl"]) if not bingx_prune23.empty else None,
     }
 
+    fwd_path = out / "FORWARD_POST_3Y.json"
+    forward_post_3y: dict[str, Any] | None = None
+    if fwd_path.is_file():
+        try:
+            fwd_raw = json.loads(fwd_path.read_text(encoding="utf-8"))
+            prof_fwd = (fwd_raw.get("profiles") or {}).get(profile)
+            if isinstance(prof_fwd, dict):
+                forward_post_3y = {
+                    "split": "FORWARD (sau 31/10)",
+                    "start": str(fwd_raw.get("start_utc") or "2026-11-01"),
+                    "end": str(fwd_raw.get("end_utc") or ""),
+                    "as_of_utc": str(fwd_raw.get("as_of_utc") or ""),
+                    **prof_fwd,
+                }
+        except (OSError, json.JSONDecodeError):
+            forward_post_3y = None
+
     window = manifest.get("window") or {"start": "2023-11-01", "end_exclusive": "2026-11-01"}
     return {
         "generated_at_utc": str(manifest.get("finished_at") or ""),
         "run_info": {
             "run_id": run.run_id,
+            "version_tag": str(manifest.get("version_tag") or ""),
             "time_window_utc": {"start": str(window["start"]), "end": "2026-10-31"},
             "portfolio": PLUS44_GROUP,
             "mode": "ALL_SIGNALS_PORTFOLIO",
@@ -396,6 +414,7 @@ def load_payload(run: RunReport) -> dict[str, Any] | None:
             "combos": combos,
             "cost_sensitivity": cost_sensitivity,
             "splits": splits,
+            "forward_post_3y": forward_post_3y,
             "yearly": yearly,
             "reconciliation": reconciliation,
         },

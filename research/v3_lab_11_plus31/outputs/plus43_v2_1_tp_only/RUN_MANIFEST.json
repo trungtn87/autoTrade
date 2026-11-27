@@ -1,0 +1,53 @@
+{
+  "execution_id": "V3PLUS43_V2_1_TP_20261127T062100Z",
+  "study": "V3_LAB_11_PLUS43_V2_1_TP_ONLY",
+  "version_tag": "PLUS43_V2_1_TP_ONLY",
+  "mode": "ALL_SIGNALS_PORTFOLIO",
+  "started_at": "2026-11-27T06:21:00.464292+00:00",
+  "finished_at": "2026-11-27T06:26:07.088182+00:00",
+  "elapsed_seconds": 306.6238896846771,
+  "dataset_hash": "a18fc2e1bf5985945fee6609847cce753cd319da74415dc23d4f4bae231487be",
+  "config_hash": "7c5377cdba41e34c4d11b4c513c35cb1d2b1232fa69d219a7721d8a920197138",
+  "registry_v2_1_sha256": "dd75bd5057168162d438912ffa25dda9b7f64970bfac417d65ebfc56053db312",
+  "cost_profiles_sha256": "afbd14fb9c30c1df3a441dcfe7595dd31b9b605bbc31c3c0eb8aa87eec91a114",
+  "simulator_version": "UnifiedSimulator/local-current",
+  "git_head": "1a5e77e61acc75029d51ed02e0f8ce82c98c755b",
+  "git_branch": "feat/v3-18-regime-clean",
+  "window": {
+    "start": "2023-11-01",
+    "end_exclusive": "2026-11-01"
+  },
+  "initial_equity": 1000.0,
+  "notional_per_trade": 100.0,
+  "leverage": {
+    "BTC-USDT": 100,
+    "ETH-USDT": 50
+  },
+  "exit_mode": "100_HARD",
+  "ambiguity_policy": "CONSERVATIVE",
+  "accounting_all_pass": true,
+  "skipped_all_zero": true,
+  "any_rejected": false,
+  "output_files": {
+    "PORTFOLIO_SUMMARY_ALL_SIGNALS.csv": {
+      "sha256": "136432b8f4682bc32f77ea33ff4ee8174d21c7fb91dcd1d0b5e6982f46360cea",
+      "rows": 7
+    },
+    "PORTFOLIO_SPLITS_DEV_VAL_HOLDOUT.csv": {
+      "sha256": "fa819a2d2e182162f641016d498904728d7ca3a4ab77686ffa380c09d50fd58e",
+      "rows": 9
+    },
+    "PORTFOLIO_YEARLY_ALL_SIGNALS.csv": {
+      "sha256": "e223d09ad7d30b323c1e436b0816a1ec872016d30586c04ce46b0fdd7743dba7",
+      "rows": 9
+    },
+    "PER_COMBO_PLUS43_ALL_SIGNALS.csv": {
+      "sha256": "3dcc4c8f354850ff82c2a7c67264a4da8162e84e8520862708f5f036d6ab7e53",
+      "rows": 129
+    },
+    "DAILY_EQUITY_ALL_SIGNALS.csv": {
+      "sha256": "d839c5fe465ffbe12d165f11e149a05468dd809ebb7840d1e5008bf5dc3df697",
+      "rows": 3288
+    }
+  }
+}

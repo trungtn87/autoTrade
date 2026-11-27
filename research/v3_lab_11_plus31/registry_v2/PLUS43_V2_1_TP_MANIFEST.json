@@ -1,0 +1,129 @@
+{
+  "version_tag": "PLUS43_V2_1_TP_ONLY",
+  "portfolio_tag": "PORT_FINAL_TP_ONLY",
+  "base_portfolio_reference": "PORT_V2_TV28H8_BASE",
+  "registry_v2_1_path": "research/v3_lab_11_plus31/registry_v2/TV20_PLUS43_V2_1_TP_REGISTRY.csv",
+  "registry_v2_1_sha256": "dd75bd5057168162d438912ffa25dda9b7f64970bfac417d65ebfc56053db312",
+  "upgraded_combos_count": 7,
+  "upgraded_combos": [
+    {
+      "display_id": "TV03",
+      "new_combo_id": "TV03_V2_1_TP",
+      "symbol": "BTC-USDT",
+      "timeframe": "H4",
+      "variant": "Z5A_TP_TIGHT",
+      "orig_tp_pct": 0.03,
+      "new_tp_pct": 0.024,
+      "sl_pct": 0.015,
+      "notional_usd": 100.0,
+      "configuration_sha256": "1f5fe0619a90dc14ea87b1b725d3a5403a71539dee2879c82806c3e6d4082c18"
+    },
+    {
+      "display_id": "TV07",
+      "new_combo_id": "TV07_V2_1_TP",
+      "symbol": "ETH-USDT",
+      "timeframe": "H4",
+      "variant": "Z5B_TP_WIDE",
+      "orig_tp_pct": 0.036,
+      "new_tp_pct": 0.045,
+      "sl_pct": 0.015,
+      "notional_usd": 100.0,
+      "configuration_sha256": "ef5908611e9f4b9e6f246078558b0c4fed83f2d26e49c656ef3a01910accb87c"
+    },
+    {
+      "display_id": "TV08",
+      "new_combo_id": "TV08_V2_1_TP",
+      "symbol": "ETH-USDT",
+      "timeframe": "H4",
+      "variant": "Z5B_TP_WIDE",
+      "orig_tp_pct": 0.036,
+      "new_tp_pct": 0.045,
+      "sl_pct": 0.015,
+      "notional_usd": 100.0,
+      "configuration_sha256": "3033efd71410c211621151c729446ee7e72fe2fd4ed3ab8a5b814dd516914775"
+    },
+    {
+      "display_id": "TV09",
+      "new_combo_id": "TV09_V2_1_TP",
+      "symbol": "ETH-USDT",
+      "timeframe": "H4",
+      "variant": "Z5B_TP_WIDE",
+      "orig_tp_pct": 0.03,
+      "new_tp_pct": 0.0375,
+      "sl_pct": 0.015,
+      "notional_usd": 100.0,
+      "configuration_sha256": "f153b52a33b98679cb79d78845416c0094b080b8b021950a488a42bd8fb642b3"
+    },
+    {
+      "display_id": "TV12",
+      "new_combo_id": "TV12_V2_1_TP",
+      "symbol": "BTC-USDT",
+      "timeframe": "H8",
+      "variant": "Z5B_TP_WIDE",
+      "orig_tp_pct": 0.03,
+      "new_tp_pct": 0.0375,
+      "sl_pct": 0.0125,
+      "notional_usd": 100.0,
+      "configuration_sha256": "5d1bd29bd84237c423c46fb9d84286d8ddb2b213d121a8b4d78131b43adbe1b0"
+    },
+    {
+      "display_id": "TV20",
+      "new_combo_id": "TV20_V2_1_TP",
+      "symbol": "BTC-USDT",
+      "timeframe": "H12",
+      "variant": "Z5B_TP_WIDE",
+      "orig_tp_pct": 0.03,
+      "new_tp_pct": 0.0375,
+      "sl_pct": 0.0125,
+      "notional_usd": 100.0,
+      "configuration_sha256": "c46af1b063798bf35413334f3e1d1305fd41151b39936c8a5f56b769c66dd677"
+    },
+    {
+      "display_id": "TV24",
+      "new_combo_id": "TV24_V2_1_TP",
+      "symbol": "ETH-USDT",
+      "timeframe": "H12",
+      "variant": "Z5B_TP_WIDE",
+      "orig_tp_pct": 0.036,
+      "new_tp_pct": 0.045,
+      "sl_pct": 0.015,
+      "notional_usd": 100.0,
+      "configuration_sha256": "10443d013e79b5ebe07e1c934c5dd847c52b96fe9fb0f0b9a85bb6df69bbc17b"
+    }
+  ],
+  "anchor_tv28_v2_h8": {
+    "display_id": "TV28",
+    "new_combo_id": "TV28_V2_H8",
+    "symbol": "BTC-USDT",
+    "timeframe": "H8",
+    "tp_pct": 0.03,
+    "sl_pct": 0.012,
+    "warmup_bars": 120,
+    "notional_usd": 100.0,
+    "configuration_sha256": "5ec8829b22ca87d0d28c55c93d2c98e4a5dddcc9515f2d8099a9c6a921d26b40"
+  },
+  "invariants": {
+    "total_combos": 43,
+    "tv20_combos": 20,
+    "prune23_combos": 23,
+    "tv21_unchanged": true,
+    "tv21_tp_pct": 0.036,
+    "tv21_sl_pct": 0.015,
+    "tv21_breakeven": false,
+    "prune23_unchanged": true,
+    "zero_drop": true,
+    "notional_usd": 100.0,
+    "max_sl_pct": 0.015,
+    "no_new_execution_logic": true
+  },
+  "rollback": {
+    "v2_tv28_h8": {
+      "registry_path": "research/v3_lab_11_plus31/registry_v2/TV20_PLUS43_V2_REGISTRY.csv",
+      "registry_sha256": "a5a371c9b8251e4d45944454c6da4bdbfa838bc023b730e1834f26ff4ad1323d"
+    },
+    "v1_freeze": {
+      "registry_path": "research/v3_lab_11_plus31/freeze/TV31_SELECTED_REGISTRY.csv",
+      "registry_sha256": "08071b3f56d06ea24b1635dbe1fb22b3a4b2c001f6f880b8507a5213f4ada79b"
+    }
+  }
+}
