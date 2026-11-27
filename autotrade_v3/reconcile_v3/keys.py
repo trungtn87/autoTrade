@@ -6,7 +6,7 @@ from decimal import Decimal
 import re
 from typing import Any
 
-from autotrade_v3.strategy_core.api import ComboSpec
+from autotrade_v3.strategy_core.api import ComboSpec, ExitPolicy
 from autotrade_v3.strategy_core.registry import StrategyCoreRegistry
 
 
@@ -18,8 +18,16 @@ class ComboVerificationError(ValueError):
     """Lỗi không khớp combo hoặc tham số TP/SL giữa Live và Lab."""
 
 
-_EVENT_RE = re.compile(r"^([A-Z0-9]+-[A-Z0-9]+)\|([0-9]+[mh])\|([A-Z0-9_]+)\|(BUY|SELL)\|(\d+)$")
-_SIGNAL_RE = re.compile(r"^SIG_([A-Z0-9]+)_([A-Z0-9_]+)_([0-9]+[mh])_(BUY|SELL)_(\d+)$")
+_EVENT_RE = re.compile(r"^([A-Z0-9]+-[A-Z0-9]+)\|([0-9]+[mhd]|[HD][0-9]+)\|([A-Z0-9_]+)\|(BUY|SELL)\|(\d+)$")
+_SIGNAL_RE = re.compile(r"^SIG_([A-Z0-9]+)_([A-Z0-9_]+)_([0-9]+[mhd]|[HD][0-9]+)_(BUY|SELL)_(\d+)$")
+
+
+def _normalize_timeframe(tf: str) -> str:
+    """Chuẩn hóa định dạng khung thời gian (vd: 'H4' -> '4h', 'D1' -> '1d') để đối chiếu."""
+    s = str(tf).strip()
+    if len(s) >= 2 and s[0] in ("H", "D") and s[1:].isdigit():
+        return f"{s[1:]}{s[0].lower()}"
+    return s.lower()
 
 
 @dataclass(frozen=True)
@@ -83,7 +91,9 @@ def signal_id_to_event_id(signal_id: str) -> str:
 
 
 def build_combo_table() -> dict[tuple[str, str], ComboSpec]:
-    """Xây dựng bảng tra cứu (symbol, combo_name) -> ComboSpec từ 20FINAL@1 và V3_LAB_11_PRUNE23."""
+    """Xây dựng bảng tra cứu (symbol, combo_name) -> ComboSpec từ 20FINAL@1, V3_LAB_11_PRUNE23 và TV31."""
+    import csv
+    from pathlib import Path
     from autotrade_v3.reconcile_v3.era_engines import ensure_fixed_v1_registered
     from autotrade_v3.strategy.v3_lab_11_prune23 import V3Lab11Prune23Strategy
 
@@ -95,6 +105,93 @@ def build_combo_table() -> dict[tuple[str, str], ComboSpec]:
     strat_23 = V3Lab11Prune23Strategy()
     for c in strat_23.spec().combos:
         table.setdefault((c.symbol, c.combo_name), c)
+
+    tv_reg = Path(__file__).resolve().parents[2] / "research" / "v3_lab_11_plus31" / "freeze" / "TV31_SELECTED_REGISTRY.csv"
+    if tv_reg.is_file():
+        with tv_reg.open("r", encoding="utf-8", newline="") as f:
+            for idx, row in enumerate(csv.DictReader(f), start=1001):
+                display_id = str(row.get("display_id") or "").strip()
+                symbol = str(row.get("symbol") or "").strip()
+                timeframe = str(row.get("timeframe") or "").strip()
+                if not (display_id and symbol and timeframe):
+                    continue
+                table.setdefault(
+                    (symbol, display_id),
+                    ComboSpec(
+                        combo_key=str(row.get("new_combo_id") or display_id),
+                        symbol=symbol,
+                        combo_id=idx,
+                        combo_name=display_id,
+                        native_timeframe=timeframe,
+                        entry_variant=str(row.get("variant") or "B0"),
+                        entry={},
+                        layer2=str(row.get("variant_id") or "BASELINE"),
+                        exit_policy=ExitPolicy(
+                            tp_pct=float(row["tp_pct"]),
+                            sl_pct=float(row["sl_pct"]),
+                            split_legs=False,
+                            leg_weights=(1.0,),
+                        ),
+                    ),
+                )
+
+    tv_reg_v2 = Path(__file__).resolve().parents[2] / "research" / "v3_lab_11_plus31" / "registry_v2" / "TV20_PLUS43_V2_REGISTRY.csv"
+    if tv_reg_v2.is_file():
+        with tv_reg_v2.open("r", encoding="utf-8", newline="") as f:
+            for idx, row in enumerate(csv.DictReader(f), start=2001):
+                version_id = str(row.get("new_combo_id") or "").strip()
+                symbol = str(row.get("symbol") or "").strip()
+                timeframe = str(row.get("timeframe") or "").strip()
+                if not (version_id and symbol and timeframe):
+                    continue
+                table.setdefault(
+                    (symbol, version_id),
+                    ComboSpec(
+                        combo_key=version_id,
+                        symbol=symbol,
+                        combo_id=idx,
+                        combo_name=version_id,
+                        native_timeframe=timeframe,
+                        entry_variant=str(row.get("variant") or "B0"),
+                        entry={},
+                        layer2=str(row.get("variant_id") or "BASELINE"),
+                        exit_policy=ExitPolicy(
+                            tp_pct=float(row["tp_pct"]),
+                            sl_pct=float(row["sl_pct"]),
+                            split_legs=False,
+                            leg_weights=(1.0,),
+                        ),
+                    ),
+                )
+
+    tv_reg_v2_1 = Path(__file__).resolve().parents[2] / "research" / "v3_lab_11_plus31" / "registry_v2" / "TV20_PLUS43_V2_1_TP_REGISTRY.csv"
+    if tv_reg_v2_1.is_file():
+        with tv_reg_v2_1.open("r", encoding="utf-8", newline="") as f:
+            for idx, row in enumerate(csv.DictReader(f), start=3001):
+                version_id = str(row.get("new_combo_id") or "").strip()
+                symbol = str(row.get("symbol") or "").strip()
+                timeframe = str(row.get("timeframe") or "").strip()
+                if not (version_id and symbol and timeframe):
+                    continue
+                table.setdefault(
+                    (symbol, version_id),
+                    ComboSpec(
+                        combo_key=version_id,
+                        symbol=symbol,
+                        combo_id=idx,
+                        combo_name=version_id,
+                        native_timeframe=timeframe,
+                        entry_variant=str(row.get("variant") or "B0"),
+                        entry={},
+                        layer2=str(row.get("variant_id") or "BASELINE"),
+                        exit_policy=ExitPolicy(
+                            tp_pct=float(row["tp_pct"]),
+                            sl_pct=float(row["sl_pct"]),
+                            split_legs=False,
+                            leg_weights=(1.0,),
+                        ),
+                    ),
+                )
     return table
 
 
@@ -127,7 +224,7 @@ def verify_live_signals_against_combos(
                 f"Combo live không có trong bảng Lab 20FINAL: {key} (event_id={eid})"
             )
         spec = table[key]
-        if parsed.timeframe != spec.native_timeframe:
+        if _normalize_timeframe(parsed.timeframe) != _normalize_timeframe(spec.native_timeframe):
             raise ComboVerificationError(
                 f"Sai timeframe cho {key}: live={parsed.timeframe}, lab={spec.native_timeframe} (event_id={eid})"
             )

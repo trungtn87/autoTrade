@@ -44,8 +44,8 @@ def test_main_dashboard_renders_plus44_at_root() -> None:
     assert 'data-testid="ninlab-yearly-table"' in all_md
     assert 'data-testid="ninlab-reconciliation-box"' in all_md
     assert 'data-testid="ninlab-combo-table"' in all_md
-    assert "V3PLUS43_ALLSIG" in all_md
-    assert "+$1,525.84" in all_md
+    assert "V3PLUS43_V2_1_TP" in all_md
+    assert "+$1,691.79" in all_md
     assert "+$1,168.42" not in all_md
     assert "pnl_own_entry" in all_md
     assert "DEVELOPMENT" in all_md
@@ -60,12 +60,12 @@ def test_plus44_list_runs_includes_base_and_stress() -> None:
     runs = plus44_source.list_runs()
     assert [r.cost_profile for r in runs] == ["IDEAL", "BASE", "STRESS"]
     ideal_run, base_run, stress_run = runs
-    assert ideal_run.net_profit == pytest.approx(1773.1034, abs=1e-3)
-    assert base_run.net_profit == pytest.approx(1525.8433, abs=1e-3)
-    assert stress_run.net_profit == pytest.approx(1077.4334, abs=1e-3)
-    assert ideal_run.entry_count == 6472
-    assert base_run.entry_count == 6472
-    assert stress_run.entry_count == 6472
+    assert ideal_run.net_profit == pytest.approx(1932.3490, abs=1e-3)
+    assert base_run.net_profit == pytest.approx(1691.7905, abs=1e-3)
+    assert stress_run.net_profit == pytest.approx(1242.8353, abs=1e-3)
+    assert ideal_run.entry_count == 6560
+    assert base_run.entry_count == 6560
+    assert stress_run.entry_count == 6560
 
     base_payload = plus44_source.load_payload(base_run)
     stress_payload = plus44_source.load_payload(stress_run)

@@ -1,0 +1,1123 @@
+{
+  "generated_at_utc": "2026-11-27T06:14:41Z",
+  "version_tag": "PLUS43_V2_1_TP_ONLY",
+  "manifest_sha256_info": {
+    "registry_v2_1_sha256": "dd75bd5057168162d438912ffa25dda9b7f64970bfac417d65ebfc56053db312",
+    "rollback_v2_tv28_h8_sha256": "a5a371c9b8251e4d45944454c6da4bdbfa838bc023b730e1834f26ff4ad1323d",
+    "rollback_v1_freeze_sha256": "08071b3f56d06ea24b1635dbe1fb22b3a4b2c001f6f880b8507a5213f4ada79b",
+    "cost_profiles_sha256": "afbd14fb9c30c1df3a441dcfe7595dd31b9b605bbc31c3c0eb8aa87eec91a114",
+    "dataset_hash": "a18fc2e1bf5985945fee6609847cce753cd319da74415dc23d4f4bae231487be"
+  },
+  "standalone_results": {
+    "TV03": {
+      "new_combo_id": "TV03_V2_1_TP",
+      "symbol": "BTC-USDT",
+      "timeframe": "H4",
+      "tp_pct": 0.024,
+      "sl_pct": 0.015,
+      "BASE": {
+        "entries": 67,
+        "wins": 35,
+        "losses": 32,
+        "net_own": 28.175471600000034,
+        "fees": 6.6955664,
+        "slippage": 2.6782280536011225,
+        "pf": 1.545741636407778
+      },
+      "STRESS": {
+        "entries": 67,
+        "wins": 35,
+        "losses": 32,
+        "net_own": 26.177871999999905,
+        "fees": 6.695665999999999,
+        "slippage": 6.69567583754396,
+        "pf": 1.4977842142988802
+      },
+      "FORWARD_BASE": {
+        "entries": 0,
+        "net_own": 0.0
+      }
+    },
+    "TV07": {
+      "new_combo_id": "TV07_V2_1_TP",
+      "symbol": "ETH-USDT",
+      "timeframe": "H4",
+      "tp_pct": 0.045,
+      "sl_pct": 0.015,
+      "BASE": {
+        "entries": 105,
+        "wins": 37,
+        "losses": 68,
+        "net_own": 52.24003645000007,
+        "fees": 10.484393549999998,
+        "slippage": 4.193760084002403,
+        "pf": 1.473348400148583
+      },
+      "STRESS": {
+        "entries": 105,
+        "wins": 36,
+        "losses": 69,
+        "net_own": 43.07386962499979,
+        "fees": 10.487610375,
+        "slippage": 10.487626312594076,
+        "pf": 1.3776322970048323
+      },
+      "FORWARD_BASE": {
+        "entries": 3,
+        "net_own": -4.85894045
+      }
+    },
+    "TV08": {
+      "new_combo_id": "TV08_V2_1_TP",
+      "symbol": "ETH-USDT",
+      "timeframe": "H4",
+      "tp_pct": 0.045,
+      "sl_pct": 0.015,
+      "BASE": {
+        "entries": 248,
+        "wins": 88,
+        "losses": 160,
+        "net_own": 125.33231548576033,
+        "fees": 24.773751914799718,
+        "slippage": 9.909507242106994,
+        "pf": 1.4830559395368368
+      },
+      "STRESS": {
+        "entries": 248,
+        "wins": 86,
+        "losses": 162,
+        "net_own": 105.89094961631305,
+        "fees": 24.77335647145612,
+        "slippage": 24.773395799944335,
+        "pf": 1.395620574299495
+      },
+      "FORWARD_BASE": {
+        "entries": 6,
+        "net_own": 8.274460900000053
+      }
+    },
+    "TV09": {
+      "new_combo_id": "TV09_V2_1_TP",
+      "symbol": "ETH-USDT",
+      "timeframe": "H4",
+      "tp_pct": 0.0375,
+      "sl_pct": 0.015,
+      "BASE": {
+        "entries": 188,
+        "wins": 69,
+        "losses": 119,
+        "net_own": 56.73492602500034,
+        "fees": 18.820436974999996,
+        "slippage": 7.528178150397126,
+        "pf": 1.2934526592952476
+      },
+      "STRESS": {
+        "entries": 188,
+        "wins": 68,
+        "losses": 120,
+        "net_own": 45.888582749999856,
+        "fees": 18.82278125,
+        "slippage": 18.822802349888086,
+        "pf": 1.2312185578208774
+      },
+      "FORWARD_BASE": {
+        "entries": 1,
+        "net_own": -1.6210601499999981
+      }
+    },
+    "TV12": {
+      "new_combo_id": "TV12_V2_1_TP",
+      "symbol": "BTC-USDT",
+      "timeframe": "H8",
+      "tp_pct": 0.0375,
+      "sl_pct": 0.0125,
+      "BASE": {
+        "entries": 148,
+        "wins": 50,
+        "losses": 98,
+        "net_own": 45.51120038711547,
+        "fees": 14.790486579516685,
+        "slippage": 5.9161972219882015,
+        "pf": 1.3405895832758608
+      },
+      "STRESS": {
+        "entries": 148,
+        "wins": 47,
+        "losses": 101,
+        "net_own": 25.971673810694597,
+        "fees": 14.788205993597856,
+        "slippage": 14.788219534843439,
+        "pf": 1.1844047756052594
+      },
+      "FORWARD_BASE": {
+        "entries": 1,
+        "net_own": 3.7236153749999836
+      }
+    },
+    "TV20": {
+      "new_combo_id": "TV20_V2_1_TP",
+      "symbol": "BTC-USDT",
+      "timeframe": "H12",
+      "tp_pct": 0.0375,
+      "sl_pct": 0.0125,
+      "BASE": {
+        "entries": 101,
+        "wins": 34,
+        "losses": 67,
+        "net_own": 32.843380595333926,
+        "fees": 10.111421435484592,
+        "slippage": 4.044570443321816,
+        "pf": 1.3624327960159301
+      },
+      "STRESS": {
+        "entries": 101,
+        "wins": 34,
+        "losses": 67,
+        "net_own": 29.743432052579454,
+        "fees": 10.111474788079672,
+        "slippage": 10.111487220119937,
+        "pf": 1.3208750211143039
+      },
+      "FORWARD_BASE": {
+        "entries": 1,
+        "net_own": 3.687115375000003
+      }
+    },
+    "TV24": {
+      "new_combo_id": "TV24_V2_1_TP",
+      "symbol": "ETH-USDT",
+      "timeframe": "H12",
+      "tp_pct": 0.045,
+      "sl_pct": 0.015,
+      "BASE": {
+        "entries": 112,
+        "wins": 39,
+        "losses": 73,
+        "net_own": 52.74628742842562,
+        "fees": 11.196141889341114,
+        "slippage": 4.478459540643682,
+        "pf": 1.4496319247818286
+      },
+      "STRESS": {
+        "entries": 112,
+        "wins": 39,
+        "losses": 73,
+        "net_own": 49.37137209988312,
+        "fees": 11.195906814542788,
+        "slippage": 11.195925052616778,
+        "pf": 1.4131120081184352
+      },
+      "FORWARD_BASE": {
+        "entries": 5,
+        "net_own": -2.095700149999929
+      }
+    },
+    "TV28": {
+      "new_combo_id": "TV28_V2_H8",
+      "symbol": "BTC-USDT",
+      "timeframe": "H8",
+      "tp_pct": 0.03,
+      "sl_pct": 0.012,
+      "BASE": {
+        "entries": 129,
+        "wins": 50,
+        "losses": 79,
+        "net_own": 40.19922051999982,
+        "fees": 12.888004480000001,
+        "slippage": 5.155204103200164,
+        "pf": 1.3858930612640834
+      },
+      "STRESS": {
+        "entries": 129,
+        "wins": 50,
+        "losses": 79,
+        "net_own": 36.31371379999952,
+        "fees": 12.8880112,
+        "slippage": 12.888026612506653,
+        "pf": 1.3408606737141444
+      },
+      "FORWARD_BASE": {
+        "entries": 2,
+        "net_own": 1.6439401800000093
+      }
+    }
+  },
+  "portfolio_3y": {
+    "BASE": {
+      "entries": 6560,
+      "net_vwap": 1696.2711811860922,
+      "net_own": 1691.7905331860647,
+      "m2m_dd": 180.0864,
+      "m2m_dd_pct": 9.14,
+      "closed_dd": 158.04789694786314,
+      "closed_dd_vwap": 157.96545553179158,
+      "pf_vwap": 1.448511983299985,
+      "pf_own": 1.3828285660366757,
+      "peak_concurrent_legs": 37
+    },
+    "STRESS": {
+      "entries": 6560,
+      "net_vwap": 1246.9134185765176,
+      "net_own": 1242.835321576448,
+      "m2m_dd": 196.1109,
+      "m2m_dd_pct": 11.21,
+      "closed_dd": 186.989494406645,
+      "closed_dd_vwap": 182.02012869446548,
+      "pf_vwap": 1.315861472770868,
+      "pf_own": 1.2688094602105928,
+      "peak_concurrent_legs": 36
+    }
+  },
+  "portfolio_forward": {
+    "start_utc": "2026-11-01T00:00:00Z",
+    "end_utc": "2026-11-27T01:47:00Z",
+    "BASE": {
+      "entries": 175,
+      "net_own": 108.02925845690007,
+      "net_vwap": 0.0,
+      "m2m_dd": 28.727,
+      "m2m_dd_pct": 2.85
+    },
+    "STRESS": {
+      "entries": 175,
+      "net_own": 94.64883693333235,
+      "net_vwap": 0.0,
+      "m2m_dd": 29.9498,
+      "m2m_dd_pct": 2.97
+    }
+  },
+  "accounting_details": {
+    "BASE": {
+      "passed": false,
+      "max_group_diff": 15.225313999995137,
+      "mismatched_groups": [
+        {
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "own": 382.10880829586034,
+          "vwap": 396.9162552958681,
+          "diff": 14.807447000007755
+        },
+        {
+          "symbol": "BTC-USDT",
+          "side": "SELL",
+          "own": 347.98468016456764,
+          "vwap": 332.7593661645725,
+          "diff": 15.225313999995137
+        },
+        {
+          "symbol": "ETH-USDT",
+          "side": "BUY",
+          "own": 342.8361375215288,
+          "vwap": 357.4698755215369,
+          "diff": 14.633738000008066
+        },
+        {
+          "symbol": "ETH-USDT",
+          "side": "SELL",
+          "own": 618.860907204106,
+          "vwap": 609.125684204115,
+          "diff": 9.735222999990924
+        }
+      ],
+      "expected_final_equity": 2696.2711811860927,
+      "actual_final_equity": 2696.2711811857016,
+      "equity_diff": 3.9108272176235914e-10
+    },
+    "STRESS": {
+      "passed": false,
+      "max_group_diff": 15.345566999984243,
+      "mismatched_groups": [
+        {
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "own": 276.5772898729864,
+          "vwap": 291.2186568730001,
+          "diff": 14.641367000013702
+        },
+        {
+          "symbol": "BTC-USDT",
+          "side": "SELL",
+          "own": 245.45615791146824,
+          "vwap": 230.110590911484,
+          "diff": 15.345566999984243
+        },
+        {
+          "symbol": "ETH-USDT",
+          "side": "BUY",
+          "own": 267.47487317297555,
+          "vwap": 281.87996217299275,
+          "diff": 14.405089000017199
+        },
+        {
+          "symbol": "ETH-USDT",
+          "side": "SELL",
+          "own": 453.327000619015,
+          "vwap": 443.7042086190407,
+          "diff": 9.62279199997431
+        }
+      ],
+      "expected_final_equity": 2246.9134185765174,
+      "actual_final_equity": 2246.9134185763783,
+      "equity_diff": 1.3915268937125802e-10
+    }
+  },
+  "dry_run_upgraded": {
+    "latest_m1_utc": "2026-11-27T01:47:00Z",
+    "distinct_combo_ids_7": [
+      3001,
+      3003,
+      3004,
+      3005,
+      3007,
+      3012,
+      3016
+    ],
+    "unique_event_ids": true,
+    "unique_signal_ids": true,
+    "per_combo": {
+      "TV03": {
+        "version_id": "TV03_V2_1_TP",
+        "symbol": "BTC-USDT",
+        "timeframe": "H4",
+        "combo_id": 3001,
+        "signals_2026_ytd": 24,
+        "signals_forward_post_nov1": 0,
+        "tp_pct": 0.024,
+        "sl_pct": 0.015,
+        "last_closed_bar_open_utc": "2026-11-26T20:00:00Z"
+      },
+      "TV07": {
+        "version_id": "TV07_V2_1_TP",
+        "symbol": "ETH-USDT",
+        "timeframe": "H4",
+        "combo_id": 3003,
+        "signals_2026_ytd": 32,
+        "signals_forward_post_nov1": 3,
+        "tp_pct": 0.045,
+        "sl_pct": 0.015,
+        "last_closed_bar_open_utc": "2026-11-26T20:00:00Z"
+      },
+      "TV08": {
+        "version_id": "TV08_V2_1_TP",
+        "symbol": "ETH-USDT",
+        "timeframe": "H4",
+        "combo_id": 3004,
+        "signals_2026_ytd": 74,
+        "signals_forward_post_nov1": 6,
+        "tp_pct": 0.045,
+        "sl_pct": 0.015,
+        "last_closed_bar_open_utc": "2026-11-26T20:00:00Z"
+      },
+      "TV09": {
+        "version_id": "TV09_V2_1_TP",
+        "symbol": "ETH-USDT",
+        "timeframe": "H4",
+        "combo_id": 3005,
+        "signals_2026_ytd": 53,
+        "signals_forward_post_nov1": 1,
+        "tp_pct": 0.0375,
+        "sl_pct": 0.015,
+        "last_closed_bar_open_utc": "2026-11-26T20:00:00Z"
+      },
+      "TV12": {
+        "version_id": "TV12_V2_1_TP",
+        "symbol": "BTC-USDT",
+        "timeframe": "H8",
+        "combo_id": 3007,
+        "signals_2026_ytd": 43,
+        "signals_forward_post_nov1": 1,
+        "tp_pct": 0.0375,
+        "sl_pct": 0.0125,
+        "last_closed_bar_open_utc": "2026-11-26T16:00:00Z"
+      },
+      "TV20": {
+        "version_id": "TV20_V2_1_TP",
+        "symbol": "BTC-USDT",
+        "timeframe": "H12",
+        "combo_id": 3012,
+        "signals_2026_ytd": 31,
+        "signals_forward_post_nov1": 1,
+        "tp_pct": 0.0375,
+        "sl_pct": 0.0125,
+        "last_closed_bar_open_utc": "2026-11-26T12:00:00Z"
+      },
+      "TV24": {
+        "version_id": "TV24_V2_1_TP",
+        "symbol": "ETH-USDT",
+        "timeframe": "H12",
+        "combo_id": 3016,
+        "signals_2026_ytd": 37,
+        "signals_forward_post_nov1": 5,
+        "tp_pct": 0.045,
+        "sl_pct": 0.015,
+        "last_closed_bar_open_utc": "2026-11-26T12:00:00Z"
+      }
+    },
+    "latest_verified_signals": [
+      {
+        "display_id": "TV03",
+        "version_id": "TV03_V2_1_TP",
+        "event_id": "BTC-USDT|H4|TV03_V2_1_TP|SELL|1792670399999",
+        "signal_id": "SIG_BTCUSDT_TV03_V2_1_TP_H4_SELL_1792670399999",
+        "side": "SELL",
+        "entry": 81699.8,
+        "tp": 79739.0048,
+        "sl": 82925.29699999999,
+        "tp_pct": 2.4,
+        "sl_pct": 1.5
+      },
+      {
+        "display_id": "TV07",
+        "version_id": "TV07_V2_1_TP",
+        "event_id": "ETH-USDT|H4|TV07_V2_1_TP|BUY|1795449599999",
+        "signal_id": "SIG_ETHUSDT_TV07_V2_1_TP_H4_BUY_1795449599999",
+        "side": "BUY",
+        "entry": 1772.86,
+        "tp": 1852.6386999999997,
+        "sl": 1746.2670999999998,
+        "tp_pct": 4.5,
+        "sl_pct": 1.5
+      },
+      {
+        "display_id": "TV08",
+        "version_id": "TV08_V2_1_TP",
+        "event_id": "ETH-USDT|H4|TV08_V2_1_TP|SELL|1795190399999",
+        "signal_id": "SIG_ETHUSDT_TV08_V2_1_TP_H4_SELL_1795190399999",
+        "side": "SELL",
+        "entry": 1654.35,
+        "tp": 1579.9042499999998,
+        "sl": 1679.1652499999998,
+        "tp_pct": 4.5,
+        "sl_pct": 1.5
+      },
+      {
+        "display_id": "TV09",
+        "version_id": "TV09_V2_1_TP",
+        "event_id": "ETH-USDT|H4|TV09_V2_1_TP|SELL|1795593599999",
+        "signal_id": "SIG_ETHUSDT_TV09_V2_1_TP_H4_SELL_1795593599999",
+        "side": "SELL",
+        "entry": 1640.1,
+        "tp": 1578.59625,
+        "sl": 1664.7014999999997,
+        "tp_pct": 3.75,
+        "sl_pct": 1.5
+      },
+      {
+        "display_id": "TV12",
+        "version_id": "TV12_V2_1_TP",
+        "event_id": "BTC-USDT|H8|TV12_V2_1_TP|SELL|1793951999999",
+        "signal_id": "SIG_BTCUSDT_TV12_V2_1_TP_H8_SELL_1793951999999",
+        "side": "SELL",
+        "entry": 75568.4,
+        "tp": 72734.58499999999,
+        "sl": 76513.00499999999,
+        "tp_pct": 3.75,
+        "sl_pct": 1.25
+      },
+      {
+        "display_id": "TV20",
+        "version_id": "TV20_V2_1_TP",
+        "event_id": "BTC-USDT|H12|TV20_V2_1_TP|SELL|1794139199999",
+        "signal_id": "SIG_BTCUSDT_TV20_V2_1_TP_H12_SELL_1794139199999",
+        "side": "SELL",
+        "entry": 75944.0,
+        "tp": 73096.1,
+        "sl": 76893.3,
+        "tp_pct": 3.75,
+        "sl_pct": 1.25
+      },
+      {
+        "display_id": "TV24",
+        "version_id": "TV24_V2_1_TP",
+        "event_id": "ETH-USDT|H12|TV24_V2_1_TP|SELL|1795219199999",
+        "signal_id": "SIG_ETHUSDT_TV24_V2_1_TP_H12_SELL_1795219199999",
+        "side": "SELL",
+        "entry": 1622.03,
+        "tp": 1549.03865,
+        "sl": 1646.36045,
+        "tp_pct": 4.5,
+        "sl_pct": 1.5
+      }
+    ],
+    "pass": true
+  },
+  "reconciliation_pass": true,
+  "reconciliation_checks_count": 82,
+  "reconciliation_details": {
+    "TV03_entries": {
+      "expected": 67,
+      "actual": 67,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV03_base_net_own": {
+      "expected": 28.1754716,
+      "actual": 28.175471600000034,
+      "diff": 3.197442310920451e-14,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV03_base_pf": {
+      "expected": 1.545742,
+      "actual": 1.545741636407778,
+      "diff": -3.635922218858667e-07,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV03_stress_net_own": {
+      "expected": 26.177872,
+      "actual": 26.177871999999905,
+      "diff": -9.592326932761353e-14,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV03_stress_pf": {
+      "expected": 1.497784,
+      "actual": 1.4977842142988802,
+      "diff": 2.1429888019675047e-07,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV03_fwd_entries": {
+      "expected": 0,
+      "actual": 0,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV03_fwd_net_own": {
+      "expected": 0.0,
+      "actual": 0.0,
+      "diff": 0.0,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV07_entries": {
+      "expected": 105,
+      "actual": 105,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV07_base_net_own": {
+      "expected": 52.24003645,
+      "actual": 52.24003645000007,
+      "diff": 7.105427357601002e-14,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV07_base_pf": {
+      "expected": 1.473348,
+      "actual": 1.473348400148583,
+      "diff": 4.001485829352447e-07,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV07_stress_net_own": {
+      "expected": 43.07386962,
+      "actual": 43.07386962499979,
+      "diff": 4.999783698167448e-09,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV07_stress_pf": {
+      "expected": 1.377632,
+      "actual": 1.3776322970048323,
+      "diff": 2.97004832283676e-07,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV07_fwd_entries": {
+      "expected": 3,
+      "actual": 3,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV07_fwd_net_own": {
+      "expected": -4.85894045,
+      "actual": -4.85894045,
+      "diff": 0.0,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV08_entries": {
+      "expected": 248,
+      "actual": 248,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV08_base_net_own": {
+      "expected": 125.33231549,
+      "actual": 125.33231548576033,
+      "diff": -4.239666395733366e-09,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV08_base_pf": {
+      "expected": 1.483056,
+      "actual": 1.4830559395368368,
+      "diff": -6.046316314289868e-08,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV08_stress_net_own": {
+      "expected": 105.89094962,
+      "actual": 105.89094961631305,
+      "diff": -3.686949412440299e-09,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV08_stress_pf": {
+      "expected": 1.395621,
+      "actual": 1.395620574299495,
+      "diff": -4.2570050506895996e-07,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV08_fwd_entries": {
+      "expected": 6,
+      "actual": 6,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV08_fwd_net_own": {
+      "expected": 8.2744609,
+      "actual": 8.274460900000053,
+      "diff": 5.3290705182007514e-14,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV09_entries": {
+      "expected": 188,
+      "actual": 188,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV09_base_net_own": {
+      "expected": 56.73492603,
+      "actual": 56.73492602500034,
+      "diff": -4.999655800475011e-09,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV09_base_pf": {
+      "expected": 1.293453,
+      "actual": 1.2934526592952476,
+      "diff": -3.407047524106588e-07,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV09_stress_net_own": {
+      "expected": 45.88858275,
+      "actual": 45.888582749999856,
+      "diff": -1.4210854715202004e-13,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV09_stress_pf": {
+      "expected": 1.231219,
+      "actual": 1.2312185578208774,
+      "diff": -4.421791226505434e-07,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV09_fwd_entries": {
+      "expected": 1,
+      "actual": 1,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV09_fwd_net_own": {
+      "expected": -1.62106015,
+      "actual": -1.6210601499999981,
+      "diff": 1.7763568394002505e-15,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV12_entries": {
+      "expected": 148,
+      "actual": 148,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV12_base_net_own": {
+      "expected": 45.51120039,
+      "actual": 45.51120038711547,
+      "diff": -2.8845263955190603e-09,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV12_base_pf": {
+      "expected": 1.34059,
+      "actual": 1.3405895832758608,
+      "diff": -4.1672413919613405e-07,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV12_stress_net_own": {
+      "expected": 25.97167381,
+      "actual": 25.971673810694597,
+      "diff": 6.945981567696435e-10,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV12_stress_pf": {
+      "expected": 1.184405,
+      "actual": 1.1844047756052594,
+      "diff": -2.2439474056668018e-07,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV12_fwd_entries": {
+      "expected": 1,
+      "actual": 1,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV12_fwd_net_own": {
+      "expected": 3.72361537,
+      "actual": 3.7236153749999836,
+      "diff": 4.999983538311881e-09,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV20_entries": {
+      "expected": 101,
+      "actual": 101,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV20_base_net_own": {
+      "expected": 32.8433806,
+      "actual": 32.843380595333926,
+      "diff": -4.666077302317717e-09,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV20_base_pf": {
+      "expected": 1.362433,
+      "actual": 1.3624327960159301,
+      "diff": -2.0398406985755457e-07,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV20_stress_net_own": {
+      "expected": 29.74343205,
+      "actual": 29.743432052579454,
+      "diff": 2.5794548719204613e-09,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV20_stress_pf": {
+      "expected": 1.320875,
+      "actual": 1.3208750211143039,
+      "diff": 2.1114303860869654e-08,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV20_fwd_entries": {
+      "expected": 1,
+      "actual": 1,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV20_fwd_net_own": {
+      "expected": 3.68711538,
+      "actual": 3.687115375000003,
+      "diff": -4.999996860988176e-09,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV24_entries": {
+      "expected": 112,
+      "actual": 112,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV24_base_net_own": {
+      "expected": 52.74628743,
+      "actual": 52.74628742842562,
+      "diff": -1.574385066760442e-09,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV24_base_pf": {
+      "expected": 1.449632,
+      "actual": 1.4496319247818286,
+      "diff": -7.521817146916021e-08,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV24_stress_net_own": {
+      "expected": 49.3713721,
+      "actual": 49.37137209988312,
+      "diff": -1.1688428003253648e-10,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV24_stress_pf": {
+      "expected": 1.413112,
+      "actual": 1.4131120081184352,
+      "diff": 8.118435257387091e-09,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV24_fwd_entries": {
+      "expected": 5,
+      "actual": 5,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV24_fwd_net_own": {
+      "expected": -2.09570015,
+      "actual": -2.095700149999929,
+      "diff": 7.105427357601002e-14,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV28_entries": {
+      "expected": 129,
+      "actual": 129,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV28_base_net_own": {
+      "expected": 40.19922052,
+      "actual": 40.19922051999982,
+      "diff": -1.7763568394002505e-13,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV28_base_pf": {
+      "expected": 1.385893,
+      "actual": 1.3858930612640834,
+      "diff": 6.126408336193379e-08,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV28_stress_net_own": {
+      "expected": 36.3137138,
+      "actual": 36.31371379999952,
+      "diff": -4.831690603168681e-13,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "TV28_stress_pf": {
+      "expected": 1.340861,
+      "actual": 1.3408606737141444,
+      "diff": -3.2628585566740753e-07,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "TV28_fwd_entries": {
+      "expected": 2,
+      "actual": 2,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "TV28_fwd_net_own": {
+      "expected": 1.64394018,
+      "actual": 1.6439401800000093,
+      "diff": 9.325873406851315e-15,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "port_base_entries": {
+      "expected": 6560,
+      "actual": 6560,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "port_base_net_own": {
+      "expected": 1691.79053319,
+      "actual": 1691.7905331860647,
+      "diff": -3.935156200896017e-09,
+      "tol": 0.0001,
+      "pass": true
+    },
+    "port_base_net_vwap": {
+      "expected": 1696.27118119,
+      "actual": 1696.2711811860922,
+      "diff": -3.907871359842829e-09,
+      "tol": 0.0001,
+      "pass": true
+    },
+    "port_base_m2m_dd": {
+      "expected": 180.0864,
+      "actual": 180.0864,
+      "diff": 0.0,
+      "tol": 0.005,
+      "pass": true
+    },
+    "port_base_m2m_dd_pct": {
+      "expected": 9.14,
+      "actual": 9.14,
+      "diff": 0.0,
+      "tol": 0.01,
+      "pass": true
+    },
+    "port_base_closed_dd": {
+      "expected": 158.047897,
+      "actual": 158.04789694786314,
+      "diff": -5.21368690442614e-08,
+      "tol": 0.0001,
+      "pass": true
+    },
+    "port_base_pf_own": {
+      "expected": 1.382829,
+      "actual": 1.3828285660366757,
+      "diff": -4.3396332438661034e-07,
+      "tol": 0.0001,
+      "pass": true
+    },
+    "port_base_pf_vwap": {
+      "expected": 1.448512,
+      "actual": 1.448511983299985,
+      "diff": -1.6700014926485096e-08,
+      "tol": 0.0001,
+      "pass": true
+    },
+    "port_base_peak_legs": {
+      "expected": 37,
+      "actual": 37,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "port_stress_entries": {
+      "expected": 6560,
+      "actual": 6560,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "port_stress_net_own": {
+      "expected": 1242.83532158,
+      "actual": 1242.835321576448,
+      "diff": -3.5520315577741712e-09,
+      "tol": 0.0001,
+      "pass": true
+    },
+    "port_stress_net_vwap": {
+      "expected": 1246.91341858,
+      "actual": 1246.9134185765176,
+      "diff": -3.4824552130885422e-09,
+      "tol": 0.0001,
+      "pass": true
+    },
+    "port_stress_m2m_dd": {
+      "expected": 196.1109,
+      "actual": 196.1109,
+      "diff": 0.0,
+      "tol": 0.005,
+      "pass": true
+    },
+    "port_stress_m2m_dd_pct": {
+      "expected": 11.21,
+      "actual": 11.21,
+      "diff": 0.0,
+      "tol": 0.01,
+      "pass": true
+    },
+    "port_stress_closed_dd": {
+      "expected": 186.989494,
+      "actual": 186.989494406645,
+      "diff": 4.066450003392674e-07,
+      "tol": 0.0001,
+      "pass": true
+    },
+    "port_stress_pf_own": {
+      "expected": 1.268809,
+      "actual": 1.2688094602105928,
+      "diff": 4.6021059274536924e-07,
+      "tol": 0.0001,
+      "pass": true
+    },
+    "port_stress_pf_vwap": {
+      "expected": 1.315861,
+      "actual": 1.315861472770868,
+      "diff": 4.727708680096754e-07,
+      "tol": 0.0001,
+      "pass": true
+    },
+    "port_stress_peak_legs": {
+      "expected": 36,
+      "actual": 36,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "fwd_base_entries": {
+      "expected": 175,
+      "actual": 175,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "fwd_base_net_own": {
+      "expected": 108.02925846,
+      "actual": 108.02925845690007,
+      "diff": -3.0999274258647347e-09,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "fwd_base_m2m_dd": {
+      "expected": 28.727,
+      "actual": 28.727,
+      "diff": 0.0,
+      "tol": 0.005,
+      "pass": true
+    },
+    "fwd_base_m2m_dd_pct": {
+      "expected": 2.85,
+      "actual": 2.85,
+      "diff": 0.0,
+      "tol": 0.01,
+      "pass": true
+    },
+    "fwd_stress_entries": {
+      "expected": 175,
+      "actual": 175,
+      "diff": 0.0,
+      "tol": 0,
+      "pass": true
+    },
+    "fwd_stress_net_own": {
+      "expected": 94.64883693,
+      "actual": 94.64883693333235,
+      "diff": 3.3323459547318635e-09,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "fwd_stress_m2m_dd": {
+      "expected": 29.9498,
+      "actual": 29.9498,
+      "diff": 0.0,
+      "tol": 0.005,
+      "pass": true
+    },
+    "fwd_stress_m2m_dd_pct": {
+      "expected": 2.97,
+      "actual": 2.97,
+      "diff": 0.0,
+      "tol": 0.01,
+      "pass": true
+    }
+  }
+}

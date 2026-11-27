@@ -1,0 +1,313 @@
+{
+  "generated_at_utc": "2026-11-27T01:39:09Z",
+  "causality_h8": {
+    "hours_utc": [
+      0,
+      8,
+      16
+    ],
+    "total_h8_bars": 3288,
+    "clean_prefix_bars": 2301,
+    "prefix_invariance": true,
+    "future_perturbation_invariance": true,
+    "repeatability": true,
+    "pass": true
+  },
+  "dry_run_h8": {
+    "h8_hours_utc": [
+      0,
+      8,
+      16
+    ],
+    "last_closed_h8_bar_open_utc": "2026-11-26T08:00:00Z",
+    "latest_m1_utc": "2026-11-26T16:04:00Z",
+    "distinct_combo_ids": [
+      31010,
+      31012,
+      31028
+    ],
+    "signal_counts_2026_ytd": {
+      "TV10": 7,
+      "TV12": 40,
+      "TV28": 40
+    },
+    "unique_event_ids": true,
+    "unique_signal_ids": true,
+    "pass": true
+  },
+  "standalone_tv28_v2": {
+    "BASE": {
+      "entries": 129,
+      "wins": 50,
+      "losses": 79,
+      "net_own": 40.19922051999982,
+      "fees": 12.888004480000001,
+      "slippage": 5.155204103200164,
+      "funding": -0.4624250000000001,
+      "pf": 1.3858930612640834
+    },
+    "STRESS": {
+      "entries": 129,
+      "wins": 50,
+      "losses": 79,
+      "net_own": 36.31371379999952,
+      "fees": 12.8880112,
+      "slippage": 12.888026612506653,
+      "funding": -0.4397250000000001,
+      "pf": 1.3408606737141444
+    },
+    "FORWARD_BASE": {
+      "entries": 2,
+      "net_own": 1.6439401800000093,
+      "end_utc": "2026-11-26T16:04:00Z"
+    }
+  },
+  "portfolio_plus43_v2": {
+    "BASE": {
+      "entries": 6560,
+      "net_vwap": 1564.4703980060933,
+      "net_own": 1561.1789580060658,
+      "m2m_dd": 180.8358,
+      "m2m_dd_pct": 9.09,
+      "pf_vwap": 1.4117113672289738,
+      "pf_own": 1.3561113454151743,
+      "peak_concurrent_legs": 37
+    },
+    "STRESS": {
+      "entries": 6560,
+      "net_vwap": 1112.9227850765162,
+      "net_own": 1110.1129370764484,
+      "m2m_dd": 208.9509,
+      "m2m_dd_pct": 11.05,
+      "pf_vwap": 1.2804683353297628,
+      "pf_own": 1.2418362312334696,
+      "peak_concurrent_legs": 36
+    }
+  },
+  "accounting_details": {
+    "BASE": {
+      "passed": false,
+      "max_group_diff": 14.894426999994664,
+      "mismatched_groups": [
+        {
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "own": 360.61474709585985,
+          "vwap": 374.93165309586743,
+          "diff": 14.316906000007577
+        },
+        {
+          "symbol": "BTC-USDT",
+          "side": "SELL",
+          "own": 334.8948668895679,
+          "vwap": 320.0004398895732,
+          "diff": 14.894426999994664
+        },
+        {
+          "symbol": "ETH-USDT",
+          "side": "BUY",
+          "own": 301.1816191865296,
+          "vwap": 314.1502161865378,
+          "diff": 12.96859700000823
+        },
+        {
+          "symbol": "ETH-USDT",
+          "side": "SELL",
+          "own": 564.487724834107,
+          "vwap": 555.3880888341157,
+          "diff": 9.099635999991278
+        }
+      ],
+      "expected_final_equity": 2564.470398006094,
+      "actual_final_equity": 2564.4703980057498,
+      "equity_diff": 3.4424374462105334e-10
+    },
+    "STRESS": {
+      "passed": false,
+      "max_group_diff": 15.209679999985326,
+      "mismatched_groups": [
+        {
+          "symbol": "BTC-USDT",
+          "side": "BUY",
+          "own": 252.2812676854862,
+          "vwap": 266.4934006855006,
+          "diff": 14.212133000014404
+        },
+        {
+          "symbol": "BTC-USDT",
+          "side": "SELL",
+          "own": 229.05401684896884,
+          "vwap": 213.84433684898352,
+          "diff": 15.209679999985326
+        },
+        {
+          "symbol": "ETH-USDT",
+          "side": "BUY",
+          "own": 222.1745004354782,
+          "vwap": 234.9769004354932,
+          "diff": 12.802400000015012
+        },
+        {
+          "symbol": "ETH-USDT",
+          "side": "SELL",
+          "own": 406.60315210651544,
+          "vwap": 397.6081471065399,
+          "diff": 8.99500499997555
+        }
+      ],
+      "expected_final_equity": 2112.9227850765174,
+      "actual_final_equity": 2112.9227850765224,
+      "equity_diff": 5.002220859751105e-12
+    }
+  },
+  "reconciliation_pass": true,
+  "reconciliation_details": {
+    "standalone_base_entries": {
+      "expected": 129,
+      "actual": 129,
+      "diff": 0,
+      "tol": 0,
+      "pass": true
+    },
+    "standalone_base_wins": {
+      "expected": 50,
+      "actual": 50,
+      "diff": 0,
+      "tol": 0,
+      "pass": true
+    },
+    "standalone_base_losses": {
+      "expected": 79,
+      "actual": 79,
+      "diff": 0,
+      "tol": 0,
+      "pass": true
+    },
+    "standalone_base_net_own": {
+      "expected": 40.19922052,
+      "actual": 40.19922051999982,
+      "diff": -1.7763568394002505e-13,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "standalone_base_fees": {
+      "expected": 12.88800448,
+      "actual": 12.888004480000001,
+      "diff": 1.7763568394002505e-15,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "standalone_base_slippage": {
+      "expected": 5.1552041,
+      "actual": 5.155204103200164,
+      "diff": 3.2001645777768317e-09,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "standalone_base_funding": {
+      "expected": -0.462425,
+      "actual": -0.4624250000000001,
+      "diff": -1.1102230246251565e-16,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "standalone_base_pf": {
+      "expected": 1.385893,
+      "actual": 1.3858930612640834,
+      "diff": 6.126408336193379e-08,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "standalone_stress_entries": {
+      "expected": 129,
+      "actual": 129,
+      "diff": 0,
+      "tol": 0,
+      "pass": true
+    },
+    "standalone_stress_net_own": {
+      "expected": 36.3137138,
+      "actual": 36.31371379999952,
+      "diff": -4.831690603168681e-13,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "standalone_stress_pf": {
+      "expected": 1.340861,
+      "actual": 1.3408606737141444,
+      "diff": -3.2628585566740753e-07,
+      "tol": 1e-05,
+      "pass": true
+    },
+    "standalone_forward_entries": {
+      "expected": 2,
+      "actual": 2,
+      "diff": 0,
+      "tol": 0,
+      "pass": true
+    },
+    "standalone_forward_net_own": {
+      "expected": 1.64394018,
+      "actual": 1.6439401800000093,
+      "diff": 9.325873406851315e-15,
+      "tol": 1e-06,
+      "pass": true
+    },
+    "portfolio_base_entries": {
+      "expected": 6560,
+      "actual": 6560,
+      "diff": 0,
+      "tol": 0,
+      "pass": true
+    },
+    "portfolio_base_net_own": {
+      "expected": 1561.17895801,
+      "actual": 1561.1789580060658,
+      "diff": -3.934246706194244e-09,
+      "tol": 0.0001,
+      "pass": true
+    },
+    "portfolio_base_m2m_dd": {
+      "expected": 180.835869,
+      "actual": 180.8358,
+      "diff": -6.8999999996322e-05,
+      "tol": 0.05,
+      "pass": true
+    },
+    "portfolio_base_pf": {
+      "expected": 1.410325,
+      "actual": 1.4117113672289738,
+      "diff": 0.0013863672289737838,
+      "tol": 0.002,
+      "pass": true
+    },
+    "portfolio_stress_entries": {
+      "expected": 6560,
+      "actual": 6560,
+      "diff": 0,
+      "tol": 0,
+      "pass": true
+    },
+    "portfolio_stress_net_own": {
+      "expected": 1110.11293708,
+      "actual": 1110.1129370764484,
+      "diff": -3.5515768104232848e-09,
+      "tol": 0.0001,
+      "pass": true
+    },
+    "portfolio_stress_m2m_dd": {
+      "expected": 208.951001,
+      "actual": 208.9509,
+      "diff": -0.0001010000000007949,
+      "tol": 0.05,
+      "pass": true
+    },
+    "portfolio_stress_pf": {
+      "expected": 1.279513,
+      "actual": 1.2804683353297628,
+      "diff": 0.0009553353297628853,
+      "tol": 0.002,
+      "pass": true
+    }
+  }
+}

@@ -37,6 +37,9 @@ def test_key_mapping_roundtrip_and_invalid() -> None:
     eid_eth = "ETH-USDT|15m|C10|BUY|1795046399999"
     assert signal_id_to_event_id(event_id_to_signal_id(eid_eth)) == eid_eth
 
+    eid_tv = "ETH-USDT|H4|TV09|SELL|1795593599999"
+    assert signal_id_to_event_id(event_id_to_signal_id(eid_tv)) == eid_tv
+
     with pytest.raises(KeyMappingError):
         event_id_to_signal_id("INVALID_KEY")
     with pytest.raises(KeyMappingError):
@@ -71,6 +74,20 @@ def test_combo_verification_rejects_unmapped_and_mismatch() -> None:
     ]
     res = verify_live_signals_against_combos(valid)
     assert "BTC-USDT|1h|C4|SELL|1794625199999" in res
+
+    tv_valid = [
+        {
+            "event_id": "ETH-USDT|H4|TV09|SELL|1795593599999",
+            "symbol": "ETH-USDT",
+            "combo": "TV09",
+            "side": "SELL",
+            "entry": "1640.1",
+            "tp": "1590.897",
+            "sl": "1664.7015",
+        }
+    ]
+    res_tv = verify_live_signals_against_combos(tv_valid)
+    assert "ETH-USDT|H4|TV09|SELL|1795593599999" in res_tv
 
     unmapped = [
         {

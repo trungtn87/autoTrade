@@ -175,21 +175,39 @@ def load_reconcile_17a(reconcile_dir: str = str(DEFAULT_RECONCILE_DIR)) -> dict[
             ck = f"{o.get('symbol')}/{o.get('combo')}"
             entry = combo_live.setdefault(
                 ck,
-                {"trades": 0, "wins": 0, "pnl": 0.0, "fees": 0.0, "slips": [], "status": "CHƯA ĐỦ MẪU", "drift_pct": 0.0},
+                {
+                    "trades": 0,
+                    "wins": 0,
+                    "pnl": 0.0,
+                    "sim_pnl": 0.0,
+                    "fees": 0.0,
+                    "slips": [],
+                    "status": "CHƯA ĐỦ MẪU",
+                    "drift_pct": 0.0,
+                },
             )
-            net_v = float(((o.get("items") or {}).get("pnl") or {}).get("live_net_pnl") or 0.0)
+            pnl_item = (o.get("items") or {}).get("pnl") or {}
+            net_v = float(pnl_item.get("live_net_pnl") or 0.0)
+            sim_v = float(pnl_item.get("sim_base_net_pnl") or 0.0)
             fee_v = float(((o.get("items") or {}).get("fees") or {}).get("live_total_fee") or 0.0)
             slip_v = float(((o.get("items") or {}).get("entry") or {}).get("live_slippage_bps") or 0.0)
             entry["trades"] += 1
             if net_v > 0:
                 entry["wins"] += 1
             entry["pnl"] += net_v
+            entry["sim_pnl"] += sim_v
             entry["fees"] += fee_v
             entry["slips"].append(slip_v)
         for ck, entry in combo_live.items():
             t = entry["trades"]
             entry["wr"] = (entry["wins"] / t * 100.0) if t else 0.0
             entry["avg_slip_bps"] = sum(entry["slips"]) / t if t else 0.0
+            sim_total = float(entry["sim_pnl"])
+            entry["drift_pct"] = (
+                (float(entry["pnl"]) - sim_total) / abs(sim_total) * 100.0
+                if abs(sim_total) > 1e-12
+                else 0.0
+            )
 
         cause_dist_raw = data.get("cause_distribution") or {}
         drift_causes = {
@@ -350,6 +368,7 @@ def _build_main_equity_chart(payload: dict[str, Any], rec: dict[str, Any]) -> go
     else:
         x_dates = pd.date_range(start_s, end_s, periods=max(len(eq), 2), tz="UTC") if eq else []
 
+    fwd_sp = (payload.get("breakdowns") or {}).get("forward_post_3y")
     fig = go.Figure()
     if eq:
         fig.add_trace(
@@ -362,6 +381,21 @@ def _build_main_equity_chart(payload: dict[str, Any], rec: dict[str, Any]) -> go
                 hovertemplate="%{x|%Y-%m-%d}<br>Vốn: $%{y:,.2f}<extra></extra>",
             )
         )
+        if isinstance(fwd_sp, dict) and fwd_sp.get("daily_equity"):
+            base_eq = float(eq[-1])
+            fwd_pts = fwd_sp["daily_equity"]
+            fx = [x_dates[-1]] + list(pd.to_datetime([int(p["timestamp_ms"]) for p in fwd_pts], unit="ms", utc=True))
+            fy = [base_eq] + [base_eq + float(p["net_pnl"]) for p in fwd_pts]
+            fig.add_trace(
+                go.Scatter(
+                    x=fx,
+                    y=fy,
+                    mode="lines",
+                    name=f"Backtest {profile} (Forward sau 31/10)",
+                    line=dict(color="#38bdf8", width=2.4, dash="dot"),
+                    hovertemplate="%{x|%Y-%m-%d}<br>Vốn (Forward): $%{y:,.2f}<extra></extra>",
+                )
+            )
     if rec.get("available") and rec.get("live_equity"):
         lx = [pd.to_datetime(p["ts"], utc=True) for p in rec["live_equity"]]
         ly = [float(p["equity"]) for p in rec["live_equity"]]
@@ -474,6 +508,7 @@ def _build_drift_bar_chart(drift_causes: dict[str, float]) -> go.Figure:
 def _render_splits_and_yearly(payload: dict[str, Any]) -> None:
     breakdowns = payload.get("breakdowns") or {}
     splits = breakdowns.get("splits") or []
+    fwd_sp = breakdowns.get("forward_post_3y")
     yearly = breakdowns.get("yearly") or []
     rec_info = breakdowns.get("reconciliation") or {}
     profile = str(rec_info.get("profile") or payload.get("run_info", {}).get("cost_profile") or "BASE")
@@ -497,6 +532,24 @@ def _render_splits_and_yearly(payload: dict[str, Any]) -> None:
                 f"<td style='text-align:right'>{int(sp['peak_concurrent_legs'])}</td>"
                 f"<td style='text-align:right'>{float(sp['win_rate_pct']):.1f}%</td>"
                 f"<td style='text-align:right'>{float(sp['profit_factor']):.2f}</td>"
+                f"</tr>"
+            )
+        if isinstance(fwd_sp, dict):
+            f_net = float(fwd_sp.get("net_pnl") or 0.0)
+            f_cls = "nl-good" if f_net >= 0 else "nl-bad"
+            f_win = f"{str(fwd_sp.get('start', ''))[:10]} → {str(fwd_sp.get('end', ''))[:10]}"
+            sp_rows += (
+                f"<tr style='border-top:2px solid #35445b;background:rgba(56,189,248,0.06)'>"
+                f"<td><strong>{html.escape(str(fwd_sp.get('split', 'FORWARD (sau 31/10)')))}</strong></td>"
+                f"<td>{html.escape(f_win)}</td>"
+                f"<td style='text-align:right'>{int(fwd_sp.get('executed_trades') or 0):,}</td>"
+                f"<td style='text-align:right' class='{f_cls}'>{f_net:+,.2f}</td>"
+                f"<td style='text-align:right'>{float(fwd_sp.get('roi_pct') or 0.0):+.2f}%</td>"
+                f"<td style='text-align:right'>${float(fwd_sp.get('m2m_dd') or 0.0):,.2f}</td>"
+                f"<td style='text-align:right'>${float(fwd_sp.get('max_dd_closed') or 0.0):,.2f}</td>"
+                f"<td style='text-align:right'>{int(fwd_sp.get('peak_concurrent_legs') or 0)}</td>"
+                f"<td style='text-align:right'>{float(fwd_sp.get('win_rate_pct') or 0.0):.1f}%</td>"
+                f"<td style='text-align:right'>{float(fwd_sp.get('profit_factor') or 0.0):.2f}</td>"
                 f"</tr>"
             )
         st.markdown(
@@ -528,6 +581,22 @@ def _render_splits_and_yearly(payload: dict[str, Any]) -> None:
                 f"<td style='text-align:right'>${float(yr['m2m_dd']):,.2f}</td>"
                 f"<td style='text-align:right'>${float(yr['max_dd_closed']):,.2f}</td>"
                 f"<td style='text-align:right'>{int(yr['peak_concurrent_legs'])}</td>"
+                f"</tr>"
+            )
+        if isinstance(fwd_sp, dict):
+            f_net = float(fwd_sp.get("net_pnl") or 0.0)
+            f_cls = "nl-good" if f_net >= 0 else "nl-bad"
+            f_win = f"{str(fwd_sp.get('start', ''))[:10]} → {str(fwd_sp.get('end', ''))[:10]}"
+            yr_rows += (
+                f"<tr style='border-top:2px solid #35445b;background:rgba(56,189,248,0.06)'>"
+                f"<td><strong>Y4 (Forward)</strong></td>"
+                f"<td>{html.escape(f_win)}</td>"
+                f"<td style='text-align:right'>{int(fwd_sp.get('executed_trades') or 0):,}</td>"
+                f"<td style='text-align:right' class='{f_cls}'>{f_net:+,.2f}</td>"
+                f"<td style='text-align:right'>{float(fwd_sp.get('roi_pct') or 0.0):+.2f}%</td>"
+                f"<td style='text-align:right'>${float(fwd_sp.get('m2m_dd') or 0.0):,.2f}</td>"
+                f"<td style='text-align:right'>${float(fwd_sp.get('max_dd_closed') or 0.0):,.2f}</td>"
+                f"<td style='text-align:right'>{int(fwd_sp.get('peak_concurrent_legs') or 0)}</td>"
                 f"</tr>"
             )
         st.markdown(
@@ -606,7 +675,7 @@ def _render_drawer(combo_row: dict[str, Any], rec: dict[str, Any], profile: str)
         ("Số lệnh khớp", f"{live_info['trades']}" if live_info else "0", f"{entries}", "—" if not live_info else f"{live_info['trades']-entries:+d}", "EXACT" if live_info else "UNRESOLVED"),
         ("Tỷ lệ thắng (own_entry)", f"{live_info['wr']:.1f}%" if live_info else "—", f"{wr:.1f}%", "—", "RECONCILED" if live_info else "UNRESOLVED"),
         ("Hệ số lợi nhuận (own_entry)", "—", pf_s, "—", "RECONCILED"),
-        ("PnL entry riêng (pnl_own_entry)", f"${live_info['pnl']:,.2f}" if live_info else "—", f"${own_pnl:,.2f}", "—", "EXACT" if live_info else "UNRESOLVED"),
+        ("PNL own entry", f"${live_info['pnl']:,.2f}" if live_info else "—", f"${own_pnl:,.2f}", "—", "EXACT" if live_info else "UNRESOLVED"),
         ("DEV / VAL / HOLDOUT (own)", "—", f"{dev_own:+.2f} / {val_own:+.2f} / {hold_own:+.2f}", "—", "EXACT"),
         ("Y1 / Y2 / Y3 (own)", "—", f"{y1_own:+.2f} / {y2_own:+.2f} / {y3_own:+.2f}", "—", "EXACT"),
         ("Phí giao dịch", f"${live_info['fees']:,.2f}" if live_info else "—", f"${fees:,.2f}", "—", "EXACT" if live_info else "UNRESOLVED"),
@@ -665,7 +734,7 @@ def render_one_page_terminal() -> None:
             label_visibility="collapsed",
         )
     with h_col3:
-        st.caption("43 chiến lược (PRUNE23 + TV20, loại TV13) · ALL_SIGNALS_PORTFOLIO · PnL theo pnl_own_entry")
+        st.caption("43 chiến lược (PLUS43 V2.1 TP-Only · TV28_V2_H8) · ALL_SIGNALS_PORTFOLIO · PnL theo pnl_own_entry")
 
     selected = next(r for r in runs if r.run_id == sel_run_id)
     st.session_state["v3_16_selected_run"] = selected.run_id
@@ -837,7 +906,7 @@ def render_one_page_terminal() -> None:
             f"<th>{html.escape(all_signals.vi('ninlab_col_combo'))}</th>"
             f"<th>Nhóm · Khung</th>"
             f"<th style='text-align:right'>Lệnh</th>"
-            f"<th style='text-align:right'>PnL entry riêng (pnl_own_entry)</th>"
+            f"<th style='text-align:right'>PNL own entry</th>"
             f"<th style='text-align:right'>DEV (own)</th>"
             f"<th style='text-align:right'>VAL (own)</th>"
             f"<th style='text-align:right'>HOLDOUT (own)</th>"
@@ -858,20 +927,19 @@ def render_one_page_terminal() -> None:
             sel_row = next((c for c in combos_raw if str(c.get("combo_key")) == drawer_sel), None)
             if sel_row is not None:
                 _render_drawer(sel_row, rec, selected.cost_profile)
-                if st.button(all_signals.vi("ninlab_drawer_close"), use_container_width=True):
+
+                def _close_drawer() -> None:
                     st.session_state["ninlab_drawer_sel"] = "—"
-                    st.rerun()
+
+                st.button(
+                    all_signals.vi("ninlab_drawer_close"),
+                    use_container_width=True,
+                    on_click=_close_drawer,
+                )
     else:
         _render_combo_table()
 
-    # 5. Two compact side-by-side panels below the table
-    c_left, c_right = st.columns(2)
-    with c_left:
-        st.plotly_chart(_build_slippage_chart(cost_rows, be_bps), use_container_width=True, config={"displayModeBar": False})
-    with c_right:
-        st.plotly_chart(_build_drift_bar_chart(rec.get("drift_causes") or {}), use_container_width=True, config={"displayModeBar": False})
-
-    # 6. Compact Footer
+    # 5. Compact Footer
     cur_commit = all_signals.current_git_commit()
     if selected.code_dirty:
         st.error(all_signals.vi("dirty_run_warning"))
