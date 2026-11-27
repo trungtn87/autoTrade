@@ -17,7 +17,7 @@ from __future__ import annotations
 import pandas as pd
 
 from .l2_resampler import TimeframeCloseGate
-from .l2_tv21 import TV21_CONFIG_MAP, TV21ComboConfig, generate_tv21_signals_from_m15
+from .l2_tv21 import TV21_CONFIG_MAP, TV21_CONFIG_MAP_V2_1, TV21ComboConfig, generate_tv21_signals_from_m15
 from .l3_execution import V3Signal
 from .strategy_registry import StrategyRegistry, default_window_bars_for
 
@@ -67,7 +67,7 @@ class Lab5Engine:
 
         self.tv21_configs: dict[tuple[str, int], TV21ComboConfig] = {}
         for spec in tv21_specs:
-            cfg = TV21_CONFIG_MAP.get(spec.token)
+            cfg = (TV21_CONFIG_MAP_V2_1 if registry.version.startswith("V3_LIVE_44_PLUS43_V2_1_TP_V1") else TV21_CONFIG_MAP).get(spec.token)
             if cfg is None or cfg.symbol != spec.symbol or cfg.combo_id != int(spec.combo_id):
                 raise ValueError(f"{registry.version}: unknown TV21 combo {spec.symbol}/{spec.combo_id}")
             self.tv21_configs[(cfg.symbol, cfg.combo_id)] = cfg

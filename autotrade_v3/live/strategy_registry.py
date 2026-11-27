@@ -1,6 +1,7 @@
 """L2 strategy registry: which combo-symbols the live engine may trade, and how.
 
 Supported registries:
+- ``V3_LIVE_44_PLUS43_V2_1_TP_V1`` (default): PLUS44 + TV28 D1->H8 + TP-only on 7 TV21 combos (lab 5d7231f).
 - ``V3_LIVE_44_PLUS44_V1`` (default ``V3_STRATEGY_REGISTRY``): 23 PRUNE23 combos
   (``l2_lab10``) + 20 TV21 HTF combos (``l2_tv21``, excluding TV13) = 43 combos with Fixed TP/SL.
 - ``V3_LIVE_23_LAB_11_V1`` (rollback): the 23 PRUNE23 combos of
@@ -20,8 +21,9 @@ from typing import Any
 
 REGISTRY_LAB11_23 = "V3_LIVE_23_LAB_11_V1"
 REGISTRY_PLUS44_44 = "V3_LIVE_44_PLUS44_V1"
-DEFAULT_REGISTRY = REGISTRY_PLUS44_44
-KNOWN_REGISTRIES = (REGISTRY_PLUS44_44, REGISTRY_LAB11_23)
+REGISTRY_PLUS43_V2_1 = "V3_LIVE_44_PLUS43_V2_1_TP_V1"
+DEFAULT_REGISTRY = REGISTRY_PLUS43_V2_1
+KNOWN_REGISTRIES = (REGISTRY_PLUS43_V2_1, REGISTRY_PLUS44_44, REGISTRY_LAB11_23)
 DEFAULT_WINDOW_BARS: dict[str, int] = {
     "BTC-USDT": 3_400,
     "ETH-USDT": 12_000,
@@ -165,21 +167,22 @@ def _load_lab10_23() -> StrategyRegistry:
                                         "parent_source": dict(raw["parent_source"])})
 
 
-def _load_plus44_44() -> StrategyRegistry:
-    """43 combo-symbols of PLUS44 (23 PRUNE23 + 20 TV21, file ``V3_LIVE_44_PLUS44_V1.json``)."""
-    from .l2_tv21 import TV21_CONFIG_MAP
+def _load_plus44_44(name: str = REGISTRY_PLUS44_44) -> StrategyRegistry:
+    """43 combo-symbols (23 PRUNE23 + 20 TV21): PLUS44 or PLUS43_V2_1_TP (file ``<name>.json``)."""
+    from .l2_tv21 import TV21_CONFIG_MAP, TV21_CONFIG_MAP_V2_1
 
-    raw = json.loads((_DIR / f"{REGISTRY_PLUS44_44}.json").read_text(encoding="utf-8"))
-    if raw["registry_version"] != REGISTRY_PLUS44_44:
+    cfg_map = TV21_CONFIG_MAP_V2_1 if name == REGISTRY_PLUS43_V2_1 else TV21_CONFIG_MAP
+    raw = json.loads((_DIR / f"{name}.json").read_text(encoding="utf-8"))
+    if raw["registry_version"] != name:
         raise ValueError(f"registry file declares {raw['registry_version']!r}")
     specs: list[ComboSpec] = []
     for c in raw["combos"]:
         cid = int(c["combo_id"])
         token = case_name(cid)
         if 31001 <= cid <= 31099:
-            cfg = TV21_CONFIG_MAP.get(token)
+            cfg = cfg_map.get(token)
             if cfg is None or cfg.symbol != c["symbol"] or cfg.combo_id != cid or cfg.timeframe != c["timeframe"]:
-                raise ValueError(f"{REGISTRY_PLUS44_44}: TV21 config mismatch for {c['symbol']}/{cid}")
+                raise ValueError(f"{name}: TV21 config mismatch for {c['symbol']}/{cid}")
             specs.append(
                 ComboSpec(
                     symbol=c["symbol"],
@@ -218,9 +221,9 @@ def _load_plus44_44() -> StrategyRegistry:
             )
     combos = tuple(specs)
     if len(combos) != 43 or len({(c.symbol, c.combo_id) for c in combos}) != 43:
-        raise ValueError(f"{REGISTRY_PLUS44_44} phải có đúng 43 combo-symbol duy nhất")
+        raise ValueError(f"{name} phải có đúng 43 combo-symbol duy nhất")
     return StrategyRegistry(
-        version=f"{REGISTRY_PLUS44_44}@1.0.0",
+        version=f"{name}@1.0.0",
         combos=combos,
         new6_signal_mode="virtual_position",
         provenance={
@@ -238,7 +241,7 @@ def load_registry(version: str | None = None) -> StrategyRegistry:
     if v not in KNOWN_REGISTRIES:
         raise ValueError(f"V3_STRATEGY_REGISTRY không hợp lệ: {version!r} (chỉ nhận {', '.join(KNOWN_REGISTRIES)})")
     if v not in _CACHE:
-        _CACHE[v] = _load_plus44_44() if v == REGISTRY_PLUS44_44 else _load_lab10_23()
+        _CACHE[v] = _load_plus44_44(v) if v in (REGISTRY_PLUS44_44, REGISTRY_PLUS43_V2_1) else _load_lab10_23()
     return _CACHE[v]
 
 
