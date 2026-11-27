@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from autotrade_v3.live.l5_alert import (
     L5Alert, BLUE, RED, GREEN, ORANGE, YELLOW, GREY,
-    success_embed, closed_embed,
+    success_embed, closed_embed, _duration,
 )
 
 
@@ -154,3 +154,10 @@ def test_failed_close_delivery_remains_pending():
         alert.flush_reconciled()
         assert not store.pending_discord_closes()
         assert post.call_count == 2
+
+
+def test_duration_displays_hours_and_minutes_without_seconds():
+    row = {"filled_at": "1970-01-01T00:00:00+00:00"}
+    assert _duration({**row, "closed_at_ms": 983000}) == "~16m"
+    assert _duration({**row, "closed_at_ms": 8039000}) == "~2h 13m"
+    assert _duration({**row, "closed_at_ms": 59000}) == "~0m"
