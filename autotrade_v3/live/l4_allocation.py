@@ -181,6 +181,14 @@ def allocate_group(entries: list[dict], results: list[dict]) -> dict[str, dict]:
             own_fee = abs(_dec((raw_entry.get("order") or {}).get("commission")))
         else:
             own_fee = _dec(own_fee)
+        # The allocation already validates close profit/commission. Never
+        # certify an Entry fee that the older projection silently defaulted to zero.
+        verified_fee = (e.get("existing_finance_raw") or {}).get("discord_finance_verified") is True
+        if not verified_fee:
+            try:
+                verified_fee = abs(_dec((raw_entry.get("order") or {}).get("commission"))) == own_fee
+            except UnverifiableAllocation:
+                verified_fee = False
         net = alloc[event]["pnl"] - own_fee - alloc[event]["fee"]
         out[event] = {
             "execution_order_id": e["id"], "event_id": event, "margin": str(margin),
@@ -191,6 +199,7 @@ def allocate_group(entries: list[dict], results: list[dict]) -> dict[str, dict]:
             "is_fully_closed": q == qty_by[event],
             "raw": clean({
                 "source": "BingX exact close orders; logical shared-position allocation",
+                "discord_finance_verified": verified_fee,
                 "position_id": pos,
                 "allocation_policy": "owner-first then oldest peer by Entry time and id",
                 "exchange_owned_exit_qty": str(raw_qty_by_owner[event]),
@@ -226,6 +235,7 @@ def reconcile_shared_positions(store, control, *, lookback_days: int = 7) -> dic
             allocation = allocate_group(members, [r for event in events for r in by_event[event]])
         except UnverifiableAllocation as exc:
             summary["unverified"] += 1
+            summary.setdefault("unverified_events", []).extend(sorted(events))
             # No auto-modification from weak evidence. Existing raw fills remain intact.
             control.report("L4", "shared_position_allocation",
                            f"Không thể phân bổ đóng vị thế gộp {symbol} {side}: {exc}",
