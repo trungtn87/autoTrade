@@ -5,14 +5,17 @@ Routing (Owner decision, Issue #108):
   L3 BingX-confirmed BTC/ETH order -> symbol webhook (single live trade message)
   any error from L1..L5 -> DISCORD_WEBHOOK_ERROR
 
-No outbox, no batching, no cooldown, no dedupe, no recovery alerts. Each event
-is one message. Sending happens on a background thread so trading never waits
+No durable outbox or batching. Each trade event is one message; repeated trade
+refs are suppressed within the running process. Error alerts have priority in
+the worker queue, with the existing per-error cooldown. Sending happens on a background thread so trading never waits
 for Discord; a Discord failure is written to control_logs (layer L5) and is
 never re-alerted, so it cannot loop.
 """
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
+from itertools import count
 import queue
 import threading
 import time
@@ -352,7 +355,10 @@ class L5Alert:
         # Existing injected senders accept text; production uses JSON embeds.
         self._use_embeds = sender is None or sender is default_sender
         self.synchronous = synchronous
-        self._queue: queue.Queue = queue.Queue()
+        self._queue: queue.PriorityQueue = queue.PriorityQueue()
+        self._sequence = count()
+        self._submit_lock = threading.Lock()
+        self._trade_seen: OrderedDict[tuple, None] = OrderedDict()
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self.sent: list[dict] = []        # last delivery results (bounded), for /status and tests
@@ -372,6 +378,9 @@ class L5Alert:
         self._submit(self.channel_for_symbol(sig["symbol"]), (signal_embed(sig) if self._use_embeds else signal_message(sig)), kind="signal", ref=sig["event_id"])
 
     def trade_success(self, row: dict) -> None:
+        # Capture confirmation when L3 calls L5, never when HTTP sends/retries.
+        if not row.get("confirmed_at_ms"):
+            row = {**row, "confirmed_at_ms": int(time.time() * 1000)}
         self._submit(self.channel_for_symbol(row["symbol"]), (success_embed(row) if self._use_embeds else success_message(row)), kind="success", ref=row["event_id"])
 
     def trade_closed(self, row: dict) -> None:
@@ -408,11 +417,20 @@ class L5Alert:
     def _submit(self, channel: str, content: str | dict, *, kind: str, ref=None, log_id: int | None = None) -> None:
         item = {"channel": channel, "content": content, "kind": kind, "ref": ref, "log_id": log_id}
         try:
-            if self.synchronous:
-                self._deliver(item)
-            else:
-                self._ensure_thread()
-                self._queue.put_nowait(item)
+            with self._submit_lock:
+                if kind in ("success", "closed") and ref:
+                    key = (kind, ref)
+                    if key in self._trade_seen:
+                        return
+                    self._trade_seen[key] = None
+                    if len(self._trade_seen) > 10000:
+                        self._trade_seen.popitem(last=False)
+                if not self.synchronous:
+                    self._ensure_thread()
+                    priority = 0 if kind == "error" else 1
+                    self._queue.put_nowait((priority, next(self._sequence), item))
+                    return
+            self._deliver(item)
         except Exception as exc:  # never raise into trading
             log.error("V3_L5_SUBMIT_FAILED error_class=%s", type(exc).__name__)
 
@@ -425,7 +443,7 @@ class L5Alert:
     def _worker(self) -> None:
         while not self._stop.is_set():
             try:
-                item = self._queue.get(timeout=1.0)
+                _, _, item = self._queue.get(timeout=1.0)
             except queue.Empty:
                 continue
             try:
