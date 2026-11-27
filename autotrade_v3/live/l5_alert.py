@@ -240,16 +240,11 @@ def success_embed(r: dict) -> dict:
     qty = _positive(r.get("executed_qty"))
     tp = _confirmed_stop_value(r, "tp")
     sl = _confirmed_stop_value(r, "sl")
-    side = str(r.get("side") or "").upper()
-    direction = 1 if side == "BUY" else -1 if side == "SELL" else None
-    reward = (tp - entry) * qty * direction if all(v is not None for v in (tp, entry, qty, direction)) else None
-    risk = (sl - entry) * qty * direction if all(v is not None for v in (sl, entry, qty, direction)) else None
     verified = all((r.get("protection") or {}).get(k, {}).get("status") == "confirmed" for k in ("tp", "sl"))
     status = "MỞ VỊ THẾ THÀNH CÔNG" if verified else "BẢO VỆ CHƯA XÁC MINH ĐẦY ĐỦ"
     fields = [
         _field("Entry", _fmt_price(entry)), _field("Khối lượng", _qty(qty, r.get("symbol"))),
         _field("Take Profit", _fmt_price(tp)), _field("Stop Loss", _fmt_price(sl)),
-        _field("PnL tại TP (trước phí)", _money(reward)), _field("PnL tại SL (trước phí)", _money(risk)),
         _field("Trạng thái", "✅ Entry đã khớp · TP/SL đã xác nhận" if verified else
                "⚠️ Chưa xác minh đủ TP/SL; kiểm tra BingX.", False),
     ]
@@ -272,6 +267,21 @@ def _duration(r: dict) -> str:
         return f"~{hours}h {mins:02d}m {sec:02d}s" if hours else f"~{mins}m {sec:02d}s"
     except (ValueError, TypeError, OverflowError, OSError):
         return "Chưa có dữ liệu"
+
+
+def _finance_ready(row: dict, finance: dict | None) -> bool:
+    """No notification from a partial, synthetic-zero or unverified projection."""
+    if not finance or finance.get("is_fully_closed") is not True:
+        return False
+    raw = finance.get("raw") or {}
+    if raw.get("discord_finance_verified") is not True:
+        return False
+    qty = _positive(row.get("entry_qty"))
+    closed = _positive(finance.get("closed_qty"))
+    if qty is None or closed is None or abs(qty - closed) > Decimal("0.000000000001"):
+        return False
+    return all(_decimal(finance.get(k)) is not None for k in
+               ("net_pnl", "roi_pct", "open_fee", "close_fee", "gross_pnl"))
 
 
 def closed_embed(r: dict, finance: dict | None = None) -> dict:
@@ -301,27 +311,18 @@ def closed_embed(r: dict, finance: dict | None = None) -> dict:
     fields = [
         _field("Entry", _fmt_price(entry)), _field("Exit (giá khớp bình quân)", _fmt_price(exit_price)),
         _field("Khối lượng", _qty(qty, r.get("symbol"))), _field("Giữ lệnh (đến lúc phát hiện)", _duration(r)),
-        _field("Phí giao dịch", "Chờ đối soát"), _field("ROI / Net PnL", "Chờ đối soát DB"),
+        _field("ROI theo DB", "Chưa đối soát"),
     ]
     description = (f"**PnL ước tính trước phí (theo Entry combo): {_money(gross)}**\n"
                    "Chưa phải PnL BingX đã đối soát.")
     if finance and finance.get("is_fully_closed") is True:
         net = _decimal(finance.get("net_pnl"))
         roi = _decimal(finance.get("roi_pct"))
-        open_fee = _decimal(finance.get("open_fee"))
-        close_fee = _decimal(finance.get("close_fee"))
         funding = _decimal(finance.get("funding"))
         if net is not None:
             funding_note = "Funding chưa phân bổ." if funding is None else f"Funding ghi nhận: {_money(funding)}."
             description = f"**Net PnL theo DB: {_money(net)}**\n{funding_note}"
-        if open_fee is not None and close_fee is not None:
-            fields[4] = _field("Phí giao dịch", f"{open_fee + close_fee:.4f} USDT")
-        fields[5] = _field("ROI theo DB", f"{roi:+.2f}%" if roi is not None else "Chờ đối soát")
-    if len(kinds) == 1 and exit_price is not None and direction is not None:
-        trigger = _confirmed_stop_value({"protection": r.get("protection") or {}}, next(iter(kinds)))
-        slip = (trigger - exit_price) * direction if trigger is not None else None
-        fields.append(_field("Slippage bất lợi (âm = có lợi)",
-                             f"{slip:+.4f} USDT/{_symbol_label(r.get('symbol'))}" if slip is not None else "Chưa xác minh", False))
+        fields[4] = _field("ROI theo DB", f"{roi:+.2f}%" if roi is not None else "Chờ đối soát")
     if fills:
         fields.append(_field("Khớp theo chân", "\n".join(
             f"{LEG_LABELS.get(f.get('kind'), '?')}: {_fmt(f.get('qty'))} @ {_fmt_price(f.get('price'))}"
@@ -396,9 +397,35 @@ class L5Alert:
             row = {**row, "confirmed_at_ms": int(time.time() * 1000)}
         self._submit(self.channel_for_symbol(row["symbol"]), (success_embed(row) if self._use_embeds else success_message(row)), kind="success", ref=row["event_id"])
 
-    def trade_closed(self, row: dict) -> None:
-        self._submit(self.channel_for_symbol(row["symbol"]), (closed_embed(row) if self._use_embeds else closed_message(row)), kind="closed", ref=row["event_id"],
-                     close_row=dict(row) if self._use_embeds else None)
+    @property
+    def requires_close_reconciliation(self) -> bool:
+        return self._use_embeds
+
+    def trade_closed(self, row: dict, finance: dict | None = None) -> None:
+        if self._use_embeds:
+            if not _finance_ready(row, finance):
+                return
+            self._submit(self.channel_for_symbol(row["symbol"]), closed_embed(row, finance),
+                         kind="closed", ref=row["event_id"], close_row=dict(row))
+        else:
+            self._submit(self.channel_for_symbol(row["symbol"]), closed_message(row),
+                         kind="closed", ref=row["event_id"])
+
+    def flush_reconciled(self, blocked_events=()) -> None:
+        """Called after the existing L4 hourly accounting pass, never from L3."""
+        if not self._use_embeds or not self.enabled or self.store is None:
+            return
+        blocked = set(blocked_events)
+        try:
+            for row in self.store.pending_discord_closes():
+                if row.get("event_id") in blocked:
+                    continue
+                try:
+                    self.trade_closed(row, self.store.finance_for_discord(row["event_id"]))
+                except Exception as exc:
+                    log.warning("V3_L5_FINANCE_READ_FAILED error_class=%s", type(exc).__name__)
+        except Exception as exc:
+            log.warning("V3_L5_PENDING_CLOSE_READ_FAILED error_class=%s", type(exc).__name__)
 
     def notice(self, title: str, lines: list[str]) -> None:
         """Startup/status notice to the ERROR channel. Carries no secrets."""
@@ -480,18 +507,20 @@ class L5Alert:
         else:
             try:
                 content = item["content"]
-                if item.get("close_row") is not None and self.store is not None:
-                    try:
-                        finance = self.store.finance_for_discord(item["ref"])
-                        if finance:
-                            content = closed_embed(item["close_row"], finance)
-                    except Exception as exc:
-                        # A missing projection or read failure must not suppress the close alert.
-                        log.warning("V3_L5_FINANCE_READ_FAILED error_class=%s", type(exc).__name__)
                 ok, detail = self.sender(url, content)
             except Exception as exc:
                 ok, detail = False, f"{type(exc).__name__}: {clean_text(exc, 200)}"
             status = "sent" if ok else "failed"
+        if item.get("close_row") is not None and self.store is not None:
+            if status == "sent":
+                try:
+                    self.store.mark_discord_close_sent(item["ref"])
+                except Exception as exc:
+                    log.error("V3_L5_CLOSE_ACK_FAILED error_class=%s", type(exc).__name__)
+            else:
+                # Keep the durable pending record for a later accounting cycle.
+                with self._submit_lock:
+                    self._trade_seen.pop(("closed", item["ref"]), None)
         self.sent.append({"channel": item["channel"], "kind": item["kind"], "ref": item["ref"],
                           "status": status, "detail": detail, "at": int(time.time() * 1000)})
         del self.sent[:-200]
