@@ -274,7 +274,7 @@ def _duration(r: dict) -> str:
         return "Chưa có dữ liệu"
 
 
-def closed_embed(r: dict) -> dict:
+def closed_embed(r: dict, finance: dict | None = None) -> dict:
     entry = _positive(r.get("avg_price"))
     qty = _positive(r.get("entry_qty"))
     side = str(r.get("side") or "").upper()
@@ -303,6 +303,20 @@ def closed_embed(r: dict) -> dict:
         _field("Khối lượng", _qty(qty, r.get("symbol"))), _field("Giữ lệnh (đến lúc phát hiện)", _duration(r)),
         _field("Phí giao dịch", "Chờ đối soát"), _field("ROI / Net PnL", "Chờ đối soát DB"),
     ]
+    description = (f"**PnL ước tính trước phí (theo Entry combo): {_money(gross)}**\n"
+                   "Chưa phải PnL BingX đã đối soát.")
+    if finance and finance.get("is_fully_closed") is True:
+        net = _decimal(finance.get("net_pnl"))
+        roi = _decimal(finance.get("roi_pct"))
+        open_fee = _decimal(finance.get("open_fee"))
+        close_fee = _decimal(finance.get("close_fee"))
+        funding = _decimal(finance.get("funding"))
+        if net is not None:
+            funding_note = "Funding chưa phân bổ." if funding is None else f"Funding ghi nhận: {_money(funding)}."
+            description = f"**Net PnL theo DB: {_money(net)}**\n{funding_note}"
+        if open_fee is not None and close_fee is not None:
+            fields[4] = _field("Phí giao dịch", f"{open_fee + close_fee:.4f} USDT")
+        fields[5] = _field("ROI theo DB", f"{roi:+.2f}%" if roi is not None else "Chờ đối soát")
     if len(kinds) == 1 and exit_price is not None and direction is not None:
         trigger = _confirmed_stop_value({"protection": r.get("protection") or {}}, next(iter(kinds)))
         slip = (trigger - exit_price) * direction if trigger is not None else None
@@ -314,8 +328,7 @@ def closed_embed(r: dict) -> dict:
             for f in fills[:6]), False))
     fields.append(_field("Trạng thái", cleanup, False))
     return _embed(_title(r, status), color, fields,
-                  description=f"**PnL ước tính trước phí (theo Entry combo): {_money(gross)}**\n"
-                              "Chưa phải PnL BingX đã đối soát.",
+                  description=description,
                   footer=_footer(r.get("closed_at_ms")))
 
 
@@ -384,7 +397,8 @@ class L5Alert:
         self._submit(self.channel_for_symbol(row["symbol"]), (success_embed(row) if self._use_embeds else success_message(row)), kind="success", ref=row["event_id"])
 
     def trade_closed(self, row: dict) -> None:
-        self._submit(self.channel_for_symbol(row["symbol"]), (closed_embed(row) if self._use_embeds else closed_message(row)), kind="closed", ref=row["event_id"])
+        self._submit(self.channel_for_symbol(row["symbol"]), (closed_embed(row) if self._use_embeds else closed_message(row)), kind="closed", ref=row["event_id"],
+                     close_row=dict(row) if self._use_embeds else None)
 
     def notice(self, title: str, lines: list[str]) -> None:
         """Startup/status notice to the ERROR channel. Carries no secrets."""
@@ -414,8 +428,8 @@ class L5Alert:
         self._submit("ERROR", (error_embed(rec, log_id, repeats) if self._use_embeds else error_message(rec, log_id, repeats)), kind="error", ref=rec.get("event_id"), log_id=log_id)
 
     # ---- delivery ------------------------------------------------------
-    def _submit(self, channel: str, content: str | dict, *, kind: str, ref=None, log_id: int | None = None) -> None:
-        item = {"channel": channel, "content": content, "kind": kind, "ref": ref, "log_id": log_id}
+    def _submit(self, channel: str, content: str | dict, *, kind: str, ref=None, log_id: int | None = None, close_row: dict | None = None) -> None:
+        item = {"channel": channel, "content": content, "kind": kind, "ref": ref, "log_id": log_id, "close_row": close_row}
         try:
             with self._submit_lock:
                 if kind in ("success", "closed") and ref:
@@ -465,7 +479,16 @@ class L5Alert:
             status, ok, detail = "disabled", False, "Discord disabled or webhook not configured"
         else:
             try:
-                ok, detail = self.sender(url, item["content"])
+                content = item["content"]
+                if item.get("close_row") is not None and self.store is not None:
+                    try:
+                        finance = self.store.finance_for_discord(item["ref"])
+                        if finance:
+                            content = closed_embed(item["close_row"], finance)
+                    except Exception as exc:
+                        # A missing projection or read failure must not suppress the close alert.
+                        log.warning("V3_L5_FINANCE_READ_FAILED error_class=%s", type(exc).__name__)
+                ok, detail = self.sender(url, content)
             except Exception as exc:
                 ok, detail = False, f"{type(exc).__name__}: {clean_text(exc, 200)}"
             status = "sent" if ok else "failed"
