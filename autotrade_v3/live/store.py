@@ -318,7 +318,9 @@ class PostgresStore:
         return self._exec(
             f"SELECT e.* FROM {SCHEMA}.execution_orders e LEFT JOIN {SCHEMA}.execution_finances f"
             " ON f.execution_order_id=e.id WHERE e.entry_order_id IS NOT NULL AND e.executed_qty > 0"
-            " AND e.created_at >= %s AND COALESCE(f.is_fully_closed,false)=false", (since,), fetch="all") or []
+            " AND e.created_at >= %s AND (COALESCE(f.is_fully_closed,false)=false"
+            " OR (jsonb_typeof(e.raw_protection->'cleanup'->'discord_close_pending')='object'"
+            " AND COALESCE(f.raw->>'discord_finance_verified','false') <> 'true'))", (since,), fetch="all") or []
 
     def executions_for_cleanup(self, since: datetime) -> list[dict]:
         return self._exec(
