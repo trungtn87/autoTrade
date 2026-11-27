@@ -58,7 +58,7 @@ def test_close_compact_uses_reconciled_net_and_roi_only():
     assert "-0.8000 USDT" in embed["description"] and "-4.04%" in embed["description"]
     assert "1647.8 → 1659.3" in embed["description"]
     assert "Không còn lệnh dư" in embed["description"]
-    assert "Funding chưa phân bổ" in embed["description"]
+    assert "Funding" not in embed["description"]
     assert "Slippage" not in str(embed) and "Phí giao dịch" not in str(embed)
     assert "ước tính trước phí" not in str(embed)
 
