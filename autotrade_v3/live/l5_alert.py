@@ -236,20 +236,17 @@ def _embed(title: str, color: int, fields: list[dict], *, description: str = "",
 
 
 def success_embed(r: dict) -> dict:
-    entry = _positive(r.get("avg_price"))
-    qty = _positive(r.get("executed_qty"))
     tp = _confirmed_stop_value(r, "tp")
     sl = _confirmed_stop_value(r, "sl")
     verified = all((r.get("protection") or {}).get(k, {}).get("status") == "confirmed" for k in ("tp", "sl"))
-    status = "MỞ VỊ THẾ THÀNH CÔNG" if verified else "BẢO VỆ CHƯA XÁC MINH ĐẦY ĐỦ"
-    fields = [
-        _field("Entry", _fmt_price(entry)), _field("Khối lượng", _qty(qty, r.get("symbol"))),
-        _field("Take Profit", _fmt_price(tp)), _field("Stop Loss", _fmt_price(sl)),
-        _field("Trạng thái", "✅ Entry đã khớp · TP/SL đã xác nhận" if verified else
-               "⚠️ Chưa xác minh đủ TP/SL; kiểm tra BingX.", False),
-    ]
-    return _embed(_title(r, status), BLUE if verified else ORANGE, fields,
-                  footer=_footer(r.get("confirmed_at_ms")))
+    status = "MỞ LỆNH" if verified else "BẢO VỆ CHƯA XÁC MINH"
+    description = "\n".join([
+        f"Entry **{_fmt_price(r.get('avg_price'))}** · KL **{_qty(r.get('executed_qty'), r.get('symbol'))}**",
+        f"TP **{_fmt_price(tp)}** · SL **{_fmt_price(sl)}**",
+        "✅ Đã khớp · TP/SL xác nhận" if verified else "⚠️ Kiểm tra TP/SL trên BingX",
+    ])
+    return _embed(_title(r, status), BLUE if verified else ORANGE, [],
+                  description=description, footer=_footer(r.get("confirmed_at_ms")))
 
 
 def _duration(r: dict) -> str:
@@ -280,56 +277,47 @@ def _finance_ready(row: dict, finance: dict | None) -> bool:
     closed = _positive(finance.get("closed_qty"))
     if qty is None or closed is None or abs(qty - closed) > Decimal("0.000000000001"):
         return False
+    fills = [(_positive(f.get("qty")), _positive(f.get("price"))) for f in row.get("filled") or []]
+    if not fills or not all(q is not None and p is not None for q, p in fills):
+        return False
+    if sum((q for q, _ in fills), Decimal(0)) != qty or _positive(row.get("avg_price")) is None:
+        return False
     return all(_decimal(finance.get(k)) is not None for k in
                ("net_pnl", "roi_pct", "open_fee", "close_fee", "gross_pnl"))
 
 
-def closed_embed(r: dict, finance: dict | None = None) -> dict:
+def closed_embed(r: dict, finance: dict) -> dict:
+    if not _finance_ready(r, finance):
+        raise ValueError("close finance not reconciled")
     entry = _positive(r.get("avg_price"))
     qty = _positive(r.get("entry_qty"))
-    side = str(r.get("side") or "").upper()
-    direction = 1 if side == "BUY" else -1 if side == "SELL" else None
     fills = r.get("filled") or []
     kinds = {f.get("kind") for f in fills}
     valid = [(_positive(f.get("qty")), _positive(f.get("price"))) for f in fills]
-    complete = bool(valid) and all(q is not None and p is not None for q, p in valid)
-    total = sum((q for q, _ in valid), Decimal(0)) if complete else None
-    # Own-entry estimate is not BingX realized PnL (merged positions can differ).
-    matched = complete and qty is not None and total == qty
-    exit_price = sum((q * p for q, p in valid), Decimal(0)) / total if matched else None
-    gross = (exit_price - entry) * qty * direction if matched and entry is not None and direction is not None else None
-    status, color = ("STOP LOSS", RED) if kinds == {"sl"} else ("TAKE PROFIT", GREEN) if kinds == {"tp"} else ("ĐÃ ĐÓNG", GREY)
+    total = sum((q for q, _ in valid), Decimal(0))
+    exit_price = sum((q * p for q, p in valid), Decimal(0)) / total
+    status, color = ("SL", RED) if kinds == {"sl"} else ("TP", GREEN) if kinds == {"tp"} else ("ĐÃ ĐÓNG", GREY)
     left = r.get("leftover") or {}
     names = ", ".join(LEG_LABELS.get(k, k) for k in left.get("legs") or [])
     if left.get("mode") == "shadow" and names:
-        cleanup = f"⚠️ Còn lệnh dư: {names} (shadow, chưa hủy)"
+        cleanup = f"⚠️ Còn lệnh dư: {names} (shadow)"
         color = ORANGE
     elif left.get("verified") is True:
-        cleanup = f"✅ Đã xác nhận dọn lệnh dư: {names}" if names else "✅ Không còn lệnh dư"
+        cleanup = "✅ Đã đóng · Không còn lệnh dư"
     else:
-        cleanup = "Chưa có bằng chứng xác minh dọn lệnh"
-    fields = [
-        _field("Entry", _fmt_price(entry)), _field("Exit (giá khớp bình quân)", _fmt_price(exit_price)),
-        _field("Khối lượng", _qty(qty, r.get("symbol"))), _field("Giữ lệnh (đến lúc phát hiện)", _duration(r)),
-        _field("ROI theo DB", "Chưa đối soát"),
+        cleanup = "⚠️ Chưa xác minh dọn lệnh"
+    net = _decimal(finance.get("net_pnl"))
+    roi = _decimal(finance.get("roi_pct"))
+    lines = [
+        f"**{_money(net)}** · ROI **{roi:+.2f}%**",
+        f"{_fmt_price(entry)} → {_fmt_price(exit_price)} · KL {_qty(qty, r.get('symbol'))}",
+        f"Giữ lệnh {_duration(r)} · {cleanup}",
     ]
-    description = (f"**PnL ước tính trước phí (theo Entry combo): {_money(gross)}**\n"
-                   "Chưa phải PnL BingX đã đối soát.")
-    if finance and finance.get("is_fully_closed") is True:
-        net = _decimal(finance.get("net_pnl"))
-        roi = _decimal(finance.get("roi_pct"))
-        funding = _decimal(finance.get("funding"))
-        if net is not None:
-            funding_note = "Funding chưa phân bổ." if funding is None else f"Funding ghi nhận: {_money(funding)}."
-            description = f"**Net PnL theo DB: {_money(net)}**\n{funding_note}"
-        fields[4] = _field("ROI theo DB", f"{roi:+.2f}%" if roi is not None else "Chờ đối soát")
-    if fills:
-        fields.append(_field("Khớp theo chân", "\n".join(
-            f"{LEG_LABELS.get(f.get('kind'), '?')}: {_fmt(f.get('qty'))} @ {_fmt_price(f.get('price'))}"
-            for f in fills[:6]), False))
-    fields.append(_field("Trạng thái", cleanup, False))
-    return _embed(_title(r, status), color, fields,
-                  description=description,
+    if finance.get("funding") is None:
+        lines.append("Funding chưa phân bổ.")
+    if (finance.get("raw") or {}).get("source") == "BingX exact close orders; logical shared-position allocation":
+        lines.append("PnL phân bổ theo vị thế gộp.")
+    return _embed(_title(r, status), color, [], description="\n".join(lines),
                   footer=_footer(r.get("closed_at_ms")))
 
 
