@@ -200,6 +200,13 @@ class MemoryStore:
                     and r.get("stage") in ("protected", "protection_incomplete")
                     and ((r.get("raw_protection") or {}).get("cleanup") or {}).get("status") != "done"]
 
+    def finance_for_discord(self, event_id: str) -> dict | None:
+        """Read the same completed finance row as the dashboard; no writes."""
+        with self._lock:
+            ex = self.executions.get(event_id) or {}
+            row = self.finances.get(ex.get("id")) or {}
+            return dict(row) if row.get("is_fully_closed") is True else None
+
     def shared_allocation_for_cleanup(self, event_id: str) -> dict | None:
         with self._lock:
             ex = self.executions.get(event_id) or {}
@@ -307,6 +314,14 @@ class PostgresStore:
             f"SELECT * FROM {SCHEMA}.execution_orders WHERE entry_order_id IS NOT NULL AND executed_qty > 0"
             " AND stage IN ('protected','protection_incomplete') AND created_at >= %s"
             " AND COALESCE(raw_protection->'cleanup'->>'status','') <> 'done' ORDER BY id", (since,), fetch="all") or []
+
+    def finance_for_discord(self, event_id: str) -> dict | None:
+        """Read completed finance projection for this exact event."""
+        rows = self._exec(
+            f"SELECT net_pnl,roi_pct,open_fee,close_fee,funding,is_fully_closed"
+            f" FROM {SCHEMA}.execution_finances WHERE event_id=%s AND is_fully_closed=true",
+            (event_id,), fetch="all") or []
+        return rows[0] if len(rows) == 1 else None
 
     def shared_allocation_for_cleanup(self, event_id: str) -> dict | None:
         got = self._exec(
