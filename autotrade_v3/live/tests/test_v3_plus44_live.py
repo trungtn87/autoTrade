@@ -18,6 +18,7 @@ from autotrade_v3.live.strategy_registry import (
     DEFAULT_REGISTRY,
     KNOWN_REGISTRIES,
     REGISTRY_LAB11_23,
+    REGISTRY_PLUS43_V2_1,
     REGISTRY_PLUS44_44,
     _CACHE,
     case_name,
@@ -77,7 +78,8 @@ class _SpyLabStrategy:
 
 
 def test_plus44_registry_has_44_combos_stable_hash_and_no_token_collisions() -> None:
-    assert DEFAULT_REGISTRY == REGISTRY_PLUS44_44
+    # Original PLUS44 registry stays intact (rollback target) and matches the unmodified TV21_CONFIGS.
+    assert DEFAULT_REGISTRY == REGISTRY_PLUS43_V2_1
     assert REGISTRY_PLUS44_44 in KNOWN_REGISTRIES
     assert REGISTRY_LAB11_23 in KNOWN_REGISTRIES
 

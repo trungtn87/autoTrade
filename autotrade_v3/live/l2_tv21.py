@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 import pandas as pd
@@ -650,6 +650,31 @@ TV21_CONFIGS: tuple[TV21ComboConfig, ...] = (
 )
 
 TV21_CONFIG_MAP: dict[str, TV21ComboConfig] = {cfg.display_id: cfg for cfg in TV21_CONFIGS}
+
+# PLUS43_V2_1_TP_ONLY (Owner-approved lab lock, v3_lab 5d7231f): TV28 D1->H8 plus TP-only changes on 7 combos.
+# (display_id -> (timeframe, tp_pct)); SL, indicators, warmup and window bars are untouched.
+TV21_V2_1_TP_OVERRIDES: dict[str, tuple[str | None, float]] = {
+    "TV03": (None, 0.024),
+    "TV07": (None, 0.045),
+    "TV08": (None, 0.045),
+    "TV09": (None, 0.0375),
+    "TV12": (None, 0.0375),
+    "TV20": (None, 0.0375),
+    "TV24": (None, 0.045),
+    "TV28": ("H8", 0.03),
+}
+
+
+def _apply_v2_1_overrides(cfg: TV21ComboConfig) -> TV21ComboConfig:
+    ov = TV21_V2_1_TP_OVERRIDES.get(cfg.display_id)
+    if ov is None:
+        return cfg
+    tf, tp = ov
+    return replace(cfg, timeframe=tf or cfg.timeframe, tp_pct=tp)
+
+
+TV21_CONFIGS_V2_1: tuple[TV21ComboConfig, ...] = tuple(_apply_v2_1_overrides(c) for c in TV21_CONFIGS)
+TV21_CONFIG_MAP_V2_1: dict[str, TV21ComboConfig] = {cfg.display_id: cfg for cfg in TV21_CONFIGS_V2_1}
 
 
 def _utc_ns_ohlcv(bars: pd.DataFrame) -> pd.DataFrame:

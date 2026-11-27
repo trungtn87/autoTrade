@@ -30,7 +30,7 @@ EXPECTED_KEYS = {
 
 def test_lab10_registry_keeps_fixed_23_keys_for_rollback() -> None:
     reg = load_registry(REGISTRY_LAB11_23)
-    assert DEFAULT_REGISTRY == REGISTRY_PLUS44_44
+    assert DEFAULT_REGISTRY == "V3_LIVE_44_PLUS43_V2_1_TP_V1"
     assert len(reg.combos) == 23
     assert reg.allowed() == EXPECTED_KEYS
     assert {c.signal_variant for c in reg.combos} == {"LAB_10"}
