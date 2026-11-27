@@ -55,7 +55,7 @@ def test_missing_protection_never_displays_success():
 def test_close_compact_uses_reconciled_net_and_roi_only():
     embed = closed_embed(closed(), finance())["embeds"][0]
     assert embed["color"] == RED
-    assert "-0.8000 USDT" in embed["description"] and "-4.04%" in embed["description"]
+    assert "-0.8 USDT" in embed["description"] and "-4.04%" in embed["description"]
     assert "1647.8 → 1659.3" in embed["description"]
     assert "Không còn lệnh dư" in embed["description"]
     assert "Funding" not in embed["description"]
