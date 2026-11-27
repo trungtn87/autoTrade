@@ -448,12 +448,14 @@ class LeftoverCleaner:
         if outcome == "would_cancel":
             left = {"mode": "shadow", "legs": [k for k in active]}
         else:
-            left = {"mode": self.mode, "legs": list(state.get("cleaned") or [])}
+            left = {"mode": self.mode, "legs": list(state.get("cleaned") or []),
+                    "verified": outcome in ("closed_clean", "cancelled")}
         try:
             self.alert.trade_closed({"event_id": ex["event_id"], "symbol": ex["symbol"], "combo": ex.get("combo"),
                                      "side": ex.get("side"), "avg_price": ex.get("avg_price"),
                                      "entry_qty": str(ex.get("executed_qty")), "filled": filled, "leftover": left,
-                                     "closed_at_ms": self._now_ms()})
+                                     "closed_at_ms": self._now_ms(), "filled_at": ex.get("filled_at"),
+                                     "protection": _protection(ex)})
         except Exception as exc:
             log.error("V3_L5_CLOSED_SUBMIT_FAILED error_class=%s", type(exc).__name__)
 
