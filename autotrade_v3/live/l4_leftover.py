@@ -442,7 +442,7 @@ class LeftoverCleaner:
         for kind, v in views.items():
             qty = _dec(v.get("executed"))
             if v["status"] == "TERMINAL" and qty and qty > 0 and v.get("price"):
-                filled.append({"kind": kind, "qty": str(qty), "price": v["price"]})
+                filled.append({"kind": kind, "qty": str(qty), "price": str(v["price"])})
         if not filled or self.alert is None:
             return
         if outcome == "would_cancel":
@@ -451,7 +451,7 @@ class LeftoverCleaner:
             left = {"mode": self.mode, "legs": list(state.get("cleaned") or []),
                     "verified": outcome in ("closed_clean", "cancelled")}
         row = {"event_id": ex["event_id"], "symbol": ex["symbol"], "combo": ex.get("combo"),
-               "side": ex.get("side"), "avg_price": ex.get("avg_price"),
+               "side": ex.get("side"), "avg_price": str(ex.get("avg_price")),
                "entry_qty": str(ex.get("executed_qty")), "filled": filled, "leftover": left,
                "closed_at_ms": self._now_ms(), "filled_at": ex.get("filled_at")}
         if getattr(self.alert, "requires_close_reconciliation", False):
